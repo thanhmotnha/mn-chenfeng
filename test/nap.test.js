@@ -28,7 +28,7 @@ async function mo(kho) {       // kho = { raw: {tt, ban} | null, jsd: {tt, ban} 
   await ctx.route('https://cfcad.cn/**', r => new URL(r.request().url()).pathname.startsWith('/help') ? r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>help</title><p>trợ giúp</p>' }) : r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }));
   const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
   const tai = async () => { if (page.url().startsWith('https://cfcad.cn')) await page.reload(); else await page.goto('https://cfcad.cn/');
-    await page.waitForFunction(() => window.__MNCF_NAP__ && (window.__MNCF_NAP__.xong || window.__MNCF_NAP__.het), null, { timeout: 30000 }).catch(() => {});
+    await page.waitForFunction(() => window.__MNCF_NAP__ && (window.__MNCF_NAP__.xong || window.__MNCF_NAP__.het) && !window.__MNCF_NAP__.dang_cat, null, { timeout: 30000 }).catch(() => {});      // chờ cả việc cất bản vào máy (tải lại trang sớm quá thì lần sau phải tải lại)
     return page.evaluate(() => ({ v: window.MNCF && window.MNCF.version, app: !!(window.MNCF && window.MNCF.app), n: window.__MNCF_NAP__ && { nguon: window.__MNCF_NAP__.nguon, pb: window.__MNCF_NAP__.phien_ban, xong: window.__MNCF_NAP__.xong, ghi: window.__MNCF_NAP__.ghi } })); };
   return { ctx, page, dem, errs, tai, kho };
 }

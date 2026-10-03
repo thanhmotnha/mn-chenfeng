@@ -31,9 +31,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
           : { err_code: 1, err_msg: 'no' };
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' }, body: JSON.stringify(j) });
     });
-    // kho GitHub giả: bộ nạp của tiện ích lấy bản gộp ở đây (xem test/nap.test.js cho các tình huống cập nhật)
-    await ctx.route(/^https:\/\/(raw\.githubusercontent\.com|cdn\.jsdelivr\.net)\//, r => { const n = new URL(r.request().url()).pathname.split('/').pop(), f = path.join(__dirname, '..', 'dist', n);
-      return /^(phien-ban\.json|mn-chenfeng\.js)$/.test(n) && fs.existsSync(f) ? r.fulfill({ status: 200, contentType: n.endsWith('.json') ? 'application/json' : 'text/plain; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(f) }) : r.fulfill({ status: 404, body: 'không có' }); });
+    await require('./kho-gia.js')(ctx);      // bộ nạp của tiện ích lấy bản gộp vừa dựng trong máy, không lấy bản trên mạng (xem test/nap.test.js cho các tình huống cập nhật)
     await ctx.route('https://cfcad.cn/**', r => { const u = new URL(r.request().url());
       if (u.pathname.startsWith('/help')) return r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>help</title><p>trợ giúp</p>' });
       return r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }); });

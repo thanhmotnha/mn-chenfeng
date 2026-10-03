@@ -71,6 +71,24 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.16 — CẢ TỦ LÀ MỘT MODULE · TỦ XOAY THEO TƯỜNG VẼ BẰNG LỆNH GỐC · TỦ THEO HÌNH VẼ TRÊN MẶT BẰNG
+ CẢ TỦ LÀ MỘT MODULE: tủ vẽ bằng lệnh gốc giờ được gom thành một module mang mã tủ. Chọn 1 tấm → thẻ Template (Thông số) của Chenfeng →
+ bấm dòng TRÊN CÙNG của cây mẫu (mã tủ) → gõ L / W / H mới vào cột Expression → Apply data modifications: thùng, vách, đợt, hậu, cánh
+ (tấm tự động của Chenfeng) CÙNG phào, xà chân, khung hộc kéo, ngăn kéo, suốt treo đều chạy theo đúng quy tắc của bảng (khoang chia lại đều,
+ cánh bằng nhau), Chenfeng khoan lại. Các dòng "左右侧板模板" bên dưới là từng thùng — kích thước của chúng tự tính theo module mẹ, đừng gõ đè.
+ Đổi số đợt, số ngăn kéo, kiểu ruột: sửa ở bảng Một Nhà rồi bấm "Cập nhật tủ này".
+ TỦ XOAY THEO TƯỜNG: tủ được vẽ ở một chỗ trống bên phải bản vẽ rồi tự đưa về chỗ đặt, xoay theo tường nào cũng được (thẻ Phòng → "Vẽ tủ vào khung").
+ Tủ đã xoay vẫn đổi L / W / H được, và nút "Cập nhật tủ này" của bảng giờ dùng được cho cả tủ đã xoay.
+ TỦ THEO HÌNH VẼ TRÊN MẶT BẰNG: trên mặt bằng của Chenfeng (nhìn từ trên xuống) vẽ một hình chữ nhật hoặc đa tuyến kín đúng chỗ tủ đứng —
+ bắt điểm vào tường, cột; hình là phủ bì của tủ (rộng × sâu, kể cả cánh). Chỗ vướng cột: vẽ khuyết góc / khuyết giữa ở mép sau, hoặc cứ vẽ chữ nhật
+ trùm qua cột của phòng (bảng tự khấu theo cột). Chọn hình → bấm "Tủ theo hình đang chọn trên mặt bằng": bảng lấy rộng, sâu, vị trí, hướng xoay,
+ khấu cột; cao lấy theo trần của phòng (sửa ở ô Cao nếu tủ thấp hơn). Mặt trước tự nhận theo tường / chỗ khuyết; không nhận được thì bảng hỏi bấm
+ 1 điểm phía trước tủ; nhận sai thì bấm "Chọn lại mặt trước". Chia khoang, đợt xong bấm "Vẽ vào Chenfeng" — tủ dựng đúng chỗ hình, đúng hướng.
+ Chưa nhận: hình có cạnh xiên / cong, tủ góc chữ L, chỗ khuyết không nằm ở mép sau. Ô chia trên MẶT ĐỨNG (vách tivi, đầu giường) + chọn module kho: bản sau.
+ Giới hạn: tủ có khấu cột vẫn vẽ theo cách nhập tấm (vẫn là một module, xoay được); tủ không có phào / chân / khung hộc kéo thì mỗi thùng là một mẫu riêng.
+ VẼ CHẮC HƠN: trước mỗi lệnh, bảng cho Chenfeng dò thử khoảng trống rồi kiểm lại, đúng mới vẽ. Đang vẽ anh sang tab khác làm việc được (chậm hơn một chút
+ vì trình duyệt hãm tab bị che); lỡ xoay / thu phóng bản vẽ giữa chừng bảng tự chỉnh lại hướng nhìn. Chỉ cần đừng vẽ thêm vào chính bản vẽ đó cho tới khi bảng báo xong.
+
 MỚI Ở BẢN 1.15 — VẼ TỦ BẰNG CHÍNH LỆNH CỦA CHENFENG (SỬA KÍCH THƯỚC NGAY TRONG CHENFENG)
  Trước đây bảng đẩy từng tấm vào Chenfeng rồi mới gom thành module. Từ bản này thùng tủ được dựng bằng đúng các lệnh gốc của Chenfeng:
  hồi trái / phải (左右侧板) → vách đứng (立板) → nóc / đáy theo từng khoang (顶底板) → hậu 6 li phủ sau (背板) → đợt (层板) → cánh (门板).
@@ -78,8 +96,8 @@ MỚI Ở BẢN 1.15 — VẼ TỦ BẰNG CHÍNH LỆNH CỦA CHENFENG (SỬA K�
  chọn tủ → bảng Thông số của Chenfeng → đổi L / W / H là thùng, đợt, hậu, cánh tự chạy theo, Chenfeng tự khoan lại.
  Vẽ lâu hơn cách cũ (tủ 2 thân có ngăn kéo khoảng 50 giây) vì chạy từng lệnh.
  Các hộp thoại của Chenfeng được trả lại đúng lựa chọn anh đang để sau mỗi lệnh; bảng không bấm "Lưu cấu hình" của anh.
- Phần CHƯA vẽ bằng lệnh gốc (vẫn vào dạng tấm rời / module như bản cũ, không chạy theo khi đổi L / W / H): phào, xà chân, khung hộc kéo,
- ngăn kéo, suốt treo. Tủ có KHẤU CỘT, hậu không phải kiểu phủ sau, tủ phải xoay theo tường (thẻ Phòng): bảng tự vẽ theo cách cũ và báo ở thẻ Kết quả.
+ (Bản 1.16 đã gom phào, xà chân, khung hộc kéo, ngăn kéo, suốt treo vào chung một module với thùng — xem mục 1.16 ở trên.)
+ Tủ có KHẤU CỘT, hậu không phải kiểu phủ sau: bảng tự vẽ theo cách cũ và báo ở thẻ Kết quả.
  Tắt / bật: Chuẩn xưởng → "Cách vẽ vào Chenfeng" → "Vẽ bằng lệnh gốc của Chenfeng".
 
 MỚI Ở BẢN 1.14 — KHẤU CỘT NẰM GIỮA TỦ

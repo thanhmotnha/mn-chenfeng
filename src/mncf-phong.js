@@ -204,6 +204,7 @@
     let s = Core.normalize(specNen);
     const coMau = q.mau && Core.MAU_TU.find(m => m.ma === q.mau);
     if (coMau) { s = Core.apMau(s, q.mau); dsMau.push(q.mau); }
+    else if (q.giu_ruot) dsMau.push('ruột đang mở');      // bản 1.16 (tủ theo hình): giữ cách chia khoang đang có trong bảng
     else {
       // tự chọn theo bề rộng: mỗi cánh ~500; ghép các mẫu 2–6 cánh cho đủ số cánh
       const theo = { 2: 'TA2-1000', 3: 'TA3-1500', 4: 'TA4-2000', 5: 'TA5-2500', 6: 'TA6-3000' };
@@ -233,8 +234,9 @@
     if (bb) { const sauPB = bb.y1 - bb.y0; s.sau_thung = rn(s.sau_thung + (q.sau - sauPB), 1); }
     // khấu cột (bản 1.13): cột / hộp kỹ thuật trùm đầu khung → tủ khoét theo cột. Khung mới thì luôn đặt lại (không giữ khấu của tủ trước).
     s.khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: (s.khau && s.khau.ho >= 0) ? s.khau.ho : 10 };
-    if (H && j >= 0) {
-      const kh = khauChoKhung(H, j);
+    const kh0 = q.khau || (H && j >= 0 ? khauChoKhung(H, j) : null);      // q.khau: khấu đọc từ hình vẽ trên mặt bằng (bản 1.16)
+    if (kh0) {
+      const kh = { trai: kh0.trai || { rong: 0, sau: 0 }, phai: kh0.phai || { rong: 0, sau: 0 }, giua_cot: (kh0.giua_cot || []).slice(), giua: kh0.giua || [] };
       for (const b of ['trai', 'phai']) if (kh[b].rong > 0 && kh[b].sau > 0) { s.khau[b] = { rong: kh[b].rong, sau: kh[b].sau }; ghi.push(`Khấu cột ${b === 'trai' ? 'trái' : 'phải'}: cột lấn ${g(kh[b].rong)} ngang × ${g(kh[b].sau)} sâu (hở ${g(s.khau.ho)}).`); }
       kh.giua_cot.sort((a, b) => a.cach - b.cach).slice(0, 4).forEach(c => { s.khau.giua.push({ cach: c.cach, rong: c.rong, sau: c.sau }); ghi.push(`Khấu cột giữa: cách đầu trái ${g(c.cach)}, cột ${g(c.rong)} ngang × ${g(c.sau)} sâu (hở ${g(s.khau.ho)}).`); });
       if (kh.giua.length) ghi.push(`${kh.giua.join(', ')} không sát tường — bảng chưa khấu được, phải chia khung né ra.`);
@@ -258,6 +260,141 @@
       }
     }
     return { spec: Core.normalize(s), mau: dsMau, ghi_chu: ghi };
+  }
+
+  /**
+   * HÌNH VẼ TRÊN MẶT BẰNG → KHUNG ĐẶT TỦ (bản 1.16 — anh Jason 03/10/2026 20:44: "anh vẽ hình lên không gian mặt bằng rồi chọn vẽ tủ").
+   * dinh = [[x, y], …]: đỉnh đa giác kín theo toạ độ bản vẽ (mm), các cạnh vuông góc nhau, quay hướng nào cũng được.
+   * Hình = phủ bì của tủ nhìn từ trên xuống. Chỗ khuyết so với hình chữ nhật bao là chỗ CỘT, phải chạm mép SAU của tủ (góc → chữ L, giữa → chữ U).
+   * opt: { truoc: [x, y]  một điểm nằm về phía TRƯỚC tủ (phía người đứng mở cánh);
+   *        tuong: [{ a: [x, y], b: [x, y] }]  các mặt tường trong bản vẽ — cạnh nào áp tường thì không phải mặt trước;
+   *        cot: [{ x0, x1, y0, y1 }]  hộp bao các cột của phòng — cột lấn vào hình thì tủ tự khấu, không cần vẽ khuyết }
+   * Quy ước tủ: đứng trước tủ nhìn vào, x chạy từ trái sang phải, y từ mặt cánh vào lưng; `goc` = góc trái – trước, `xoay` = góc quay của trục x (độ, ngược chiều kim đồng hồ).
+   * @returns {{ ok, loi, can_diem, rong, sau, goc, xoay, khau: {trai, phai, giua_cot, giua}, chu_nhat, sat_tuong: {truoc, sau, trai, phai}, ghi_chu: string[] }}
+   *   can_diem = true: hình không tự cho biết phía nào là mặt trước → gọi lại với opt.truoc.
+   */
+  function hinhThanhKhung(dinh, opt) {
+    opt = opt || {};
+    const kq = { ok: false, loi: '', can_diem: false, ghi_chu: [] };
+    const hong = t => { kq.loi = t; return kq; };
+    // 1. dọn đỉnh: bỏ đỉnh trùng, đỉnh thẳng hàng
+    let P = (Array.isArray(dinh) ? dinh : []).map(q => [Number(q[0]), Number(q[1])]).filter(q => isFinite(q[0]) && isFinite(q[1]));
+    P = P.filter((q, i) => { const r = P[(i + 1) % P.length]; return Math.hypot(q[0] - r[0], q[1] - r[1]) > 0.5; });
+    for (let doi = true; doi && P.length > 3;) {
+      doi = false;
+      for (let i = 0; i < P.length; i++) {
+        const a = P[(i + P.length - 1) % P.length], b = P[i], c = P[(i + 1) % P.length], u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]];
+        if (Math.abs(u[0] * v[1] - u[1] * v[0]) <= 0.002 * Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1]) && cham(u, v) > 0) { P.splice(i, 1); doi = true; break; }
+      }
+    }
+    if (P.length < 4) return hong('Hình phải là hình chữ nhật hoặc đa tuyến KHÉP KÍN có ít nhất 4 đỉnh.');
+    // 2. quay cho cạnh dài nhất nằm ngang; mọi cạnh phải ngang hoặc dọc
+    let dai = 0, th = 0;
+    P.forEach((a, i) => { const b = P[(i + 1) % P.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L > dai) { dai = L; th = Math.atan2(b[1] - a[1], b[0] - a[0]); } });
+    const c0 = Math.cos(th), s0 = Math.sin(th);
+    const vao = q => [q[0] * c0 + q[1] * s0, -q[0] * s0 + q[1] * c0], ra = q => [q[0] * c0 - q[1] * s0, q[0] * s0 + q[1] * c0];
+    const Q = P.map(vao);
+    for (let i = 0; i < Q.length; i++) {
+      const a = Q[i], b = Q[(i + 1) % Q.length], dx = Math.abs(b[0] - a[0]), dy = Math.abs(b[1] - a[1]), L = Math.hypot(dx, dy);
+      if (Math.min(dx, dy) > Math.max(1, 0.004 * L)) return hong('Hình có cạnh xiên — bảng chỉ nhận hình có các cạnh vuông góc nhau (hình chữ nhật, có thể khuyết góc / khuyết giữa ở mép sau).');
+    }
+    // 3. lưới theo các toạ độ đỉnh (gộp các số lệch nhau dưới 0,5 mm)
+    const gop = arr => { const o = []; for (const v of arr.slice().sort((x, y) => x - y)) if (!o.length || v - o[o.length - 1] > 0.5) o.push(v); return o; };
+    const xs = gop(Q.map(q => q[0])), ys = gop(Q.map(q => q[1]));
+    if (xs.length < 2 || ys.length < 2) return hong('Hình bị dẹt (không có bề rộng hoặc bề sâu).');
+    const bat = (v, arr) => arr.reduce((m, x) => (Math.abs(x - v) < Math.abs(m - v) ? x : m), arr[0]);
+    const R = Q.map(q => [bat(q[0], xs), bat(q[1], ys)]);
+    const trong = (x, y) => { let c = false; for (let i = 0, j = R.length - 1; i < R.length; j = i++) { const a = R[i], b = R[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+    const bx0 = xs[0], bx1 = xs[xs.length - 1], by0 = ys[0], by1 = ys[ys.length - 1];
+    // 4. phần khuyết: các ô lưới nằm ngoài đa giác, gom thành cụm liền nhau
+    const nx = xs.length - 1, ny = ys.length - 1, ngoai = [];
+    for (let i = 0; i < nx; i++) { ngoai.push([]); for (let j = 0; j < ny; j++) ngoai[i].push(!trong((xs[i] + xs[i + 1]) / 2, (ys[j] + ys[j + 1]) / 2)); }
+    const cum = [], da = ngoai.map(c => c.map(() => false));
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      if (!ngoai[i][j] || da[i][j]) continue;
+      const o = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, dt: 0 }, st = [[i, j]]; da[i][j] = true;
+      while (st.length) {
+        const [a, b] = st.pop();
+        o.x0 = Math.min(o.x0, xs[a]); o.x1 = Math.max(o.x1, xs[a + 1]); o.y0 = Math.min(o.y0, ys[b]); o.y1 = Math.max(o.y1, ys[b + 1]); o.dt += (xs[a + 1] - xs[a]) * (ys[b + 1] - ys[b]);
+        for (const [u, v] of [[a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]]) if (u >= 0 && u < nx && v >= 0 && v < ny && ngoai[u][v] && !da[u][v]) { da[u][v] = true; st.push([u, v]); }
+      }
+      if (o.x1 - o.x0 < 2 || o.y1 - o.y0 < 2) continue;      // sai số vẽ
+      o.cn = Math.abs(o.dt - (o.x1 - o.x0) * (o.y1 - o.y0)) < 1;
+      o.cham = { D: Math.abs(o.y0 - by0) < 0.6, T: Math.abs(o.y1 - by1) < 0.6, L: Math.abs(o.x0 - bx0) < 0.6, P: Math.abs(o.x1 - bx1) < 0.6 };
+      cum.push(o);
+    }
+    // cột của phòng (bản vẽ) lấn vào hình mà anh chưa vẽ khuyết → coi như một chỗ khuyết (tủ tự khấu theo mặt bằng)
+    let soCot = 0;
+    for (const c of opt.cot || []) {
+      if (!c) continue;
+      const g4 = [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]].map(vao);
+      const x0 = Math.max(bx0, Math.min(...g4.map(q => q[0]))), x1 = Math.min(bx1, Math.max(...g4.map(q => q[0]))), y0 = Math.max(by0, Math.min(...g4.map(q => q[1]))), y1 = Math.min(by1, Math.max(...g4.map(q => q[1])));
+      if (x1 - x0 < 2 || y1 - y0 < 2) continue;                                                                   // cột không lấn vào hình
+      if (cum.some(o => x0 >= o.x0 - 1 && x1 <= o.x1 + 1 && y0 >= o.y0 - 1 && y1 <= o.y1 + 1)) continue;          // đã nằm gọn trong chỗ khuyết vẽ sẵn
+      if (!trong((x0 + x1) / 2, (y0 + y1) / 2) && !trong(x0 + 1, y0 + 1) && !trong(x1 - 1, y1 - 1)) continue;     // phần lấn nằm ngoài đa giác
+      cum.push({ x0, x1, y0, y1, dt: (x1 - x0) * (y1 - y0), cn: true, cot: true, cham: { D: Math.abs(y0 - by0) < 0.6, T: Math.abs(y1 - by1) < 0.6, L: Math.abs(x0 - bx0) < 0.6, P: Math.abs(x1 - bx1) < 0.6 } });
+      soCot++;
+    }
+    if (cum.some(o => !o.cn)) return hong('Chỗ khuyết của hình không phải hình chữ nhật — bảng chỉ khấu được cột vuông (khuyết góc chữ L hoặc khuyết giữa chữ U).');
+    // 5. bốn mép của hình chữ nhật bao: D (y nhỏ), T (y lớn), L (x nhỏ), P (x lớn). Mép TRƯỚC hợp lệ = không chạm chỗ khuyết nào, và mọi chỗ khuyết đều chạm mép đối diện (mép sau).
+    const DOI = { D: 'T', T: 'D', L: 'P', P: 'L' }, MEP = ['D', 'T', 'L', 'P'];
+    const hopLe = MEP.filter(m => cum.every(o => !o.cham[m] && o.cham[DOI[m]]));
+    if (!hopLe.length) return hong(cum.length > 1 ? 'Các chỗ khuyết của hình không cùng nằm về một mép — bảng chỉ khấu cột ở mép SAU của tủ (chia hình thành nhiều tủ).' : 'Chỗ khuyết của hình không chạm mép nào của tủ (cột nằm lọt giữa tủ) — bảng chưa khấu được.');
+    const dauMep = m => (m === 'D' ? [[bx0, by0], [bx1, by0]] : m === 'T' ? [[bx0, by1], [bx1, by1]] : m === 'L' ? [[bx0, by0], [bx0, by1]] : [[bx1, by0], [bx1, by1]]);
+    const daiMep = m => (m === 'D' || m === 'T' ? bx1 - bx0 : by1 - by0);
+    // phần của mỗi mép áp vào tường (0…1)
+    const satTuong = {};
+    for (const m of MEP) {
+      const [a, b] = dauMep(m), L = daiMep(m), ngang = m === 'D' || m === 'T'; let phu = 0;
+      for (const w of opt.tuong || []) {
+        if (!w || !w.a || !w.b) continue;
+        const wa = vao(w.a), wb = vao(w.b);
+        if (ngang) { if (Math.abs(wa[1] - a[1]) > 8 || Math.abs(wb[1] - a[1]) > 8) continue; phu = Math.max(phu, Math.min(b[0], Math.max(wa[0], wb[0])) - Math.max(a[0], Math.min(wa[0], wb[0]))); }
+        else { if (Math.abs(wa[0] - a[0]) > 8 || Math.abs(wb[0] - a[0]) > 8) continue; phu = Math.max(phu, Math.min(b[1], Math.max(wa[1], wb[1])) - Math.max(a[1], Math.min(wa[1], wb[1]))); }
+      }
+      satTuong[m] = L > 0 ? Math.max(0, Math.min(1, phu / L)) : 0;
+    }
+    let truoc = null, cach = '';
+    if (Array.isArray(opt.truoc) && opt.truoc.length >= 2) {
+      const t = vao(opt.truoc), cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2, hx = (bx1 - bx0) / 2, hy = (by1 - by0) / 2;
+      const diem = { D: (cy - t[1]) / hy, T: (t[1] - cy) / hy, L: (cx - t[0]) / hx, P: (t[0] - cx) / hx };
+      const m = MEP.slice().sort((p, q) => diem[q] - diem[p])[0];
+      if (!hopLe.includes(m)) return hong('Phía anh bấm làm mặt TRƯỚC lại là phía có chỗ khuyết (hoặc chỗ khuyết không nằm ở mép sau so với phía đó) — cột phải nằm ở lưng tủ. Bấm lại điểm phía trước, hoặc vẽ lại hình.');
+      truoc = m; cach = 'điểm anh bấm';
+    } else {
+      let ung = hopLe.filter(m => satTuong[m] < 0.5);                       // mặt trước không áp tường
+      if (!ung.length) return hong('Mép nào của hình cũng áp tường — không biết mặt trước tủ ở đâu. Bấm 1 điểm phía trước tủ.');
+      const coTuong = ung.filter(m => satTuong[DOI[m]] >= 0.5);             // lưng áp tường
+      if (coTuong.length) { ung = coTuong; cach = 'lưng áp tường'; }
+      if (ung.length > 1) { const mx = Math.max(...ung.map(daiMep)); const dai2 = ung.filter(m => daiMep(m) > mx - 1); if (dai2.length < ung.length) { ung = dai2; cach = cach || 'chỗ khuyết ở mép sau, mặt trước là cạnh dài'; } }
+      if (ung.length > 1) { kq.can_diem = true; return hong('Hình không cho biết phía nào là mặt trước tủ — bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh).'); }
+      truoc = ung[0]; cach = cach || 'chỗ khuyết ở mép sau';
+    }
+    // 6. hệ toạ độ tủ: b = hướng từ mặt trước vào lưng, ex = trục x của tủ (trái → phải khi đứng trước tủ)
+    const b = truoc === 'D' ? [0, 1] : truoc === 'T' ? [0, -1] : truoc === 'L' ? [1, 0] : [-1, 0], ex = [b[1], -b[0]];
+    const goc4 = [[bx0, by0], [bx1, by0], [bx1, by1], [bx0, by1]];
+    const O = goc4.slice().sort((p, q) => (cham(p, ex) + cham(p, b)) - (cham(q, ex) + cham(q, b)))[0];
+    const tu = q => [cham([q[0] - O[0], q[1] - O[1]], ex), cham([q[0] - O[0], q[1] - O[1]], b)];
+    const rong = rn(Math.abs(cham([bx1 - bx0, by1 - by0], ex)), 1), sau = rn(Math.abs(cham([bx1 - bx0, by1 - by0], b)), 1);
+    const khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua_cot: [], giua: [] };
+    for (const o of cum) {
+      const p = tu([o.x0, o.y0]), q = tu([o.x1, o.y1]), x0 = Math.min(p[0], q[0]), x1 = Math.max(p[0], q[0]), y0 = Math.min(p[1], q[1]);
+      const r = rn(x1 - x0, 1), s2 = rn(sau - y0, 1);
+      const lon = (cu, moi2) => ({ rong: Math.max(cu.rong, moi2.rong), sau: Math.max(cu.sau, moi2.sau) });      // chỗ khuyết vẽ sẵn + cột của phòng cùng một góc: lấy phần lớn hơn
+      if (x0 < 0.6) khau.trai = lon(khau.trai, { rong: r, sau: s2 });
+      else if (x1 > rong - 0.6) khau.phai = lon(khau.phai, { rong: r, sau: s2 });
+      else khau.giua_cot.push({ cach: rn(x0, 1), rong: r, sau: s2 });
+    }
+    khau.giua_cot.sort((p, q) => p.cach - q.cach);
+    const G = ra(O); let a = (th + Math.atan2(ex[1], ex[0])) * 180 / Math.PI; a = ((a % 360) + 360) % 360; if (a > 180) a -= 360;
+    const mepTrai = truoc === 'D' ? 'L' : truoc === 'T' ? 'P' : truoc === 'L' ? 'T' : 'D', mepPhai = DOI[mepTrai];
+    kq.ok = true; kq.rong = rong; kq.sau = sau; kq.goc = [rn(G[0], 2), rn(G[1], 2)]; kq.xoay = sach(rn(a, 3)); kq.khau = khau; kq.chu_nhat = cum.length === 0;
+    kq.sat_tuong = { truoc: rn(satTuong[truoc], 2), sau: rn(satTuong[DOI[truoc]], 2), trai: rn(satTuong[mepTrai], 2), phai: rn(satTuong[mepPhai], 2) };
+    kq.mat_truoc = cach;
+    kq.so_cot = soCot;
+    kq.ghi_chu.push(`Hình ${g(rong)} × ${g(sau)}${cum.length ? `, ${cum.length} chỗ khấu cột${soCot ? ` (${soCot} chỗ lấy theo cột của phòng trên bản vẽ)` : ''}` : ''}; mặt trước xác định theo ${cach}.`);
+    if (rong < sau) kq.ghi_chu.push(`Tủ này SÂU (${g(sau)}) hơn RỘNG (${g(rong)}) — nếu mặt trước bị nhận sai, bấm "Chọn lại mặt trước".`);
+    return kq;
   }
 
   /** Nét khung dây của phòng (để vẽ vào bản vẽ): mỗi nét = [[x,y,z],[x,y,z]], kèm `lop` = 'tuong' | 'mo' | 'can'. */
@@ -421,5 +558,5 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, viTriCot, khauChoKhung, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  return { BAN, LOAI_MO, LOAI_CAN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, hinhThanhKhung, viTriCot, khauChoKhung, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
 });

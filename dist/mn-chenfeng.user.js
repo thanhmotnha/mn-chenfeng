@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Một Nhà · Vẽ tủ vào Chenfeng
 // @namespace    https://motnha.vn/
-// @version      1.15.0
+// @version      1.16.0
 // @description  Nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → tự vẽ thùng, hậu, phào, chân, cánh, ngăn kéo, suốt treo vào Chenfeng WebCAD. Chenfeng tự khoan lỗ.
 // @match        https://cfcad.cn/*
 // @match        https://www.cfcad.cn/*
@@ -13,7 +13,7 @@
 // @updateURL    https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // @downloadURL  https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // ==/UserScript==
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.15.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.16.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -29,7 +29,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.15.0';
+  const VERSION = '1.16.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -1038,7 +1038,8 @@
         const hT = dung[0], hP = dung[dung.length - 1], ym = rn((hT.y0 + hT.y1) / 2), zm = rn((hT.z0 + hT.z1) / 2), Dc = hT.y1;
         buoc.push({ lenh: 'LR', than: b.ma, thung: k, tu: hT.tu, phong: s.phong, goc: [hT.x0, hT.y0, hT.z0], rong: rn(hP.x1 - hT.x0), sau: rn(hT.y1 - hT.y0), cao: rn(hT.z1 - hT.z0), day: rn(hT.x1 - hT.x0), ten: [hT.ten, hP.ten], khoan: hT.khoan, tam: lay(hT, hP) });
         let xTrai = hT.x1;
-        for (const v of dung.slice(1, -1)) { buoc.push({ lenh: 'VE', than: b.ma, thung: k, diem: [rn((xTrai + hP.x0) / 2), ym, zm], cach: rn(v.x0 - xTrai), day: rn(v.x1 - v.x0), ten: v.ten, khoan: v.khoan, tam: lay(v) }); xTrai = v.x1; }
+        let tTrai = hT;
+        for (const v of dung.slice(1, -1)) { buoc.push({ lenh: 'VE', than: b.ma, thung: k, diem: [rn((xTrai + hP.x0) / 2), ym, zm], cach: rn(v.x0 - xTrai), day: rn(v.x1 - v.x0), ten: v.ten, khoan: v.khoan, tam: lay(v), kep: [I.get(tTrai), I.get(hP)] }); xTrai = v.x1; tTrai = v; }
         for (let i = q.khoang[0]; i <= q.khoang[1]; i++) {
           const x0 = M.info.x_khoang[i], w = M.info.khoang[i], xm = rn(x0 + w / 2), cua = p => p.than === b.ma && p.khoang === i;
           const day = M.parts.find(p => p.loai === 'DAY' && cua(p)), noc = M.parts.find(p => p.loai === 'NOC' && cua(p));
@@ -1049,10 +1050,10 @@
             if (h.den_khoang !== undefined && h.den_khoang !== i) { loi.push(`Hậu khoang ${i + 1} bắc qua nhiều khoang — chưa vẽ được bằng lệnh gốc.`); continue; }
             buoc.push({ lenh: 'BE', than: b.ma, khoang: i, diem: [xm, ym, zc], day: rn(h.y1 - h.y0), lui: rn(Dc - h.y1), ext: { trai: rn(x0 - h.x0), phai: rn(h.x1 - (x0 + w)), duoi: rn(day.z1 - h.z0), tren: rn(h.z1 - noc.z0) }, ten: h.ten, khoan: h.khoan, tam: lay(h) });
           }
-          let zDuoi = day.z1;
+          let zDuoi = day.z1, tDuoi = day;
           for (const d of M.parts.filter(p => p.loai === 'DOT' && cua(p)).sort((a, c) => a.z0 - c.z0)) {
-            buoc.push({ lenh: 'LY', than: b.ma, khoang: i, diem: [xm, ym, rn((zDuoi + noc.z0) / 2)], cach: rn(d.z0 - zDuoi), day: rn(d.z1 - d.z0), lui_truoc: rn(d.y0 - hT.y0), ten: d.ten, khoan: d.khoan, tam: lay(d) });
-            zDuoi = d.z1;
+            buoc.push({ lenh: 'LY', than: b.ma, khoang: i, diem: [xm, ym, rn((zDuoi + noc.z0) / 2)], cach: rn(d.z0 - zDuoi), day: rn(d.z1 - d.z0), lui_truoc: rn(d.y0 - hT.y0), ten: d.ten, khoan: d.khoan, tam: lay(d), kep: [I.get(tDuoi), I.get(noc)] });
+            zDuoi = d.z1; tDuoi = d;
           }
           // cánh của khoang: lệnh DOOR vẽ vào khoảng kẹp giữa 2 tấm đứng + đáy + nóc của khoang (chọn 4 tấm đó), trùm ra / hở vào tính từ khoảng lọt lòng
           const canh = M.parts.filter(p => p.loai === 'CANH' && cua(p)).sort((a, c) => a.x0 - c.x0);
@@ -1068,11 +1069,66 @@
       });
     }
     buoc.push(...cuaSau);
+    /* Bản 1.16 — CẢ TỦ LÀ MỘT MODULE: các thùng lệnh gốc là mẫu con của một module mẹ mang L / W / H của cả tủ; phào, chân, khung hộc kéo là tấm của module mẹ.
+     * Để đổi L / W / H ở module mẹ mà thùng lệnh gốc chạy đúng quy tắc kết cấu của bảng (khoang chia lại đều, cánh bằng nhau…), mỗi lệnh mang BIỂU THỨC lấy từ hệ số `heSo`:
+     *   LR  gan = { px, py, pz, l, w, h }: vị trí + kích thước mẫu gốc của thùng theo _L / _W / _H của module mẹ (gốc module mẹ = góc nhỏ nhất của cả tủ);
+     *   VE  cach_bt: khoảng cách tới tấm đứng bên trái theo L của khoảng trống (từ tấm đó tới hồi phải của thùng);
+     *   LY  cach_bt: khoảng cách tới tấm nằm bên dưới theo H của khoảng trống (từ tấm đó tới nóc).
+     * Nóc / đáy, hậu, cánh bám theo khoảng kẹp của chúng nên không cần biểu thức. Tham số nào đổi kích thước làm đổi số tấm (heSo trả null) thì để hằng số. */
+    const hs = heSo(s), gan = { goc: hs.goc.slice(), kich: hs.kich.slice(), co: { L: !!hs.bien.L, W: !!hs.bien.W, H: !!hs.bien.H } };
+    if (hs.M.parts.length === M.parts.length) {
+      const k6 = v => { const r = Math.round(v * 1e6) / 1e6; return Math.abs(r) < 1e-9 ? 0 : r; };
+      const he = (ten, i, mep) => (hs.bien[ten] && hs.bien[ten].tam[i] ? hs.bien[ten].tam[i][mep] : 0);
+      const TRUC = { L: 0, W: 1, H: 2 };
+      // v = v0 + k·(X − X0) viết theo biến `bien`, X0 = giá trị hiện tại của biến
+      const tt = (v0, k, X0, bien) => bieuThucTT(k6(v0 - k6(k) * X0), k6(k), bien);
+      for (const b of buoc) {
+        if (b.lenh === 'LR') {
+          const [iT, iP] = b.tam, hT = M.parts[iT], hP = M.parts[iP];
+          const mot = (ten, v0, k) => tt(v0, k, hs.kich[TRUC[ten]], '_' + ten);
+          b.gan = {
+            px: mot('L', hT.x0 - hs.goc[0], he('L', iT, 0)), l: mot('L', hP.x1 - hT.x0, he('L', iP, 1) - he('L', iT, 0)),
+            py: mot('W', hT.y0 - hs.goc[1], he('W', iT, 0)), w: mot('W', hT.y1 - hT.y0, he('W', iT, 1) - he('W', iT, 0)),
+            pz: mot('H', hT.z0 - hs.goc[2], he('H', iT, 0)), h: mot('H', hT.z1 - hT.z0, he('H', iT, 1) - he('H', iT, 0)) };
+        } else if (b.lenh === 'VE') {
+          const tr = M.parts[b.kep[0]], ph = M.parts[b.kep[1]], aT = he('L', b.kep[0], 1), aP = he('L', b.kep[1], 0), aV = he('L', b.tam[0], 0);
+          const r = Math.abs(aP - aT) > 1e-9 ? (aV - aT) / (aP - aT) : 0;
+          b.cach_bt = tt(b.cach, r, ph.x0 - tr.x1, 'L');
+        } else if (b.lenh === 'LY') {
+          const du = M.parts[b.kep[0]], no = M.parts[b.kep[1]], aD = he('H', b.kep[0], 1), aN = he('H', b.kep[1], 0), aO = he('H', b.tam[0], 0);
+          const r = Math.abs(aN - aD) > 1e-9 ? (aO - aD) / (aN - aD) : 0;
+          b.cach_bt = tt(b.cach, r, no.z0 - du.z1, 'H');
+        }
+      }
+    }
     // phần chưa có lệnh gốc: gom theo tên tấm
     const g = new Map();
     for (const p of M.parts) if (!da.has(p)) { const k = p.loai + '|' + p.ten; const r = g.get(k) || { loai: p.loai, ten: p.ten, sl: 0 }; r.sl++; g.set(k, r); }
     for (const tp of M.templates || []) { const k = 'MAU|' + (tp.loai || ''); const r = g.get(k) || { loai: 'MAU', ten: tp.loai === 'NGAN_KEO' ? 'Ngăn kéo' : tp.loai === 'SUOT' ? 'Suốt treo' : (tp.loai || 'Mẫu kho'), sl: 0 }; r.sl++; g.set(k, r); }
-    return { M, spec: s, buoc, loi, chua: [...g.values()], con_lai: M.parts.filter(p => !da.has(p)) };
+    return { M, spec: s, buoc, loi, chua: [...g.values()], con_lai: M.parts.filter(p => !da.has(p)), gan, hs };
+  }
+
+  /**
+   * Khoảng trống mà một lệnh gốc dò theo chuột PHẢI thấy tại `diem` (toạ độ tủ), nhìn thẳng mặt trước: mặt của các tấm `ds` (những tấm đã vẽ) gần điểm nhất về 4 phía.
+   * Chenfeng dò đúng như vậy (4 đường từ chuột ra 4 mép màn hình, lấy tấm gần nhất mỗi phía) nên hộp nó dò ra không được vượt qua các mặt này;
+   * máy vẽ dùng để kiểm hộp xem trước của Chenfeng trước khi trả lời lệnh (tab bị che thì tấm vừa vẽ có thể chưa có hình → dò lọt qua).
+   * Tấm trùm lên điểm trên hình chiếu (hậu) không tính. @returns {{x0, x1, z0, z1}}  null = phía đó chưa có tấm
+   */
+  function khoangMong(ds, diem) {
+    const px = diem[0], pz = diem[2], m = { x0: null, x1: null, z0: null, z1: null };
+    for (const p of ds) {
+      if (p.z0 < pz && p.z1 > pz) { if (p.x1 <= px && (m.x0 === null || p.x1 > m.x0)) m.x0 = p.x1; if (p.x0 >= px && (m.x1 === null || p.x0 < m.x1)) m.x1 = p.x0; }
+      if (p.x0 < px && p.x1 > px) { if (p.z1 <= pz && (m.z0 === null || p.z1 > m.z0)) m.z0 = p.z1; if (p.z0 >= pz && (m.z1 === null || p.z0 < m.z1)) m.z1 = p.z0; }
+    }
+    return m;
+  }
+
+  /** Biểu thức tuyến tính `c + k·biến` viết theo kiểu Chenfeng đọc được (vd "-8.75+L*0.5"); k = 0 thì chỉ còn số. */
+  function bieuThucTT(c, k, bien) {
+    const so = v => String(Math.round(v * 1e6) / 1e6);
+    if (!k) return so(c);
+    const kb = Math.abs(k) === 1 ? bien : `${bien}*${so(Math.abs(k))}`;
+    return c ? `${so(c)}${k < 0 ? '-' : '+'}${kb}` : (k < 0 ? '-' : '') + kb;
   }
 
   /** Kích thước riêng (rộng, cao, dày) của tấm theo quy ước Chenfeng. */
@@ -1460,7 +1516,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, bieuThucTT, khoangMong };
 });
 
 /*!
@@ -1669,6 +1725,7 @@
     let s = Core.normalize(specNen);
     const coMau = q.mau && Core.MAU_TU.find(m => m.ma === q.mau);
     if (coMau) { s = Core.apMau(s, q.mau); dsMau.push(q.mau); }
+    else if (q.giu_ruot) dsMau.push('ruột đang mở');      // bản 1.16 (tủ theo hình): giữ cách chia khoang đang có trong bảng
     else {
       // tự chọn theo bề rộng: mỗi cánh ~500; ghép các mẫu 2–6 cánh cho đủ số cánh
       const theo = { 2: 'TA2-1000', 3: 'TA3-1500', 4: 'TA4-2000', 5: 'TA5-2500', 6: 'TA6-3000' };
@@ -1698,8 +1755,9 @@
     if (bb) { const sauPB = bb.y1 - bb.y0; s.sau_thung = rn(s.sau_thung + (q.sau - sauPB), 1); }
     // khấu cột (bản 1.13): cột / hộp kỹ thuật trùm đầu khung → tủ khoét theo cột. Khung mới thì luôn đặt lại (không giữ khấu của tủ trước).
     s.khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: (s.khau && s.khau.ho >= 0) ? s.khau.ho : 10 };
-    if (H && j >= 0) {
-      const kh = khauChoKhung(H, j);
+    const kh0 = q.khau || (H && j >= 0 ? khauChoKhung(H, j) : null);      // q.khau: khấu đọc từ hình vẽ trên mặt bằng (bản 1.16)
+    if (kh0) {
+      const kh = { trai: kh0.trai || { rong: 0, sau: 0 }, phai: kh0.phai || { rong: 0, sau: 0 }, giua_cot: (kh0.giua_cot || []).slice(), giua: kh0.giua || [] };
       for (const b of ['trai', 'phai']) if (kh[b].rong > 0 && kh[b].sau > 0) { s.khau[b] = { rong: kh[b].rong, sau: kh[b].sau }; ghi.push(`Khấu cột ${b === 'trai' ? 'trái' : 'phải'}: cột lấn ${g(kh[b].rong)} ngang × ${g(kh[b].sau)} sâu (hở ${g(s.khau.ho)}).`); }
       kh.giua_cot.sort((a, b) => a.cach - b.cach).slice(0, 4).forEach(c => { s.khau.giua.push({ cach: c.cach, rong: c.rong, sau: c.sau }); ghi.push(`Khấu cột giữa: cách đầu trái ${g(c.cach)}, cột ${g(c.rong)} ngang × ${g(c.sau)} sâu (hở ${g(s.khau.ho)}).`); });
       if (kh.giua.length) ghi.push(`${kh.giua.join(', ')} không sát tường — bảng chưa khấu được, phải chia khung né ra.`);
@@ -1723,6 +1781,141 @@
       }
     }
     return { spec: Core.normalize(s), mau: dsMau, ghi_chu: ghi };
+  }
+
+  /**
+   * HÌNH VẼ TRÊN MẶT BẰNG → KHUNG ĐẶT TỦ (bản 1.16 — anh Jason 03/10/2026 20:44: "anh vẽ hình lên không gian mặt bằng rồi chọn vẽ tủ").
+   * dinh = [[x, y], …]: đỉnh đa giác kín theo toạ độ bản vẽ (mm), các cạnh vuông góc nhau, quay hướng nào cũng được.
+   * Hình = phủ bì của tủ nhìn từ trên xuống. Chỗ khuyết so với hình chữ nhật bao là chỗ CỘT, phải chạm mép SAU của tủ (góc → chữ L, giữa → chữ U).
+   * opt: { truoc: [x, y]  một điểm nằm về phía TRƯỚC tủ (phía người đứng mở cánh);
+   *        tuong: [{ a: [x, y], b: [x, y] }]  các mặt tường trong bản vẽ — cạnh nào áp tường thì không phải mặt trước;
+   *        cot: [{ x0, x1, y0, y1 }]  hộp bao các cột của phòng — cột lấn vào hình thì tủ tự khấu, không cần vẽ khuyết }
+   * Quy ước tủ: đứng trước tủ nhìn vào, x chạy từ trái sang phải, y từ mặt cánh vào lưng; `goc` = góc trái – trước, `xoay` = góc quay của trục x (độ, ngược chiều kim đồng hồ).
+   * @returns {{ ok, loi, can_diem, rong, sau, goc, xoay, khau: {trai, phai, giua_cot, giua}, chu_nhat, sat_tuong: {truoc, sau, trai, phai}, ghi_chu: string[] }}
+   *   can_diem = true: hình không tự cho biết phía nào là mặt trước → gọi lại với opt.truoc.
+   */
+  function hinhThanhKhung(dinh, opt) {
+    opt = opt || {};
+    const kq = { ok: false, loi: '', can_diem: false, ghi_chu: [] };
+    const hong = t => { kq.loi = t; return kq; };
+    // 1. dọn đỉnh: bỏ đỉnh trùng, đỉnh thẳng hàng
+    let P = (Array.isArray(dinh) ? dinh : []).map(q => [Number(q[0]), Number(q[1])]).filter(q => isFinite(q[0]) && isFinite(q[1]));
+    P = P.filter((q, i) => { const r = P[(i + 1) % P.length]; return Math.hypot(q[0] - r[0], q[1] - r[1]) > 0.5; });
+    for (let doi = true; doi && P.length > 3;) {
+      doi = false;
+      for (let i = 0; i < P.length; i++) {
+        const a = P[(i + P.length - 1) % P.length], b = P[i], c = P[(i + 1) % P.length], u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]];
+        if (Math.abs(u[0] * v[1] - u[1] * v[0]) <= 0.002 * Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1]) && cham(u, v) > 0) { P.splice(i, 1); doi = true; break; }
+      }
+    }
+    if (P.length < 4) return hong('Hình phải là hình chữ nhật hoặc đa tuyến KHÉP KÍN có ít nhất 4 đỉnh.');
+    // 2. quay cho cạnh dài nhất nằm ngang; mọi cạnh phải ngang hoặc dọc
+    let dai = 0, th = 0;
+    P.forEach((a, i) => { const b = P[(i + 1) % P.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L > dai) { dai = L; th = Math.atan2(b[1] - a[1], b[0] - a[0]); } });
+    const c0 = Math.cos(th), s0 = Math.sin(th);
+    const vao = q => [q[0] * c0 + q[1] * s0, -q[0] * s0 + q[1] * c0], ra = q => [q[0] * c0 - q[1] * s0, q[0] * s0 + q[1] * c0];
+    const Q = P.map(vao);
+    for (let i = 0; i < Q.length; i++) {
+      const a = Q[i], b = Q[(i + 1) % Q.length], dx = Math.abs(b[0] - a[0]), dy = Math.abs(b[1] - a[1]), L = Math.hypot(dx, dy);
+      if (Math.min(dx, dy) > Math.max(1, 0.004 * L)) return hong('Hình có cạnh xiên — bảng chỉ nhận hình có các cạnh vuông góc nhau (hình chữ nhật, có thể khuyết góc / khuyết giữa ở mép sau).');
+    }
+    // 3. lưới theo các toạ độ đỉnh (gộp các số lệch nhau dưới 0,5 mm)
+    const gop = arr => { const o = []; for (const v of arr.slice().sort((x, y) => x - y)) if (!o.length || v - o[o.length - 1] > 0.5) o.push(v); return o; };
+    const xs = gop(Q.map(q => q[0])), ys = gop(Q.map(q => q[1]));
+    if (xs.length < 2 || ys.length < 2) return hong('Hình bị dẹt (không có bề rộng hoặc bề sâu).');
+    const bat = (v, arr) => arr.reduce((m, x) => (Math.abs(x - v) < Math.abs(m - v) ? x : m), arr[0]);
+    const R = Q.map(q => [bat(q[0], xs), bat(q[1], ys)]);
+    const trong = (x, y) => { let c = false; for (let i = 0, j = R.length - 1; i < R.length; j = i++) { const a = R[i], b = R[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+    const bx0 = xs[0], bx1 = xs[xs.length - 1], by0 = ys[0], by1 = ys[ys.length - 1];
+    // 4. phần khuyết: các ô lưới nằm ngoài đa giác, gom thành cụm liền nhau
+    const nx = xs.length - 1, ny = ys.length - 1, ngoai = [];
+    for (let i = 0; i < nx; i++) { ngoai.push([]); for (let j = 0; j < ny; j++) ngoai[i].push(!trong((xs[i] + xs[i + 1]) / 2, (ys[j] + ys[j + 1]) / 2)); }
+    const cum = [], da = ngoai.map(c => c.map(() => false));
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      if (!ngoai[i][j] || da[i][j]) continue;
+      const o = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, dt: 0 }, st = [[i, j]]; da[i][j] = true;
+      while (st.length) {
+        const [a, b] = st.pop();
+        o.x0 = Math.min(o.x0, xs[a]); o.x1 = Math.max(o.x1, xs[a + 1]); o.y0 = Math.min(o.y0, ys[b]); o.y1 = Math.max(o.y1, ys[b + 1]); o.dt += (xs[a + 1] - xs[a]) * (ys[b + 1] - ys[b]);
+        for (const [u, v] of [[a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]]) if (u >= 0 && u < nx && v >= 0 && v < ny && ngoai[u][v] && !da[u][v]) { da[u][v] = true; st.push([u, v]); }
+      }
+      if (o.x1 - o.x0 < 2 || o.y1 - o.y0 < 2) continue;      // sai số vẽ
+      o.cn = Math.abs(o.dt - (o.x1 - o.x0) * (o.y1 - o.y0)) < 1;
+      o.cham = { D: Math.abs(o.y0 - by0) < 0.6, T: Math.abs(o.y1 - by1) < 0.6, L: Math.abs(o.x0 - bx0) < 0.6, P: Math.abs(o.x1 - bx1) < 0.6 };
+      cum.push(o);
+    }
+    // cột của phòng (bản vẽ) lấn vào hình mà anh chưa vẽ khuyết → coi như một chỗ khuyết (tủ tự khấu theo mặt bằng)
+    let soCot = 0;
+    for (const c of opt.cot || []) {
+      if (!c) continue;
+      const g4 = [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]].map(vao);
+      const x0 = Math.max(bx0, Math.min(...g4.map(q => q[0]))), x1 = Math.min(bx1, Math.max(...g4.map(q => q[0]))), y0 = Math.max(by0, Math.min(...g4.map(q => q[1]))), y1 = Math.min(by1, Math.max(...g4.map(q => q[1])));
+      if (x1 - x0 < 2 || y1 - y0 < 2) continue;                                                                   // cột không lấn vào hình
+      if (cum.some(o => x0 >= o.x0 - 1 && x1 <= o.x1 + 1 && y0 >= o.y0 - 1 && y1 <= o.y1 + 1)) continue;          // đã nằm gọn trong chỗ khuyết vẽ sẵn
+      if (!trong((x0 + x1) / 2, (y0 + y1) / 2) && !trong(x0 + 1, y0 + 1) && !trong(x1 - 1, y1 - 1)) continue;     // phần lấn nằm ngoài đa giác
+      cum.push({ x0, x1, y0, y1, dt: (x1 - x0) * (y1 - y0), cn: true, cot: true, cham: { D: Math.abs(y0 - by0) < 0.6, T: Math.abs(y1 - by1) < 0.6, L: Math.abs(x0 - bx0) < 0.6, P: Math.abs(x1 - bx1) < 0.6 } });
+      soCot++;
+    }
+    if (cum.some(o => !o.cn)) return hong('Chỗ khuyết của hình không phải hình chữ nhật — bảng chỉ khấu được cột vuông (khuyết góc chữ L hoặc khuyết giữa chữ U).');
+    // 5. bốn mép của hình chữ nhật bao: D (y nhỏ), T (y lớn), L (x nhỏ), P (x lớn). Mép TRƯỚC hợp lệ = không chạm chỗ khuyết nào, và mọi chỗ khuyết đều chạm mép đối diện (mép sau).
+    const DOI = { D: 'T', T: 'D', L: 'P', P: 'L' }, MEP = ['D', 'T', 'L', 'P'];
+    const hopLe = MEP.filter(m => cum.every(o => !o.cham[m] && o.cham[DOI[m]]));
+    if (!hopLe.length) return hong(cum.length > 1 ? 'Các chỗ khuyết của hình không cùng nằm về một mép — bảng chỉ khấu cột ở mép SAU của tủ (chia hình thành nhiều tủ).' : 'Chỗ khuyết của hình không chạm mép nào của tủ (cột nằm lọt giữa tủ) — bảng chưa khấu được.');
+    const dauMep = m => (m === 'D' ? [[bx0, by0], [bx1, by0]] : m === 'T' ? [[bx0, by1], [bx1, by1]] : m === 'L' ? [[bx0, by0], [bx0, by1]] : [[bx1, by0], [bx1, by1]]);
+    const daiMep = m => (m === 'D' || m === 'T' ? bx1 - bx0 : by1 - by0);
+    // phần của mỗi mép áp vào tường (0…1)
+    const satTuong = {};
+    for (const m of MEP) {
+      const [a, b] = dauMep(m), L = daiMep(m), ngang = m === 'D' || m === 'T'; let phu = 0;
+      for (const w of opt.tuong || []) {
+        if (!w || !w.a || !w.b) continue;
+        const wa = vao(w.a), wb = vao(w.b);
+        if (ngang) { if (Math.abs(wa[1] - a[1]) > 8 || Math.abs(wb[1] - a[1]) > 8) continue; phu = Math.max(phu, Math.min(b[0], Math.max(wa[0], wb[0])) - Math.max(a[0], Math.min(wa[0], wb[0]))); }
+        else { if (Math.abs(wa[0] - a[0]) > 8 || Math.abs(wb[0] - a[0]) > 8) continue; phu = Math.max(phu, Math.min(b[1], Math.max(wa[1], wb[1])) - Math.max(a[1], Math.min(wa[1], wb[1]))); }
+      }
+      satTuong[m] = L > 0 ? Math.max(0, Math.min(1, phu / L)) : 0;
+    }
+    let truoc = null, cach = '';
+    if (Array.isArray(opt.truoc) && opt.truoc.length >= 2) {
+      const t = vao(opt.truoc), cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2, hx = (bx1 - bx0) / 2, hy = (by1 - by0) / 2;
+      const diem = { D: (cy - t[1]) / hy, T: (t[1] - cy) / hy, L: (cx - t[0]) / hx, P: (t[0] - cx) / hx };
+      const m = MEP.slice().sort((p, q) => diem[q] - diem[p])[0];
+      if (!hopLe.includes(m)) return hong('Phía anh bấm làm mặt TRƯỚC lại là phía có chỗ khuyết (hoặc chỗ khuyết không nằm ở mép sau so với phía đó) — cột phải nằm ở lưng tủ. Bấm lại điểm phía trước, hoặc vẽ lại hình.');
+      truoc = m; cach = 'điểm anh bấm';
+    } else {
+      let ung = hopLe.filter(m => satTuong[m] < 0.5);                       // mặt trước không áp tường
+      if (!ung.length) return hong('Mép nào của hình cũng áp tường — không biết mặt trước tủ ở đâu. Bấm 1 điểm phía trước tủ.');
+      const coTuong = ung.filter(m => satTuong[DOI[m]] >= 0.5);             // lưng áp tường
+      if (coTuong.length) { ung = coTuong; cach = 'lưng áp tường'; }
+      if (ung.length > 1) { const mx = Math.max(...ung.map(daiMep)); const dai2 = ung.filter(m => daiMep(m) > mx - 1); if (dai2.length < ung.length) { ung = dai2; cach = cach || 'chỗ khuyết ở mép sau, mặt trước là cạnh dài'; } }
+      if (ung.length > 1) { kq.can_diem = true; return hong('Hình không cho biết phía nào là mặt trước tủ — bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh).'); }
+      truoc = ung[0]; cach = cach || 'chỗ khuyết ở mép sau';
+    }
+    // 6. hệ toạ độ tủ: b = hướng từ mặt trước vào lưng, ex = trục x của tủ (trái → phải khi đứng trước tủ)
+    const b = truoc === 'D' ? [0, 1] : truoc === 'T' ? [0, -1] : truoc === 'L' ? [1, 0] : [-1, 0], ex = [b[1], -b[0]];
+    const goc4 = [[bx0, by0], [bx1, by0], [bx1, by1], [bx0, by1]];
+    const O = goc4.slice().sort((p, q) => (cham(p, ex) + cham(p, b)) - (cham(q, ex) + cham(q, b)))[0];
+    const tu = q => [cham([q[0] - O[0], q[1] - O[1]], ex), cham([q[0] - O[0], q[1] - O[1]], b)];
+    const rong = rn(Math.abs(cham([bx1 - bx0, by1 - by0], ex)), 1), sau = rn(Math.abs(cham([bx1 - bx0, by1 - by0], b)), 1);
+    const khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua_cot: [], giua: [] };
+    for (const o of cum) {
+      const p = tu([o.x0, o.y0]), q = tu([o.x1, o.y1]), x0 = Math.min(p[0], q[0]), x1 = Math.max(p[0], q[0]), y0 = Math.min(p[1], q[1]);
+      const r = rn(x1 - x0, 1), s2 = rn(sau - y0, 1);
+      const lon = (cu, moi2) => ({ rong: Math.max(cu.rong, moi2.rong), sau: Math.max(cu.sau, moi2.sau) });      // chỗ khuyết vẽ sẵn + cột của phòng cùng một góc: lấy phần lớn hơn
+      if (x0 < 0.6) khau.trai = lon(khau.trai, { rong: r, sau: s2 });
+      else if (x1 > rong - 0.6) khau.phai = lon(khau.phai, { rong: r, sau: s2 });
+      else khau.giua_cot.push({ cach: rn(x0, 1), rong: r, sau: s2 });
+    }
+    khau.giua_cot.sort((p, q) => p.cach - q.cach);
+    const G = ra(O); let a = (th + Math.atan2(ex[1], ex[0])) * 180 / Math.PI; a = ((a % 360) + 360) % 360; if (a > 180) a -= 360;
+    const mepTrai = truoc === 'D' ? 'L' : truoc === 'T' ? 'P' : truoc === 'L' ? 'T' : 'D', mepPhai = DOI[mepTrai];
+    kq.ok = true; kq.rong = rong; kq.sau = sau; kq.goc = [rn(G[0], 2), rn(G[1], 2)]; kq.xoay = sach(rn(a, 3)); kq.khau = khau; kq.chu_nhat = cum.length === 0;
+    kq.sat_tuong = { truoc: rn(satTuong[truoc], 2), sau: rn(satTuong[DOI[truoc]], 2), trai: rn(satTuong[mepTrai], 2), phai: rn(satTuong[mepPhai], 2) };
+    kq.mat_truoc = cach;
+    kq.so_cot = soCot;
+    kq.ghi_chu.push(`Hình ${g(rong)} × ${g(sau)}${cum.length ? `, ${cum.length} chỗ khấu cột${soCot ? ` (${soCot} chỗ lấy theo cột của phòng trên bản vẽ)` : ''}` : ''}; mặt trước xác định theo ${cach}.`);
+    if (rong < sau) kq.ghi_chu.push(`Tủ này SÂU (${g(sau)}) hơn RỘNG (${g(rong)}) — nếu mặt trước bị nhận sai, bấm "Chọn lại mặt trước".`);
+    return kq;
   }
 
   /** Nét khung dây của phòng (để vẽ vào bản vẽ): mỗi nét = [[x,y,z],[x,y,z]], kèm `lop` = 'tuong' | 'mo' | 'can'. */
@@ -1886,7 +2079,7 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, viTriCot, khauChoKhung, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  return { BAN, LOAI_MO, LOAI_CAN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, hinhThanhKhung, viTriCot, khauChoKhung, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
 });
 
 /*!
@@ -2494,7 +2687,7 @@
     const extra = boards.filter(b => !used.has(b));
     // va chạm giữa mọi tấm vừa vẽ (tấm mỏng ăn rãnh ≤ 9 mm vào tấm bên cạnh là đúng cấu tạo).
     // Hai tấm của CÙNG một mẫu không tính: mẫu tự chịu cấu tạo bên trong của nó (vd vách chia ô của ngăn kéo chia ô lồng mộng vào nhau).
-    const mauCua = b => { try { let o = b.Template && b.Template.Object, n = 0; while (o && o.Parent && o.Parent.Object && n++ < 8) o = o.Parent.Object; return o || null; } catch (e) { return null; } };
+    const mauCua = b => { try { let o = b.Template && b.Template.Object, n = 0; while (o && o.Parent && o.Parent.Object && n++ < 40) o = o.Parent.Object; return o || null; } catch (e) { return null; } };
     const bx = boards.map(b => ({ b, x: D.boxOf(b), t: b.Thickness, m: mauCua(b) }));
     const collide = [];
     let trongMau = 0;
@@ -2554,7 +2747,26 @@
       const s0 = Core.normalize(spec);
       if (s0.ve_goc && !(opt && opt.goc === false) && D.gocDuoc()) { const K = Core.keHoachGoc(s0); if (K.M.errors.length || !K.loi.length) goc = true; else ghiGoc = `Tủ này chưa vẽ được bằng lệnh gốc Chenfeng (${K.loi.join('; ')}) → đã vẽ theo cách nhập tấm: tủ là một module đổi được Rộng / Sâu / Cao ở ô Thông số, nhưng từng tấm không phải tấm tự động của Chenfeng.`; }
     } catch (e) { goc = false; }
-    const run = async () => { ran = true; res = await (goc ? D.veGoc(spec, opt) : drawImpl(spec, opt)); if (ghiGoc && res && Array.isArray(res.warnings)) res.warnings.unshift(ghiGoc); return res; };
+    const run = async () => {
+      ran = true;
+      if (goc) res = await D.veGoc(spec, opt);
+      else {
+        res = await drawImpl(spec, opt);
+        // opt.xoay (bản 1.16): tủ nhập tấm vẽ thẳng trục xong thì xoay bằng lệnh ROTATE của Chenfeng quanh điểm đặt (góc tủ, hoặc gốc thiết kế khi gọi bằng `at`)
+        const xoay = Number(opt && opt.xoay) || 0;
+        if (xoay && res && res.giai_doan === 'xong' && D.last) {
+          const tam = opt.at ? opt.at.slice() : res.goc.slice();
+          let r; try { r = await D.rotate(D.last.added, tam, xoay); } catch (e) { r = { ok: false, steps: 0, reason: String(e && e.message || e) }; }
+          const bbL = Core.bbox(D.last.M.parts) || { x0: 0, y0: 0, z0: 0 };
+          res.xoay_do = xoay; res.khung = { goc: opt.at ? quayZ([bbL.x0, bbL.y0, bbL.z0], xoay).map((v, i) => r2(v + tam[i])) : tam, xoay };
+          res.xoay_kq = r;
+          if (r.ok) { res.so_buoc_hoan_tac = (res.so_buoc_hoan_tac || 1) + (r.steps || 0); D.last.khung = res.khung; res.goc = res.khung.goc; }
+          else res.warnings.push(`Chưa xoay được tủ ${r2(xoay)}° (${r.reason || 'lệnh xoay không chạy'}) — tủ đang nằm thẳng trục tại điểm đặt; dùng lệnh ROTATE của Chenfeng quanh điểm ${tam.map(r2).join(', ')}.`);
+        }
+      }
+      if (ghiGoc && res && Array.isArray(res.warnings)) res.warnings.unshift(ghiGoc);
+      return res;
+    };
     try {
       const nav = root.navigator;
       if (nav && nav.locks && typeof nav.locks.request === 'function') { await nav.locks.request('mncf-ve-tu', { mode: 'shared' }, run); return res; }
@@ -2637,7 +2849,7 @@
     } catch (err) { return []; }
   };
   const idOf = x => { try { return x && (x.Object || x); } catch (e) { return null; } };
-  const rootTpl = b => { try { let o = b.Template && b.Template.Object, n = 0; while (o && o.Parent && o.Parent.Object && n++ < 8) o = o.Parent.Object; return o || null; } catch (e) { return null; } };
+  const rootTpl = b => { try { let o = b.Template && b.Template.Object, n = 0; while (o && o.Parent && o.Parent.Object && n++ < 40) o = o.Parent.Object; return o || null; } catch (e) { return null; } };
   const near = (a, b, tol) => a.every((v, i) => Math.abs(v - b[i]) < tol);
   const TOL_TIM = 0.6;      // dung sai khi dò lại tủ đã vẽ (rộng hơn lúc nghiệm thu: người dùng có thể đã lưu / mở lại bản vẽ)
 
@@ -2646,15 +2858,20 @@
    * @returns {{ok, offset, boards, thieu, tong}} offset = độ dời của tủ đó so với toạ độ thiết kế (tủ bị di chuyển vẫn tìm được; bị xoay thì không)
    */
   D.locate = (id, M, pick) => {
-    const tagged = D.all().filter(e => D.isBoard(e) && D.tagOf(e) === id).map(b => ({ b, x: D.boxOf(b) }));
-    if (!tagged.length) return { ok: false, reason: 'Không còn tấm nào của tủ này trên bản vẽ.' };
+    const dsTam = D.all().filter(e => D.isBoard(e) && D.tagOf(e) === id);
+    if (!dsTam.length) return { ok: false, reason: 'Không còn tấm nào của tủ này trên bản vẽ.' };
+    // bản 1.16: tủ là module và đã bị XOAY (đặt theo tường / theo hình trên mặt bằng) → dò trong hệ toạ độ của chính module (gốc module = góc nhỏ nhất của tủ)
+    let kh = null;
+    try { const k = D.khungCua(pick && dsTam.includes(pick) ? pick : dsTam[0]); if (k && k.xoay) kh = k; } catch (e) { kh = null; }
+    const tagged = dsTam.map(b => ({ b, x: D.hopTheo(b, kh) }));
     const parts = M.parts.map(p => [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1]);
     const dim = x => [x[1] - x[0], x[3] - x[2], x[5] - x[4]];
     const cand = [], seen = new Set();
     const them = off => { const k = off.map(v => Math.round(v * 2)).join('|'); if (!seen.has(k)) { seen.add(k); cand.push(off); } };
-    if (D.last && D.last.id === id && D.last.offset) them(D.last.offset.slice());
+    if (kh) { const bbM = Core.bbox(M.parts); them([r2(-bbM.x0), r2(-bbM.y0), r2(-bbM.z0)]); }
+    else if (D.last && D.last.id === id && D.last.offset && !(D.last.khung && D.last.khung.xoay)) them(D.last.offset.slice());
     const moc = pick && tagged.find(t => t.b === pick) ? [tagged.find(t => t.b === pick)] : tagged.slice(0, 6);
-    for (const t of moc) { const d = dim(t.x); for (const p of parts) if (near(dim(p), d, TOL_TIM)) them([r2(t.x[0] - p[0]), r2(t.x[2] - p[2]), r2(t.x[4] - p[4])]); }
+    if (!kh) for (const t of moc) { const d = dim(t.x); for (const p of parts) if (near(dim(p), d, TOL_TIM)) them([r2(t.x[0] - p[0]), r2(t.x[2] - p[2]), r2(t.x[4] - p[4])]); }
     let best = null;
     for (const off of cand) {
       const used = new Set(), hit = [];
@@ -2668,22 +2885,22 @@
     }
     if (!best || best.boards.length < Math.max(3, Math.ceil(parts.length * 0.5)))
       return { ok: false, reason: `Chỉ khớp được ${best ? best.boards.length : 0}/${parts.length} tấm với thông số lúc vẽ — tủ đã bị xoay hoặc sửa tay nhiều, không cập nhật tại chỗ được. Hãy xoá tủ cũ rồi vẽ lại.`, khop: best ? best.boards.length : 0, tong: parts.length };
-    return { ok: true, offset: best.offset.map(r2), boards: best.boards, thieu: parts.length - best.boards.length, tong: parts.length };
+    return { ok: true, offset: best.offset.map(r2), boards: best.boards, thieu: parts.length - best.boards.length, tong: parts.length, khung: kh };
   };
 
   /** Mọi đối tượng thuộc một tủ đã vẽ: tấm mang mã + hộp ngăn kéo / suốt treo sinh từ mẫu nằm trong các ô của tủ + lỗ khoan dính tới chúng. Đồ người dùng tự gắn thêm (bản lề, tay nắm…) KHÔNG nằm trong danh sách. */
   D.cabinetEntities = (id, M, loc) => {
-    const off = loc.offset, set = new Set(loc.boards);
+    const off = loc.offset, set = new Set(loc.boards), hopE = e => D.hopTheo(e, loc.khung || null);      // tủ đã xoay: mọi phép so nằm trong hệ của tủ
     const bb = Core.bbox(M.parts);
     const hop = [bb.x0 + off[0], bb.x1 + off[0], bb.y0 + off[1], bb.y1 + off[1], bb.z0 + off[2], bb.z1 + off[2]];
     const trong = (x, R, du) => x[0] >= R[0] - du && x[1] <= R[1] + du && x[2] >= R[2] - du && x[3] <= R[3] + du && x[4] >= R[4] - du && x[5] <= R[5] + du;
     const all = D.all();
-    for (const e of all) if (!set.has(e) && D.isBoard(e) && D.tagOf(e) === id && trong(D.boxOf(e), hop, 1)) set.add(e);      // tấm của tủ bị kéo lệch tay nhưng vẫn nằm trong tủ
+    for (const e of all) if (!set.has(e) && D.isBoard(e) && D.tagOf(e) === id && trong(hopE(e), hop, 1)) set.add(e);      // tấm của tủ bị kéo lệch tay nhưng vẫn nằm trong tủ
     const vung = M.templates.filter(t => t.id).map(t => [t.pos[0] + off[0], t.pos[0] + t.box[0] + off[0], t.pos[1] + off[1], t.pos[1] + t.box[1] + off[1], t.pos[2] + off[2], t.pos[2] + t.box[2] + off[2]]);
     const ten = new Set(M.templates.filter(t => t.id).map(t => t.ten));
     if (vung.length) {
       // mẫu ngăn kéo / suốt treo của tủ: mẫu (ở tầng nào trong cây cũng được — khi tủ đã thành module thì chúng là mẫu con) trùng tên mẫu của tủ
-      const mauTen = e => { try { let o = e.Template && e.Template.Object, n = 0; while (o && n++ < 8) { let nm = ''; try { nm = String(o.Name || ''); } catch (er) { /* bỏ qua */ } if (ten.has(nm)) return o; o = o.Parent && o.Parent.Object; } } catch (er) { /* bỏ qua */ } return null; };
+      const mauTen = e => { try { let o = e.Template && e.Template.Object, n = 0; while (o && n++ < 40) { let nm = ''; try { nm = String(o.Name || ''); } catch (er) { /* bỏ qua */ } if (ten.has(nm)) return o; o = o.Parent && o.Parent.Object; } } catch (er) { /* bỏ qua */ } return null; };
       const theoMau = new Map();
       for (const e of all) {
         if (!(D.isBoard(e) || D.isHardware(e)) || (D.isBoard(e) && D.tagOf(e))) continue;
@@ -2691,8 +2908,8 @@
         if (!theoMau.has(r)) theoMau.set(r, []); theoMau.get(r).push(e);
       }
       for (const [, list] of theoMau) {
-        if (!list.every(e => trong(D.boxOf(e), hop, 60))) continue;                      // mẫu vươn ra ngoài tủ → không phải của tủ này
-        if (list.some(e => vung.some(R => trong(D.boxOf(e), R, 2)))) for (const e of list) set.add(e);
+        if (!list.every(e => trong(hopE(e), hop, 60))) continue;                      // mẫu vươn ra ngoài tủ → không phải của tủ này
+        if (list.some(e => vung.some(R => trong(hopE(e), R, 2)))) for (const e of list) set.add(e);
       }
     }
     for (const h of all) if (D.isHole(h) && (set.has(idOf(h.FId)) || set.has(idOf(h.MId)))) set.add(h);
@@ -2729,6 +2946,129 @@
       return Core.build(n).errors.length ? null : n;
     } catch (e) { return null; }
   };
+  /** Chạy lệnh MODELING ("建模") của Chenfeng trên các tấm `boards`. phimF: bấm F = chia module theo cụm tấm chạm nhau (mặc định Chenfeng chia theo tên phòng / tên tủ). Trả về số bước lịch sử. */
+  const coMauHet = boards => boards.every(b => { try { return !!(b.Template && b.Template.Object); } catch (e) { return false; } });
+  const chayModeling = async (boards, phimF) => {
+    const h0 = hmMark(), w = watchEnd();
+    try {
+      D.select(boards);
+      await sleep(200);
+      D.cmd('MODELING');
+      let t0 = Date.now();
+      while (!ready(ge()) && !coMauHet(boards) && !w.ended && Date.now() - t0 < 6000) await sleep(100);
+      if (!coMauHet(boards)) {
+        if (phimF && ready(ge())) { D.input('F'); await sleep(400); }
+        D.input(''); t0 = Date.now(); while (!coMauHet(boards) && !w.ended && Date.now() - t0 < 15000) await sleep(100);
+      }
+      t0 = Date.now(); while (w.ok && !w.ended && Date.now() - t0 < 6000) await sleep(100);
+    } catch (e) { /* xét ở dưới */ }
+    w.off();
+    if (D.busy()) await D.cancel();
+    await D.settle(400, 20000);
+    try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+    const h1 = hmMark();
+    return h0 && h1 && h1.i > h0.i ? h1.i - h0.i : 0;
+  };
+
+  /**
+   * Gắn quy tắc co giãn của bảng (Core.heSo) vào module T:
+   *  - mỗi tấm trong `cua` (Map tấm thiết kế → tấm thật, phải là tấm của T): hành động dời / kéo theo L, W, H;
+   *  - hộp ngăn kéo / suốt treo (mẫu kho đã chèn, nằm trong `added`): thành mẫu con của T, vị trí và kích thước là biểu thức theo _L / _W / _H.
+   * Gốc của T phải là góc nhỏ nhất của cả tủ (hs.goc). kq: nơi ghi { bien[], mau_con, ghi_chu[] }.
+   */
+  const ganHeSo = (T, hs, M, cua, offset, added, kq) => {
+    const mauHD = [T.LParam, T.WParam, T.HParam].map(pr => pr && pr.actions && pr.actions[0]).find(Boolean);
+    if (!mauHD) { kq.ghi_chu.push('Module dùng cách co giãn mặc định của Chenfeng (không đọc được kiểu hành động).'); return false; }
+    const HD = mauHD.constructor, V3 = mauHD.StretchDirection.constructor;
+    const TRUC = { L: [1, 0, 0], W: [0, 1, 0], H: [0, 0, 1] };
+    for (const ten of ['L', 'W', 'H']) {
+      const b = hs.bien[ten], pr = T.GetParam(ten);
+      if (!b || !pr) { kq.ghi_chu.push(`Tham số ${ten}: giữ cách co giãn mặc định của Chenfeng (đổi kích thước này làm đổi số tấm).`); continue; }
+      const nhom = new Map(), N = k => { if (!nhom.has(k)) nhom.set(k, { move: [], map: [] }); return nhom.get(k); };
+      M.parts.forEach((p, i) => {
+        const tam = cua.get(p); if (!tam) return;
+        const [a, bb] = b.tam[i];
+        if (a !== 0) N(a).move.push(tam.Id);
+        if (Math.abs(bb - a) > 1e-9) {
+          const pts = tam.GetStretchPoints(), toa = pts.map(q => [q.x, q.y, q.z][b.truc]), mx = Math.max.apply(null, toa), idx = [];
+          toa.forEach((v, j) => { if (Math.abs(v - mx) < 0.01) idx.push(j); });
+          if (idx.length) N(Math.round((bb - a) * 1e6) / 1e6).map.push({ entity: tam.Id, indexs: idx });
+        }
+        // tấm khoét góc (khấu cột): các đỉnh nằm trên mép vùng khoét co giãn theo hệ số riêng của mép đó (vd đổi Sâu: mép khoét đi theo lưng tủ, bề sâu phần khoét giữ nguyên)
+        const hk = b.khau && b.khau[i];
+        if (hk && p.khau) {
+          const pts = tam.GetStretchPoints(), toa = pts.map(q => [q.x, q.y, q.z][b.truc]), mn = Math.min.apply(null, toa), mx = Math.max.apply(null, toa), ck = b.truc === 0 ? ['x0', 'x1'] : ['y0', 'y1'];
+          p.khau.forEach((k, q) => ck.forEach((c, e) => {
+            const v = k[c] + offset[b.truc], he = hk[q][e];
+            if (Math.abs(v - mn) < 0.01 || Math.abs(v - mx) < 0.01 || Math.abs(he - a) < 1e-9) return;      // mép trùng mép tấm đã có hệ số của mép tấm; hệ số bằng hệ số dời cả tấm thì khỏi kéo
+            const idx = []; toa.forEach((u, j) => { if (Math.abs(u - v) < 0.01) idx.push(j); });
+            if (idx.length) N(Math.round((he - a) * 1e6) / 1e6).map.push({ entity: tam.Id, indexs: idx });
+          }));
+        }
+      });
+      pr.actions.length = 0;
+      for (const [k, g] of nhom) {
+        const hd = new HD(new V3(TRUC[ten][0], TRUC[ten][1], TRUC[ten][2]));
+        hd.Name = `MN ${ten}×${so(k)}`; hd.Expr = bieuThuc(ten, k); hd.MoveEntitys = g.move; hd.EntityStretchPointMap = g.map;
+        pr.actions.push(hd); if (!hd.parent) hd.parent = pr;
+      }
+      kq.bien.push(ten + (b.sai_so > 0.05 ? ` (lệch tới ${b.sai_so} mm do làm tròn)` : ''));
+    }
+    // Tham số "BH" Chenfeng tự thêm lấy theo biến chung $BH (18) và hành động của nó CỘNG chênh lệch vào độ dày MỌI tấm (kể cả hậu 6 li)
+    // → sai với ván 17,5 của xưởng. Là tham số mặc định nên không xoá được (DeleteParam bỏ qua): gỡ hành động, ghi đúng độ dày, chỉ để xem.
+    // (Tủ lệnh gốc: các tấm tự động lấy độ dày theo $BH của module GỐC → BH ở đây phải đúng bằng dày ván thùng.)
+    try {
+      const bh = T.GetParam('BH');
+      if (bh) { bh.actions.length = 0; bh.expr = so(M.spec.van.t); try { bh.description = 'Dày ván (chỉ xem — đổi ở bảng Một Nhà)'; } catch (e) { /* bỏ qua */ } }
+      const moTa = { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
+      for (const k of Object.keys(moTa)) { try { const pr = T.GetParam(k); if (pr) pr.description = moTa[k]; } catch (e) { /* bỏ qua */ } }
+    } catch (e) { /* bỏ qua */ }
+    // hộp ngăn kéo / suốt treo → mẫu con, kích thước và vị trí bám theo L / W / H của tủ
+    const dsMau = M.templates.map((t, i) => ({ t, i })).filter(x => x.t.id);
+    if (dsMau.length) {
+      const theo = new Map();
+      for (const e of added) { if (!e || e.IsErase || !(D.isBoard(e) || D.isHardware(e)) || (D.isBoard(e) && D.tagOf(e))) continue; const r = rootTpl(e); if (r && r !== T) { if (!theo.has(r)) theo.set(r, []); theo.get(r).push(e); } }
+      const trong = (x, R, du) => x[0] >= R[0] - du && x[1] <= R[1] + du && x[2] >= R[2] - du && x[3] <= R[3] + du && x[4] >= R[4] - du && x[5] <= R[5] + du;
+      const daDung = new Set();
+      for (const { t, i } of dsMau) {
+        const R = [t.pos[0] + offset[0], t.pos[0] + t.box[0] + offset[0], t.pos[1] + offset[1], t.pos[1] + t.box[1] + offset[1], t.pos[2] + offset[2], t.pos[2] + t.box[2] + offset[2]];
+        let con = null;
+        for (const [r, list] of theo) if (!daDung.has(r) && list.some(e => trong(D.boxOf(e), R, 2))) { con = r; break; }
+        if (!con) continue;
+        daDung.add(con);
+        const dat = (pr, goc, heSoTheo) => {      // goc = giá trị hiện tại; heSoTheo = {L, W, H} hệ số theo từng tham số của tủ
+          if (!pr) return;
+          let bt = '', k0 = goc;
+          ['L', 'W', 'H'].forEach((ten, n) => { const k = heSoTheo[ten]; if (k) { bt += `${k < 0 ? '-' : '+'}_${ten}*${so(Math.abs(k))}`; k0 -= k * hs.kich[n]; } });
+          if (!bt) return;
+          k0 = Math.round(k0 * 1e4) / 1e4;
+          pr.expr = (k0 ? so(k0) : '') + (k0 ? bt : bt.replace(/^\+/, ''));
+        };
+        const hk = key => ({ L: hs.bien.L ? hs.bien.L.mau[i][key] : 0, W: hs.bien.W ? hs.bien.W.mau[i][key] : 0, H: hs.bien.H ? hs.bien.H.mau[i][key] : 0 });
+        const chi = (v, ten) => { const o = { L: 0, W: 0, H: 0 }; o[ten] = v[ten]; return o; };
+        try {
+          con.Parent = T.Id; if (!T.Children.includes(con.Id)) T.Children.push(con.Id);
+          try { con.Positioning = undefined; if (con.Positioning) con._Positioning = undefined; } catch (e) { /* bỏ qua */ }
+          const pos = hk('pos'), box = hk('box');
+          // vị trí của mẫu con tính trong không gian của tủ (gốc = góc nhỏ nhất của tủ)
+          dat(con.PXParam, t.pos[0] - hs.goc[0], chi(pos, 'L')); dat(con.PYParam, t.pos[1] - hs.goc[1], chi(pos, 'W')); dat(con.PZParam, t.pos[2] - hs.goc[2], chi(pos, 'H'));
+          if (!con.PXParam.expr) con.PXParam.expr = so(r2(t.pos[0] - hs.goc[0]));
+          if (!con.PYParam.expr) con.PYParam.expr = so(r2(t.pos[1] - hs.goc[1]));
+          if (!con.PZParam.expr) con.PZParam.expr = so(r2(t.pos[2] - hs.goc[2]));
+          dat(con.LParam, t.box[0], chi(box, 'L')); dat(con.WParam, t.box[1], chi(box, 'W')); dat(con.HParam, t.box[2], chi(box, 'H'));
+          const bac = hs.bien.W && hs.bien.W.mau[i].bac;      // sâu hộp ngăn kéo nhảy bậc theo cỡ ray
+          if (bac && bac.k && con.WParam) { const k0 = Math.round((bac.tu0 - bac.k * hs.kich[1]) * 1e4) / 1e4; con.WParam.expr = `floor((${so(k0)}+_W*${so(bac.k)})/${so(bac.buoc)}+0.000001)*${so(bac.buoc)}`; }
+          for (const k of Object.keys(t.params || {})) {
+            const hsK = { L: hs.bien.L && hs.bien.L.mau[i].params[k] || 0, W: hs.bien.W && hs.bien.W.mau[i].params[k] || 0, H: hs.bien.H && hs.bien.H.mau[i].params[k] || 0 };
+            if (hsK.L || hsK.W || hsK.H) dat(con.GetParam(k), t.params[k], hsK);
+          }
+          kq.mau_con++;
+        } catch (e) { kq.ghi_chu.push(`Mẫu "${t.ten}" chưa gắn được vào module: ${e && e.message || e}`); }
+      }
+    }
+    return true;
+  };
+
   D.modelize = async (spec, offset, added, opt) => {
     opt = Object.assign({ onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
@@ -2738,34 +3078,12 @@
     opt.onStatus('Gom tủ thành module tham số của Chenfeng…');
     if (D.busy()) await D.cancel();
     try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
-    const coMau = () => boards.every(b => { try { return !!(b.Template && b.Template.Object); } catch (e) { return false; } });
     const motGoc = () => { const T0 = rootTpl(boards[0]); return T0 && boards.every(b => rootTpl(b) === T0) ? T0 : null; };
     // Lệnh MODELING mặc định chia module theo TÊN TỦ (thân dưới / thân trên thành 2 module). Phím F đổi sang "chia theo cụm tấm chạm nhau" → cả tủ là MỘT module.
-    const chay = async phimF => {
-      const h0 = hmMark(), w = watchEnd();
-      try {
-        D.select(boards);
-        await sleep(200);
-        D.cmd('MODELING');
-        let t0 = Date.now();
-        while (!ready(ge()) && !coMau() && !w.ended && Date.now() - t0 < 6000) await sleep(100);
-        if (!coMau()) {
-          if (phimF && ready(ge())) { D.input('F'); await sleep(400); }
-          D.input(''); t0 = Date.now(); while (!coMau() && !w.ended && Date.now() - t0 < 15000) await sleep(100);
-        }
-        t0 = Date.now(); while (w.ok && !w.ended && Date.now() - t0 < 6000) await sleep(100);
-      } catch (e) { /* xét ở dưới */ }
-      w.off();
-      if (D.busy()) await D.cancel();
-      await D.settle(400, 20000);
-      try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
-      const h1 = hmMark();
-      return h0 && h1 && h1.i > h0.i ? h1.i - h0.i : 0;
-    };
-    let steps = await chay(true);
-    if (!motGoc() && coMau() && steps) { await D.undo(steps); steps = await chay(false); }      // bản Chenfeng khác có thể đổi mặc định → thử lại không bấm F
+    let steps = await chayModeling(boards, true);
+    if (!motGoc() && coMauHet(boards) && steps) { await D.undo(steps); steps = await chayModeling(boards, false); }      // bản Chenfeng khác có thể đổi mặc định → thử lại không bấm F
     const T = motGoc();
-    if (!T) { if (steps && coMau()) { await D.undo(steps); steps = 0; } return { ok: false, steps, reason: 'Chenfeng không gom được các tấm của tủ thành một module (lệnh MODELING).' }; }
+    if (!T) { if (steps && coMauHet(boards)) { await D.undo(steps); steps = 0; } return { ok: false, steps, reason: 'Chenfeng không gom được các tấm của tủ thành một module (lệnh MODELING).' }; }
     const kq = { ok: true, steps, ten: '', bien: [], mau_con: 0, ghi_chu: [] };
     try {
       try { T.Name = M.spec.ma || M.spec.ten || T.Name; kq.ten = String(T.Name || ''); } catch (e) { /* bỏ qua */ }
@@ -2776,97 +3094,86 @@
         const hit = boards.find(b => !used.has(b) && near(D.boxOf(b), want, TOL_TIM));
         if (hit) { used.add(hit); cua.set(p, hit); }
       }
-      const mauHD = [T.LParam, T.WParam, T.HParam].map(pr => pr && pr.actions && pr.actions[0]).find(Boolean);
-      if (!mauHD) { kq.ghi_chu.push('Module dùng cách co giãn mặc định của Chenfeng (không đọc được kiểu hành động).'); return kq; }
-      const HD = mauHD.constructor, V3 = mauHD.StretchDirection.constructor;
-      const TRUC = { L: [1, 0, 0], W: [0, 1, 0], H: [0, 0, 1] };
-      for (const ten of ['L', 'W', 'H']) {
-        const b = hs.bien[ten], pr = T.GetParam(ten);
-        if (!b || !pr) { kq.ghi_chu.push(`Tham số ${ten}: giữ cách co giãn mặc định của Chenfeng (đổi kích thước này làm đổi số tấm).`); continue; }
-        const nhom = new Map(), N = k => { if (!nhom.has(k)) nhom.set(k, { move: [], map: [] }); return nhom.get(k); };
-        M.parts.forEach((p, i) => {
-          const tam = cua.get(p); if (!tam) return;
-          const [a, bb] = b.tam[i];
-          if (a !== 0) N(a).move.push(tam.Id);
-          if (Math.abs(bb - a) > 1e-9) {
-            const pts = tam.GetStretchPoints(), toa = pts.map(q => [q.x, q.y, q.z][b.truc]), mx = Math.max.apply(null, toa), idx = [];
-            toa.forEach((v, j) => { if (Math.abs(v - mx) < 0.01) idx.push(j); });
-            if (idx.length) N(Math.round((bb - a) * 1e6) / 1e6).map.push({ entity: tam.Id, indexs: idx });
-          }
-          // tấm khoét góc (khấu cột): các đỉnh nằm trên mép vùng khoét co giãn theo hệ số riêng của mép đó (vd đổi Sâu: mép khoét đi theo lưng tủ, bề sâu phần khoét giữ nguyên)
-          const hk = b.khau && b.khau[i];
-          if (hk && p.khau) {
-            const pts = tam.GetStretchPoints(), toa = pts.map(q => [q.x, q.y, q.z][b.truc]), mn = Math.min.apply(null, toa), mx = Math.max.apply(null, toa), ck = b.truc === 0 ? ['x0', 'x1'] : ['y0', 'y1'];
-            p.khau.forEach((k, q) => ck.forEach((c, e) => {
-              const v = k[c] + offset[b.truc], he = hk[q][e];
-              if (Math.abs(v - mn) < 0.01 || Math.abs(v - mx) < 0.01 || Math.abs(he - a) < 1e-9) return;      // mép trùng mép tấm đã có hệ số của mép tấm; hệ số bằng hệ số dời cả tấm thì khỏi kéo
-              const idx = []; toa.forEach((u, j) => { if (Math.abs(u - v) < 0.01) idx.push(j); });
-              if (idx.length) N(Math.round((he - a) * 1e6) / 1e6).map.push({ entity: tam.Id, indexs: idx });
-            }));
-          }
-        });
-        pr.actions.length = 0;
-        for (const [k, g] of nhom) {
-          const hd = new HD(new V3(TRUC[ten][0], TRUC[ten][1], TRUC[ten][2]));
-          hd.Name = `MN ${ten}×${so(k)}`; hd.Expr = bieuThuc(ten, k); hd.MoveEntitys = g.move; hd.EntityStretchPointMap = g.map;
-          pr.actions.push(hd); if (!hd.parent) hd.parent = pr;
-        }
-        kq.bien.push(ten + (b.sai_so > 0.05 ? ` (lệch tới ${b.sai_so} mm do làm tròn)` : ''));
-      }
-      // Tham số "BH" Chenfeng tự thêm lấy theo biến chung $BH (18) và hành động của nó CỘNG chênh lệch vào độ dày MỌI tấm (kể cả hậu 6 li)
-      // → sai với ván 17,5 của xưởng. Là tham số mặc định nên không xoá được (DeleteParam bỏ qua): gỡ hành động, ghi đúng độ dày, chỉ để xem.
-      try {
-        const bh = T.GetParam('BH');
-        if (bh) { bh.actions.length = 0; bh.expr = so(M.spec.van.t); try { bh.description = 'Dày ván (chỉ xem — đổi ở bảng Một Nhà)'; } catch (e) { /* bỏ qua */ } }
-        const moTa = { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
-        for (const k of Object.keys(moTa)) { try { const pr = T.GetParam(k); if (pr) pr.description = moTa[k]; } catch (e) { /* bỏ qua */ } }
-      } catch (e) { /* bỏ qua */ }
-      // hộp ngăn kéo / suốt treo → mẫu con, kích thước và vị trí bám theo L / W / H của tủ
-      const dsMau = M.templates.map((t, i) => ({ t, i })).filter(x => x.t.id);
-      if (dsMau.length) {
-        const theo = new Map();
-        for (const e of added) { if (!e || e.IsErase || !(D.isBoard(e) || D.isHardware(e)) || (D.isBoard(e) && D.tagOf(e))) continue; const r = rootTpl(e); if (r && r !== T) { if (!theo.has(r)) theo.set(r, []); theo.get(r).push(e); } }
-        const trong = (x, R, du) => x[0] >= R[0] - du && x[1] <= R[1] + du && x[2] >= R[2] - du && x[3] <= R[3] + du && x[4] >= R[4] - du && x[5] <= R[5] + du;
-        const daDung = new Set();
-        for (const { t, i } of dsMau) {
-          const R = [t.pos[0] + offset[0], t.pos[0] + t.box[0] + offset[0], t.pos[1] + offset[1], t.pos[1] + t.box[1] + offset[1], t.pos[2] + offset[2], t.pos[2] + t.box[2] + offset[2]];
-          let con = null;
-          for (const [r, list] of theo) if (!daDung.has(r) && list.some(e => trong(D.boxOf(e), R, 2))) { con = r; break; }
-          if (!con) continue;
-          daDung.add(con);
-          const dat = (pr, goc, heSoTheo) => {      // goc = giá trị hiện tại; heSoTheo = {L, W, H} hệ số theo từng tham số của tủ
-            if (!pr) return;
-            let bt = '', k0 = goc;
-            ['L', 'W', 'H'].forEach((ten, n) => { const k = heSoTheo[ten]; if (k) { bt += `${k < 0 ? '-' : '+'}_${ten}*${so(Math.abs(k))}`; k0 -= k * hs.kich[n]; } });
-            if (!bt) return;
-            k0 = Math.round(k0 * 1e4) / 1e4;
-            pr.expr = (k0 ? so(k0) : '') + (k0 ? bt : bt.replace(/^\+/, ''));
-          };
-          const hk = key => ({ L: hs.bien.L ? hs.bien.L.mau[i][key] : 0, W: hs.bien.W ? hs.bien.W.mau[i][key] : 0, H: hs.bien.H ? hs.bien.H.mau[i][key] : 0 });
-          const chi = (v, ten) => { const o = { L: 0, W: 0, H: 0 }; o[ten] = v[ten]; return o; };
-          try {
-            con.Parent = T.Id; if (!T.Children.includes(con.Id)) T.Children.push(con.Id);
-            try { con.Positioning = undefined; if (con.Positioning) con._Positioning = undefined; } catch (e) { /* bỏ qua */ }
-            const pos = hk('pos'), box = hk('box');
-            // vị trí của mẫu con tính trong không gian của tủ (gốc = góc nhỏ nhất của tủ)
-            dat(con.PXParam, t.pos[0] - hs.goc[0], chi(pos, 'L')); dat(con.PYParam, t.pos[1] - hs.goc[1], chi(pos, 'W')); dat(con.PZParam, t.pos[2] - hs.goc[2], chi(pos, 'H'));
-            if (!con.PXParam.expr) con.PXParam.expr = so(r2(t.pos[0] - hs.goc[0]));
-            if (!con.PYParam.expr) con.PYParam.expr = so(r2(t.pos[1] - hs.goc[1]));
-            if (!con.PZParam.expr) con.PZParam.expr = so(r2(t.pos[2] - hs.goc[2]));
-            dat(con.LParam, t.box[0], chi(box, 'L')); dat(con.WParam, t.box[1], chi(box, 'W')); dat(con.HParam, t.box[2], chi(box, 'H'));
-            const bac = hs.bien.W && hs.bien.W.mau[i].bac;      // sâu hộp ngăn kéo nhảy bậc theo cỡ ray
-            if (bac && bac.k && con.WParam) { const k0 = Math.round((bac.tu0 - bac.k * hs.kich[1]) * 1e4) / 1e4; con.WParam.expr = `floor((${so(k0)}+_W*${so(bac.k)})/${so(bac.buoc)}+0.000001)*${so(bac.buoc)}`; }
-            for (const k of Object.keys(t.params || {})) {
-              const hsK = { L: hs.bien.L && hs.bien.L.mau[i].params[k] || 0, W: hs.bien.W && hs.bien.W.mau[i].params[k] || 0, H: hs.bien.H && hs.bien.H.mau[i].params[k] || 0 };
-              if (hsK.L || hsK.W || hsK.H) dat(con.GetParam(k), t.params[k], hsK);
-            }
-            kq.mau_con++;
-          } catch (e) { kq.ghi_chu.push(`Mẫu "${t.ten}" chưa gắn được vào module: ${e && e.message || e}`); }
-        }
-      }
+      if (!ganHeSo(T, hs, M, cua, offset, added, kq)) return kq;
       try { await T.UpdateTemplateTree(); } catch (e) { kq.ghi_chu.push('Chenfeng báo lỗi khi cập nhật module: ' + (e && e.message || e)); }
       await D.settle(400, 20000);
     } catch (e) { kq.ok = false; kq.reason = 'Lỗi khi dựng module: ' + (e && e.message || e); }
+    return kq;
+  };
+
+  /**
+   * Bản 1.16 — TỦ VẼ BẰNG LỆNH GỐC THÀNH MỘT MODULE (anh Jason 03/10/2026: phào, chân, ngăn kéo phải chạy theo khi đổi kích thước).
+   * Các tấm rời (phào, phụ trợ, xà chân, khung hộc kéo) → lệnh MODELING gom thành module mẹ T mang L / W / H của CẢ TỦ, gốc = góc nhỏ nhất của tủ;
+   * tấm rời co giãn bằng hành động của bảng (ganHeSo); hộp ngăn kéo / suốt treo và từng THÙNG lệnh gốc (左右侧板模板) làm mẫu con của T với biểu thức
+   * theo _L / _W / _H (Core.keHoachGoc → b.gan); vách / đợt lệnh gốc lấy khoảng cách bằng biểu thức theo khoảng trống của nó (b.cach_bt).
+   * Đã đo trên Chenfeng 2026-09-20: mẫu gốc 左右侧板模板 làm mẫu con được (Parent + PX / PY / PZ + biểu thức L / W / H); tấm tự động lấy độ dày theo $BH của module GỐC;
+   * UpdateTemplateTree giữ nguyên đối tượng tấm (không tạo lại) nên tên, mã tủ trên tấm không mất. Mọi thay đổi nằm trong 1 bước lịch sử MNCF_GAN (+ 1 bước MODELING).
+   * @param K kế hoạch (Core.keHoachGoc) · offset: độ dời thiết kế → bản vẽ lúc này (chưa xoay) · tamCua: Map tấm thiết kế → tấm thật (cả tấm lệnh gốc lẫn tấm rời) · added: mọi đối tượng của tủ
+   */
+  const ganModuleGoc = async (K, offset, tamCua, added, id, opt) => {
+    const M = K.M, hs = K.hs, kq = { ok: false, steps: 0, ten: '', bien: [], mau_con: 0, thung: 0, ghi_chu: [] };
+    const tamRoi = K.con_lai.map(p => tamCua.get(p)).filter(e => e && !e.IsErase);
+    if (!tamRoi.length) { kq.reason = 'Tủ không có phào, xà chân hay khung hộc kéo để làm thân module — mỗi thùng vẫn là một mẫu gốc riêng, đổi kích thước từng thùng ở ô Thông số.'; kq.khong_can = true; return kq; }
+    if (!hs || !K.gan) { kq.reason = 'Không tính được quy tắc co giãn của tủ.'; return kq; }
+    opt.onStatus('Gom cả tủ thành một module (đổi L / W / H là cả tủ chạy theo)…');
+    if (D.busy()) await D.cancel();
+    try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+    const h0 = hmMark();
+    const buocDaChay = () => { const h1 = hmMark(); return h0 && h1 && h1.i > h0.i ? h1.i - h0.i : 0; };
+    await chayModeling(tamRoi, true);
+    const mauCua = b => { try { return (b.Template && b.Template.Object) || null; } catch (e) { return null; } };
+    const ds = [...new Set(tamRoi.map(mauCua).filter(Boolean))];
+    if (!ds.length || !coMauHet(tamRoi)) { const n = buocDaChay(); if (n) await D.undo(n); kq.reason = 'Chenfeng không gom được các tấm phào / chân thành module (lệnh MODELING).'; return kq; }
+    const T = ds.slice().sort((a, b) => b.Objects.length - a.Objects.length)[0];
+    let mo = false, loi = '';
+    try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_GAN'); mo = true; } } catch (e) { mo = false; }
+    try {
+      // các cụm tấm rời không chạm nhau (khung phào / khung hộc kéo từng khoang) thành nhiều module → nhập hết vào T
+      for (const t2 of ds) {
+        if (t2 === T) continue;
+        for (const oid of [...t2.Objects]) T.Objects.push(oid);
+        try { t2.Objects.length = 0; root.app.Database.TemplateTable.Remove(t2); } catch (e) { /* bỏ qua */ }
+      }
+      // gốc module = góc nhỏ nhất của CẢ TỦ (không phải của riêng cụm phào)
+      const C4 = ed().UCSMatrix.constructor, goc = [hs.goc[0] + offset[0], hs.goc[1] + offset[1], hs.goc[2] + offset[2]];
+      for (const oid of T.Objects) { try { const e = oid.Object; if (e && !e.IsErase) e.SpaceOCS = new C4().setPosition(goc[0], goc[1], goc[2]); } catch (e) { /* bỏ qua */ } }
+      try { T.Name = M.spec.ma || M.spec.ten || T.Name; kq.ten = String(T.Name || ''); } catch (e) { /* bỏ qua */ }
+      // L / W / H của module = phủ bì cả tủ (MODELING lấy theo hộp bao của riêng các tấm rời) — ghi thẳng giá trị, không qua biểu thức, để không kích hoạt hành động
+      [T.LParam, T.WParam, T.HParam].forEach((pr, n) => { pr.expr = ''; pr.value = hs.kich[n]; });
+      const cua = new Map(); for (const p of K.con_lai) { const e = tamCua.get(p); if (e && !e.IsErase) cua.set(p, e); }
+      if (!ganHeSo(T, hs, M, cua, offset, added, kq)) throw new Error('không đọc được kiểu hành động co giãn của module');
+      // tham số nào đổi là đổi số tấm: không để hành động mặc định của Chenfeng kéo riêng phào trong khi thùng đứng yên
+      for (const ten of ['L', 'W', 'H']) if (!hs.bien[ten]) { try { T.GetParam(ten).actions.length = 0; } catch (e) { /* bỏ qua */ } }
+      // từng thùng lệnh gốc → mẫu con của T
+      const datBT = (pr, bt) => { if (!pr) return; if (isNaN(Number(bt))) pr.expr = bt; else { pr.expr = ''; pr.value = Number(bt); } };
+      for (const b of K.buoc) {
+        if (b.lenh !== 'LR' || !b.gan) continue;
+        const hoi = tamCua.get(M.parts[b.tam[0]]), lr = hoi && mauCua(hoi);
+        if (!lr || !lr.LParam || lr === T) throw new Error(`không thấy mẫu gốc của thùng ${b.thung + 1}`);
+        if (!T.Children.includes(lr.Id)) T.Children.push(lr.Id);
+        if (!lr.Parent || lr.Parent !== T.Id) lr.Parent = T.Id;
+        try { if (lr._Positioning) lr.Positioning = undefined; } catch (e) { /* bỏ qua */ }
+        datBT(lr.PXParam, b.gan.px); datBT(lr.PYParam, b.gan.py); datBT(lr.PZParam, b.gan.pz);
+        datBT(lr.LParam, b.gan.l); datBT(lr.WParam, b.gan.w); datBT(lr.HParam, b.gan.h);
+        // nhắc ngay trong bảng Thông số: kích thước của thùng đi theo module mẹ, đừng gõ đè biểu thức ở đây
+        try { const nhac = `theo module “${kq.ten}” — sửa L / W / H ở dòng “${kq.ten}” trên cùng`; lr.LParam.description = 'Rộng thùng: ' + nhac; lr.WParam.description = 'Sâu thùng: ' + nhac; lr.HParam.description = 'Cao thùng: ' + nhac; } catch (e) { /* bỏ qua */ }
+        kq.thung++;
+      }
+      // vách, đợt lệnh gốc: khoảng cách là biểu thức theo khoảng trống → khoang chia lại đúng tỉ lệ khi thùng rộng / cao ra
+      for (const b of K.buoc) {
+        if ((b.lenh !== 'VE' && b.lenh !== 'LY') || b.cach_bt === undefined || !isNaN(Number(b.cach_bt))) continue;
+        const tam = tamCua.get(M.parts[b.tam[0]]), tp = tam && mauCua(tam);
+        if (!tp || !tp._option || !('calcSpaceSize' in tp._option)) { kq.ghi_chu.push(`${b.lenh === 'VE' ? 'Vách' : 'Đợt'} "${b.ten}" giữ khoảng cách cố định (không đọc được lựa chọn của mẫu).`); continue; }
+        try { tp.WriteAllObjectRecord(); } catch (e) { /* bỏ qua */ }
+        tp._option.calcSpaceSize = b.cach_bt;
+      }
+      await T.UpdateTemplateTree();
+    } catch (e) { loi = String(e && e.message || e); }
+    if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
+    await D.settle(400, 20000);
+    kq.steps = buocDaChay();
+    if (loi) { if (kq.steps) await D.undo(kq.steps); kq.steps = 0; kq.reason = 'Lỗi khi gom module: ' + loi; return kq; }
+    kq.ok = true;
     return kq;
   };
 
@@ -2922,7 +3229,9 @@
       if (er.n && er.steps) await D.undo(er.steps);
       return { ok: false, giai_doan: 'xoa', errors: [`Chưa bỏ được tủ cũ (còn ${er.con} đối tượng) — bản vẽ được giữ nguyên. Thử lại, hoặc tự xoá tủ cũ rồi bấm Vẽ.`], warnings: [] };
     }
-    const rep = await D.draw(spec, Object.assign({}, opt, { at: loc.offset, corner: undefined, id: ref.id }));
+    // vẽ lại đúng chỗ + đúng hướng cũ: gốc toạ độ thiết kế của tủ cũ trên bản vẽ (tủ xoay thì tính qua khung của module)
+    const viTri = loc.khung ? { at: apM(loc.khung.G, loc.offset).map(r2), xoay: loc.khung.xoay } : { at: loc.offset };
+    const rep = await D.draw(spec, Object.assign({}, opt, viTri, { corner: undefined, id: ref.id }));
     if (rep.giai_doan !== 'xong') {      // vẽ lại không được → trả tủ cũ về chỗ cũ
       if (er.steps) await D.undo(er.steps);
       rep.errors = (rep.errors || []).concat(['Tủ cũ đã được trả lại nguyên trạng.']);
@@ -3515,12 +3824,122 @@
   const KHOA_LUA_CHON = ['m_Option', 'm_UiOption', 'topBoardOption', 'bottomBoardOption', 'topUiOption', 'bottomUiOption', 'm_BoardProcessOption', 'ui_BoardProcessOption', 'autoCutOption', 'rectDrillOption'];
   const ganLC = (o, ui, patch) => { for (const k of Object.keys(patch)) { if (o) o[k] = patch[k]; if (ui && k in ui) ui[k] = typeof patch[k] === 'boolean' ? patch[k] : String(patch[k]); } };
   const soLC = v => String(Math.round(v * 1000) / 1000);
+  /* CHENFENG DÒ KHOẢNG TRỐNG TRÊN HÌNH ĐANG DỰNG, không phải trên dữ liệu tấm (đọc mã Chenfeng 2026-09-29, PointSelectSpace.PointParseSpace):
+   *   - chuột nằm trên một tấm (vd hậu): bắn tia trong các tấm của `Viewer.VisibleObjects` = danh sách dựng hình của KHUNG HÌNH VỪA VẼ;
+   *   - chuột nằm chỗ trống: kẻ 4 đường trên màn hình từ chuột ra 4 mép, lấy tấm gần nhất mỗi phía trong `Scene.children` (hình dựng của từng tấm).
+   * Hai chỗ Chenfeng làm CHẬM hơn dữ liệu:
+   *   (1) tấm mới thêm vào bản vẽ chỉ được đưa hình vào Scene trong một `setTimeout(0)` (+ `Sleep(1)` mỗi 50 đối tượng) — xem Viewer: ModelSpace.AppendEvent;
+   *   (2) hình của tấm chỉ được cập nhật khi vẽ một khung hình (Viewer.Render → DeferUpdate từng đối tượng), mà khung hình chạy theo requestAnimationFrame.
+   * Tab Chenfeng bị che (người dùng sang tab khác trong lúc chờ): trình duyệt ngừng requestAnimationFrame và dồn setTimeout của trang về 1 lần / giây, trong khi bảng này
+   * vẫn chạy nhanh (hẹn giờ trong Worker) → tới lệnh kế, tấm của lệnh trước CHƯA CÓ HÌNH trong Scene → khoảng trống dò sai (đo được 03/10/2026: đợt sau tính từ tấm bên dưới
+   * tấm vừa vẽ; hậu trùm qua nóc / đáy). Vì vậy trước mỗi lần dò: tự đưa hình các tấm của tủ vào Scene (đúng việc Chenfeng sắp làm), ép vẽ một khung hình, rê chuột tới điểm
+   * như người dùng để Chenfeng DÒ THỬ (hộp xem trước), đọc lại hộp đó, đúng khoảng mong đợi rồi mới trả lời điểm. */
+  const hienHinh = ents => {
+    let n = 0;
+    try {
+      const V = root.app.Viewer, sc = V._Scene || V.Scene;
+      if (!sc || typeof sc.add !== 'function') return 0;
+      for (const e of ents) { try { if (!e || e.IsErase) continue; const o = e.DrawObject; if (o && o.parent !== sc) { sc.add(o); n++; } } catch (er) { /* bỏ qua đối tượng không có hình */ } }
+    } catch (e) { /* bỏ qua */ }
+    return n;
+  };
+  const veNgay = () => {
+    let V = null; try { V = root.app.Viewer; } catch (e) { V = null; }
+    if (!V || typeof V.Render !== 'function') return 'không có Viewer.Render';
+    try { V.Render(); return ''; } catch (e) {
+      const loi = String(e && e.message || e) || 'lỗi không rõ';
+      // Một đối tượng đang dựng dở làm hỏng cả lượt cập nhật hình (các đối tượng xếp sau nó trong hàng chờ không được cập nhật) → cập nhật hình từng đối tượng, bỏ qua cái lỗi,
+      // vẽ lại khung hình; cái lỗi trả về hàng chờ để Chenfeng tự cập nhật khi nó dựng xong.
+      try {
+        const ds = V._NeedUpdateEnts;
+        if (ds && typeof ds.clear === 'function') {
+          const hong = [];
+          for (const en of Array.from(ds)) { try { en.DeferUpdate(); } catch (er) { hong.push(en); } }
+          ds.clear();
+          try { V.Render(); } catch (e2) { /* khung hình vẫn chưa vẽ được — nơi gọi sẽ thử lại */ }
+          for (const en of hong) ds.add(en);
+          if (hong.length && typeof V.UpdateRender === 'function') V.UpdateRender();
+        }
+      } catch (e3) { /* bỏ qua */ }
+      return loi;
+    }
+  };
+  /** Ghi thẳng điểm chuột (toạ độ màn hình của điểm p) — lệnh dò khoảng trống đọc điểm này lúc nhận câu trả lời. */
   const datChuot = p => { const V = root.app.Viewer, mc = ed().MouseCtrl, sc = mc._CurMousePointVCS.clone().set(p[0], p[1], p[2]); V.WorldToScreen(sc); mc._CurMousePointVCS.set(sc.x, sc.y, 0); return [sc.x, sc.y]; };
+  /** Đưa chuột tới điểm p (toạ độ bản vẽ) như người dùng rê chuột tới: Chenfeng ghi điểm chuột và — khi đang hỏi khoảng trống — dò thử khoảng trống dưới chuột sau 30 ms.
+   *  Bắn sự kiện mousemove vào vùng vẽ (đúng cách Chenfeng tự làm cho màn cảm ứng); không ăn thì gọi thẳng bộ nghe chuột; cuối cùng ghi tay điểm chuột. */
+  const reChuot = p => {
+    const V = root.app.Viewer, mc = ed().MouseCtrl, sc = mc._CurMousePointVCS.clone().set(p[0], p[1], p[2]);
+    V.WorldToScreen(sc);
+    const toi = () => Math.abs(mc._CurMousePointVCS.x - sc.x) < 1.01 && Math.abs(mc._CurMousePointVCS.y - sc.y) < 1.01;
+    let kieu = '';
+    try {
+      const c = V.Renderer.domElement, r = c.getBoundingClientRect();
+      mc._CurMousePointVCS.set(-99999, -99999, 0);
+      c.dispatchEvent(new MouseEvent('mousemove', { clientX: r.left + sc.x, clientY: r.top + sc.y, view: root }));
+      if (toi()) kieu = 'su_kien';
+    } catch (e) { /* thử cách sau */ }
+    if (!kieu) { try { if (typeof mc.onMouseMove === 'function') { mc.onMouseMove({ clientX: sc.x, clientY: sc.y, offsetX: sc.x, offsetY: sc.y, button: 0, buttons: 0, preventDefault() {}, stopPropagation() {} }); if (toi()) kieu = 'goi_thang'; } } catch (e) { /* thử cách sau */ } }
+    mc._CurMousePointVCS.set(sc.x, sc.y, 0);      // sự kiện làm tròn về điểm ảnh → ghi lại đúng toạ độ lẻ (lần dò thật đọc điểm này)
+    return { sc: [sc.x, sc.y], kieu };
+  };
+  /** Hộp khoảng trống Chenfeng đang xem trước dưới chuột (PointSelectSpace.ShowSpaceBox ghi 3 đường kích thước quanh hộp vào app.MoveTool) → [x0, x1, y0, y1, z0, z1] hoặc null. */
+  const hopXemTruoc = () => {
+    try {
+      const d = root.app.MoveTool && root.app.MoveTool._DrawDimPoints;
+      if (!Array.isArray(d) || d.length < 3) return null;
+      const b = [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity]; let n = 0;
+      for (const cap of d) for (const p of cap || []) { if (!p || !isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) continue; n++; b[0] = Math.min(b[0], p.x); b[1] = Math.max(b[1], p.x); b[2] = Math.min(b[2], p.y); b[3] = Math.max(b[3], p.y); b[4] = Math.min(b[4], p.z); b[5] = Math.max(b[5], p.z); }
+      return n >= 4 ? b : null;
+    } catch (e) { return null; }
+  };
+  let coXemTruoc = null;      // bản Chenfeng này có cho đọc hộp xem trước không (null = chưa biết)
+  /**
+   * Dò thử khoảng trống tại `diem` trước khi trả lời lệnh: đưa hình tấm vào Scene → vẽ khung hình → rê chuột → đọc hộp xem trước → so với khoảng mong đợi `mong`.
+   *   mong = { x0, x1, z0, z1 }: mặt tấm ĐÃ VẼ gần điểm nhất về 4 phía trên hình chiếu đứng (null = phía đó chưa có tấm) — hộp Chenfeng dò ra không được vượt qua các mặt này.
+   *   viec = { hien(): đưa hình các tấm của tủ vào Scene, trả về số tấm vừa thêm; nhin(): nhìn thẳng mặt trước + thu phóng vừa tủ }.
+   * Lệch thì chờ rồi thử lại; lần thứ 3 chỉnh lại hướng nhìn (người dùng có thể đã xoay bản vẽ).
+   * Không quyết định thay Chenfeng: hết lượt vẫn lệch thì nơi gọi cứ trả lời điểm — tấm vẽ ra sai sẽ bị bước đối chiếu chặn, lời báo lỗi kèm kết quả dò ở đây.
+   * @returns {{ lan, hop, khop: true|false|null, lech: string[], loi_ve, kieu }}   khop = null: không đọc được hộp xem trước (không kiểm được)
+   */
+  const doKhoang = async (diem, mong, viec) => {
+    const MT = root.app.MoveTool, g = { lan: 0, hop: null, khop: null, lech: [], loi_ve: '', kieu: '' }, SAI = 0.6;
+    let trong = 0;
+    for (let lan = 0; lan < 7; lan++) {
+      g.lan = lan + 1;
+      if (lan) await sleep(lan < 3 ? 250 : 700);
+      if (viec && viec.hien) g.them_hinh = (g.them_hinh || 0) + (viec.hien() || 0);
+      if (lan === 2 && viec && viec.nhin) { viec.nhin(); await sleep(120); }
+      g.loi_ve = veNgay();
+      try { g.che = !!root.document.hidden; } catch (e) { /* bỏ qua */ }
+      const truoc = MT ? MT._DrawDimPoints : null;
+      g.kieu = reChuot(diem).kieu;
+      if (!MT || coXemTruoc === false || !mong) return g;
+      let hop = null;
+      await cho(() => { if (MT._DrawDimPoints !== truoc) hop = hopXemTruoc(); return !!hop; }, coXemTruoc ? 2600 : 1600);
+      g.hop = hop ? hop.map(r2) : null;
+      if (!hop) {      // Chenfeng không ra hộp xem trước: chỗ đó chưa dò được khoảng trống, hoặc bản Chenfeng này không vẽ hộp
+        g.khop = null; g.lech = ['không có hộp xem trước'];
+        if (coXemTruoc === null && ++trong >= 2) { coXemTruoc = false; return g; }
+        continue;
+      }
+      coXemTruoc = true;
+      const l = [];
+      if (diem[0] < hop[0] - SAI || diem[0] > hop[1] + SAI || diem[2] < hop[4] - SAI || diem[2] > hop[5] + SAI) l.push('hộp không chứa điểm dò');
+      if (mong.x0 !== null && hop[0] < mong.x0 - SAI) l.push(`trái ${r2(hop[0])} (tấm bên trái ở ${r2(mong.x0)})`);
+      if (mong.x1 !== null && hop[1] > mong.x1 + SAI) l.push(`phải ${r2(hop[1])} (tấm bên phải ở ${r2(mong.x1)})`);
+      if (mong.z0 !== null && hop[4] < mong.z0 - SAI) l.push(`dưới ${r2(hop[4])} (tấm bên dưới ở ${r2(mong.z0)})`);
+      if (mong.z1 !== null && hop[5] > mong.z1 + SAI) l.push(`trên ${r2(hop[5])} (tấm bên trên ở ${r2(mong.z1)})`);
+      g.lech = l; g.khop = !l.length;
+      if (g.khop) return g;
+    }
+    return g;
+  };
   /** Chạy một lệnh vẽ tấm gốc: `sua(store)` ghi lựa chọn; `diem` = điểm (toạ độ bản vẽ); kieu 'goc' = lệnh hỏi điểm đặt, còn lại = lệnh hỏi khoảng trống.
    *  Lần đầu mở mỗi hộp thoại trong một phiên, Chenfeng còn tải cấu hình đã lưu của người dùng từ máy chủ rồi ghi đè lựa chọn (không biết lúc nào xong)
    *  → chờ danh sách cấu hình về + lựa chọn đứng yên; ghi lựa chọn 2 lần (trước khi bấm OK và ngay trước khi trả lời điểm — lúc Chenfeng thật sự đọc). */
   const daMoGoc = new Set();
-  const chayGoc = async (ten, sua, diem, kieu) => {
+  const chayGoc = async (ten, sua, diem, kieu, mong, viec) => {
     if (D.busy()) await D.cancel();
     D.boManChe();
     D.cmd(ten);
@@ -3537,7 +3956,13 @@
       sua(st);
       m.ok.click();
       if (!(await cho(() => D.busy(), 7000))) throw new Error(`Lệnh ${ten}: bấm OK xong Chenfeng không hỏi điểm (lựa chọn không hợp lệ?).`);
-      if (kieu !== 'goc') { datChuot(diem); await sleep(60); datChuot(diem); sua(st); }
+      if (kieu !== 'goc') {
+        tra.do_ = await doKhoang(diem, mong || null, viec);
+        if (!D.busy()) throw new Error(`Lệnh ${ten}: lời nhắc chọn khoảng trống bị đóng giữa chừng (có thao tác khác chen vào?).`);
+        // ngay trước khi trả lời (cùng một nhịp, không chờ gì nữa): hình mới nhất + điểm chuột đúng chỗ — người dùng có thể vừa rê chuột thật qua vùng vẽ
+        if (viec && viec.hien) viec.hien();
+        veNgay(); datChuot(diem); sua(st);
+      }
       D.input(toaDo(diem));
       if (!(await cho(() => !D.busy(), 20000))) { await D.cancel(); throw new Error(`Lệnh ${ten}: Chenfeng không kết thúc lệnh sau khi nhận điểm.`); }
     } catch (e) { tra(); throw e; }
@@ -3609,9 +4034,111 @@
   const TEN_LENH_GOC = { LR: 'LEFTRIGHTBOARD', VE: 'VERTIALBOARD', TB: 'TOPBOTTOMBOARD', BE: 'BEHINDBOARD', LY: 'LAYERBOARD', DO: 'DOOR' };
   const TEN_BUOC = { LR: 'hồi', VE: 'vách', TB: 'nóc + đáy', BE: 'hậu', LY: 'đợt', DO: 'cánh' };
 
+  /* ------------------------------------------------------------------ *
+   * KHUNG ĐẶT (bản 1.16): tủ nằm ở đâu và QUAY hướng nào trên bản vẽ.
+   * Lệnh gốc của Chenfeng chỉ dựng tủ thẳng trục, và lệnh ROTATE không xoay được cây mẫu gốc. Đã đo (Chenfeng 2026-09-20): áp một ma trận thẳng lên MỌI đối tượng
+   * của tủ (`ApplyMatrix`, như chính lệnh ROTATE / MOVE làm) thì cả tủ dời + xoay được, `UpdateTemplateTree` sau đó vẫn giữ, đổi L / W / H ở tư thế đã xoay vẫn đúng.
+   * → tủ luôn được vẽ thẳng trục ở một chỗ trống rồi đưa về chỗ đặt bằng một ma trận (1 bước hoàn tác).
+   * kh = { goc: [x, y, z] góc trái – trước – dưới của tủ, xoay: độ (ngược chiều kim đồng hồ, trục x của tủ so với trục x bản vẽ), G / Gn: ma trận và nghịch đảo }
+   * ------------------------------------------------------------------ */
+  const quayZ = (p, do_) => { const r = (do_ || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]; };
+  const apM = (m, p) => { const e = m.elements; return [e[0] * p[0] + e[4] * p[1] + e[8] * p[2] + e[12], e[1] * p[0] + e[5] * p[1] + e[9] * p[2] + e[13], e[2] * p[0] + e[6] * p[1] + e[10] * p[2] + e[14]]; };
+  const lopM4 = () => ed().UCSMatrix.constructor;
+  D.taoKhung = (goc, xoay) => { const C = lopM4(), G = new C().makeRotationZ((xoay || 0) * Math.PI / 180); G.setPosition(goc[0], goc[1], goc[2]); return { goc: goc.map(r2), xoay: xoay || 0, G, Gn: new C().getInverse(G) }; };
+  /** Hộp bao của một đối tượng tính trong hệ của khung (gốc = góc tủ, trục theo tủ). kh = null → hộp bao theo bản vẽ. */
+  D.hopTheo = (e, kh) => {
+    if (!kh) return D.boxOf(e);
+    try { const b = e.GetBoundingBoxInMtx(kh.Gn); return [r2(b.min.x), r2(b.max.x), r2(b.min.y), r2(b.max.y), r2(b.min.z), r2(b.max.z)]; }
+    catch (err) {      // đối tượng không có GetBoundingBoxInMtx: đưa 8 góc hộp bao bản vẽ về hệ khung (rộng hơn thật khi tủ xoay lẻ)
+      const x = D.boxOf(e), m = [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity];
+      for (const a of [x[0], x[1]]) for (const b of [x[2], x[3]]) for (const c of [x[4], x[5]]) { const q = apM(kh.Gn, [a, b, c]); for (let i = 0; i < 3; i++) { m[2 * i] = Math.min(m[2 * i], q[i]); m[2 * i + 1] = Math.max(m[2 * i + 1], q[i]); } }
+      return m.map(r2);
+    }
+  };
+  /** Khung của MODULE chứa tấm b (gốc module = góc nhỏ nhất của tủ, kể cả khi tủ đã bị dời / xoay bằng lệnh của Chenfeng). null nếu tủ không phải module. */
+  D.khungCua = b => {
+    try {
+      const T = rootTpl(b); if (!T || !T.LParam || typeof T.GetTemplateRealitySpaceCS !== 'function') return null;
+      if (T.Name === '左右侧板模板' || /LeftRightBoard/.test((T.constructor && T.constructor.name) || '')) return null;
+      const e = T.GetTemplateRealitySpaceCS().elements;
+      if (Math.abs(e[2]) > 1e-6 || Math.abs(e[6]) > 1e-6 || Math.abs(e[10] - 1) > 1e-6) return null;      // module bị lật / nghiêng: không phải tủ đứng
+      const a = Math.atan2(e[1], e[0]) * 180 / Math.PI;
+      return D.taoKhung([e[12], e[13], e[14]], Math.abs(a) < 1e-4 ? 0 : Math.round(a * 1e4) / 1e4);
+    } catch (err) { return null; }
+  };
+  /** Dời + xoay một nhóm đối tượng bằng một ma trận — 1 bước hoàn tác. Sau đó cập nhật lại các mẫu gốc để mẫu con bám theo vị trí mới. */
+  D.apMaTran = async (ents, Mx, ten) => {
+    const live = (ents || []).filter(e => e && !e.IsErase && typeof e.ApplyMatrix === 'function');
+    if (!live.length) return { ok: true, steps: 0 };
+    if (D.busy()) await D.cancel();
+    try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+    const h0 = hmMark(); let mo = false, loi = '';
+    try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd(ten || 'MNCF_DAT'); mo = true; } } catch (e) { mo = false; }
+    try {
+      for (const e of live) e.ApplyMatrix(Mx);
+      const goc = new Set(); for (const e of live) if (D.isBoard(e)) { const r = rootTpl(e); if (r && typeof r.UpdateTemplateTree === 'function') goc.add(r); }
+      for (const T of goc) { try { await T.UpdateTemplateTree(); } catch (e) { /* mẫu lỗi thì giữ hình học đã áp ma trận */ } }
+    } catch (e) { loi = String(e && e.message || e); }
+    if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
+    await D.settle(300, 15000);
+    try { root.app.Viewer.UpdateRender(); } catch (e) { /* bỏ qua */ }
+    const h1 = hmMark();
+    return { ok: !loi, reason: loi, steps: h0 && h1 && h1.i > h0.i ? h1.i - h0.i : (mo && !loi ? 1 : 0) };
+  };
+  /** Xoay nhóm đối tượng quanh trục đứng qua `goc` (độ, dương = ngược chiều kim đồng hồ) — dùng cho tủ vẽ theo cách nhập tấm. */
+  D.xoayQuanh = async (ents, goc, do_) => {
+    if (!do_) return { ok: true, steps: 0 };
+    const C = lopM4(), Mx = new C().makeRotationZ(do_ * Math.PI / 180); Mx.setPosition(goc[0], goc[1], goc[2]); Mx.multiply(new C().setPosition(-goc[0], -goc[1], -goc[2]));
+    return D.apMaTran(ents, Mx, 'MNCF_XOAY');
+  };
+
+  /* ------------------------------------------------------------------ *
+   * ĐỌC HÌNH NGƯỜI DÙNG VẼ TRÊN BẢN VẼ (bản 1.16 — anh Jason 03/10/2026 20:44: "vẽ hình lên không gian mặt bằng rồi chọn vẽ tủ").
+   * Hình chữ nhật (RECTANG) / đa tuyến (POLYLINE) của Chenfeng là `Polyline`: `LineData[{pt: {x, y}, bul}]` trong hệ OCS của nó, `CloseMark`.
+   * Vẽ ở hướng nhìn từ trên → pháp tuyến thẳng đứng (hình trên MẶT BẰNG). Nhìn mặt trước + bật Smart UCS + vẽ trên mặt tường → hình bám mặt tường (hình trên MẶT ĐỨNG).
+   * ------------------------------------------------------------------ */
+  D.docHinh = () => {
+    const out = { hinh: [], bo: 0 };
+    for (const e of D.selected()) {
+      try {
+        const ld = e.LineData, m = e.OCS && e.OCS.elements;
+        if (!Array.isArray(ld) || ld.length < 3 || !m) { out.bo++; continue; }
+        const pts = ld.map(q => apM(e.OCS, [q.pt.x, q.pt.y, 0]));
+        const dau = pts[0], cuoi = pts[pts.length - 1], trung = Math.hypot(dau[0] - cuoi[0], dau[1] - cuoi[1], dau[2] - cuoi[2]) < 0.5;
+        if (trung && pts.length > 3) pts.pop();
+        const phap = [m[8], m[9], m[10]];
+        out.hinh.push({ doi_tuong: e, dinh3: pts.map(q => q.map(r2)), kin: e.CloseMark === true || trung, cong: ld.some(q => Math.abs(q.bul || 0) > 1e-6), phap,
+          phang: Math.abs(phap[2]) > 0.999 ? 'bang' : Math.abs(phap[2]) < 0.02 ? 'dung' : 'nghieng' });
+      } catch (err) { out.bo++; }
+    }
+    return out;
+  };
+  /** Tường và cột của phòng đang có trên bản vẽ (thẻ House Design): mặt tường = 2 mặt của từng `RoomWallLine`; cột = hộp bao của `RoomPillar`. */
+  D.tuongPhong = () => {
+    const tuong = [], cot = [];
+    for (const e of D.all()) {
+      const lop = tenLop(e);
+      try {
+        if (lop === 'RoomWallLine') {
+          for (const c of [].concat(e.LeftCurves || [], e.RightCurves || [])) { const a = c.StartPoint, b = c.EndPoint; if (a && b) tuong.push({ a: [r2(a.x), r2(a.y)], b: [r2(b.x), r2(b.y)], cao: r2(e.Height || 0), z: r2(a.z || 0) }); }
+        } else if (lop === 'RoomPillar') { const x = D.boxOf(e); cot.push({ x0: x[0], x1: x[1], y0: x[2], y1: x[3], z0: x[4], z1: x[5] }); }
+      } catch (err) { /* bỏ qua đối tượng lạ */ }
+    }
+    return { tuong, cot };
+  };
+  /** Hỏi người dùng bấm 1 điểm trên bản vẽ. Trả về [x, y, z] hoặc null (Esc). */
+  D.hoiDiem = async msg => {
+    if (D.busy()) await D.cancel();
+    D.boManChe();
+    let r = null;
+    try { r = await ed().GetPoint({ Msg: msg || 'Một Nhà: bấm 1 điểm:' }); } catch (e) { r = null; }
+    return r && r.Status === 1 && r.Point ? [r2(r.Point.x), r2(r.Point.y), r2(r.Point.z)] : null;
+  };
+
   /**
-   * Vẽ tủ bằng lệnh gốc của Chenfeng. opt như D.draw: { at | corner, onStatus }. Phải có toạ độ đặt (chưa hỏi điểm bằng chuột).
-   * Trả về như D.draw, thêm `goc_cf: true`, `chua` (phần chưa có lệnh gốc), `buoc` (số lệnh đã chạy).
+   * Vẽ tủ bằng lệnh gốc của Chenfeng. opt như D.draw: { at | corner, xoay, onStatus }; không có toạ độ thì hỏi người dùng bấm điểm.
+   *   xoay (độ): tủ quay quanh trục đứng qua góc trái – trước – dưới (corner) / qua gốc thiết kế (at).
+   * Trả về như D.draw, thêm `goc_cf: true`, `module` (kết quả gom cả tủ thành một module), `khung` {goc, xoay}, `buoc` (số lệnh đã chạy).
    */
   D.veGoc = async (spec, opt) => {
     opt = Object.assign({ onStatus() {} }, opt || {});
@@ -3620,9 +4147,11 @@
     if (K.loi.length) return { ok: false, giai_doan: 'thiet_ke', errors: K.loi, warnings: M.warnings || [] };
     const n3 = a => Array.isArray(a) && a.length === 3 && a.every(v => typeof v === 'number' && isFinite(v));
     const bb = Core.bbox(M.parts), base = [bb.x0, bb.y0, bb.z0];
-    let offset = null;
-    if (opt.corner) { if (!n3(opt.corner)) return { ok: false, giai_doan: 'nhap', errors: ['Toạ độ đặt tủ phải là 3 số [x, y, z].'], warnings: M.warnings }; offset = opt.corner.map((v, i) => r2(v - base[i])); }
-    else if (opt.at) { if (!n3(opt.at)) return { ok: false, giai_doan: 'nhap', errors: ['Toạ độ đặt tủ phải là 3 số [x, y, z].'], warnings: M.warnings }; offset = opt.at.map(r2); }
+    const xoay = Number(opt.xoay) || 0, bq = quayZ(base, xoay);
+    // CHỖ ĐẶT: atW = vị trí gốc toạ độ thiết kế trên bản vẽ (tủ quay `xoay` độ quanh trục đứng qua điểm đó)
+    let atW = null;
+    if (opt.corner) { if (!n3(opt.corner)) return { ok: false, giai_doan: 'nhap', errors: ['Toạ độ đặt tủ phải là 3 số [x, y, z].'], warnings: M.warnings }; atW = opt.corner.map((v, i) => r2(v - bq[i])); }
+    else if (opt.at) { if (!n3(opt.at)) return { ok: false, giai_doan: 'nhap', errors: ['Toạ độ đặt tủ phải là 3 số [x, y, z].'], warnings: M.warnings }; atW = opt.at.map(r2); }
     else {
       if (D.busy()) await D.cancel();
       D.boManChe();
@@ -3630,16 +4159,49 @@
       let r = null;
       try { r = await ed().GetPoint({ Msg: 'Một Nhà: bấm điểm đặt tủ (góc trái - trước - dưới):' }); } catch (e) { r = null; }
       if (!r || r.Status !== 1) return { ok: false, giai_doan: 'nhap', errors: ['Đã huỷ — chưa vẽ gì.'], warnings: M.warnings };
-      const P0 = r.Point; offset = [r2(P0.x - base[0]), r2(P0.y - base[1]), r2(P0.z - base[2])];
+      const P0 = r.Point; atW = [r2(P0.x - bq[0]), r2(P0.y - bq[1]), r2(P0.z - bq[2])];
+    }
+    const gocCuoi = atW.map((v, i) => r2(v + bq[i]));      // góc trái – trước – dưới của tủ sau khi đặt
+    // CHỖ VẼ: lệnh gốc dò khoảng trống theo chuột ở hướng nhìn trước (tủ / tường khác đứng chắn sẽ làm lệch) và chỉ dựng thẳng trục.
+    // Bản vẽ trống + không xoay → vẽ ngay tại chỗ đặt. Còn lại → vẽ ở chỗ trống bên phải mọi thứ, xong đưa cả tủ về chỗ đặt.
+    let offset = atW, canDat = false;
+    {
+      const san = D.all();
+      if (xoay || san.length) {
+        let mx = -Infinity;
+        for (const e of san) { try { const b = e.BoundingBox; if (b && isFinite(b.max.x) && Math.abs(b.max.x) < 1e7) mx = Math.max(mx, b.max.x); } catch (er) { /* bỏ qua đối tượng không có hộp bao */ } }
+        offset = [r2((isFinite(mx) ? Math.ceil((mx + 3000) / 500) * 500 : 0) - base[0]), r2(-base[1]), r2(-base[2])];
+        canDat = true;
+      }
     }
     const dich = p => [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]];
     const h0 = hmMark(), id = opt.id ? String(opt.id) : D.newId();
     const truocVe = new Set(root.app.Database.ModelSpace.Entitys);
     const cuaToi = () => root.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && !truocVe.has(e));
     const errors = [], warnings = (M.warnings || []).slice();
+    let huongNhin = null; try { huongNhin = root.app.Viewer.CameraControl.Direction.clone(); } catch (e) { huongNhin = null; }
     let xong = 0, daNhin = false;
     const tamCua = new Map(), doiTen = [];      // tấm thiết kế → tấm thật; tấm Chenfeng đặt tên khác thiết kế (cánh: 左开门板…)
-    const nhin = () => { try { const V = root.app.Viewer, bs = cuaToi().filter(D.isBoard); V.ViewToFront(); if (bs.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(bs); else V.ZoomAll(); V.UpdateRender(); } catch (e) { /* bỏ qua */ } };
+    const hien = () => hienHinh(cuaToi().filter(D.isBoard));
+    const nhin = () => { try { const V = root.app.Viewer, bs = cuaToi().filter(D.isBoard); hienHinh(bs); V.ViewToFront(); if (bs.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(bs); else V.ZoomAll(); V.UpdateRender(); veNgay(); } catch (e) { /* bỏ qua */ } };
+    // người dùng xoay / thu phóng bản vẽ giữa chừng → lệnh dò theo chuột sẽ lệch: mỗi lần dò kiểm lại hướng nhìn thẳng mặt trước và điểm dò còn nằm trong màn hình
+    const lechNhin = p => {
+      try {
+        const V = root.app.Viewer, d = V.CameraControl.Direction;
+        if (!(Math.abs(d.x) < 1e-6 && Math.abs(d.y - 1) < 1e-6 && Math.abs(d.z) < 1e-6)) return true;
+        const sc = ed().MouseCtrl._CurMousePointVCS.clone().set(p[0], p[1], p[2]); V.WorldToScreen(sc);
+        return !(sc.x > 8 && sc.y > 8 && sc.x < V.Width - 8 && sc.y < V.Height - 8);
+      } catch (e) { return false; }
+    };
+    // khoảng trống mà lệnh phải dò ra tại `diem` (toạ độ thiết kế): mặt các tấm ĐÃ VẼ gần điểm nhất về 4 phía trên hình chiếu đứng → toạ độ bản vẽ
+    const mongKhoang = diem => {
+      const m = Core.khoangMong([...tamCua.keys()], diem);
+      for (const k of ['x0', 'x1']) if (m[k] !== null) m[k] += offset[0];
+      for (const k of ['z0', 'z1']) if (m[k] !== null) m[k] += offset[2];
+      return m;
+    };
+    const nk = [];      // nhật ký dò khoảng trống của lần vẽ này (bước nào phải thử lại, vì sao)
+    let themHinh = 0;   // số tấm bảng phải tự đưa hình vào Scene trước khi dò (Chenfeng chưa kịp — tab bị che)
     try {
       for (const b of K.buoc) {
         opt.onStatus(`Lệnh gốc ${xong + 1}/${K.buoc.length}: ${TEN_BUOC[b.lenh]}${b.khoang !== undefined ? ' khoang ' + (b.khoang + 1) : ''}…`);
@@ -3651,7 +4213,11 @@
           if (kep.length !== 4) throw new Error(`Cánh khoang ${b.khoang + 1}: không tìm lại đủ 4 tấm kẹp khoang (hồi / vách, đáy, nóc) trên bản vẽ.`);
           tra = await chayCua(b, kep);
         }
-        else { if (!daNhin) { nhin(); await sleep(120); daNhin = true; } tra = await chayGoc(TEN_LENH_GOC[b.lenh], st => { if (st.m_BoardProcessOption) st.m_BoardProcessOption.useBoardProcessOption = true; if (st.autoCutOption) { st.autoCutOption.isAutoCut = false; st.autoCutOption.isRelevance = false; } ganKhoan(st, b.khoan); LUA_CHON[b.lenh](st, b); }, dich(b.diem), 'khoang'); }
+        else {
+          if (!daNhin || lechNhin(dich(b.diem))) { nhin(); await sleep(120); daNhin = true; }
+          tra = await chayGoc(TEN_LENH_GOC[b.lenh], st => { if (st.m_BoardProcessOption) st.m_BoardProcessOption.useBoardProcessOption = true; if (st.autoCutOption) { st.autoCutOption.isAutoCut = false; st.autoCutOption.isRelevance = false; } ganKhoan(st, b.khoan); LUA_CHON[b.lenh](st, b); }, dich(b.diem), 'khoang', mongKhoang(b.diem), { hien, nhin });
+          if (tra.do_) { themHinh += tra.do_.them_hinh || 0; if (tra.do_.lan > 1 || tra.do_.khop === false || tra.do_.loi_ve) nk.push(Object.assign({ buoc: xong + 1, lenh: b.lenh }, tra.do_)); }
+        }
         // Chenfeng dựng tấm + khoan SAU khi lời nhắc đã đóng → chờ đủ số tấm của bước rồi chờ bản vẽ đứng yên, xong mới trả lựa chọn của người dùng
         const tamMoi = () => cuaToi().filter(e => !coTruoc.has(e) && D.isBoard(e));
         await cho(() => tamMoi().length >= b.tam.length, 12000);
@@ -3663,7 +4229,12 @@
           const p = M.parts[i], want = [p.x0 + offset[0], p.x1 + offset[0], p.y0 + offset[1], p.y1 + offset[1], p.z0 + offset[2], p.z1 + offset[2]];
           const hit = moi.find(e => !dung.has(e) && D.boxOf(e).every((v, q) => Math.abs(v - want[q]) < 0.12));
           if (hit) { dung.add(hit); tamCua.set(p, hit); if (hit.Name !== p.ten) doiTen.push([hit, p.ten]); }
-          else throw new Error(`Lệnh ${TEN_LENH_GOC[b.lenh]} (${TEN_BUOC[b.lenh]}${b.khoang !== undefined ? ' khoang ' + (b.khoang + 1) : ''}) không ra đúng tấm "${p.ten}": cần ${want.map(r2).join(' / ')}, Chenfeng vẽ ${moi.length ? moi.map(e => e.Name + ' ' + D.boxOf(e).join(' / ')).join(' ; ') : 'không tấm nào'}.`);
+          else {
+            const d = tra && tra.do_;
+            const vi = !d ? '' : d.khop === false ? ` Chenfeng dò khoảng trống lệch (${d.lan} lần thử): ${d.lech.join('; ')}${d.loi_ve ? ' — lỗi dựng hình: ' + d.loi_ve : ''}. Thường do tab Chenfeng bị che hoặc bản vẽ bị xoay / thu phóng lúc đang vẽ: hoàn tác rồi vẽ lại, để tab Chenfeng mở trên màn hình.`
+              : d.khop === null && d.lech.length ? ` Chenfeng không dò ra khoảng trống ở điểm đó${d.loi_ve ? ' — lỗi dựng hình: ' + d.loi_ve : ''}.` : '';
+            throw new Error(`Lệnh ${TEN_LENH_GOC[b.lenh]} (${TEN_BUOC[b.lenh]}${b.khoang !== undefined ? ' khoang ' + (b.khoang + 1) : ''}) không ra đúng tấm "${p.ten}": cần ${want.map(r2).join(' / ')}, Chenfeng vẽ ${moi.length ? moi.map(e => e.Name + ' ' + D.boxOf(e).join(' / ')).join(' ; ') : 'không tấm nào'}.${vi}`);
+          }
         }
         xong++;
       }
@@ -3681,11 +4252,11 @@
       if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
     }
     const daVe = new Set(); K.buoc.slice(0, xong).forEach(b => b.tam.forEach(i => daVe.add(M.parts[i])));
-    // phần chưa có lệnh gốc (phào, phụ trợ, xà chân, khung hộc kéo, ngăn kéo, suốt treo): vẽ dạng TẤM RỜI qua cổng nhập như trước (không gom module) — tuỳ chọn
+    // phần không có lệnh gốc (phào, phụ trợ, xà chân, khung hộc kéo, ngăn kéo, suốt treo): nhập qua cổng như trước, rồi gom với các thùng lệnh gốc thành MỘT module (bản 1.16)
     let roi = null;
     const conLai = M.parts.filter(p => !daVe.has(p));
     if (!errors.length && opt.phan_roi !== false && (conLai.length || (M.templates || []).some(tp => tp.id))) {
-      opt.onStatus(`Đang vẽ ${conLai.length} tấm còn lại (phào, chân, ngăn kéo…) dạng tấm rời…`);
+      opt.onStatus(`Đang vẽ ${conLai.length} tấm còn lại (phào, chân, ngăn kéo…)…`);
       try {
         const Mr = Object.assign({}, M, { parts: conLai });
         const cf = Core.toChenfeng(Mr, { id });
@@ -3697,31 +4268,71 @@
           roi = { so_tam: conLai.length, added: res.added };
           try { roi.sua_khoan = await D.finalize(res.added.filter(D.isBoard), M.spec.khoan.thung, opt); } catch (e) { roi.sua_khoan = { fixed: 0, normalized: 0, reason: e.message }; }
           conLai.forEach(p => daVe.add(p));
+          // tấm rời thiết kế ↔ tấm thật (để gắn hành động co giãn)
+          const dung = new Set(tamCua.values());
+          for (const p of conLai) {
+            const want = [p.x0 + offset[0], p.x1 + offset[0], p.y0 + offset[1], p.y1 + offset[1], p.z0 + offset[2], p.z1 + offset[2]];
+            const hit = res.added.find(e => e && !e.IsErase && D.isBoard(e) && !dung.has(e) && D.tagOf(e) === id && near(D.boxOf(e), want, 0.15));
+            if (hit) { dung.add(hit); tamCua.set(p, hit); }
+          }
         }
       } catch (e) { warnings.push(`Phần tấm rời (phào, chân, ngăn kéo…) chưa vẽ được: ${e.message}`); }
       await D.settle(700, 20000);
     }
-    const added = cuaToi();
+    let added = cuaToi();
     const veDuMau = !!roi;
     const Msub = Object.assign({}, M, { parts: M.parts.filter(p => daVe.has(p)), templates: veDuMau ? M.templates : [], mat_ngan_keo: veDuMau ? M.mat_ngan_keo : [] });
-    const v = D.verify(Msub, added, offset);
+    const v = D.verify(Msub, added, offset);      // đối chiếu TRƯỚC khi gom module và trước khi xoay (gom rồi mọi tấm chung một mẫu; xoay rồi hộp bao không còn thẳng trục)
     if (!errors.length) {
       if (v.thieu.length) errors.push(`Thiếu ${v.thieu.length} tấm so với thiết kế: ${v.thieu.slice(0, 4).join('; ')}${v.thieu.length > 4 ? '…' : ''}`);
       if (v.sai_ten.length) errors.push(...v.sai_ten.slice(0, 4));
     }
     if (v.tam_khong_lo.length) warnings.push(`${v.tam_khong_lo.length} tấm chưa có lỗ khoan: ${v.tam_khong_lo.slice(0, 5).join(', ')}${v.tam_khong_lo.length > 5 ? '…' : ''}.`);
     if (v.hau_co_lo) warnings.push(`Có ${v.hau_co_lo} lỗ khoan dính tới tấm hậu — hậu phủ bắn đinh không cần lỗ: bỏ kiểu khoan của tấm hậu trong hộp thoại 背板 của Chenfeng.`);
-    const chua = Core.keHoachGoc(spec).chua;
-    if (chua.length) warnings.push(roi ? `Vẽ dạng TẤM RỜI (chưa có lệnh gốc, không chạy theo khi đổi kích thước tủ trong Chenfeng): ${chua.map(c => `${c.ten} × ${c.sl}`).join(', ')}.` : `Chưa có lệnh gốc cho: ${chua.map(c => `${c.ten} × ${c.sl}`).join(', ')} — các phần này CHƯA được vẽ.`);
     if (v.va_cham.length) errors.push(`${v.va_cham.length} chỗ tấm đè lên nhau: ${v.va_cham.slice(0, 4).join('; ')}${v.va_cham.length > 4 ? '…' : ''}`);
     if (v.mat_ngan_keo_lech.length) warnings.push(`Mẫu ngăn kéo đặt mặt khác thiết kế: ${v.mat_ngan_keo_lech.join(', ')} — xem lại mã mẫu / thông số ngăn kéo.`);
     if (roi && roi.sua_khoan && roi.sua_khoan.reason) warnings.push(roi.sua_khoan.reason);
+    // GOM CẢ TỦ THÀNH MỘT MODULE: thùng lệnh gốc + phào, chân, khung hộc kéo, ngăn kéo, suốt treo cùng chạy theo L / W / H
+    let mod = null;
+    const chua = K.chua;
+    if (!errors.length && xong === K.buoc.length && roi && M.spec.module_cf && opt.module !== false) {
+      try { mod = await ganModuleGoc(K, offset, tamCua, added, id, opt); } catch (e) { mod = { ok: false, reason: String(e && e.message || e) }; }
+      if (mod.ok) {
+        added = cuaToi();
+        const v2 = D.verify(Msub, added, offset);
+        if (v2.thieu.length) { if (mod.steps) await D.undo(mod.steps); mod = { ok: false, reason: `gom module làm lệch ${v2.thieu.length} tấm (${v2.thieu.slice(0, 2).join('; ')}) — đã trả lại như trước khi gom.` }; added = cuaToi(); }
+      }
+    }
+    if (mod && mod.ok) for (const g of mod.ghi_chu) warnings.push(g);
+    else if (chua.length) {
+      const ly = mod && !mod.khong_can ? ` (chưa gom được thành một module: ${mod.reason})` : mod && mod.khong_can ? '' : (!M.spec.module_cf ? ' (đang tắt "Module Chenfeng" ở Chuẩn xưởng)' : '');
+      warnings.push(roi ? `Vẽ dạng TẤM RỜI, không chạy theo khi đổi kích thước tủ trong Chenfeng${ly}: ${chua.map(c => `${c.ten} × ${c.sl}`).join(', ')}.` : `Chưa vẽ: ${chua.map(c => `${c.ten} × ${c.sl}`).join(', ')}.`);
+    } else if (mod && mod.khong_can) warnings.push(mod.reason);
+    // ĐƯA TỦ VỀ CHỖ ĐẶT (dời + xoay) — 1 bước hoàn tác
+    let dat = null;
+    const khung = { goc: gocCuoi, xoay };
+    if (canDat && added.length) {
+      opt.onStatus(xoay ? `Đưa tủ về chỗ đặt, xoay ${r2(xoay)}°…` : 'Đưa tủ về chỗ đặt…');
+      try {
+        const C = lopM4(), Mx = new C().makeRotationZ(xoay * Math.PI / 180); Mx.setPosition(atW[0], atW[1], atW[2]); Mx.multiply(new C().setPosition(-offset[0], -offset[1], -offset[2]));
+        dat = await D.apMaTran(added, Mx, 'MNCF_DAT');
+        if (dat.ok) {
+          // kiểm lại trong hệ của tủ: gốc khung = góc trái – trước – dưới ↔ góc nhỏ nhất của thiết kế
+          const kh = D.taoKhung(gocCuoi, xoay); let lech = 0, vd = '';
+          for (const [p, e] of tamCua) { if (!e || e.IsErase) continue; const want = [p.x0 - base[0], p.x1 - base[0], p.y0 - base[1], p.y1 - base[1], p.z0 - base[2], p.z1 - base[2]]; if (!near(D.hopTheo(e, kh), want, 0.25)) { lech++; if (!vd) vd = p.ten; } }
+          if (lech) errors.push(`Đưa tủ về chỗ đặt xong có ${lech} tấm lệch vị trí (vd "${vd}") — hoàn tác rồi vẽ lại.`);
+        } else errors.push(`Tủ đã vẽ xong ở chỗ trống (x ≈ ${r2(offset[0] + base[0])}) nhưng chưa đưa được về chỗ đặt: ${dat.reason} — dùng lệnh MOVE của Chenfeng để dời.`);
+      } catch (e) { errors.push(`Chưa đưa được tủ về chỗ đặt: ${e && e.message || e}`); }
+    }
+    // trả hướng nhìn về như trước khi vẽ, nhìn vào tủ vừa đặt
+    try { const V = root.app.Viewer; if (huongNhin && V.CameraControl && typeof V.CameraControl.LookAt === 'function') V.CameraControl.LookAt(huongNhin); const bs = cuaToi().filter(D.isBoard); if (bs.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(bs); V.UpdateRender(); } catch (e) { /* bỏ qua */ }
+    added = cuaToi();
     const h1 = hmMark();
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : xong;
-    D.last = { M: Msub, added, offset, steps, mark: h1, id, goc_cf: true };
-    try { root.app.Viewer.UpdateRender(); } catch (e) { /* bỏ qua */ }
+    D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true };      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
     opt.onStatus('Xong.');
-    return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + base[i])), kiem_tra: v, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps, module: null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M) };
+    return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset: atW.slice(), goc: gocCuoi, xoay_do: xoay, khung, dat, kiem_tra: v, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps,
+      module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M) };
   };
 
   D.zoom = () => { try { D.cmd('ZOOME'); } catch (e) { /* bỏ qua */ } };
@@ -3924,6 +4535,9 @@ footer{border-top:1px solid var(--line);padding:10px 12px;background:var(--foot)
 .status{font-size:12.5px;color:var(--note);min-height:18px}
 .tunoi{font-size:12.5px;color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-line);border-radius:8px;padding:6px 9px;display:flex;gap:8px;align-items:center;justify-content:space-between}
 .tunoi[hidden]{display:none}
+.hinhcho{font-size:12.5px;color:var(--ink,inherit);background:var(--warn-bg,#fff7e6);border:1px solid var(--warn-line,#e6c98a);border-radius:8px;padding:6px 9px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.hinhcho[hidden]{display:none}
+.hinhcho button{font:inherit;font-size:12px;background:none;border:0;color:inherit;text-decoration:underline;cursor:pointer;padding:2px 4px;min-height:28px}
 .tunoi button{font:inherit;font-size:12px;background:none;border:0;color:inherit;text-decoration:underline;cursor:pointer;padding:2px 4px;min-height:28px}
 .launch{position:fixed;right:16px;bottom:92px;height:44px;padding:0 16px;border-radius:22px;background:var(--accent);color:var(--accent-ink);font:700 13px var(--font);border:0;box-shadow:0 8px 22px rgba(0,0,0,.45);cursor:pointer;z-index:2147483000}
 .chip{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--head);color:var(--head-ink);padding:9px 16px;border-radius:999px;box-shadow:0 8px 22px rgba(0,0,0,.45);z-index:2147483001;font-size:13px;max-width:80vw}
@@ -3998,7 +4612,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
     ['Phào', [F('phao.phu_tro', 'Rộng thanh phụ trợ (0 = không)'), F('phao.noi', 'Nối thanh ngang dài', { select: [['moi_vach', 'Tại mọi vách (đối xứng)'], ['it_nhat', 'Ít mối nối nhất']], span: 2 })]],
     ['Thùng', [F('thung.rong_max', 'Rộng tối đa một thùng (0 = không tách, thùng liền)', { span: 2 })],
       () => 'Tủ rộng hơn số này được tách thành các thùng rời: mỗi thùng có 2 hồi của nó, chỗ tách là 2 hồi áp lưng; các khoang nhỏ còn nằm trong số này thì chung một thùng (vách chung). Phào và chân trước vẫn là khung chung cho cả dãy.'],
-    ['Cách vẽ vào Chenfeng', [F('ve_goc', 'Vẽ bằng LỆNH GỐC của Chenfeng (hồi, vách, nóc đáy, hậu, đợt, cánh là tấm tự động — bấm vào tấm nào sửa được tấm đó như tủ vẽ tay). Bỏ chọn = cách cũ: nhập tấm rồi gom thành module.', { check: 1, span: 2 }), F('module_cf', 'Cách cũ: vẽ xong gom tủ thành module tham số (sửa Rộng / Sâu / Cao ở ô Thông số bên phải của Chenfeng)', { check: 1, span: 2 })]],
+    ['Cách vẽ vào Chenfeng', [F('ve_goc', 'Vẽ bằng LỆNH GỐC của Chenfeng (hồi, vách, nóc đáy, hậu, đợt, cánh là tấm tự động — bấm vào tấm nào sửa được tấm đó như tủ vẽ tay). Bỏ chọn = cách cũ: nhập tấm rồi gom thành module.', { check: 1, span: 2 }), F('module_cf', 'Vẽ xong gom CẢ TỦ thành một module tham số (đổi Rộng / Sâu / Cao ở ô Thông số bên phải của Chenfeng là cả tủ chạy theo) — dùng cho cả hai cách vẽ', { check: 1, span: 2 })]],
     ['Cánh', [F('canh.khe', 'Khe cánh–cánh, cánh–phào'), F('canh.khe_bien', 'Khe mép ngoài (khi không phào)'), F('canh.chen_ban_le', 'Khoét chén bản lề Ø35 (thử nghiệm)', { check: 1, span: 2 }), F('canh.chen.tam_mep', 'Chén: tâm cách mép'), F('canh.chen.sau', 'Chén: sâu'), F('canh.chen.cach_dau', 'Chén: cách đầu cánh'), F('canh.chen.d', 'Chén: đường kính')]],
     ['@loai'],      // bảng "Các loại ngăn kéo" — vẽ riêng (renderLoai)
     ['Ngăn kéo — số chung', [F('ngan_keo.buoc_sau', 'Sâu hộp làm tròn theo bước (dài ray)'), F('ngan_keo.ho_sau', 'Hộp cách hậu ít nhất')]],
@@ -4090,6 +4704,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
   </div>
   <footer>
     <div class="status"></div>
+    ${inCF && Ph && Ph.hinhThanhKhung ? `<div class="frow"><button class="sec" data-act="hinh" title="Trên mặt bằng của Chenfeng, vẽ một hình chữ nhật hoặc đa tuyến kín đúng chỗ tủ đứng (bắt điểm vào tường, cột; chỗ vướng cột vẽ khuyết góc hoặc khuyết giữa — hoặc cứ vẽ chữ nhật trùm qua cột của phòng). Chọn hình đó rồi bấm nút này: bảng lấy rộng, sâu, vị trí, hướng xoay và khấu cột theo hình. Chia khoang, đợt xong bấm Vẽ vào Chenfeng — tủ dựng đúng chỗ hình.">Tủ theo hình đang chọn trên mặt bằng</button></div>
+    <div class="hinhcho" hidden></div>` : ''}
     ${inCF ? `<button class="pri" data-act="draw">Vẽ vào Chenfeng</button>
     <div class="tunoi" hidden></div>
     <div class="frow"><button class="sec" data-act="redraw" disabled title="Sửa số trong bảng rồi bấm: tủ đang nối trên bản vẽ được bỏ đi và vẽ lại ĐÚNG CHỖ CŨ theo số mới — không bấm điểm đặt lại. Dùng được cả khi đã vẽ thêm thứ khác, đã di chuyển tủ, đã lưu rồi mở lại bản vẽ.">Cập nhật tủ này trên bản vẽ</button><button class="sec" data-act="pick" title="Trên bản vẽ, bấm chọn 1 tấm bất kỳ của tủ cần sửa (hồi, đợt, cánh…) rồi bấm nút này: bảng mở lại đúng thông số của tủ đó.">Sửa tủ đang chọn</button></div>
@@ -4113,7 +4729,8 @@ ${Ph ? '<li>Thẻ <b>Phòng</b>: tự điền số đo hiện trạng (cao trầ
 <li><b>Bấm vào một ô</b> rồi chọn: ngăn kéo âm, ngăn kéo trùm ngoài hoặc suốt treo; chọn "Trống" để bỏ. Với ngăn kéo: chỉnh <b>số ngăn</b> và chọn <b>loại</b> (ray bi, ray âm, hộp ray Blum, ngăn chia ô, khung treo quần…).</li>
 <li><b>Vách đứng (hồi giữa)</b> — bản 1.12: bấm nút <b>＋ Vách</b> phía trên hình rồi bấm vào chỗ bất kỳ trong tủ → thêm một vách tại đó (khoang chia đôi, đợt chép sang khoang mới). <b>Kéo vách</b> sang trái / phải để chia lại bề rộng hai khoang kề; bấm vào vách để gõ số lọt lòng hoặc <b>Bỏ vách</b> (gộp 2 khoang). ↶ Lùi trả lại được.</li>
 <li><b>Khấu cột</b> — bản 1.13: tủ vướng cột ở góc sau thì gõ kích thước cột lấn vào tủ (ngang × sâu) ở khung <b>Khấu cột</b> của thẻ Tủ. Hồi phía cột nông lại, đáy / nóc / đợt khoét góc chữ L, có vách khấu dọc mặt bên cột và hậu khấu trước mặt cột; xem hình “Nhìn từ trên xuống” dưới hình đứng. Tủ vẽ từ khung của thẻ Phòng thì tự khấu theo cột trùm đầu khung.</li>
-${cf ? '<li><b>Vẽ bằng lệnh gốc của Chenfeng</b> — bản 1.15: hồi, vách, nóc / đáy, hậu, đợt, cánh được dựng bằng chính các lệnh vẽ tấm của Chenfeng (vách chạy suốt, nóc / đáy theo từng khoang). Vẽ xong chọn tủ → bảng <b>Thông số</b> của Chenfeng → đổi L / W / H là thùng, đợt, hậu, cánh chạy theo. Vẽ lâu hơn (tủ 2 thân khoảng 50 giây) — trong lúc bảng đang vẽ đừng bấm vào bản vẽ. Phào, xà chân, hộc kéo, ngăn kéo, suốt treo vẫn vào dạng tấm rời; tủ có khấu cột hoặc phải xoay theo tường vẽ theo cách cũ. Tắt / bật ở Chuẩn xưởng → Cách vẽ vào Chenfeng.</li>' : ''}
+${cf ? '<li><b>Vẽ bằng lệnh gốc của Chenfeng, cả tủ là một module</b> — bản 1.15–1.16: hồi, vách, nóc / đáy, hậu, đợt, cánh được dựng bằng chính các lệnh vẽ tấm của Chenfeng (vách chạy suốt, nóc / đáy theo từng khoang); phào, xà chân, khung hộc kéo, ngăn kéo, suốt treo được gom cùng các thùng đó thành <b>một module mang mã tủ</b>. Vẽ xong chọn 1 tấm → thẻ Template (Thông số) của Chenfeng → bấm dòng trên cùng (mã tủ) → đổi L / W / H → Apply: <b>cả tủ chạy theo</b>, Chenfeng khoan lại. Tủ được vẽ ở chỗ trống bên phải bản vẽ rồi tự đưa về chỗ đặt (xoay theo tường được) — trong lúc bảng đang vẽ đừng bấm vào bản vẽ; sang tab khác làm việc thì được (bảng tự chờ Chenfeng dựng hình xong từng bước, chậm hơn một chút). Tủ có khấu cột vẽ theo cách cũ (vẫn là một module). Tắt / bật ở Chuẩn xưởng → Cách vẽ vào Chenfeng.</li>' : ''}
+${cf && Ph && Ph.hinhThanhKhung ? '<li><b>Tủ theo hình vẽ trên mặt bằng</b> — bản 1.16: trên mặt bằng của Chenfeng (nhìn từ trên xuống) vẽ một <b>hình chữ nhật hoặc đa tuyến kín</b> đúng chỗ tủ đứng — bắt điểm vào tường, cột; hình là phủ bì của tủ (rộng × sâu, kể cả cánh). Chỗ vướng cột: vẽ khuyết góc / khuyết giữa ở mép sau, hoặc cứ vẽ chữ nhật trùm qua cột của phòng (bảng tự khấu theo cột). Chọn hình → bấm <b>Tủ theo hình đang chọn trên mặt bằng</b>: bảng lấy rộng, sâu, vị trí, hướng xoay, khấu cột; cao lấy theo trần của phòng (sửa được ở ô Cao). Mặt trước tự nhận theo tường / chỗ khuyết, không nhận được thì bảng hỏi bấm 1 điểm phía trước tủ; nhận sai thì bấm “Chọn lại mặt trước”. Chia khoang, đợt xong bấm <b>Vẽ vào Chenfeng</b> — tủ dựng đúng chỗ hình, đúng hướng.</li>' : ''}
 <li><b>Chọn loại ngăn kéo bằng hình</b> — bản 1.13: bấm ô ngăn kéo → bấm nút hình cạnh ô Loại → bấm hình loại cần dùng.</li>
 <li>Vẫn gõ được cao độ các đợt trong thẻ khoang: <code>400, 750, 1800</code> (mặt dưới, tính từ sàn) hoặc <code>deu:4</code> để chia đều 4 đợt.</li>
 ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản vẽ để đặt tủ (điểm đó là góc trái – trước – dưới). Chenfeng tự khoan lỗ. Tab <b>Kết quả</b> báo số tấm, số lỗ, chỗ cần xem lại.</li><li>Vẽ nhầm: tab Kết quả → <b>Hoàn tác lần vẽ này</b> (hoặc Ctrl+Z).</li><li><b>Sửa ngay trong Chenfeng</b>: tủ vẽ xong là một <b>module tham số của Chenfeng</b>. Chọn 1 tấm của tủ → thẻ <b>Template</b> (Thông số) ở bảng bên phải của Chenfeng hiện Rộng (L) / Sâu (W) / Cao (H) → gõ số mới vào <b>cột cuối “Expression”</b> của dòng đó (cột “Parameter Value” chỉ để xem, không gõ được) → <b>Apply data modifications</b>: tủ co giãn đúng kết cấu (cánh, vách, đợt, hộp ngăn kéo chạy theo), Chenfeng tự khoan lại. Tắt ở Chuẩn xưởng → Module Chenfeng.</li><li><b>Sửa tủ đã vẽ</b>: vẽ xong, bảng tự nối với tủ đó — sửa số rồi bấm <b>Cập nhật tủ này trên bản vẽ</b>: tủ cũ được bỏ, tủ mới nằm đúng chỗ cũ, không bấm điểm lại. Tủ vẽ từ trước: trên bản vẽ bấm chọn 1 tấm của tủ → bấm <b>Sửa tủ đang chọn</b> → bảng mở lại đúng thông số của tủ đó. Dùng được cả khi đã vẽ thêm thứ khác, đã di chuyển tủ, đã lưu rồi mở lại bản vẽ (tủ bị xoay thì không). Thông số từng tủ lưu trong trình duyệt của máy này; mỗi tấm mang một ghi chú ngắn “MNCF: mã tủ” để tìm lại. Bản lề, tay nắm anh tự gắn thêm không bị xoá. (Tấm do bảng này vẽ là tấm rời nên bảng Thông số bên phải của Chenfeng không có tham số — sửa tủ thì sửa ở bảng này.)</li><li>Nút <b>Mở rộng</b> ở góc trên làm bảng rộng ra, hình đứng to hơn để kéo đợt cho dễ.</li>'
@@ -4419,8 +5036,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const d = $('[data-act="draw"]'); if (d) d.disabled = busy || model.errors.length > 0;
       const rd = $('[data-act="redraw"]'); if (rd) rd.disabled = busy || model.errors.length > 0 || !noi;
       const pk = $('[data-act="pick"]'); if (pk) pk.disabled = busy;
+      const bh = $('[data-act="hinh"]'); if (bh) bh.disabled = busy;
       const chb = $('[data-act="chuanhoa"]'); if (chb) { chb.disabled = busy; chb.textContent = `Chuẩn hoá mẫu kho đang chọn → ván ${hien(spec.van.t)} · hậu ${hien(spec.hau.t || 6)} phủ sau`; }
-      capNoi();
+      capNoi(); capHinh();
       const j = $('.pri[data-act="json"]'); if (j) j.disabled = model.errors.length > 0;
       renderBar();
     }
@@ -4464,10 +5082,11 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       (rep.errors || []).forEach(t => h.push(`<div class="msg err">${esc(t)}</div>`));
       (rep.warnings || []).forEach(t => h.push(`<div class="msg warn">${esc(t)}</div>`));
       if (rep.sua_khoan && rep.sua_khoan.fixed) h.push(`<div class="msg note">Mẫu ngăn kéo còn mang kiểu khoan cũ (${esc((rep.sua_khoan.old || []).join(', '))}): đã đổi sang ${esc(rep.sua_khoan.to)} cho ${rep.sua_khoan.fixed} tấm rồi cho Chenfeng khoan lại. Nên sửa luôn trong mẫu để lần sau khỏi phải đổi.</div>`);
-      if (rep.goc_cf && rep.giai_doan === 'xong') h.push(`<div class="msg note mod">Tủ vẽ bằng <b>lệnh gốc của Chenfeng</b> (${rep.buoc}/${rep.tong_buoc} lệnh): hồi, vách, nóc đáy, hậu, đợt, cánh là tấm tự động trong cây mẫu gốc. Sửa như tủ vẽ tay: chọn 1 tấm → thẻ <b>Template</b> ở bảng phải → đổi L / W / H của “左右侧板模板” (cả thùng chạy theo), hoặc bấm đúp vào đợt / vách / cánh để mở lại hộp thoại của tấm đó.${rep.tam_roi ? ` ${rep.tam_roi} tấm còn lại (phào, chân, khung hộc kéo…) và ngăn kéo / suốt treo là tấm rời — đổi kích thước tủ xong phải kéo lại bằng tay, hoặc sửa số ở bảng này rồi bấm “Cập nhật tủ này”.` : ''}</div>`);
-      if (rep.module && rep.module.ok) h.push(`<div class="msg note mod">Tủ đã là module tham số của Chenfeng “${esc(rep.module.ten)}”: chọn 1 tấm của tủ → thẻ <b>Template</b> (Thông số) ở bảng bên phải của Chenfeng hiện L (rộng) / W (sâu) / H (cao) → gõ số mới vào <b>cột cuối “Expression”</b> của dòng đó (cột “Parameter Value” chỉ để xem) → bấm <b>Apply data modifications</b>, tủ co giãn đúng kết cấu và Chenfeng khoan lại.${rep.module.mau_con ? ` ${rep.module.mau_con} hộp ngăn kéo / suốt treo bám theo tủ.` : ''} Đổi số đợt, số ngăn kéo, kiểu ruột thì sửa ở bảng này rồi bấm “Cập nhật tủ này”.</div>`);
-      if (rep.xoay) h.push(rep.xoay.ok ? `<div class="msg note">Đã xoay tủ ${hien(rep.xoay.do)}° theo tường ${esc(rep.xoay.tuong)} — tủ nằm đúng khung. Tủ đã xoay thì sửa Rộng / Sâu / Cao ở ô Thông số của Chenfeng (nút “Cập nhật tủ này” của bảng không dùng cho tủ xoay).</div>`
-        : `<div class="msg warn">Chưa tự xoay được tủ theo tường ${esc(rep.xoay.tuong)} (${esc(rep.xoay.reason || '')}). Dùng lệnh xoay của Chenfeng: xoay ${hien(rep.xoay.do)}° quanh điểm ${hien(rep.xoay.goc[0])}; ${hien(rep.xoay.goc[1])} (góc trái–trước của tủ).</div>`);
+      if (rep.goc_cf && rep.giai_doan === 'xong' && rep.module && rep.module.ok) h.push(`<div class="msg note mod">Tủ vẽ bằng <b>lệnh gốc của Chenfeng</b> (${rep.buoc}/${rep.tong_buoc} lệnh) và đã gom thành <b>một module “${esc(rep.module.ten)}”</b>: chọn 1 tấm của tủ → thẻ <b>Template</b> (Thông số) ở bảng phải của Chenfeng → trong cây mẫu <b>bấm vào dòng trên cùng “${esc(rep.module.ten)}”</b> (module của cả tủ; các dòng “左右侧板模板” bên dưới là từng thùng, kích thước của chúng tự tính theo module mẹ — đừng gõ đè) → gõ L (rộng) / W (sâu) / H (cao) mới vào <b>cột cuối “Expression”</b> → <b>Apply data modifications</b>. Thùng, vách, đợt, hậu, cánh (tấm tự động của Chenfeng) cùng phào, chân, khung hộc kéo${rep.module.mau_con ? `, ${rep.module.mau_con} hộp ngăn kéo / suốt treo` : ''} đều chạy theo, Chenfeng khoan lại. Bấm đúp vào đợt / vách / cánh để mở lại hộp thoại gốc của tấm đó. Đổi số đợt, số ngăn kéo, kiểu ruột thì sửa ở bảng này rồi bấm “Cập nhật tủ này”.</div>`);
+      else if (rep.goc_cf && rep.giai_doan === 'xong') h.push(`<div class="msg note mod">Tủ vẽ bằng <b>lệnh gốc của Chenfeng</b> (${rep.buoc}/${rep.tong_buoc} lệnh): hồi, vách, nóc đáy, hậu, đợt, cánh là tấm tự động trong cây mẫu gốc. Sửa như tủ vẽ tay: chọn 1 tấm → thẻ <b>Template</b> ở bảng phải → đổi L / W / H của “左右侧板模板” (cả thùng chạy theo), hoặc bấm đúp vào đợt / vách / cánh để mở lại hộp thoại của tấm đó.${rep.tam_roi ? ` ${rep.tam_roi} tấm còn lại (phào, chân, khung hộc kéo…) và ngăn kéo / suốt treo là tấm rời — đổi kích thước tủ xong phải kéo lại bằng tay, hoặc sửa số ở bảng này rồi bấm “Cập nhật tủ này”.` : ''}</div>`);
+      if (rep.module && rep.module.ok && !rep.goc_cf) h.push(`<div class="msg note mod">Tủ đã là module tham số của Chenfeng “${esc(rep.module.ten)}”: chọn 1 tấm của tủ → thẻ <b>Template</b> (Thông số) ở bảng bên phải của Chenfeng hiện L (rộng) / W (sâu) / H (cao) → gõ số mới vào <b>cột cuối “Expression”</b> của dòng đó (cột “Parameter Value” chỉ để xem) → bấm <b>Apply data modifications</b>, tủ co giãn đúng kết cấu và Chenfeng khoan lại.${rep.module.mau_con ? ` ${rep.module.mau_con} hộp ngăn kéo / suốt treo bám theo tủ.` : ''} Đổi số đợt, số ngăn kéo, kiểu ruột thì sửa ở bảng này rồi bấm “Cập nhật tủ này”.</div>`);
+      if (rep.xoay) h.push(rep.xoay.ok ? `<div class="msg note">Đã đặt tủ theo ${rep.xoay.hinh ? 'hình trên mặt bằng' : 'tường ' + esc(rep.xoay.tuong)}, xoay ${hien(rep.xoay.do)}° — tủ nằm đúng ${rep.xoay.hinh ? 'chỗ hình' : 'khung'}.${rep.module && rep.module.ok ? ' Tủ là module nên vẫn sửa được: đổi L / W / H ở ô Thông số của Chenfeng, hoặc sửa ở bảng này rồi bấm “Cập nhật tủ này”.' : ' Tủ đã xoay mà không phải module: sửa thì xoá tủ rồi vẽ lại.'}</div>`
+        : `<div class="msg warn">Chưa xoay được tủ theo ${rep.xoay.hinh ? 'hình' : 'tường ' + esc(rep.xoay.tuong)} (${esc(rep.xoay.reason || '')}). Dùng lệnh xoay của Chenfeng: xoay ${hien(rep.xoay.do)}° quanh điểm ${hien(rep.xoay.goc[0])}; ${hien(rep.xoay.goc[1])} (góc trái–trước của tủ).</div>`);
       if (rep.cap_nhat) h.push(`<div class="msg note">Đã bỏ ${rep.cap_nhat.bo} đối tượng của tủ cũ (tấm, hộp ngăn kéo, suốt treo, lỗ khoan) rồi vẽ lại đúng chỗ cũ.${rep.cap_nhat.thieu ? ` Tủ cũ thiếu ${rep.cap_nhat.thieu} tấm so với lúc vẽ (đã bị xoá / sửa tay).` : ''} Bản lề, tay nắm anh tự gắn thêm được giữ nguyên — kiểm tra lại vị trí của chúng.</div>`);
       if (k) {
         const rows = [['Tấm theo thiết kế', `${k.so_tam_khop} / ${k.so_tam_thiet_ke}`], ['Tấm do mẫu sinh (hộp ngăn kéo…)', k.so_tam_mau], ['Lỗ khoan', k.so_lo],
@@ -4495,21 +5114,20 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       else if (opt && opt.corner) o.corner = opt.corner;
       else if ($('[data-ui="useAt"]') && $('[data-ui="useAt"]').checked) o.corner = ['ax', 'ay', 'az'].map(n => parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.')) || 0);
       if (!o.at && !o.corner) { panel.hidden = true; chip.textContent = 'Đang chuẩn bị…'; chip.hidden = false; }
-      // khung ở tường phải xoay tủ: lệnh gốc của Chenfeng chưa vẽ được tủ xoay (lệnh ROTATE không xoay được cây mẫu gốc) → khung đó vẽ theo cách nhập tấm
-      const canXoay = !!(khungCho && khungCho.d && khungCho.d.xoay && o.corner && o.corner.every((v, i) => Math.abs(v - khungCho.d.goc[i]) < 0.01));
-      if (canXoay) o.goc = false;
+      // vẽ đúng vị trí của khung đang mở (thẻ Phòng) hoặc của hình vừa lấy trên mặt bằng → tủ quay theo tường / theo hình (bản 1.16: driver tự đặt + xoay, cả tủ lệnh gốc)
+      const kc = khungCho && khungCho.d && o.corner && o.corner.every((v, i) => Math.abs(v - khungCho.d.goc[i]) < 0.01) ? khungCho : null;
+      if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
       let rep;
-      try { rep = await Drv.draw(spec, o); if (canXoay && spec.ve_goc !== false && rep && Array.isArray(rep.warnings)) rep.warnings.unshift(`Khung này nằm ở tường ${khungCho.d.tuong} (tủ phải xoay ${hien(khungCho.d.xoay)}°): lệnh gốc Chenfeng chưa vẽ được tủ xoay → tủ này vẽ theo cách nhập tấm (module đổi được Rộng / Sâu / Cao).`); }
+      try { rep = await Drv.draw(spec, o); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
-      // tủ vừa vẽ đúng vị trí của khung đang mở (thẻ Phòng) → xoay theo tường của khung
-      const kc = khungCho; khungCho = null;
-      if (kc && rep.giai_doan === 'xong' && o.corner && o.corner.every((v, i) => Math.abs(v - kc.d.goc[i]) < 0.01)) { try { await xoayTheoKhung(rep, kc); } catch (e) { /* báo ở kết quả */ } }
+      khungCho = null; capHinh();
+      if (kc && rep.giai_doan === 'xong') { try { ghiKhung(rep, kc); } catch (e) { /* báo ở kết quả */ } }
       chip.hidden = true; panel.hidden = false; launch.hidden = true; busy = false;
       try {
         lastRep = rep;
         if (Ph) paintPhong();      // mở lại các nút của thẻ Phòng (bị khoá trong lúc vẽ), cập nhật "đã vẽ" của khung
         if (rep.giai_doan === 'xong' && rep.id) { noi = { id: rep.id, spec: clone(spec), ten: spec.ma || spec.ten || '' }; khoTu.save(rep.id, noi.spec); }
-        if (rep.xoay && rep.xoay.ok) noi = null;      // tủ đã xoay: bảng không dò lại được vị trí → sửa kích thước ở ô Thông số của Chenfeng
+        if (rep.xoay && rep.xoay.ok && !(rep.module && rep.module.ok)) noi = null;      // tủ đã xoay mà không phải module: bảng không dò lại được vị trí → sửa kích thước ở ô Thông số của Chenfeng
         rebuild(); showReport(rep); setStatus(rep.ok ? 'Đã vẽ xong.' : 'Có lỗi — xem tab Kết quả.');   // lastRep trước rebuild: nút "Cập nhật tủ vừa vẽ" bật theo lần vẽ này
         if (rep.giai_doan === 'xong') Drv.zoom();
       } catch (e) { setStatus('Lỗi khi hiện kết quả: ' + (e && e.message || e)); }
@@ -4544,6 +5162,69 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       } catch (e) { setStatus('Lỗi khi hiện kết quả: ' + (e && e.message || e)); }
       return rep;
     }
+    /* ---- bản 1.16: TỦ THEO HÌNH VẼ TRÊN MẶT BẰNG ----
+     * Người dùng vẽ hình chữ nhật / đa tuyến kín lên mặt bằng trong Chenfeng (đúng chỗ tủ đứng), chọn hình rồi bấm nút: bảng đọc rộng, sâu, vị trí, hướng xoay, khấu cột.
+     * Mặt trước: tự nhận theo tường / chỗ khuyết; không nhận được thì hỏi bấm 1 điểm phía trước tủ. Vị trí đặt giữ ở `khungCho` — bấm "Vẽ vào Chenfeng" là dựng đúng chỗ. */
+    function capHinh() {
+      const el = $('.hinhcho'); if (!el) return;
+      const k = khungCho && khungCho.hinh;
+      if (!k) { el.hidden = true; el.textContent = ''; return; }
+      const q = k.k, kh = [];
+      if (q.khau.trai.rong > 0) kh.push(`trái ${hien(q.khau.trai.rong)} × ${hien(q.khau.trai.sau)}`);
+      if (q.khau.phai.rong > 0) kh.push(`phải ${hien(q.khau.phai.rong)} × ${hien(q.khau.phai.sau)}`);
+      q.khau.giua_cot.forEach(c => kh.push(`giữa (cách trái ${hien(c.cach)}) ${hien(c.rong)} × ${hien(c.sau)}`));
+      el.hidden = false;
+      el.innerHTML = `<span>Đang đặt theo <b>hình trên mặt bằng</b>: ${hien(q.rong)} × ${hien(q.sau)}, xoay ${hien(q.xoay)}°${kh.length ? ', khấu cột ' + esc(kh.join('; ')) : ''}. Mặt trước nhận theo ${esc(q.mat_truoc || '')}. Bấm “Vẽ vào Chenfeng” để dựng tủ đúng chỗ hình.</span><button data-act="hinh-truoc" title="Mặt trước tủ bị nhận sai phía: bấm nút này rồi bấm 1 điểm ở phía TRƯỚC tủ trên bản vẽ">Chọn lại mặt trước</button><button data-act="hinh-bo" title="Thôi đặt theo hình">Bỏ hình</button>`;
+    }
+    async function theoHinh(hoiTruoc) {
+      if (!Drv || busy || !Ph || !Ph.hinhThanhKhung) return;
+      if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return; }
+      let h = null;
+      if (hoiTruoc && khungCho && khungCho.hinh) h = khungCho.hinh.h;      // chọn lại mặt trước của hình đang giữ
+      else {
+        const r = Drv.docHinh(), bang = r.hinh.filter(x => x.phang === 'bang');
+        if (!r.hinh.length) { setStatus('Trên mặt bằng của Chenfeng, vẽ một hình chữ nhật (RECTANG) hoặc đa tuyến kín đúng chỗ tủ đứng, bấm chọn hình đó rồi bấm lại nút này.'); return; }
+        if (!bang.length) { setStatus(r.hinh.some(x => x.phang === 'dung') ? 'Hình đang chọn nằm trên MẶT ĐỨNG (mặt tường). Nút này nhận hình vẽ trên MẶT BẰNG (nhìn từ trên xuống) — chia ô trên mặt đứng sẽ có ở bản sau.' : 'Hình đang chọn nằm nghiêng — vẽ hình ở hướng nhìn từ trên xuống.'); return; }
+        h = bang[0];
+        if (!h.kin) { setStatus('Hình đang chọn chưa khép kín — vẽ hình chữ nhật hoặc đa tuyến KÍN (đỉnh cuối trùng đỉnh đầu).'); return; }
+        if (h.cong) { setStatus('Hình có đoạn cong — bảng chỉ nhận hình gồm các cạnh thẳng vuông góc nhau.'); return; }
+        if (bang.length > 1) setStatus(`Đang chọn ${bang.length} hình — bảng lấy hình đầu tiên; các hình còn lại làm lần lượt sau.`);
+      }
+      const dinh = h.dinh3.map(q => [q[0], q[1]]), z = h.dinh3[0][2] || 0;
+      let ph = { tuong: [], cot: [] };
+      try { ph = Drv.tuongPhong(); } catch (e) { ph = { tuong: [], cot: [] }; }
+      const tuong = ph.tuong.filter(w => Math.abs((w.z || 0) - z) < 1 || !w.z), cot = ph.cot.filter(c => c.z1 > z + 1);
+      let k = hoiTruoc ? null : Ph.hinhThanhKhung(dinh, { tuong, cot });
+      if (hoiTruoc || (!k.ok && k.can_diem)) {
+        const an = !panel.hidden; panel.hidden = true; chip.textContent = 'Bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh)…'; chip.hidden = false;
+        let p = null; try { p = await Drv.hoiDiem('Một Nhà: bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh):'); } catch (e) { p = null; }
+        chip.hidden = true; if (an) panel.hidden = false;
+        if (!p) { setStatus('Đã huỷ — chưa lấy hình.'); return; }
+        k = Ph.hinhThanhKhung(dinh, { tuong, cot, truoc: [p[0], p[1]] });
+      }
+      if (!k.ok) { setStatus(k.loi); return; }
+      // cao tủ: theo trần của tường gần hình nhất (có phòng trên bản vẽ); không có thì giữ số đang nhập
+      let cao = spec.cao, theoTran = false;
+      if (tuong.length) {
+        const tam = dinh.reduce((a, q) => [a[0] + q[0] / dinh.length, a[1] + q[1] / dinh.length], [0, 0]);
+        const kc = w => { const dx = w.b[0] - w.a[0], dy = w.b[1] - w.a[1], L2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((tam[0] - w.a[0]) * dx + (tam[1] - w.a[1]) * dy) / L2)); return Math.hypot(tam[0] - w.a[0] - t * dx, tam[1] - w.a[1] - t * dy); };
+        const gan = tuong.filter(w => w.cao > 0).sort((a, b) => kc(a) - kc(b))[0];
+        if (gan && kc(gan) < Math.max(k.rong, k.sau) + 200) { cao = gan.cao; theoTran = true; }
+      }
+      // giữ cách chia khoang đang mở nếu còn hợp bề rộng mới (mỗi cánh 330–620); không thì bảng tự chọn ruột theo bề rộng
+      const soCanh = spec.khoang.reduce((n, kk) => n + (kk.canh || 0), 0), rongCanh = soCanh ? k.rong / soCanh : 0;
+      const giu = soCanh > 0 && rongCanh >= 330 && rongCanh <= 620 && spec.khoang.every(kk => kk.rong === 'auto' || kk.rong === '' || kk.rong === undefined || kk.rong === null);
+      const t = Ph.tuChoKhung(Core, spec, { ten: spec.ma || spec.ten || 'TU', rong: k.rong, cao, sau: k.sau, mau: '', khau: k.khau, giu_ruot: giu }, spec.phong || '', null, -1);
+      spec = t.spec; noi = null; sel = null;
+      const d = { goc: [k.goc[0], k.goc[1], z], xoay: k.xoay, tuong: 'hình vẽ' };
+      khungCho = { j: -1, d, hinh: { k, h } };
+      renderAll(); switchTab('tu');
+      const ua = $('[data-ui="useAt"]');
+      if (ua) { ua.checked = true; ['ax', 'ay', 'az'].forEach((n, i) => { $(`[data-ui="${n}"]`).value = fmt(d.goc[i]); }); }
+      capHinh();
+      setStatus(`Đã lấy hình: rộng ${hien(k.rong)} × sâu ${hien(k.sau)}, cao ${hien(cao)}${theoTran ? ' (theo trần — tủ thấp hơn thì sửa ô Cao)' : ''}, xoay ${hien(k.xoay)}°. ${k.ghi_chu.concat(t.ghi_chu).join(' ')}${model && model.errors.length ? ' Tủ còn lỗi (ô đỏ) — sửa rồi bấm Vẽ.' : ' Chỉnh khoang / đợt rồi bấm “Vẽ vào Chenfeng”.'}`);
+    }
+
     /** Người dùng chọn 1 tấm của tủ đã vẽ → mở lại thông số của tủ đó để sửa. */
     function pick() {
       if (!Drv || busy) return;
@@ -4786,16 +5467,14 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (r.ok) Drv.zoom();
       return r;
     }
-    // sau khi vẽ tủ đúng vị trí một khung: xoay cả tủ theo tường của khung, ghi nhớ khung đã vẽ
-    async function xoayTheoKhung(rep, k) {
+    // sau khi vẽ tủ đúng vị trí một khung / một hình: ghi kết quả đặt + xoay vào báo cáo, ghi nhớ khung đã vẽ
+    function ghiKhung(rep, k) {
       const d = k.d;
       if (d.xoay) {
-        setStatus(`Đang xoay tủ theo tường ${d.tuong}…`);
-        let r; try { r = await Drv.rotate(Drv.last && Drv.last.added, d.goc, d.xoay); } catch (e) { r = { ok: false, steps: 0, reason: String(e && e.message || e) }; }
-        rep.xoay = Object.assign({ do: d.xoay, tuong: d.tuong, goc: d.goc }, r);
-        if (r.ok) rep.so_buoc_hoan_tac = (rep.so_buoc_hoan_tac || 1) + r.steps;
+        const kq = rep.goc_cf ? (rep.dat || { ok: false, reason: 'tủ chưa được đưa về chỗ đặt' }) : (rep.xoay_kq || { ok: false, reason: 'lệnh xoay không chạy' });
+        rep.xoay = { do: d.xoay, tuong: d.tuong, goc: d.goc, ok: !!kq.ok, reason: kq.reason || '', hinh: !!k.hinh };
       }
-      if (rep.id && phong.khung[k.j]) { phong.khung[k.j].tu_id = rep.id; phongStore.save(); }
+      if (rep.id && k.j >= 0 && phong.khung[k.j]) { phong.khung[k.j].tu_id = rep.id; phongStore.save(); }
     }
     async function veKhung(j) {
       if (busy) return;
@@ -5105,6 +5784,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       else if (act === 'draw') return draw();
       else if (act === 'redraw') return redraw();
       else if (act === 'pick') return pick();
+      else if (act === 'hinh') return theoHinh(false);
+      else if (act === 'hinh-truoc') return theoHinh(true);
+      else if (act === 'hinh-bo') { khungCho = null; capHinh(); setStatus('Đã bỏ hình — bảng trở lại đặt tủ theo điểm bấm / toạ độ.'); }
       else if (act === 'chuanhoa') return chuanHoa();
       else if (act === 'undo-ch') { if (Drv && !busy) { const coDV = b.dataset.dv === '1'; setStatus('Đang hoàn tác…'); return Drv.undoChuanHoa().then(r => (r.ok && coDV && Drv.undoDayVan ? Drv.undoDayVan().then(d => (d.ok ? r : { ok: true, luu_y: d.reason })) : r)).then(r => { if (r.ok) { setStatus('Đã hoàn tác lần chuẩn hoá vừa rồi.'); $('.report').innerHTML = `<p class="hint">Đã hoàn tác lần chuẩn hoá vừa rồi — module trở lại kết cấu gốc của mẫu${r.luu_y ? ` (riêng dày ván chưa trả lại: ${esc(r.luu_y)})` : ''}.</p>`; } else setStatus(r.reason); }); } }
       else if (act === 'undo-dv') { if (Drv && !busy && Drv.undoDayVan) { setStatus('Đang hoàn tác…'); return Drv.undoDayVan().then(r => { if (r.ok) { setStatus('Đã trả dày ván của module về như mẫu.'); $('.report').innerHTML = '<p class="hint">Đã trả dày ván của module về như mẫu gốc.</p>'; } else setStatus(r.reason); }); } }

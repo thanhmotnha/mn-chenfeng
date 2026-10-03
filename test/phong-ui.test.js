@@ -158,6 +158,7 @@ async function tienIch() {
   const ctx = await chromium.launchPersistentContext(dir, { channel: 'chromium', headless: true, viewport: { width: 1500, height: 900 }, args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`] });
   try {
     await ctx.route('https://api.cfcad.cn/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"err_code":1,"err_msg":"no"}' }));
+    await require('./kho-gia.js')(ctx);      // bộ nạp của tiện ích lấy bản gộp vừa dựng trong máy
     await ctx.route('https://cfcad.cn/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }));
     const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
     await page.goto('https://cfcad.cn/');
@@ -191,12 +192,12 @@ async function tienIch() {
 
     // vẽ khung K2 (tường B): vẽ xong tự xoay −90° quanh góc trái–trước, tủ nằm đúng khung
     await H.locator('.pcard[data-kj="1"] [data-act="k-ve"]').click();
-    await page.waitForFunction(() => /Đã xoay tủ/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
-    ok(/Đã xoay tủ -90° theo tường B — tủ nằm đúng khung/.test(await H.locator('.report').innerText()), 'khung ở tường B: báo đã xoay −90°', (await H.locator('.report').innerText()).slice(0, 300));
+    await page.waitForFunction(() => /Đã đặt tủ theo tường/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
+    ok(/Đã đặt tủ theo tường B, xoay -90° — tủ nằm đúng khung/.test(await H.locator('.report').innerText()), 'khung ở tường B: báo đã đặt theo tường, xoay −90°', (await H.locator('.report').innerText()).slice(0, 300));
     r = await page.evaluate(() => { const D = window.MNCFDriver, a = D.last.added.filter(e => !e.IsErase && D.isBoard(e)).map(D.boxOf), mn = i => Math.min(...a.map(b => b[i])), mx = i => Math.max(...a.map(b => b[i])); return { hop: [mn(0), mx(1), mn(2), mx(3), mn(4), mx(5)].map(v => Math.round(v * 10) / 10), rot: window.__MOCK_ROTATE__, steps: D.last.steps, n: D.last.added.length }; });
     ok(JSON.stringify(r.hop) === JSON.stringify([13050, 13600, 300, 1300, 0, 2400]), 'tủ K2 sau khi xoay: lưng sát tường B (x = 13600), chiếm y 300…1300, sâu 550', r.hop);
     ok(r.rot && r.rot.length === 1 && r.rot[0].do === -90 && JSON.stringify(r.rot[0].goc) === JSON.stringify([13050, 1300, 0]) && r.rot[0].n === r.n, 'lệnh ROTATE: xoay TẤT CẢ đối tượng của tủ, −90° quanh góc trái–trước', r.rot);
-    ok(!(await H.locator('.tunoi').isVisible()), 'tủ đã xoay: bảng không nối để "Cập nhật tủ này"');
+    ok(await H.locator('.tunoi').isVisible(), 'tủ đã xoay là module (bản 1.16): bảng vẫn nối để "Cập nhật tủ này"');
     const soTruoc = await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length);
     await H.locator('[data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
@@ -208,7 +209,7 @@ async function tienIch() {
     await H.locator('.pcard[data-kj="1"] [data-act="k-mo"]').click();
     ok(/tủ tự xoay -90° theo tường B/.test(await st()) && (await H.locator('#mncf-ui-useat').isChecked()) && (await H.locator('#mncf-ui-ax').inputValue()) === '13050', 'Mở thành tủ: điền toạ độ khung, báo sẽ tự xoay', await st());
     await H.locator('[data-act="draw"]').click();
-    await page.waitForFunction(() => /Đã xoay tủ/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
+    await page.waitForFunction(() => /Đã đặt tủ theo tường/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
     ok((await page.evaluate(() => (window.__MOCK_ROTATE__ || []).length)) === 2, 'vẽ từ thẻ Tủ sau "Mở thành tủ": tự xoay');
     await H.locator('#mncf-ui-ax').fill('500');
     await H.locator('[data-act="draw"]').click();

@@ -868,5 +868,68 @@ T('Kế hoạch vẽ bằng LỆNH GỐC của Chenfeng (bản 1.15 — anh Jaso
   ok(K3.loi.length === 0 && d3 && d3.ext.duoi < -300, 'cánh phía trên ngăn kéo trùm ngoài: mép dưới cánh hở vào (ext.duoi âm)', d3 && d3.ext);
 });
 
+T('Cả tủ là MỘT module (bản 1.16): biểu thức co giãn cho từng lệnh gốc lấy từ heSo', () => {
+  eq([C0.bieuThucTT(-8.75, 0.5, 'L'), C0.bieuThucTT(50, 0, '_L'), C0.bieuThucTT(0, 1, '_W'), C0.bieuThucTT(-100, 1, '_L'), C0.bieuThucTT(12.5, -0.25, 'H'), C0.bieuThucTT(0, -1, 'H')], ['-8.75+L*0.5', '50', '_W', '-100+_L', '12.5-H*0.25', '-H'], 'cách viết biểu thức tuyến tính');
+  // tủ 1 thùng 2 khoang: khoang 1 có 2 cánh, khoang 2 có 1 cánh → vách chia theo tỉ lệ 2 : 1
+  const spec = { ma: 'T', rong: 1400, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [1150], o: [] }, { rong: 'auto', canh: 1, dot: [750, 1500], o: [] }] };
+  const K = C0.keHoachGoc(spec), lr = K.buoc[0], ve = K.buoc[1];
+  eq([K.gan.goc, K.gan.kich, K.gan.co], [[0, -17.5, 0], [1400, 597.5, 2200], { L: true, W: true, H: true }], 'module mẹ: gốc = góc nhỏ nhất của tủ (mặt cánh), L / W / H = phủ bì');
+  eq(lr.gan, { px: '50', l: '-100+_L', py: '17.5', w: '-23.5+_W', pz: '0', h: '-50+_H' }, 'thùng: nằm sau phào trái 50, rộng = L − 2 phào, sâu = W − cánh − hậu, cao = H − phào trên');
+  ok(/^-?[\d.]+\+L\*0\.6666/.test(ve.cach_bt) && ve.kep.map(i => K.M.parts[i].ten).join() === 'Hồi trái,Hồi phải', 'vách: khoảng cách tới hồi trái = biểu thức theo bề rộng khoảng trống (2/3), kẹp giữa hồi trái và hồi phải', ve.cach_bt);
+  // biểu thức phải cho đúng vị trí khi dựng lại tủ ở kích thước khác
+  const gt = (bt, bien) => Function(...Object.keys(bien), 'return ' + bt)(...Object.values(bien));
+  for (const [dL, dW, dH] of [[200, 0, 0], [-150, 60, -100], [300, -40, -200]]) {      // cao không vượt chiều cao thân dưới 2200 (vượt là tủ tách 2 thân — đổi số tấm, không còn tuyến tính)
+    const s2 = Object.assign({}, spec, { rong: spec.rong + dL, cao: spec.cao + dH, sau_thung: C0.normalize(spec).sau_thung + dW }), K2 = C0.keHoachGoc(s2);
+    const bien = { _L: K2.gan.kich[0], _W: K2.gan.kich[1], _H: K2.gan.kich[2] };
+    const lr2 = K2.buoc[0], ve2 = K2.buoc[1];
+    ok(near(gt(lr.gan.l, bien), lr2.rong, 0.06) && near(gt(lr.gan.w, bien), lr2.sau, 0.06) && near(gt(lr.gan.h, bien), lr2.cao, 0.06) && near(gt(lr.gan.px, bien), lr2.goc[0] - K2.gan.goc[0], 0.06), `đổi L ${dL}, W ${dW}, H ${dH}: biểu thức của thùng ra đúng kích thước dựng lại`, [gt(lr.gan.l, bien), lr2.rong, gt(lr.gan.w, bien), lr2.sau, gt(lr.gan.h, bien), lr2.cao]);
+    const Ls = K2.M.parts[ve2.kep[1]].x0 - K2.M.parts[ve2.kep[0]].x1;
+    ok(near(gt(ve.cach_bt, { L: Ls }), ve2.cach, 0.6), `đổi L ${dL}: biểu thức của vách ra đúng chỗ vách dựng lại (lệch dưới 0,6 do cánh làm tròn 0,5)`, [gt(ve.cach_bt, { L: Ls }), ve2.cach]);
+    // đợt đặt theo cao độ tuyệt đối → khoảng cách tới tấm dưới là hằng số
+    K.buoc.filter(b => b.lenh === 'LY').forEach((b, i) => ok(!isNaN(Number(b.cach_bt)) && near(Number(b.cach_bt), K2.buoc.filter(x => x.lenh === 'LY')[i].cach, 0.06), `đổi H ${dH}: đợt ${i + 1} giữ cao độ`, b.cach_bt));
+  }
+  // tủ mặc định (2 thân, 2 thùng): mỗi thùng một bộ biểu thức; thân trên bám theo H
+  const K3 = C0.keHoachGoc(C0.DEFAULT_SPEC), L3 = K3.buoc.filter(b => b.lenh === 'LR');
+  ok(L3.length === 4 && L3.every(b => b.gan && b.gan.w === '-23.5+_W'), '4 thùng (2 thân × 2 thùng) đều có biểu thức', L3.map(b => b.gan));
+  const s3 = Object.assign({}, C0.DEFAULT_SPEC, { rong: C0.DEFAULT_SPEC.rong + 300, cao: C0.DEFAULT_SPEC.cao + 100 }), K4 = C0.keHoachGoc(Object.assign({}, s3, { thung: Object.assign({}, C0.normalize(s3).thung, { tach: K3.M.info.tach }) })), L4 = K4.buoc.filter(b => b.lenh === 'LR');
+  const bien3 = { _L: K4.gan.kich[0], _W: K4.gan.kich[1], _H: K4.gan.kich[2] };
+  ok(L4.length === 4 && L3.every((b, i) => near(gt(b.gan.l, bien3), L4[i].rong, 0.3) && near(gt(b.gan.px, bien3), L4[i].goc[0] - K4.gan.goc[0], 0.3) && near(gt(b.gan.pz, bien3), L4[i].goc[2] - K4.gan.goc[2], 0.06) && near(gt(b.gan.h, bien3), L4[i].cao, 0.06)), 'tủ mặc định + 300 rộng + 100 cao: 4 thùng ra đúng chỗ, đúng cỡ', L3.map((b, i) => [gt(b.gan.l, bien3), L4[i].rong, gt(b.gan.px, bien3), L4[i].goc[0], gt(b.gan.pz, bien3), L4[i].goc[2]]));
+  // vách không có biểu thức thừa khi khoang gõ số cứng: khoang 1 cố định → vách đứng yên
+  const K5 = C0.keHoachGoc({ rong: 1400, cao: 2200, khoang: [{ rong: 500, canh: 1, dot: [], o: [] }, { rong: 'auto', canh: 2, dot: [], o: [] }] });
+  ok(!isNaN(Number(K5.buoc[1].cach_bt)) && Number(K5.buoc[1].cach_bt) === 500, 'khoang gõ bề rộng cứng 500: vách cách hồi trái đúng 500, không co giãn', K5.buoc[1].cach_bt);
+  ok(K.hs && K.hs.bien.L && K.con_lai.every(p => K.M.parts.includes(p)), 'trả kèm hệ số (hs) và danh sách tấm rời để driver gắn hành động');
+});
+
+T('Khoảng trống mỗi lệnh gốc phải dò ra (khoangMong) khớp với chính kế hoạch — máy vẽ dùng để kiểm hộp xem trước của Chenfeng', () => {
+  // dựng lần lượt như máy vẽ: tới bước nào thì các tấm của những bước trước đã có trên bản vẽ
+  const thu = (ten, spec) => {
+    const K = C0.keHoachGoc(spec), P = K.M.parts, daVe = [];
+    ok(K.loi.length === 0 && K.buoc.length > 3, `${ten}: có kế hoạch lệnh gốc`, K.loi);
+    let soDo = 0;
+    for (const b of K.buoc) {
+      const tam = b.tam.map(i => P[i]);
+      if (b.diem) {
+        const m = C0.khoangMong(daVe, b.diem); soDo++;
+        const nhan = `${ten} — ${b.lenh}${b.khoang !== undefined ? ' khoang ' + (b.khoang + 1) : ''} tại ${b.diem.join(' / ')}`;
+        ok(m.x0 !== null && m.x1 !== null && m.x0 < b.diem[0] && m.x1 > b.diem[0], `${nhan}: hai bên điểm dò đã có tấm đứng`, m);
+        if (b.lenh === 'VE') ok(near(tam[0].x0 - m.x0, b.cach, 0.01) && m.x0 === P[b.kep[0]].x1 && m.x1 === P[b.kep[1]].x0, `${nhan}: vách cách đúng tấm đứng bên trái \`cach\`, khoảng kẹp = 2 tấm \`kep\``, [m, b.cach]);
+        if (b.lenh === 'TB') ok(tam.every(p => near(p.x0, m.x0, 0.01) && near(p.x1, m.x1, 0.01)), `${nhan}: nóc + đáy lọt đúng giữa 2 tấm đứng`, [m, tam.map(p => [p.x0, p.x1])]);
+        if (b.lenh === 'BE') ok(m.z0 !== null && m.z1 !== null && near(m.x0 - tam[0].x0, b.ext.trai, 0.01) && near(tam[0].x1 - m.x1, b.ext.phai, 0.01) && near(m.z0 - tam[0].z0, b.ext.duoi, 0.01) && near(tam[0].z1 - m.z1, b.ext.tren, 0.01), `${nhan}: hậu trùm ra 4 phía đúng \`ext\` tính từ khoảng giữa hồi / vách / đáy / nóc`, [m, b.ext]);
+        if (b.lenh === 'LY') ok(m.z0 === P[b.kep[0]].z1 && m.z1 === P[b.kep[1]].z0 && near(tam[0].z0 - m.z0, b.cach, 0.01), `${nhan}: đợt cách đúng tấm bên dưới \`cach\`, phía trên là nóc`, [m, b.cach]);
+        // điểm dò nằm hẳn trong khoảng (không sát mép tấm nào — chuột sát mép dễ dính tấm bên cạnh)
+        ok(b.diem[0] - m.x0 > 20 && m.x1 - b.diem[0] > 20 && (m.z0 === null || b.diem[2] - m.z0 > 5) && (m.z1 === null || m.z1 - b.diem[2] > 5), `${nhan}: điểm dò cách mép các tấm quanh nó`, [m, b.diem]);
+      }
+      daVe.push(...tam);
+    }
+    return soDo;
+  };
+  ok(thu('tủ 1 thùng 2 khoang', { ma: 'T', rong: 1400, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [1150], o: [] }, { rong: 'auto', canh: 1, dot: [450, 790, 1130, 1470, 1810], o: [] }] }) >= 10, 'tủ 1 thùng: đủ các bước dò');
+  ok(thu('tủ mặc định (2 thân, 2 thùng)', C0.DEFAULT_SPEC) >= 12, 'tủ mặc định: đủ các bước dò');
+  ok(thu('tủ cao 2700 (thân trên đặt trên thân dưới)', { ma: 'T', rong: 1600, cao: 2700, khoang: [{ rong: 'auto', canh: 2, dot: [1150], o: [] }, { rong: 'auto', canh: 2, dot: [450, 790, 1130, 1470, 1810], o: [] }] }) >= 14, 'tủ 2 thân: đủ các bước dò');
+  // tấm trùm lên điểm trên hình chiếu (hậu) không tính là tấm chắn; chưa có tấm phía nào thì phía đó để trống
+  eq(C0.khoangMong([{ x0: 0, x1: 18, z0: 0, z1: 2200 }, { x0: 982, x1: 1000, z0: 0, z1: 2200 }, { x0: 0, x1: 1000, z0: 100, z1: 2100 }], [500, 300, 1100]), { x0: 18, x1: 982, z0: null, z1: null }, 'chỉ có 2 hồi + hậu: trái / phải là 2 hồi, trên / dưới để trống');
+  eq(C0.khoangMong([], [0, 0, 0]), { x0: null, x1: null, z0: null, z1: null }, 'chưa vẽ tấm nào: không có khoảng mong đợi');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

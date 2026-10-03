@@ -212,5 +212,60 @@ T('Mã phòng: đọc lại được, bỏ chữ thừa quanh', () => {
   eq(P.tenTuong(0) + P.tenTuong(25) + P.tenTuong(26), 'AZAA', 'tên tường A…Z, AA');
 });
 
+T('Hình vẽ trên mặt bằng → khung đặt tủ (bản 1.16)', () => {
+  const cn = [[0, 0], [2000, 0], [2000, 600], [0, 600]];
+  let r = P.hinhThanhKhung(cn);
+  ok(!r.ok && r.can_diem, 'hình chữ nhật trơn, không có tường: phải hỏi bấm điểm phía trước');
+  r = P.hinhThanhKhung(cn, { truoc: [1000, -500] });
+  eq([r.ok, r.rong, r.sau, r.goc, r.xoay, r.chu_nhat], [true, 2000, 600, [0, 0], 0, true], 'bấm điểm phía dưới: mặt trước ở y nhỏ, không xoay, gốc = góc trái–trước');
+  r = P.hinhThanhKhung(cn, { truoc: [1000, 1500] });
+  eq([r.rong, r.sau, r.goc, r.xoay], [2000, 600, [2000, 600], 180], 'bấm điểm phía trên: tủ quay 180°, góc trái–trước là góc trên–phải của hình');
+  r = P.hinhThanhKhung(cn, { tuong: [{ a: [-500, 600], b: [3000, 600] }] });
+  eq([r.ok, r.xoay, r.goc, r.sat_tuong.sau, r.mat_truoc], [true, 0, [0, 0], 1, 'lưng áp tường'], 'có tường áp cạnh trên: tự nhận lưng áp tường, không phải hỏi');
+  r = P.hinhThanhKhung(cn, { tuong: [{ a: [-500, 600], b: [3000, 600] }, { a: [0, -500], b: [0, 3000] }] });
+  eq([r.ok, r.xoay, r.sat_tuong], [true, 0, { truoc: 0, sau: 1, trai: 1, phai: 0 }], 'hốc tường (lưng + hồi trái áp tường): mặt trước là cạnh dài còn trống');
+  // khuyết góc sau trái 300 × 200 → khấu cột trái
+  r = P.hinhThanhKhung([[0, 0], [2000, 0], [2000, 600], [300, 600], [300, 400], [0, 400]]);
+  eq([r.ok, r.rong, r.sau, r.khau.trai, r.khau.phai, r.khau.giua_cot, r.xoay], [true, 2000, 600, { rong: 300, sau: 200 }, { rong: 0, sau: 0 }, [], 0], 'khuyết góc → khấu cột trái 300 × 200, mặt trước là cạnh dài đối diện chỗ khuyết');
+  // khuyết giữa → cột giữa
+  r = P.hinhThanhKhung([[0, 0], [2000, 0], [2000, 600], [1200, 600], [1200, 380], [900, 380], [900, 600], [0, 600]]);
+  eq([r.ok, r.khau.giua_cot, r.khau.trai.rong], [true, [{ cach: 900, rong: 300, sau: 220 }], 0], 'khuyết giữa mép sau → khấu cột giữa (cách trái 900, 300 × 220)');
+  // tủ ở tường bên phải (lưng x = 3600), khuyết ở góc gần y = 2500
+  r = P.hinhThanhKhung([[3000, 500], [3600, 500], [3600, 2200], [3350, 2200], [3350, 2500], [3000, 2500]]);
+  eq([r.ok, r.rong, r.sau, r.goc, r.xoay, r.khau.trai, r.khau.phai.rong], [true, 2000, 600, [3000, 2500], -90, { rong: 250, sau: 300 }, 0].map((v, i) => (i === 5 ? { rong: 300, sau: 250 } : v)), 'tủ áp tường phải: xoay −90°, góc trái–trước ở đầu y lớn, chỗ khuyết thành khấu TRÁI 300 × 250');
+  // đỉnh thừa trên cạnh thẳng, vẽ ngược chiều, đỉnh cuối trùng đỉnh đầu
+  r = P.hinhThanhKhung([[0, 600], [2000, 600], [2000, 0], [1000, 0], [0, 0], [0, 600]], { truoc: [1000, -100] });
+  eq([r.ok, r.rong, r.sau, r.xoay], [true, 2000, 600, 0], 'đỉnh thừa, vẽ ngược chiều kim đồng hồ hay xuôi đều ra cùng kết quả');
+  // hình quay 30°
+  const q30 = ([x, y]) => [x * Math.cos(Math.PI / 6) - y * Math.sin(Math.PI / 6) + 100, x * Math.sin(Math.PI / 6) + y * Math.cos(Math.PI / 6) + 50];
+  r = P.hinhThanhKhung(cn.map(q30), { truoc: q30([1000, -300]) });
+  eq([r.ok, r.rong, r.sau, r.goc, r.xoay], [true, 2000, 600, [100, 50], 30], 'hình quay 30°: vẫn đọc đúng rộng, sâu, góc đặt, góc xoay');
+  // cột của phòng lấn vào hình chữ nhật trơn → tự khấu, và chỉ ra luôn mặt trước
+  r = P.hinhThanhKhung(cn, { cot: [{ x0: -100, x1: 300, y0: 380, y1: 700 }, { x0: 900, x1: 1200, y0: 400, y1: 650 }] });
+  eq([r.ok, r.khau.trai, r.khau.giua_cot, r.xoay, r.so_cot], [true, { rong: 300, sau: 220 }, [{ cach: 900, rong: 300, sau: 200 }], 0, 2], 'chữ nhật trùm qua 2 cột của phòng: tự khấu cột trái + cột giữa, mặt trước là phía không có cột');
+  r = P.hinhThanhKhung([[0, 0], [2000, 0], [2000, 600], [300, 600], [300, 400], [0, 400]], { cot: [{ x0: 0, x1: 300, y0: 400, y1: 600 }] });
+  eq([r.ok, r.khau.trai, r.so_cot], [true, { rong: 300, sau: 200 }, 0], 'đã vẽ khuyết đúng chỗ cột: không khấu hai lần');
+  // các trường hợp từ chối
+  ok(/xiên/.test(P.hinhThanhKhung([[0, 0], [2000, 0], [2100, 600], [0, 600]]).loi), 'hình có cạnh xiên: từ chối, nói rõ');
+  ok(/ít nhất 4 đỉnh/.test(P.hinhThanhKhung([[0, 0], [2000, 0], [1000, 600]]).loi), 'tam giác: từ chối');
+  ok(/mép SAU|mép sau/.test(P.hinhThanhKhung([[0, 0], [800, 0], [800, 200], [1200, 200], [1200, 0], [2000, 0], [2000, 600], [1200, 600], [1200, 400], [800, 400], [800, 600], [0, 600]]).loi), 'khuyết ở cả mép trước lẫn mép sau: từ chối');
+  ok(/có chỗ khuyết/.test(P.hinhThanhKhung([[0, 0], [2000, 0], [2000, 600], [300, 600], [300, 400], [0, 400]], { truoc: [1000, 1500] }).loi), 'bấm điểm trước về phía có chỗ khuyết: từ chối, bảo bấm lại');
+  ok(/dẹt|4 đỉnh/.test(P.hinhThanhKhung([[0, 0], [2000, 0], [2000, 0.2], [0, 0.2]]).loi), 'hình dẹt: từ chối');
+});
+
+T('Tủ theo hình: khấu lấy từ hình, giữ ruột đang mở (bản 1.16)', () => {
+  const C = require('../src/mncf-core.js');
+  const k = P.hinhThanhKhung([[0, 0], [2000, 0], [2000, 600], [300, 600], [300, 400], [0, 400]]);
+  const t = P.tuChoKhung(C, C.DEFAULT_SPEC, { ten: 'TH', rong: k.rong, cao: 2700, sau: k.sau, mau: '', khau: k.khau }, 'Phòng', null, -1);
+  const M = C.build(t.spec), bb = C.bbox(M.parts);
+  eq([M.errors, t.spec.khau.trai, Math.round(bb.x1 - bb.x0), Math.round((bb.y1 - bb.y0) * 10) / 10, bb.z1 - bb.z0], [[], { rong: 300, sau: 200 }, 2000, 600, 2700], 'tủ dựng được, phủ bì đúng bằng hình (2000 × 600 × 2700), mang khấu cột trái của hình');
+  ok(M.info.khau.length === 1 && M.info.khau[0].ben === 'trai', 'mô hình có đúng 1 chỗ khấu cột bên trái');
+  const ruot = { ma: 'R', rong: 1800, cao: 2400, khoang: [{ rong: 'auto', canh: 2, dot: [900, 1700], o: [] }, { rong: 'auto', canh: 2, dot: [400], o: [] }] };
+  const t2 = P.tuChoKhung(C, ruot, { ten: 'R', rong: 2000, cao: 2400, sau: 600, mau: '', giu_ruot: true }, '', null, -1);
+  eq([t2.spec.khoang.length, t2.spec.khoang[0].dot, t2.spec.khoang[1].dot, t2.spec.rong, t2.mau], [2, [900, 1700], [400], 2000, ['ruột đang mở']], 'giu_ruot: giữ nguyên 2 khoang và các đợt đang có, chỉ đổi phủ bì');
+  const t3 = P.tuChoKhung(C, ruot, { ten: 'R', rong: 3000, cao: 2400, sau: 600, mau: '' }, '', null, -1);
+  ok(t3.spec.khoang.length !== 2 || JSON.stringify(t3.spec.khoang[0].dot) !== '[900,1700]', 'không giữ ruột: bảng tự chọn ruột theo bề rộng');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

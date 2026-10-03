@@ -97,7 +97,7 @@
         if (nho && nho.sha256 === tt.sha256) { if (chay(nho, 'bản mới nhất (đã cất trong máy, đối chiếu với ' + n.ten + ')')) return; nho = null; }
         if (nho && soSanh(tt.phien_ban, nho.phien_ban) < 0) { ghi(n.ten + ': đang giữ bản cũ hơn (v' + tt.phien_ban + ') — bỏ qua'); continue; }
         var b = await taiBan(n, tt);
-        if (chay(b, 'vừa tải từ ' + n.ten)) { ghiNho(b); return; }
+        if (chay(b, 'vừa tải từ ' + n.ten)) { NAP.dang_cat = true; ghiNho(b).then(function (ok) { NAP.dang_cat = false; NAP.da_cat = !!ok; }); return; }      // chỉ cất bản đã chạy được
       } catch (e) { ghi(n.ten + ': ' + (e && e.message || e)); }
       if (NAP.xong || root.__MNCF_BOOTING__) return;        // bản gộp đã bắt đầu chạy thì không nạp chồng bản khác
     }
