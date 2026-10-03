@@ -71,6 +71,19 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.18 — ĐIỆN – NƯỚC HIỆN TRẠNG (Ổ ĐIỆN, CÔNG TẮC, CẤP – THOÁT NƯỚC, THOÁT SÀN)
+ Thẻ Phòng → khung "Điện – nước": bấm + Ổ điện / + Công tắc / + Cấp nước / + Thoát nước / + Thoát sàn / + Ống chờ sàn / + Điểm khác (điểm nằm trên
+ tường đang chọn) → gõ "cách trái" (từ đầu trái tường tới TÂM điểm) và "cao tâm" (từ sàn); điểm dưới sàn gõ "cách tường". Điểm hiện ngay trên mặt
+ bằng và mặt đứng (bấm vào số trên mặt đứng để sửa).
+   • Khung đặt tủ che điểm nào: bảng báo dưới mặt bằng (công tắc bị che, thoát sàn nằm dưới tủ thì báo màu cam).
+   • Mở khung thành tủ / đặt tủ bằng chuột trong phòng đó: hình đứng của tủ có dấu từng điểm — ô nét đứt = chỗ khoét hậu, ĐỎ = trúng vách / đợt / hồi
+     (kéo vách, đợt tránh ra là hết đỏ) — kèm dòng ghi khoét tấm nào, tâm cách mép tấm bao nhiêu.
+   • "Vẽ phòng vào Chenfeng": các điểm được đánh dấu luôn trên mặt tường / mặt sàn của bản vẽ (nét màu + nhãn như "O1 +300"); nhìn từ trên xuống cũng
+     thấy ký hiệu ở chân tường. Thẻ Kết quả của tủ vừa vẽ ghi lại các điểm nằm sau tủ.
+ Bản này mới BÁO chỗ khoét, chưa tự khoét lỗ trên tấm hậu.
+ SỬA LỖI (quan trọng khi vẽ tủ trong bản vẽ đã có phòng): trước đây nếu lúc bấm vẽ con chuột đang nằm trên sàn / tường của phòng thì Chenfeng tự đặt
+ thùng theo chỗ chuột, bỏ qua toạ độ → bảng báo "Lệnh LEFTRIGHTBOARD (hồi) không ra đúng tấm". Giờ bảng tự quay nhìn ra chỗ trống rồi mới đặt thùng.
+
 MỚI Ở BẢN 1.17.1 — KHE HỞ QUANH CỘT 15 MM
  Khấu cột: khe chừa giữa cột và tủ (mặt bên lẫn mặt trước cột) mặc định 15 thay cho 10, để lúc lắp còn chỗ xử lý. Thông số đang lưu mà còn để 10
  thì tự lên 15; đã gõ số khác thì giữ. Muốn 10–20 tuỳ công trình: thẻ Tủ → Khấu cột → "Khe hở quanh cột". Tủ đã vẽ không bị đổi.

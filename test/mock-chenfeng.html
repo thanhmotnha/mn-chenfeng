@@ -58,6 +58,8 @@
       if (tr !== undefined) this._t = Math.round((b[tr * 2 + 1] - b[tr * 2]) * 1000) / 1000; }      // kéo mặt theo trục dày = đổi bề dày (tham số BH của mẫu làm đúng việc này)
     ApplyMatrix(m) { this.move([m.elements[12], m.elements[13], m.elements[14]]); }
     WriteAllObjectRecord() { if (hm.mo) { const e = this, box = e.box.slice(), t = e._t, o = e.BoardProcessOption, dt = o.drillType, hd = o.highDrill.slice(); hm.mo.snap.push(() => { e.box = box; e._t = t; o.drillType = dt; o.highDrill = hd; }); } } }
+  // nét 2D / chữ do Chenfeng dựng từ file DXF thả vào (bản thật: Line, Circle, Polyline, Text — ColorIndex lấy từ mã 62)
+  class Line extends Ent {} class Circle extends Ent {} class Polyline extends Ent {} class Text extends Ent {}
   class HardwareCompositeEntity extends Ent { constructor(name, box, tu) { super(); this.HardwareOption = { name, cabinetName: tu, roomName: '' }; this.box = box; } }
   class CylinderHole extends Ent { constructor(b) { super(); this.FId = { Object: b }; this.MId = { Object: b }; this.box = b.box.slice(); } }
 
@@ -149,9 +151,54 @@
     setTimeout(() => fireEnd('晨丰导入', [], st.created.concat(holes)), 30);
   }
 
+  /* ---- DXF thả vào (bản thật: DwgDxfImport) — hỏi "文件是否插入前视图？" Y / N (trừ khi tài khoản bật sẵn tuỳ chọn chèn mặt trước: không hỏi, xoay luôn) rồi dựng nét đúng toạ độ trong file.
+   *      Mặt phẳng của nét = hướng đùn n (mã 210 / 220 / 230): trục x của mặt = ẑ × n, trục y = ẑ (đo trên bản thật 04/10/2026); n = (0, 0, 1) thì là mặt bằng. ---- */
+  function entsFromDXF(text, truoc) {
+    const L = String(text).split(/\r?\n/), cap = []; for (let i = 0; i + 1 < L.length; i += 2) cap.push([parseInt(L[i], 10), L[i + 1]]);
+    const nhom = []; let cur = null, trongEnt = false;
+    for (const [c, v] of cap) {
+      if (c === 0) { if (cur) nhom.push(cur); cur = null; if (v === 'ENDSEC' || v === 'EOF') trongEnt = false; else if (trongEnt) cur = { type: v, kv: [] }; continue; }
+      if (c === 2 && v === 'ENTITIES') { trongEnt = true; continue; }
+      if (cur) cur.kv.push([c, v]);
+    }
+    if (!trongEnt && !nhom.length && !/ENTITIES/.test(text)) throw new Error('dxf');
+    const out = [];
+    for (const g of nhom) {
+      const so = c => { const q = g.kv.find(x => x[0] === c); return q ? Number(q[1]) : undefined; }, n = [so(210) || 0, so(220) || 0, so(230) === undefined ? ((so(210) || so(220)) ? 0 : 1) : so(230)];
+      const ngang = Math.abs(n[2]) < 0.5, X = ngang ? [-n[1], n[0], 0] : [1, 0, 0], Y = ngang ? [0, 0, 1] : [0, 1, 0];
+      const W = (u, v, e) => [u * X[0] + v * Y[0] + e * n[0], u * X[1] + v * Y[1] + e * n[1], u * X[2] + v * Y[2] + e * n[2]];
+      const hop = ps => [Math.min(...ps.map(q => q[0])), Math.max(...ps.map(q => q[0])), Math.min(...ps.map(q => q[1])), Math.max(...ps.map(q => q[1])), Math.min(...ps.map(q => q[2])), Math.max(...ps.map(q => q[2]))];
+      let e = null;
+      if (g.type === 'LINE') { e = new Line(); e.box = hop([[so(10), so(20), so(30) || 0], [so(11), so(21), so(31) || 0]]); }
+      else if (g.type === 'CIRCLE') { e = new Circle(); const r = so(40), c0 = [so(10), so(20), so(30) || 0]; e.box = hop([W(c0[0] - r, c0[1] - r, c0[2]), W(c0[0] + r, c0[1] + r, c0[2])]); e.Radius = r; }
+      else if (g.type === 'LWPOLYLINE') { e = new Polyline(); const xs = g.kv.filter(x => x[0] === 10).map(x => Number(x[1])), ys = g.kv.filter(x => x[0] === 20).map(x => Number(x[1])), el = so(38) || 0; e.box = hop(xs.map((x, i) => W(x, ys[i], el))); e.CloseMark = so(70) === 1; e.LineData = xs.map((x, i) => ({ pt: { x, y: ys[i] }, bul: 0 })); }
+      else if (g.type === 'TEXT') { e = new Text(); const q = g.kv.find(x => x[0] === 1); e.TextString = q ? q[1] : ''; e.Height = so(40); e.TextRotation = (so(50) || 0) * Math.PI / 180; const p0 = W(so(10), so(20), so(30) || 0); e.box = [p0[0], p0[0], p0[1], p0[1], p0[2], p0[2]]; }
+      if (!e) continue;
+      e.ColorIndex = so(62) || 7; e.Normal = n;
+      if (truoc) e.box = [e.box[0], e.box[1], -e.box[5], -e.box[4], e.box[2], e.box[3]];      // "chèn mặt trước": xoay cả file từ mặt bằng lên mặt đứng
+      out.push(e);
+    }
+    return out;
+  }
+  async function importDXF(file, truoc) {
+    let created;
+    try { created = entsFromDXF(await file.text(), truoc); } catch (e) { toast(`无法解析DXF图纸:${file.name}`); return; }
+    window.__MOCK_DXF__ = (window.__MOCK_DXF__ || []).concat([{ ten: file.name, so: created.length, truoc: !!truoc }]);
+    for (const e of created) ents.push(e);
+    if (created.length) pushHist({ CommandName: 'CAD图纸导入', created });
+    toast(`成功导入图纸:${file.name}`);
+  }
+
   document.addEventListener('dragover', e => e.preventDefault());
   document.addEventListener('drop', e => {
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f && /\.dxf$/i.test(f.name)) {
+      e.preventDefault();
+      if (window.__MOCK_HOME__ || state || window.__MOCK_BUSY__) return;
+      if (window.__MOCK_DXF_TRUOC__) { importDXF(f, true); return; }      // tài khoản bật "luôn chèn mặt trước": không hỏi
+      state = { kind: 'dxf', file: f }; kwsvc.IsReady = true; prompt('INFO', '>文件是否插入前视图？');
+      return;
+    }
     if (!f || !/json$/i.test(f.name)) return;
     e.preventDefault();
     if (window.__MOCK_HOME__) { window.__MOCK_UPLOADED__ = (window.__MOCK_UPLOADED__ || 0) + 1; return; }      // ở trang chủ thật: file bị tải lên kho — bảng phải chặn trước
@@ -202,6 +249,7 @@
         if (so.length === 1 && isFinite(so[0]) && o.BasePoint && st.cur) { const g = o.BasePoint, dx = st.cur.x - g.x, dy = st.cur.y - g.y, dz = st.cur.z - g.z, L = Math.hypot(dx, dy, dz) || 1; return xong({ Status: 1, Point: new V3(g.x + dx / L * so[0], g.y + dy / L * so[0], g.z + dz / L * so[0]) }); }
         return;
       }
+      if (state.kind === 'dxf') { const st = state; state = null; kwsvc.IsReady = false; importDXF(st.file, String(text).toUpperCase() === 'Y'); return; }
       const so3 = () => { const p = String(text).split(',').map(Number); return p.length === 3 && p.every(isFinite) ? p : null; };
       const them = (e, ten) => { ents.push(e); pushHist({ CommandName: ten, created: [e] }); setTimeout(() => fireEnd(ten, [], [e]), 20); };
       if (state.kind === 'wall') {
@@ -291,7 +339,7 @@
       window.__MOCK_CANCELS__ = (window.__MOCK_CANCELS__ || 0) + 1;
       if (!state) return;
       if (state.kind === 'hoi') { const st = state; state = null; svc.IsReady = false; st.res({ Status: -1 }); return; }
-      if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog'].includes(state.kind)) { svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
+      if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog', 'dxf'].includes(state.kind)) { svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
       if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
       else { const ten = state.kind === 'modeling' ? 'MODELING' : 'DRAWHOLE'; gesvc.IsReady = false; state = null; setTimeout(() => fireEnd(ten, [], []), 10); }
     },
@@ -307,7 +355,7 @@
     CommandReactor: { OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
     AutoSaveServer: { Stop() {}, Start() {} },
   };
-  window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
+  window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, Line, Circle, Polyline, Text, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
     // chuột rê tới (x, y, z) khi bảng đang hỏi điểm: Chenfeng thật gọi Callback của lời nhắc với điểm dưới chuột
     reChuot(x, y, z) { if (state && state.kind === 'hoi') { state.cur = new V3(x, y, z || 0); if (state.o.Callback) state.o.Callback(state.cur); return true; } return false; }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, StretchAction, V3, them(e) { ents.push(e); return e; } };
   // người dùng bấm chuột trên vùng vẽ khi đang hỏi điểm = đặt tại (1000, -17.5, 0)

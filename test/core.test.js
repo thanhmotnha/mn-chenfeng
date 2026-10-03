@@ -866,6 +866,21 @@ T('Khe hở quanh cột (bản 1.17.1 — anh Jason 03/10/2026 23:58: "khe khấ
   eq(C0.specDaVe(cu, '1.17.0').khau.ho, 10, 'tủ ĐÃ VẼ bằng khe 10: giữ 10');
 });
 
+T('Điện – nước trên hình đứng của tủ (bản 1.18): opts.dien_nuoc vẽ ô khoét sau lưng, điểm dưới đáy, điểm sau hồi', () => {
+  const M = C0.build({ rong: 2000, cao: 2400, sau_thung: 560, than: { cao_duoi: 0 }, thung: { rong_max: 0 }, khoang: [{ rong: 'auto', canh: 2, dot: [600], o: [] }, { rong: 'auto', canh: 2, dot: [900], o: [] }] });
+  ok(!/data-dn=/.test(C0.elevationSVG(M, { tuong_tac: true })), 'không truyền điểm: hình như cũ');
+  const dn = [{ j: 0, nhan: 'Ổ1', mat: 'lung', x: 400, z: 300, rong: 120, cao: 80, tron: false, mau: '#c26a00', trung: [] }, { j: 1, nhan: 'CN1', mat: 'lung', x: 990, z: 550, rong: 60, cao: 60, tron: true, mau: '#0a84c4', trung: ['vách'] },
+    { j: 2, nhan: 'TS1', mat: 'day', x: 1500, z: 0, rong: 110, cao: 110, tron: true, mau: '#7a4a21', trung: [] }, { j: 3, nhan: 'Ổ2', mat: 'trai', x: 0, z: 300, rong: 120, cao: 80, tron: false, mau: '#c26a00', trung: [] }, { j: 4, nhan: 'CT1', mat: 'phai', x: 2000, z: 1250, rong: 120, cao: 80, mau: '#c26a00', trung: [] }];
+  const svg = C0.elevationSVG(M, { tuong_tac: true, dien_nuoc: dn });
+  eq((svg.match(/<text data-dn="\d"/g) || []).length, 5, 'mỗi điểm một ký hiệu');
+  ok(/<rect x="340" y="2060" width="120" height="80" fill="#fff" fill-opacity="\.8" stroke="#c26a00"[^>]*stroke-dasharray="[^"]+" pointer-events="none"\/>/.test(svg), 'ổ sau lưng: ô nét đứt đúng cỡ 120 × 80, tâm (400, +300), màu của nhóm điện', svg.slice(svg.indexOf('data-dn') - 400, svg.indexOf('data-dn') + 100));
+  ok(/<circle cx="990" cy="1850" r="30" fill="#fff" fill-opacity="\.8" stroke="#d9402b"/.test(svg) && /<text data-dn="1"[^>]*fill="#d9402b"[^>]*>CN1<\/text>/.test(svg), 'điểm TRÚNG tấm: tô đỏ (ống Ø60 tại 990, +550)');
+  ok(/<circle cx="1500" cy="23\d\d(\.\d)?" r="[\d.]+" fill="#fff" fill-opacity="\.85" stroke="#7a4a21"/.test(svg) && />TS1<\/text>/.test(svg), 'điểm dưới đáy: vòng tròn gạch chéo ở chân tủ');
+  ok(/<text data-dn="3" x="-[\d.]+"[^>]*text-anchor="end"[^>]*>Ổ2<\/text>/.test(svg) && /<text data-dn="4" x="20[\d.]+"[^>]*text-anchor="start"[^>]*>CT1<\/text>/.test(svg), 'điểm sau hồi: vạch ở mép trái / phải, ký hiệu ghi ra ngoài tủ');
+  const sau = svg.slice(svg.indexOf('data-dn="0"')), truoc = svg.slice(0, svg.indexOf('data-dn="0"'));
+  ok(/data-o="/.test(sau) && !/data-o="/.test(truoc) && (svg.match(/data-dn="\d"[^>]*pointer-events="none"/g) || []).length === 5, 'dấu nằm DƯỚI lớp bấm ô / kéo đợt và không bắt chuột: ô, đợt, vách vẫn bấm / kéo được');
+});
+
 T('Kế hoạch vẽ bằng LỆNH GỐC của Chenfeng (bản 1.15 — anh Jason 03/10/2026: "em phải vẽ chuẩn chenfeng"; chốt: vách chạy suốt, nóc đáy từng khoang)', () => {
   ok(C0.normalize({}).ve_goc === true && C0.normalize({ ve_goc: false }).ve_goc === false, 'mặc định vẽ bằng lệnh gốc; tắt được');
   const K = C0.keHoachGoc({ ma: 'TG', rong: 1600, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [1100], o: [] }, { rong: 'auto', canh: 2, dot: [600, 1400], o: [] }] });

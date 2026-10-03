@@ -36,7 +36,7 @@ NODE_PATH=<node_modules> PLAYWRIGHT_BROWSERS_PATH=<trình duyệt> node test/nap
 
 - `src/mncf-core.js` — lõi: thông số tủ → danh sách tấm, kiểm tra, bảng kê, kế hoạch lệnh gốc Chenfeng. Số phiên bản (`VERSION`) nằm ở đây.
 - `src/mncf-driver.js` — điều khiển Chenfeng (lệnh gốc 左右侧板 / 立板 / 顶底板 / 背板 / 层板 / 门板, cổng nhập tấm, module tham số).
-- `src/mncf-phong.js` — thẻ Phòng (hiện trạng, khung đặt tủ, khấu cột) và hình vẽ trên mặt bằng → khung tủ.
+- `src/mncf-phong.js` — thẻ Phòng (hiện trạng, khung đặt tủ, khấu cột, điểm điện – nước) và hình vẽ trên mặt bằng → khung tủ.
 - `src/mncf-dich.js` — dịch ghi chú tham số mẫu sang tiếng Việt.
 - `src/mncf-ui.js` — bảng nổi trong Chenfeng / trang độc lập.
 - `src/mncf-nap.js` — bộ nạp tự cập nhật của tiện ích.

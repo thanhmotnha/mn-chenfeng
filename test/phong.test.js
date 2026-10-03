@@ -326,5 +326,113 @@ T('Hai điểm bấm dọc chân tường → hình phủ bì của tủ (bản 
   ok(/từ 200/.test(P.haiDiemThanhHinh([400, 3000], [900, 3000], 600, { tuong, rong: 120 }).loi), 'bề rộng gõ vào dưới 200: từ chối');
 });
 
+T('Điện – nước hiện trạng (bản 1.18 — anh Jason 03/10/2026 23:46: "nhiều phòng có ổ điện rồi thoát sàn, rồi cấp thoát nước cho điền vào hiện trạng")', () => {
+  eq(P.macDinh().dn, [], 'phòng mẫu: chưa có điểm nào');
+  eq(P.chuanHoa({ tuong: [{ dai: 3000 }] }).dn, [], 'phòng lưu từ bản cũ (không có dn): mảng rỗng');
+  eq(Object.keys(P.LOAI_DN), ['o_dien', 'cong_tac', 'cap_nuoc', 'thoat_nuoc', 'khac', 'thoat_san', 'ong_san'], '7 loại: 5 trên tường, 2 dưới sàn');
+  // chuẩn hoá: loại lạ → ổ điện; tường kẹp vào phạm vi; điểm sàn không có cao, điểm tường không có "ra"; cỡ ô chỉ giữ khi khác mặc định; số kiểu Việt; bỏ phần tử hỏng
+  eq(P.chuanHoa({ tuong: [{ dai: 3000 }, { dai: 2000 }], dn: [{ tuong: 5, loai: 'la', cach: '1,5' }, { loai: 'thoat_san', tuong: 0, cach: 500, cao: 999 }, { loai: 'cap_nuoc', cach: 100, cao: '600', rong: 60, cao_o: 77 },
+    { loai: 'khac', cach: 10, rong: 300, cao_o: 200, ghi: 'x'.repeat(60) }, { loai: 'o_dien', cach: 5, rong: 150, cao_o: 80, ra: 44 }, null, 'abc'] }).dn,
+    [{ tuong: 1, loai: 'o_dien', cach: 1.5, cao: 300 }, { tuong: 0, loai: 'thoat_san', cach: 500, ra: 300 }, { tuong: 0, loai: 'cap_nuoc', cach: 100, cao: 600 },
+      { tuong: 0, loai: 'khac', cach: 10, cao: 300, rong: 300, cao_o: 200, ghi: 'x'.repeat(40) }, { tuong: 0, loai: 'o_dien', cach: 5, cao: 300, rong: 150 }], 'chuẩn hoá điểm điện – nước');
+  // hình học: tên đánh số theo từng loại, vị trí trên mặt bằng (P) theo từng tường, cao độ, cỡ ô
+  const p = P.macDinh();
+  p.dn = [{ tuong: 0, loai: 'o_dien', cach: 950, cao: 300 }, { tuong: 1, loai: 'o_dien', cach: 600, cao: 400 }, { tuong: 2, loai: 'cong_tac', cach: 1300, cao: 1250 }, { tuong: 3, loai: 'cap_nuoc', cach: 2700, cao: 550 },
+    { tuong: 0, loai: 'thoat_san', cach: 1500, ra: 300 }, { tuong: 1, loai: 'khac', cach: 400, cao: 1500, ghi: 'Tủ điện', rong: 300, cao_o: 200 }, { tuong: 0, loai: 'o_dien', cach: 2000, cao: 300, ghi: 'tủ lạnh' }];
+  const H = P.hinhHoc(p);
+  eq([H.loi, H.luu_y, H.ghi_chu], [[], [], []], 'phòng có điểm điện – nước, chưa có khung: không báo gì');
+  eq(H.dn.map(d => [d.ten, d.nhan, d.P, d.z, d.rong, d.cao_o, d.san, d.tron, d.nhom]), [['Ổ điện 1', 'Ổ1', [950, 0], 300, 120, 80, false, false, 'dien'], ['Ổ điện 2', 'Ổ2', [3600, -600], 400, 120, 80, false, false, 'dien'],
+    ['Công tắc 1', 'CT1', [2300, -3000], 1250, 120, 80, false, false, 'dien'], ['Cấp nước 1', 'CN1', [0, -300], 550, 60, 60, false, true, 'cap'], ['Thoát sàn 1', 'TS1', [1500, -300], 0, 110, 110, true, true, 'thoat'],
+    ['Tủ điện 1', 'Đ1', [3600, -400], 1500, 300, 200, false, false, 'khac'], ['Ổ điện 3 (tủ lạnh)', 'Ổ3', [2000, 0], 300, 120, 80, false, false, 'dien']], 'tên, ký hiệu, vị trí trên mặt bằng, cao độ, cỡ ô, nhóm');
+  ok(co(P.tomTat(H), /^Điện – nước: 3 ổ điện · 1 công tắc · 1 cấp nước · 1 điểm khác · 1 thoát sàn$/), 'tóm tắt đếm theo loại', P.tomTat(H));
+  // số đo sai: ngoài tường, vượt trần = lỗi; nằm trong ô cửa, điểm sàn ngoài phòng = lưu ý
+  const p2 = P.macDinh();
+  p2.dn = [{ tuong: 0, loai: 'o_dien', cach: 3700, cao: 300 }, { tuong: 1, loai: 'o_dien', cach: 100, cao: 2800 }, { tuong: 2, loai: 'cong_tac', cach: 600, cao: 1250 }, { tuong: 0, loai: 'thoat_san', cach: 500, ra: 3200 }, { tuong: 0, loai: 'thoat_san', cach: 500, ra: 0 }];
+  const H2 = P.hinhHoc(p2);
+  eq(H2.loi, ['Ổ điện 1 nằm ngoài tường A: cách đầu trái 3700 mà tường chỉ dài 3600.', 'Ổ điện 2 (tường B) cao +2800, vượt trần 2700.'], 'điểm ngoài tường / vượt trần: lỗi');
+  eq(H2.luu_y, ['Công tắc 1 đang nằm giữa cửa đi 1 của tường C — kiểm tra lại “cách trái” / “cao”.', 'Thoát sàn 1 nằm ngoài lòng phòng (cách tường A tới 3200) — kiểm tra lại số đo.'], 'điểm giữa ô cửa / ngoài phòng: lưu ý');
+  // khung ở từng tường: điểm nào bị che, toạ độ trong hệ của tủ (x từ mép trái, y từ mặt trước, z từ mép dưới) — phòng đặt lệch gốc + khung quay theo tường vẫn đúng
+  const che = (tuong, cach) => { const q = P.macDinh(); q.goc = [10000, 5000, 100]; q.dn = p.dn; q.khung = [{ ten: 'K', tuong, cach, rong: 1200, cao: 2400, sau: 600 }]; const Hq = P.hinhHoc(q), dk = P.datKhung(Hq, 0);
+    return [dk.xoay, P.diemTrongKhung(Hq, { goc: dk.goc, xoay: dk.xoay, rong: 1200, sau: 600, cao: 2400 }).map(c => [c.d.nhan, c.mat, c.x, c.y, c.z, c.cat])]; };
+  eq(che(0, 500), [0, [['Ổ1', 'lung', 450, 600, 300, false], ['TS1', 'day', 1000, 300, 0, false]]], 'khung tường A: ổ sau lưng + thoát sàn dưới đáy');
+  eq(che(1, 300), [-90, [['Ổ2', 'lung', 300, 600, 400, false], ['Đ1', 'lung', 100, 600, 1500, true]]], 'khung tường B (xoay −90°): tủ điện 300 rộng bị mép trái khung cắt ngang');
+  eq(che(2, 1000), [180, [['CT1', 'lung', 300, 600, 1250, false]]], 'khung tường C (xoay 180°)');
+  eq(che(3, 2000), [90, [['CN1', 'lung', 700, 600, 550, false]]], 'khung tường D (xoay 90°)');
+  // khung sát góc: điểm trên tường BÊN nằm sau hồi; tủ treo không che điểm dưới sàn; khung thấp không che điểm ở trên cao
+  const pg = P.macDinh(); pg.dn = [{ tuong: 3, loai: 'o_dien', cach: 2700, cao: 300 }, { tuong: 1, loai: 'cong_tac', cach: 250, cao: 1250 }, { tuong: 0, loai: 'thoat_san', cach: 500, ra: 300 }, { tuong: 0, loai: 'o_dien', cach: 1000, cao: 2000 }];
+  pg.khung = [{ ten: 'G', tuong: 0, cach: 0, rong: 3600, cao: 1500, sau: 600 }, { ten: 'T', tuong: 0, cach: 0, rong: 3600, cao: 700, sau: 350, z: 1600 }];
+  const Hg = P.hinhHoc(pg), cg = j => { const dk = P.datKhung(Hg, j), q = Hg.khung[j]; return P.diemTrongKhung(Hg, { goc: dk.goc, xoay: dk.xoay, rong: q.rong, sau: q.sau, cao: q.cao }).map(c => [c.d.nhan, c.mat, c.x, c.y, c.z]); };
+  eq(cg(0), [['Ổ1', 'trai', 0, 300, 300], ['CT1', 'phai', 3600, 350, 1250], ['TS1', 'day', 500, 300, 0]], 'khung kín tường A cao 1500: ổ tường D sau hồi trái, công tắc tường B sau hồi phải, thoát sàn dưới đáy; ổ +2000 ở trên không dính');
+  eq(cg(1), [['Ổ2', 'lung', 1000, 350, 400]], 'tủ treo +1600 → +2300: chỉ che ổ +2000 (z tính từ mép dưới tủ = 400), không che điểm dưới sàn');
+  ok(co(Hg.luu_y, /^Khung G che công tắc 1 — công tắc sẽ không bấm được/) && co(Hg.luu_y, /^Khung G trùm lên thoát sàn 1 — tủ che mất thoát sàn/), 'khung che công tắc / thoát sàn: lưu ý', Hg.luu_y);
+  ok(co(Hg.ghi_chu, /^Khung G che 3 điểm điện – nước: ổ điện 1 \(tường D\) sau hồi trái — cách tường lưng 300, cao \+300; công tắc 1 \(tường B\) sau hồi phải — cách tường lưng 250, cao \+1250; thoát sàn 1 dưới đáy tủ — cách mép trái khung 500, cách tường lưng 300\. Mở khung thành tủ/), 'ghi chú liệt kê điểm bị khung che', Hg.ghi_chu);
+  ok(co(Hg.ghi_chu, /^Khung T che 1 điểm điện – nước: ổ điện 2 sau lưng tủ — cách mép trái khung 1000, cao \+2000 \(trên đáy khung 400\)\./), 'tủ treo: ghi cả cao độ từ sàn lẫn từ đáy khung', Hg.ghi_chu);
+  const pc = P.macDinh(); pc.dn = [{ tuong: 0, loai: 'o_dien', cach: 1010, cao: 300 }]; pc.khung = [{ ten: 'C', tuong: 0, cach: 0, rong: 1000, cao: 2400, sau: 600 }];
+  ok(co(P.hinhHoc(pc).luu_y, /^Khung C: mép khung cắt ngang ổ điện 1 — hồi \/ nóc tủ sẽ đè lên điểm này/), 'mép khung cắt ngang ô của điểm: lưu ý');
+
+  // SO VỚI TỪNG TẤM của tủ đã dựng: trúng vách / đợt / hồi, sau ngăn kéo, khoét hậu / đáy ở đâu
+  const S = C.normalize({ ma: 'TDN', rong: 2400, cao: 2400, sau_thung: 560, than: { cao_duoi: 0 }, thung: { rong_max: 0 },
+    khoang: [{ rong: 'auto', canh: 2, dot: [600, 1200], o: [] }, { rong: 'auto', canh: 2, dot: [500], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 2, dot: [900], o: [] }] });
+  const M = C.build(S), bb = M.info.hop;
+  eq([M.errors, M.info.x_khoang, M.info.khoang, bb.y0, bb.y1], [[], [67.5, 826, 1591.5], [741, 748, 741], -17.5, 560], 'tủ thử: 3 khoang (vách ở 808,5 → 826 và 1574 → 1591,5), ngăn kéo ở khoang 2');
+  const pt = P.macDinh(); pt.goc = [1000, 2000, 0];
+  pt.dn = [{ tuong: 0, loai: 'o_dien', cach: 900, cao: 300 }, { tuong: 0, loai: 'o_dien', cach: 1320, cao: 300 }, { tuong: 0, loai: 'o_dien', cach: 1800, cao: 300 }, { tuong: 0, loai: 'cong_tac', cach: 2500, cao: 1250 }, { tuong: 0, loai: 'cap_nuoc', cach: 700, cao: 608 },
+    { tuong: 0, loai: 'ong_san', cach: 800, ra: 200 }, { tuong: 0, loai: 'thoat_san', cach: 2600, ra: 300 }, { tuong: 0, loai: 'ong_san', cach: 1300, ra: 150 }, { tuong: 0, loai: 'o_dien', cach: 3300, cao: 300 }, { tuong: 0, loai: 'o_dien', cach: 520, cao: 300 }, { tuong: 0, loai: 'o_dien', cach: 2000, cao: 60 }];
+  pt.khung = [{ ten: 'TDN', tuong: 0, cach: 500, rong: 2400, cao: 2400, sau: bb.y1 - bb.y0 }];
+  const Ht = P.hinhHoc(pt), dk = P.datKhung(Ht, 0), kq = P.dienNuocChoTu(M, Ht, dk);
+  eq(dk, { goc: [1500, 1422.5, 0], xoay: 0, tuong: 'A' }, 'chỗ đặt tủ = góc trái – trước – dưới của khung trong bản vẽ');
+  eq(kq.diem.map(d => [d.nhan, d.mat, d.x, d.y, d.z, d.khoang, d.trung]), [['Ổ1', 'lung', 400, 560, 300, 0, []], ['Ổ2', 'lung', 820, 560, 300, -1, ['vách', 'vách đệm ngăn kéo']], ['Ổ3', 'lung', 1300, 560, 300, 1, []], ['CT1', 'lung', 2000, 560, 1250, 2, []],
+    ['CN1', 'lung', 200, 560, 608, 0, ['đợt khoang 1']], ['ÔS1', 'day', 300, 360, 0, 0, []], ['TS1', 'day', 2100, 260, 0, 2, []], ['ÔS2', 'day', 800, 410, 0, 0, ['vách']], ['Ổ5', 'lung', 20, 560, 300, -1, ['hồi trái']], ['Ổ6', 'lung', 1500, 560, 60, 1, []]],
+    'từng điểm trong toạ độ thiết kế của tủ, khoang chứa nó, tấm bị trúng (ổ +3300 nằm ngoài tủ: không kể)');
+  eq(kq.ghi_chu, ['Ổ điện 1: sau lưng tủ, khoang 1, ô +117,5 → +600 — tâm cách mép trái tủ 400, cao +300. Khoét hậu khoang 1 120 × 80: tâm cách mép trái tấm 349, cách mép dưới tấm 199 (nhìn từ trong tủ).',
+    'Ống chờ sàn 1: dưới đáy tủ, khoang 1 — tâm cách mép trái tủ 300, cách lưng tủ 200. Khoét đáy khoang 1 Ø90: tâm cách mép trái tấm 232,5, cách mép sau tấm 194.'], 'điểm nằm gọn: ghi chỗ khoét trên tấm hậu / tấm đáy');
+  ok(co(kq.luu_y, /^Ổ điện 2 sau lưng tủ \(tâm cách mép trái tủ 820, cao \+300\) TRÚNG vách \(đang ở 808,5 → 826\), vách đệm ngăn kéo \(đang ở 858,5 → 876\): ô 120 × 80 chiếm 760 → 880 tính từ mép trái tủ, cao 260 → 340\./), 'ổ trúng vách: báo vách đang ở đâu, ô chiếm tới đâu', kq.luu_y);
+  ok(co(kq.luu_y, /^Ổ điện 3 nằm sau hộc ngăn kéo \(khoang 2, ô \+117,5 → \+500; tâm cách mép trái tủ 1300, cao \+300\)/), 'ổ sau ngăn kéo');
+  ok(co(kq.luu_y, /^Công tắc 1: sau lưng tủ, khoang 3, ô \+917,5 → \+2332,5 — .*Khoét hậu khoang 3 120 × 80: tâm cách mép trái tấm 417, cách mép dưới tấm 1149 .*Tủ che công tắc — không bấm được nữa/), 'công tắc sau lưng tủ: vẫn ghi chỗ khoét nhưng là LƯU Ý');
+  ok(co(kq.luu_y, /^Cấp nước 1 sau lưng tủ \(tâm cách mép trái tủ 200, cao \+608\) TRÚNG đợt khoang 1 \(cao 600 → 617,5\): ô Ø60/), 'ống cấp nước trúng đợt');
+  ok(co(kq.luu_y, /^Thoát sàn 1 nằm dưới tủ \(khoang 3; tâm cách mép trái tủ 2100, cách lưng tủ 300\) — tủ che mất thoát sàn/), 'thoát sàn dưới tủ');
+  ok(co(kq.luu_y, /^Ống chờ sàn 2 dưới tủ \(tâm cách mép trái tủ 800, cách lưng tủ 150\) TRÚNG vách \(đang ở 808,5 → 826\) — ống Ø90 chiếm 755 → 845/), 'ống chờ sàn trúng vách chạm sàn');
+  ok(co(kq.luu_y, /^Ổ điện 5 sau lưng tủ .* TRÚNG hồi trái \(đang ở 50 → 67,5\)/) && co(kq.luu_y, /^Ổ điện 6 sau lưng tủ \(tâm cách mép trái tủ 1500, cao \+60\) không nằm trong lòng khoang nào \(sau chân tủ \/ phào\)/), 'ổ ở mép tủ trúng hồi; ổ thấp hơn đáy: sau chân tủ');
+  eq(kq.luu_y.length + kq.ghi_chu.length, kq.diem.length, 'mỗi điểm đúng một dòng báo');
+  // tủ treo (đáy cách sàn 800): chỉ còn công tắc, cao độ ghi từ mép dưới tủ; không biết chỗ đặt / phòng không có điểm: rỗng
+  const kq2 = P.dienNuocChoTu(M, Ht, { goc: [dk.goc[0], dk.goc[1], 800], xoay: 0 });
+  ok(kq2.diem.length === 1 && kq2.diem[0].nhan === 'CT1' && kq2.diem[0].z === 450 && /cao 450 từ mép dưới tủ/.test(kq2.luu_y[0]), 'tủ treo: chỉ che công tắc, cao độ tính từ mép dưới tủ', kq2);
+  eq([P.dienNuocChoTu(M, Ht, null).diem, P.dienNuocChoTu(M, P.hinhHoc(P.macDinh()), dk).diem, P.dienNuocChoTu(null, Ht, dk).diem], [[], [], []], 'thiếu chỗ đặt / phòng không có điểm / chưa có tủ: không có gì');
+  // tủ quay 180° áp tường C: vẫn tính đúng trong hệ của tủ
+  const p180 = P.macDinh(); p180.dn = [{ tuong: 2, loai: 'o_dien', cach: 1000, cao: 300 }]; p180.khung = [{ ten: 'X', tuong: 2, cach: 600, rong: 2400, cao: 2400, sau: bb.y1 - bb.y0 }];
+  const H180 = P.hinhHoc(p180), k180 = P.dienNuocChoTu(M, H180, P.datKhung(H180, 0));
+  eq(k180.diem.map(d => [d.nhan, d.mat, d.x, d.z, d.khoang]), [['Ổ1', 'lung', 400, 300, 0]], 'tủ áp tường C (xoay 180°): ổ cách đầu trái khung 400 → khoang 1');
+
+  // hình: mặt bằng có dấu từng điểm (data-dn), mặt đứng có ô + nhãn bấm sửa được; điểm dưới sàn chỉ sửa ở mặt đứng của tường nó đo theo
+  const mb = P.matBangSVG(H, { sua: true }), md = P.matDungSVG(H, 0, { sua: true }), mdB = P.matDungSVG(H, 1, { sua: true }), mdD = P.matDungSVG(H, 3, { sua: true });
+  eq((mb.match(/data-dn="\d+"/g) || []).length, 7, 'mặt bằng: 7 dấu');
+  ok(/<title>Ổ điện 1: tường A, cách đầu trái 950, cao \+300<\/title>/.test(mb) && /<title>Thoát sàn 1: tường A, cách đầu trái 1500, cách tường 300<\/title>/.test(mb) && />Ổ1<\/text>/.test(mb) && />TS1<\/text>/.test(mb), 'mặt bằng: ký hiệu + chú giải khi rê chuột');
+  ok(/data-sua="dn\.0\.cao"[^>]*>Ổ1 \+300</.test(md) && /data-sua="dn\.0\.cach"[^>]*>950</.test(md) && /data-sua="dn\.6\.cao"[^>]*>Ổ3 \+300</.test(md) && !/dn\.1\./.test(md), 'mặt đứng tường A: ổ của tường A, bấm sửa được cao + cách trái; không có điểm của tường khác');
+  ok(/data-sua="dn\.4\.cach"[^>]*>1500</.test(md) && /data-sua="dn\.4\.ra"[^>]*>300</.test(md) && />TS1 · </.test(md), 'mặt đứng tường A: thoát sàn ghi dưới vạch sàn, sửa được cách trái + cách tường');
+  ok(/data-dnd="3"/.test(mdD) && />TS1 · </.test(mdD) === false && /data-dnd="5"/.test(mdB) && /Đ1 \+1500/.test(mdB), 'mặt đứng tường B / D: điểm của tường đó');
+  const pS = P.macDinh(); pS.dn = [{ tuong: 3, loai: 'thoat_san', cach: 2500, ra: 3000 }];
+  const mdS = P.matDungSVG(P.hinhHoc(pS), 0, { sua: true });
+  ok(/data-dnd="0"/.test(mdS) && />TS1 · </.test(mdS) && !/data-sua="dn\.0/.test(mdS) && />3000<\/tspan>/.test(mdS) && />500<\/tspan>/.test(mdS), 'thoát sàn khai theo tường D nhưng nằm sát tường A (cách 500): mặt đứng tường A vẫn hiện, không cho sửa ở đây');
+  ok(!/data-sua="dn\./.test(P.matDungSVG(H, 0, {})) && /Ổ1 \+300/.test(P.matDungSVG(H, 0, {})), 'không bật chế độ sửa: nhãn vẫn có nhưng không bấm được');
+  ok(P.matDungSVG(H, 2, {}).length > 500 && P.matBangSVG(P.hinhHoc(P.macDinh()), {}).indexOf('data-dn') < 0, 'phòng không có điểm: hình như cũ');
+
+  // dấu để vẽ vào Chenfeng: file DXF nhỏ
+  const pd = P.macDinh(); pd.goc = [50000, 3000, 0];
+  pd.dn = [{ tuong: 0, loai: 'o_dien', cach: 950, cao: 300 }, { tuong: 0, loai: 'cong_tac', cach: 3500, cao: 1250 }, { tuong: 1, loai: 'cap_nuoc', cach: 1340, cao: 650 }, { tuong: 2, loai: 'thoat_nuoc', cach: 500, cao: 400 },
+    { tuong: 3, loai: 'khac', cach: 400, cao: 1500, ghi: 'Tủ điện', rong: 300, cao_o: 200 }, { tuong: 0, loai: 'thoat_san', cach: 1500, ra: 300 }, { tuong: 0, loai: 'ong_san', cach: 600, ra: 200 }];
+  const X = P.dienNuocDXF(P.hinhHoc(pd)), L = X.dxf.split('\n'), dem = t => L.filter((v, i) => v === t && L[i - 1] === '0').length;
+  eq([X.so, dem('LWPOLYLINE'), dem('CIRCLE'), dem('TEXT'), dem('LINE'), L.slice(0, 4), L.slice(-5)], [7, 3, 8, 12, 22, ['0', 'SECTION', '2', 'ENTITIES'], ['0', 'ENDSEC', '0', 'EOF', '']], 'DXF: 7 điểm → 3 ô chữ nhật, 8 vòng tròn, 12 chữ (5 nhãn tường + 5 ký hiệu chân tường + 2 nhãn sàn), 22 đoạn thẳng');
+  eq(X.hop, { x0: 50002, x1: 53598, y0: 2, y1: 2998, z0: 1, z1: 1600 }, 'hộp bao các nét: nằm trong lòng phòng, nhô khỏi mặt tường / mặt sàn 1–2 mm');
+  const iP = L.indexOf('LWPOLYLINE');
+  eq(L.slice(iP + 1, iP + 33).join(' '), '8 0 62 30 90 4 70 1 38 -2998 10 50890 20 260 10 51010 20 260 10 51010 20 340 10 50890 20 340 210 0 220 -1 230 0', 'ổ điện 1 trên tường A: ô 120 × 80 tâm (50950, +300), mặt phẳng y = 2998 (hướng đùn = pháp tuyến tường, cao trình −2998), màu 30');
+  ok(/\n0\nTEXT\n8\n0\n62\n30\n10\n51030\n20\n280\n30\n-2998\n40\n40\n1\nO1 \+300\n210\n0\n220\n-1\n230\n0\n/.test(X.dxf), 'nhãn "O1 +300" (không dấu) bên phải ô, cùng mặt phẳng tường', L.slice(iP + 60, iP + 100));
+  ok(/\n1\nCT1 \+1250\n/.test(X.dxf) && /\n10\n53124\.8\n20\n1230\n30\n-2998\n40\n40\n1\nCT1 \+1250\n/.test(X.dxf), 'công tắc sát cuối tường: nhãn chuyển sang bên TRÁI ô');
+  ok(/\n0\nCIRCLE\n8\n0\n62\n140\n10\n-1660\n20\n650\n30\n-53598\n40\n30\n210\n-1\n220\n0\n230\n0\n/.test(X.dxf), 'cấp nước trên tường B: vòng tròn Ø60 trong mặt tường B (trục x của mặt = hướng chạy của tường = −y; cao trình = −53598), màu 140');
+  ok(/\n0\nCIRCLE\n8\n0\n62\n34\n10\n51500\n20\n2700\n30\n1\n40\n55\n0\nLINE/.test(X.dxf) && /\n1\nTS1\n/.test(X.dxf) && /\n1\nOS1\n/.test(X.dxf), 'thoát sàn: vòng tròn Ø110 trên sàn (z = 1) + gạch chéo; nhãn không dấu');
+  ok(/\n62\n200\n/.test(X.dxf) && /\n1\nD1 \+1500\n/.test(X.dxf) && !/[^\x00-\x7f]/.test(X.dxf), 'điểm khác: màu 200, nhãn "D1"; cả file chỉ có ký tự ASCII');
+  ok(/\n1\nCN1\n50\n90\n/.test(X.dxf) && /\n1\nO1\n50\n0\n/.test(X.dxf), 'ký hiệu ở chân tường: chữ chạy dọc tường và đọc xuôi (tường B quay 90°)');
+  eq(P.dienNuocDXF(P.hinhHoc(P.macDinh())), { dxf: '', so: 0, hop: null }, 'phòng không có điểm: không có file');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

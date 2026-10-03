@@ -145,6 +145,85 @@ async function trangDocLap(browser) {
   await H.locator('[data-act="p-mau"]').click();
   ok((await P()).khung.length === 0 && (await P()).tuong.length === 4, 'Phòng mẫu: về phòng 3600 × 3000');
   ok((await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, 'không tràn ngang');
+  // bản 1.18 — ĐIỆN – NƯỚC: thêm điểm, gõ số đo, đổi loại, sửa ngay trên mặt đứng, bấm dấu trên mặt bằng, khung che điểm, mở thành tủ
+  const tieuDiem = () => page.evaluate(() => { const a = document.getElementById('mncf-host').shadowRoot.activeElement; return a && a.dataset ? a.dataset.p || '' : ''; });
+  await H.locator('.pmb [data-tuong="0"]').click({ force: true });
+  ok((await H.locator('[data-act="d-add"]').count()) === 7 && (await H.locator('.drow').count()) === 0, 'thẻ Phòng có khung Điện – nước với 7 nút thêm, chưa có điểm nào');
+  await H.locator('[data-act="d-add"][data-v="o_dien"]').click();
+  p = await P();
+  ok(p.dn.length === 1 && JSON.stringify(p.dn[0]) === '{"tuong":0,"loai":"o_dien","cach":500,"cao":300}' && (await tieuDiem()) === 'dn.0.cach', '+ Ổ điện: điểm mới trên tường đang chọn (A), cách trái 500, cao +300; con trỏ vào ô "cách trái"', [p.dn, await tieuDiem()]);
+  await go('[data-p="dn.0.cach"]', '950');
+  ok((await P()).dn[0].cach === 950 && (await H.locator('.pmb [data-dn="0"]').count()) === 1 && /Ổ1 \+300/.test(await H.locator('.pmd').innerHTML()) && /Điện – nước: 1 ổ điện/.test(await sum()), 'gõ cách trái 950: mặt bằng có dấu, mặt đứng tường A có "Ổ1 +300", tóm tắt đếm 1 ổ điện', await sum());
+  await H.locator('[data-act="d-add"][data-v="o_dien"]').click();
+  ok((await P()).dn[1].cach === 1250, 'thêm ổ thứ hai cùng tường: tự cách ổ trước 300 (khỏi chồng lên nhau trên hình)', (await P()).dn);
+  await H.locator('[data-p="dn.1.loai"]').selectOption('cong_tac');
+  p = await P();
+  ok(p.dn[1].loai === 'cong_tac' && p.dn[1].cao === 1250, 'đổi loại sang Công tắc: cao độ còn là số điền sẵn (300) → theo loại mới (1250)', p.dn[1]);
+  await go('[data-p="dn.1.cao"]', '1400');
+  await H.locator('[data-p="dn.1.loai"]').selectOption('cap_nuoc');
+  p = await P();
+  ok(p.dn[1].loai === 'cap_nuoc' && p.dn[1].cao === 1400, 'đã gõ cao độ riêng (1400) rồi đổi loại: giữ số đã gõ', p.dn[1]);
+  await H.locator('[data-act="d-add"][data-v="khac"]').click();
+  ok(await H.locator('.drow[data-dj="2"] .dkhac').isVisible() && !(await H.locator('.drow[data-dj="0"] .dkhac').count()), '"Điểm khác": có thêm dòng tên + cỡ ô (các loại khác không có)');
+  await H.locator('[data-p="dn.2.ghi"]').fill('Tủ điện'); await H.locator('[data-p="dn.2.rong"]').fill('300'); await go('[data-p="dn.2.cao_o"]', '200');
+  p = await P();
+  ok(p.dn[2].ghi === 'Tủ điện' && p.dn[2].rong === 300 && p.dn[2].cao_o === 200 && /<title>Tủ điện 1: tường A/.test(await H.locator('.pmb').innerHTML()), 'điểm khác: tên + cỡ ô vào mô hình, hình ghi tên đó', p.dn[2]);
+  await H.locator('[data-act="d-add"][data-v="thoat_san"]').click();
+  p = await P();
+  ok(p.dn[3].loai === 'thoat_san' && p.dn[3].ra === 300 && p.dn[3].cao === undefined && (await H.locator('[data-p="dn.3.ra"]').count()) === 1 && !(await H.locator('[data-p="dn.3.cao"]').count())
+    && JSON.stringify(await H.locator('[data-p="dn.3.loai"] option').evaluateAll(os => os.map(o => o.value))) === '["thoat_san","ong_san"]', '+ Thoát sàn: điểm dưới sàn — cột thứ tư là "cách tường" (300), ô Loại chỉ có 2 loại dưới sàn', p.dn[3]);
+  ok(JSON.stringify(await H.locator('[data-p="dn.0.loai"] option').evaluateAll(os => os.map(o => o.value))) === '["o_dien","cong_tac","cap_nuoc","thoat_nuoc","khac"]', 'điểm trên tường: ô Loại có 5 loại trên tường');
+  // sửa ngay trên mặt đứng
+  await H.locator('.pmd [data-sua="dn.0.cao"]').click();
+  ok(await H.locator('.pdim').isVisible() && (await H.locator('.pdim').inputValue()) === '300', 'bấm nhãn "Ổ1 +300" trên mặt đứng → ô nhập hiện ngay đó, sẵn số cũ');
+  await H.locator('.pdim').fill('450'); await H.locator('.pdim').press('Enter');
+  ok((await P()).dn[0].cao === 450 && /Đã sửa cao độ điểm điện – nước: 450/.test(await st()) && (await H.locator('[data-p="dn.0.cao"]').inputValue()) === '450', 'Enter: cao độ ổ 1 = 450, ô dưới form đổi theo', await st());
+  await H.locator('.pmd [data-sua="dn.0.cach"]').click(); await H.locator('.pdim').fill('1000'); await H.locator('.pdim').press('Enter');
+  await H.locator('.pmd [data-sua="dn.3.ra"]').click(); await H.locator('.pdim').fill('350'); await H.locator('.pdim').press('Enter');
+  p = await P();
+  ok(p.dn[0].cach === 1000 && p.dn[3].ra === 350, 'sửa cách trái của ổ và cách tường của thoát sàn ngay trên mặt đứng', [p.dn[0], p.dn[3]]);
+  // bấm dấu trên mặt bằng → tới dòng của điểm đó
+  await H.locator('[data-p="ten"]').focus();
+  await H.locator('.pmb [data-dn="1"]').click({ force: true });
+  ok((await tieuDiem()) === 'dn.1.cach', 'bấm dấu CN1 trên mặt bằng → con trỏ vào dòng của điểm đó', await tieuDiem());
+  // số đo sai → lỗi đỏ
+  await go('[data-p="dn.1.cach"]', '9000');
+  ok(/Cấp nước 1 nằm ngoài tường A: cách đầu trái 9000 mà tường chỉ dài 3600/.test(await msgs()), 'điểm ra ngoài tường: báo lỗi', await msgs());
+  await go('[data-p="dn.1.cach"]', '1340');
+  // bỏ điểm; bỏ tường thì điểm trên tường đó đi theo
+  await H.locator('.drow[data-dj="2"] [data-act="d-del"]').click();
+  p = await P();
+  ok(p.dn.length === 3 && p.dn.map(d => d.loai).join() === 'o_dien,cap_nuoc,thoat_san', 'bỏ một điểm', p.dn);
+  await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.dn.push({ tuong: 1, loai: 'o_dien', cach: 400, cao: 300 }, { tuong: 2, loai: 'cong_tac', cach: 1300, cao: 1250 }); window.MNCF.phong.dat(q); });
+  await H.locator('[data-act="t-add"]').click();      // thêm 1 tường (để còn bỏ được tường B mà phòng vẫn có tường)
+  await H.locator('.prow[data-ti="1"] [data-act="t-del"]').click();
+  p = await P();
+  ok(p.dn.length === 4 && p.dn.map(d => d.tuong).join() === '0,0,0,1' && /Đã bỏ tường B cùng 1 cửa \/ dầm cột \/ điểm điện – nước \/ khung/.test(await st()), 'bỏ tường B: ổ trên tường B mất, công tắc của tường C dồn chỉ số theo', [p.dn, await st()]);
+  // khung che điểm → báo ở thẻ Phòng; mở thành tủ → thẻ Tủ báo từng điểm và vẽ dấu lên hình đứng
+  await page.evaluate(() => window.MNCF.phong.dat({ ten: 'Bếp', cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }],
+    dn: [{ tuong: 0, loai: 'o_dien', cach: 950, cao: 300 }, { tuong: 0, loai: 'cong_tac', cach: 2300, cao: 1250 }, { tuong: 0, loai: 'thoat_san', cach: 1500, ra: 300 }, { tuong: 2, loai: 'o_dien', cach: 500, cao: 300 }],
+    khung: [{ ten: 'KB', tuong: 0, cach: 0, rong: 2500, cao: 2700, sau: 600 }] }));
+  ok(/Khung KB che công tắc 1/.test(await msgs()) && /Khung KB trùm lên thoát sàn 1/.test(await msgs()) && /Khung KB che 3 điểm điện – nước: ổ điện 1 sau lưng tủ — cách mép trái khung 950, cao \+300/.test(await msgs()), 'khung che điểm: thẻ Phòng báo ngay dưới mặt bằng', await msgs());
+  await H.locator('.pcard[data-kj="0"] [data-act="k-mo"]').click();
+  const dnTu = async () => ({ bao: await H.locator('.msgs .msg.dn').allInnerTexts(), dau: await H.locator('.view text[data-dn]').evaluateAll(es => es.map(e => e.textContent)), loi: await page.evaluate(() => window.MNCF.app.getModel().errors) });
+  let dt = await dnTu();
+  ok(dt.dau.join() === 'Ổ1,CT1,TS1' && dt.bao.length === 3 && dt.bao.some(t => /^Ổ điện 1/.test(t)) && dt.bao.some(t => /^Công tắc 1.*Tủ che công tắc/.test(t)) && dt.bao.some(t => /^Thoát sàn 1 nằm dưới tủ/.test(t)), 'Mở thành tủ: thẻ Tủ báo 3 điểm sau tủ + 3 dấu trên hình đứng (ổ của tường C không dính)', dt);
+  // sửa tủ thì dòng báo tính lại theo tủ mới; bỏ điểm ở thẻ Phòng thì thẻ Tủ hết dấu đó
+  await page.evaluate(() => { const sp = window.MNCF.app.getSpec(); sp.khoang.forEach(k => { k.o = []; }); sp.khoang[0].rong = 700; window.MNCF.app.setSpec(sp); });
+  dt = await dnTu();
+  ok(dt.loi.length === 0 && dt.dau.length === 3 && dt.bao.some(t => /^Ổ điện 1: sau lưng tủ, khoang 2, .*Khoét hậu khoang 2 120 × 80/.test(t)), 'sửa tủ (khoang 1 rộng 700, bỏ ngăn kéo): ổ 1 hết trúng vách, nằm gọn trong khoang 2 — ghi chỗ khoét hậu', dt);
+  await H.locator('.tab[data-tab="phong"]').click();
+  await H.locator('.drow[data-dj="1"] [data-act="d-del"]').click();
+  await H.locator('.tab[data-tab="tu"]').click();
+  dt = await dnTu();
+  ok(dt.dau.join() === 'Ổ1,TS1' && dt.bao.length === 2, 'bỏ công tắc ở thẻ Phòng → về thẻ Tủ: còn 2 dấu, 2 dòng báo', dt);
+  await H.locator('.tab[data-tab="phong"]').click();
+  await H.locator('[data-act="p-mau"]').click();
+  await H.locator('.tab[data-tab="tu"]').click();
+  dt = await dnTu();
+  ok(dt.dau.length === 0 && dt.bao.length === 0, 'về phòng mẫu (không có điểm): thẻ Tủ hết dấu, hết dòng báo', dt);
+  await H.locator('.tab[data-tab="phong"]').click();
+  ok((await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, 'có khung Điện – nước: vẫn không tràn ngang');
   // màn hình hẹp (điện thoại)
   await page.setViewportSize({ width: 400, height: 800 }); await page.waitForTimeout(300);
   ok((await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, 'rộng 400: không tràn ngang');
@@ -241,6 +320,47 @@ async function tienIch() {
     await H.locator('[data-act="p-ve"]').click();
     await page.waitForFunction(() => /Chenfeng đặt dầm/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.pkq').innerText), null, { timeout: 40000 }).catch(() => {});
     ok(/Dầm 1: Chenfeng đặt dầm ở cao độ \+2250 → \+2600 \(muốn \+2350 → \+2700\)/.test(await H.locator('.pkq').innerText()), 'dầm lệch cao độ: có cảnh báo', await H.locator('.pkq').innerText());
+
+    /* --- bản 1.18: ĐIỆN – NƯỚC — vẽ phòng thì đánh dấu các điểm lên bản vẽ (file DXF thả vào Chenfeng); vẽ tủ vào khung thì báo điểm sau tủ --- */
+    const PHONG_DN = Object.assign({}, PHONG, { goc: [40000, 0, 0], mo: [], can: [], khung: [{ ten: 'KD', tuong: 0, cach: 300, rong: 2000, cao: 2400, sau: 600 }],
+      dn: [{ tuong: 0, loai: 'o_dien', cach: 950, cao: 300 }, { tuong: 1, loai: 'cap_nuoc', cach: 1340, cao: 650 }, { tuong: 0, loai: 'thoat_san', cach: 1500, ra: 300 }] });
+    const soNet = () => page.evaluate(() => { const M = window.__MOCK__, ds = c => M.ents.filter(e => e instanceof c && !e.IsErase); return { pl: ds(M.Polyline).map(e => e.box.map(v => Math.round(v * 10) / 10)), ci: ds(M.Circle).length, tx: ds(M.Text).map(e => e.TextString), li: ds(M.Line).length, mau: [...new Set(ds(M.Circle).concat(ds(M.Polyline), ds(M.Line), ds(M.Text)).map(e => e.ColorIndex))].sort((a, b) => a - b) }; });
+    await page.evaluate(p => { window.__MOCK_TRAN__ = 0; window.__MOCK_INPUTS__ = []; window.MNCF.phong.dat(p); }, PHONG_DN);
+    const nDn0 = await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length);
+    await H.locator('[data-act="p-ve"]').click();
+    await page.waitForFunction(() => /Đã vẽ phòng vào Chenfeng|chưa xong/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 });
+    let net = await soNet();
+    ok(/Đã vẽ phòng: 4 tường, 3 dấu điện – nước \(nét \+ nhãn trên mặt tường \/ trên sàn\)/.test(await H.locator('.pkq').innerText()), 'vẽ phòng có điểm điện – nước: báo số dấu đã đánh', await H.locator('.pkq').innerText());
+    ok(JSON.stringify(net.pl) === '[[40890,41010,-2,-2,260,340]]' && net.ci === 4 && net.li === 10 && JSON.stringify(net.tx) === '["O1 +300","O1","CN1 +650","CN1","TS1"]' && JSON.stringify(net.mau) === '[30,34,140]',
+      'bản vẽ có: ô 120 × 80 của ổ điện nằm trên mặt tường A (nhô 2 mm vào phòng), 4 vòng tròn, 10 đoạn thẳng, 5 chữ không dấu; màu theo nhóm (30 điện, 140 cấp, 34 thoát)', net);
+    ok(JSON.stringify(await page.evaluate(() => (window.__MOCK_DXF__ || []).slice(-1))) === '[{"ten":"dien-nuoc.dxf","so":20,"truoc":false}]' && (await page.evaluate(() => window.__MOCK_INPUTS__.filter(t => t === 'N').length)) === 1, 'Chenfeng hỏi "chèn vào mặt trước?" → bảng trả lời N (giữ nguyên toạ độ)', await page.evaluate(() => window.__MOCK_DXF__));
+    await H.locator('[data-act="p-hoantac"]').click();
+    await page.waitForFunction(() => /Đã bỏ phòng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+    ok((await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length)) === nDn0 && (await soNet()).tx.length === 0, 'Hoàn tác phòng: tường lẫn dấu điện – nước đều đi', await st());
+    // tài khoản bật sẵn "chèn file DXF vào mặt trước": Chenfeng không hỏi mà xoay luôn → bảng thấy nét lệch chỗ, tự bỏ và báo; phòng vẫn vẽ đủ
+    await page.evaluate(() => { window.__MOCK_DXF_TRUOC__ = true; });
+    await H.locator('[data-act="p-ve"]').click();
+    await page.waitForFunction(() => /Đã vẽ phòng vào Chenfeng|chưa xong/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 });
+    net = await soNet();
+    ok(/Đã vẽ phòng: 4 tường\./.test(await H.locator('.pkq').innerText()) && /Chưa đánh dấu được 3 điểm điện – nước lên bản vẽ: Chenfeng đặt các nét lệch chỗ/.test(await H.locator('.pkq').innerText()) && net.tx.length === 0 && net.pl.length === 0 && net.li === 0,
+      'Chenfeng tự xoay file: bảng bỏ các nét lệch, báo rõ; phòng vẫn vẽ đủ 4 tường', [await H.locator('.pkq').innerText(), net]);
+    await page.evaluate(() => { window.__MOCK_DXF_TRUOC__ = false; });
+    await H.locator('[data-act="p-hoantac"]').click();
+    await page.waitForFunction(() => /Đã bỏ phòng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+    ok((await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length)) === nDn0, 'hoàn tác lần vẽ đó: bản vẽ về như trước');
+    // vẽ tủ vào khung có ổ điện sau lưng + thoát sàn dưới đáy → thẻ Kết quả ghi rõ
+    await H.locator('.pcard[data-kj="0"] [data-act="k-ve"]').click();
+    await H.locator('.report .msg').first().waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => /Đã vẽ xong|Có lỗi/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 });
+    const bcDn = await H.locator('.report .msg.dn').allInnerTexts();
+    ok(/Đã vẽ xong/.test(await H.locator('.report').innerText()) && bcDn.length === 2 && bcDn.some(t => /^Điện – nước: Ổ điện 1/.test(t) && /tâm cách mép trái tủ 650, cao \+300/.test(t)) && bcDn.some(t => /^Điện – nước: Thoát sàn 1 nằm dưới tủ/.test(t)),
+      'Vẽ tủ vào khung: thẻ Kết quả ghi ổ điện sau lưng tủ (cách mép trái tủ 650, cao +300) và thoát sàn dưới tủ; cấp nước ở tường B không dính', bcDn);
+    await H.locator('.tab[data-tab="tu"]').click();
+    ok((await H.locator('.view text[data-dn]').evaluateAll(es => es.map(e => e.textContent))).join() === 'Ổ1,TS1' && (await H.locator('.msgs .msg.dn').count()) === 2, 'vẽ xong: thẻ Tủ vẫn soi điện – nước lên tủ vừa vẽ (để sửa tiếp rồi "Cập nhật tủ này")');
+    await H.locator('.tab[data-tab="kq"]').click();
+    await H.locator('[data-act="undo"]').click();
+    await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+    await page.evaluate(p => { window.__MOCK_TRAN__ = 2600; window.MNCF.phong.dat(Object.assign({}, p, { khung: [], mo: [], can: [{ tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }] })); }, PHONG);
 
     /* --- bản 1.17: ĐẶT TỦ BẰNG CHUỘT — bấm điểm đầu ở chân tường, rê chuột dọc tường, rồi Enter / gõ bề rộng / bấm điểm cuối ---
      * Phòng đang có trên bản vẽ giả lập: lòng phòng x 0 … 3600, y −3000 … 0 (tường A: mặt trong y = 0; tường B: mặt trong x = 3600), trần 2700. */

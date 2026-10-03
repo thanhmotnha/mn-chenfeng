@@ -22,6 +22,19 @@
   const tenTuong = i => { let s = ''; i++; while (i > 0) { s = String.fromCharCode(65 + (i - 1) % 26) + s; i = Math.floor((i - 1) / 26); } return s; };
   const LOAI_MO = { cua: 'Cửa đi', cua_so: 'Cửa sổ', o_trong: 'Ô trống' };
   const LOAI_CAN = { cot: 'Cột', dam: 'Dầm', hop: 'Hộp kỹ thuật' };
+  // ĐIỆN – NƯỚC hiện trạng (bản 1.18 — anh Jason 03/10/2026 23:46: "nhiều phòng có ổ điện rồi thoát sàn, rồi cấp thoát nước cho điền vào hiện trạng").
+  //   Điểm TRÊN TƯỜNG: `cach` = từ đầu trái tường tới TÂM điểm, `cao` = từ sàn tới tâm. Điểm DƯỚI SÀN (san): `cach` như trên, `ra` = từ mặt tường ra tâm.
+  //   rong × cao_o = cỡ ô phải khoét trên tấm che nó (tron: đường kính); cao / ra ở đây là số điền sẵn khi thêm điểm mới — thợ đo lại rồi gõ đè.
+  const LOAI_DN = {
+    o_dien: { ten: 'Ổ điện', ky: 'Ổ', nhom: 'dien', cao: 300, rong: 120, cao_o: 80 },
+    cong_tac: { ten: 'Công tắc', ky: 'CT', nhom: 'dien', cao: 1250, rong: 120, cao_o: 80 },
+    cap_nuoc: { ten: 'Cấp nước', ky: 'CN', nhom: 'cap', cao: 550, rong: 60, tron: true },
+    thoat_nuoc: { ten: 'Thoát nước', ky: 'TN', nhom: 'thoat', cao: 400, rong: 90, tron: true },
+    khac: { ten: 'Điểm khác', ky: 'Đ', nhom: 'khac', cao: 300, rong: 120, cao_o: 120 },
+    thoat_san: { ten: 'Thoát sàn', ky: 'TS', nhom: 'thoat', san: true, ra: 300, rong: 110, tron: true },
+    ong_san: { ten: 'Ống chờ sàn', ky: 'ÔS', nhom: 'thoat', san: true, ra: 150, rong: 90, tron: true },
+  };
+  const MAU_DN = { dien: '#c26a00', cap: '#0a84c4', thoat: '#7a4a21', khac: '#6b46a8' };
 
   /** Phòng mẫu: 3600 × 3000, trần 2700, cửa đi ở tường C. Tường cuối để 'auto' = tự tính cho phòng khép kín. */
   const macDinh = () => ({
@@ -29,6 +42,7 @@
     tuong: [{ ten: 'A', dai: 3600, re: 90 }, { ten: 'B', dai: 3000, re: 90 }, { ten: 'C', dai: 3600, re: 90 }, { ten: 'D', dai: 'auto', re: 90 }],
     mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200, be: 0 }],
     can: [],
+    dn: [],
     khung: [],
   });
 
@@ -49,6 +63,16 @@
     o.can = (Array.isArray(p.can) ? p.can : []).map(c => {
       const loai = LOAI_CAN[c.loai] ? c.loai : 'cot';
       return { tuong: iT(c.tuong), loai, cach: num(c.cach, 0), rong: Math.max(0, num(c.rong, 300)), nho: Math.max(0, num(c.nho, 200)), z0: Math.max(0, num(c.z0, loai === 'dam' ? Math.max(0, o.cao - 300) : 0)), z1: Math.max(0, num(c.z1, o.cao)) };
+    });
+    o.dn = (Array.isArray(p.dn) ? p.dn : []).filter(d => d && typeof d === 'object').map(d => {
+      const loai = LOAI_DN[d.loai] ? d.loai : 'o_dien', L = LOAI_DN[loai], q = { tuong: iT(d.tuong), loai, cach: num(d.cach, 0) };
+      if (L.san) q.ra = Math.max(0, num(d.ra, L.ra)); else q.cao = Math.max(0, num(d.cao, L.cao));
+      // cỡ ô chỉ giữ khi khác cỡ mặc định của loại (đổi loại thì cỡ đi theo loại mới)
+      const r = num(d.rong, 0), c = num(d.cao_o, 0);
+      if (r > 0 && r !== L.rong) q.rong = r;
+      if (!L.tron && c > 0 && c !== L.cao_o) q.cao_o = c;
+      if (d.ghi) q.ghi = String(d.ghi).slice(0, 40);
+      return q;
     });
     o.khung = (Array.isArray(p.khung) ? p.khung : []).map((k, i) => {
       const q = { ten: String(k.ten || 'K' + (i + 1)).slice(0, 24), tuong: iT(k.tuong), cach: num(k.cach, 0), z: Math.max(0, num(k.z, 0)), rong: Math.max(0, num(k.rong, 1000)), cao: Math.max(0, num(k.cao, o.cao)), sau: Math.max(0, num(k.sau, 600)), mau: String(k.mau || ''), ghi_chu: String(k.ghi_chu || '').slice(0, 200) };
@@ -155,8 +179,129 @@
     }
     for (let i = 0; i < kh.length; i++) for (let j = i + 1; j < kh.length; j++) if (kh[i].rong > 0 && kh[j].rong > 0 && giao(kh[i].poly, kh[j].poly) && zGiao(kh[i].z0, kh[i].z1, kh[j].z0, kh[j].z1))
       loi.push(kh[i].tuong === kh[j].tuong ? `Khung ${kh[i].ten} và khung ${kh[j].ten} trên tường ${kh[i].w.ten} chồng lên nhau.` : `Khung ${kh[i].ten} (tường ${kh[i].w.ten}) và khung ${kh[j].ten} (tường ${kh[j].w.ten}) đâm vào nhau ở góc phòng — lùi một khung ra khỏi góc đúng bằng chiều sâu khung kia.`);
-    H.mo = mo; H.can = can; H.khung = kh;
+    // ĐIỆN – NƯỚC (bản 1.18): vị trí trên mặt bằng (P) + cao độ (z), tên đánh số theo từng loại ("Ổ điện 2"), cỡ ô phải khoét
+    const dem = {};
+    const dn = p.dn.map((d, j) => {
+      const w = W[d.tuong], L = LOAI_DN[d.loai], so = dem[d.loai] = (dem[d.loai] || 0) + 1, rong = d.rong > 0 ? d.rong : L.rong;
+      const P0 = cong(cong(w.p0, nhan(w.d, d.cach)), nhan(w.n, L.san ? d.ra : 0));
+      const ten = d.loai === 'khac' && d.ghi ? `${d.ghi} ${so}` : `${L.ten} ${so}${d.ghi ? ` (${d.ghi})` : ''}`;
+      return Object.assign({}, d, { j, w, so, ten, nhan: L.ky + so, nhom: L.nhom, san: !!L.san, tron: !!L.tron, rong, cao_o: L.tron ? rong : (d.cao_o > 0 ? d.cao_o : L.cao_o), P: [rn(P0[0], 2), rn(P0[1], 2)], z: L.san ? 0 : d.cao });
+    });
+    const trongPhong = q => { let c = false; for (let i = 0, k = W.length - 1; i < W.length; k = i++) { const a1 = W[i].p0, b1 = W[k].p0; if ((a1[1] > q[1]) !== (b1[1] > q[1]) && q[0] < (b1[0] - a1[0]) * (q[1] - a1[1]) / (b1[1] - a1[1]) + a1[0]) c = !c; } return c; };
+    for (const d of dn) {
+      if (d.cach < -0.05 || d.cach > d.w.dai + 0.05) { loi.push(`${d.ten} nằm ngoài tường ${d.w.ten}: cách đầu trái ${g(d.cach)} mà tường chỉ dài ${g(d.w.dai)}.`); continue; }
+      if (d.san) { if (khep.kin && d.ra > 0.5 && !trongPhong(d.P)) luu_y.push(`${d.ten} nằm ngoài lòng phòng (cách tường ${d.w.ten} tới ${g(d.ra)}) — kiểm tra lại số đo.`); continue; }
+      if (d.z > d.w.cao + 0.05) loi.push(`${d.ten} (tường ${d.w.ten}) cao +${g(d.z)}, vượt trần ${g(d.w.cao)}.`);
+      for (const m of mo) if (m.tuong === d.tuong && d.cach > m.cach + 0.5 && d.cach < m.cach + m.rong - 0.5 && d.z > m.z0 + 0.5 && d.z < m.z1 - 0.5) luu_y.push(`${d.ten} đang nằm giữa ${m.ten.toLowerCase()} của tường ${d.w.ten} — kiểm tra lại “cách trái” / “cao”.`);
+    }
+    H.mo = mo; H.can = can; H.khung = kh; H.dn = dn;
+    // khung nào che điểm nào (tính theo hộp của khung; mở khung thành tủ thì `dienNuocChoTu` xét tới từng tấm)
+    if (dn.length) kh.forEach((q, j) => {
+      if (!(q.rong > 0 && q.cao > 0 && q.sau > 0)) return;
+      const dk = datKhung(H, j), che = diemTrongKhung(H, { goc: dk.goc, xoay: dk.xoay, rong: q.rong, sau: q.sau, cao: q.cao });
+      if (!che.length) return;
+      const ten = `Khung ${q.ten}`, ds = [];
+      for (const c of che) {
+        const d = c.d, t = d.ten.toLowerCase(), cao = `cao +${g(d.z)}${q.z > 0.5 ? ` (trên đáy khung ${g(c.z)})` : ''}`;
+        if (c.mat === 'lung') ds.push(`${t} sau lưng tủ — cách mép trái khung ${g(c.x)}, ${cao}`);
+        else if (c.mat === 'day') ds.push(`${t} dưới đáy tủ — cách mép trái khung ${g(c.x)}, cách tường lưng ${g(q.sau - c.y)}`);
+        else ds.push(`${t} (tường ${d.w.ten}) sau hồi ${c.mat === 'trai' ? 'trái' : 'phải'} — cách tường lưng ${g(q.sau - c.y)}, ${cao}`);
+        if (d.loai === 'cong_tac') luu_y.push(`${ten} che ${t} — công tắc sẽ không bấm được; dời khung hoặc chuyển công tắc.`);
+        else if (d.loai === 'thoat_san') luu_y.push(`${ten} trùm lên ${t} — tủ che mất thoát sàn (nước không thoát, không thông ống được); dời khung hoặc để hở chân tủ chỗ đó.`);
+        else if (c.cat) luu_y.push(`${ten}: mép khung cắt ngang ${t} — hồi / nóc tủ sẽ đè lên điểm này; dời khung hoặc dời điểm.`);
+      }
+      ghi_chu.push(`${ten} che ${che.length} điểm điện – nước: ${ds.join('; ')}. Mở khung thành tủ để xem điểm rơi vào khoang nào, khoét tấm nào.`);
+    });
     return H;
+  }
+
+  /**
+   * Điểm điện – nước nào bị một tủ / một khung che (bản 1.18).
+   * k = { goc: [x, y, z] góc trái – trước – dưới trong TOẠ ĐỘ BẢN VẼ (như `datKhung` trả về), xoay (độ), rong, sau, cao }.
+   * @returns [{ d (phần tử của H.dn), mat: 'lung' | 'trai' | 'phai' | 'day', x, y, z, cat }]
+   *   x, y, z = TÂM điểm trong hệ của tủ: x từ mép trái, y từ mặt trước vào lưng, z từ mép dưới. cat = mép tủ cắt ngang ô của điểm (điểm không nằm gọn sau một mặt).
+   */
+  function diemTrongKhung(H, k, opt) {
+    const out = [], o = (H.p && H.p.goc) || [0, 0, 0], a = (k.xoay || 0) * Math.PI / 180, ex = [Math.cos(a), Math.sin(a)], ey = [-Math.sin(a), Math.cos(a)];
+    const HO = opt && opt.ho >= 0 ? opt.ho : 60;      // tủ cách mặt tường tới 60 vẫn coi là áp tường đó (phào bên 50, lưng hở kỹ thuật)
+    for (const d of H.dn || []) {
+      const v = [d.P[0] + o[0] - k.goc[0], d.P[1] + o[1] - k.goc[1]], x = cham(v, ex), y = cham(v, ey), z = d.z + o[2] - k.goc[2], r = d.rong / 2, h = d.cao_o / 2;
+      if (d.san) {
+        if (Math.abs(z) > 50) continue;      // tủ treo: không che điểm dưới sàn
+        if (x + r <= 0.5 || x - r >= k.rong - 0.5 || y + r <= 0.5 || y - r >= k.sau - 0.5) continue;
+        out.push({ d, mat: 'day', x: rn(x), y: rn(y), z: 0, cat: x - r < -0.5 || x + r > k.rong + 0.5 || y - r < -0.5 || y + r > k.sau + 0.5 });
+        continue;
+      }
+      if (z + h <= 0.5 || z - h >= k.cao - 0.5) continue;
+      const nx = cham(d.w.n, ex), ny = cham(d.w.n, ey), catZ = z - h < -0.5 || z + h > k.cao + 0.5;
+      if (ny < -0.99 && Math.abs(y - k.sau) <= HO) {      // tường sau lưng tủ
+        if (x + r <= 0.5 || x - r >= k.rong - 0.5) continue;
+        out.push({ d, mat: 'lung', x: rn(x), y: rn(k.sau), z: rn(z), cat: catZ || x - r < -0.5 || x + r > k.rong + 0.5 });
+      } else if (Math.abs(nx) > 0.99 && Math.abs(x - (nx > 0 ? 0 : k.rong)) <= HO) {      // tường bên: sau hồi trái / phải
+        if (y + r <= 0.5 || y - r >= k.sau - 0.5) continue;
+        out.push({ d, mat: nx > 0 ? 'trai' : 'phai', x: nx > 0 ? 0 : rn(k.rong), y: rn(y), z: rn(z), cat: catZ || y - r < -0.5 || y + r > k.sau + 0.5 });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * ĐIỆN – NƯỚC so với TỪNG TẤM của tủ đã dựng (bản 1.18). M = MNCFCore.build(spec); khung = { goc: [x, y, z], xoay } = chỗ đặt tủ trong bản vẽ
+   * (góc trái – trước – dưới của cả tủ, đúng như lúc vẽ). Không cần MNCFCore: chỉ đọc M.parts / M.info.
+   * @returns {{ diem: [{ j, ten, nhan, nhom, loai, mat, x, y, z (toạ độ thiết kế của tủ), rong, cao, tron, mau, khoang, trung: [tên tấm], hau }], luu_y: string[], ghi_chu: string[] }}
+   *   luu_y = điểm trúng vách / đợt / hồi, nằm sau ngăn kéo, công tắc – thoát sàn bị tủ che; ghi_chu = điểm nằm gọn sau hậu / dưới đáy: khoét ở đâu.
+   */
+  function dienNuocChoTu(M, H, khung) {
+    const kq = { diem: [], luu_y: [], ghi_chu: [] }, bb = M && M.info && M.info.hop;
+    if (!bb || !H || !(H.dn || []).length || !khung || !Array.isArray(khung.goc)) return kq;
+    const k = { goc: khung.goc, xoay: khung.xoay || 0, rong: bb.x1 - bb.x0, sau: bb.y1 - bb.y0, cao: bb.z1 - bb.z0 };
+    const o = (H.p && H.p.goc) || [0, 0, 0], chamSan = Math.abs(k.goc[2] - o[2]) < 1;
+    const xk = M.info.x_khoang || [], wk = M.info.khoang || [], cells = M.info.o || [];
+    const chong = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0) > 0.5;
+    const tenTam = q => String(q.ten || q.loai).toLowerCase() + (q.khoang >= 0 && /^(DOT|DAY|NOC|HAU)$/.test(q.loai) ? ` khoang ${q.khoang + 1}` : '');
+    const khoangCua = x => xk.findIndex((x0, i) => x >= x0 - 0.5 && x <= x0 + wk[i] + 0.5);
+    // tấm bị trúng kèm chỗ nó đang đứng (để biết phải kéo đi bao nhiêu): tấm đứng ghi theo chiều ngang, tấm nằm ghi theo cao độ — đều tính từ mép trái / mép dưới tủ
+    const choTam = q => `${tenTam(q)} (${/^(HOI|VACH|DEM)$/.test(q.loai) ? `đang ở ${g(q.x0 - bb.x0)} → ${g(q.x1 - bb.x0)}` : `cao ${g(q.z0 - bb.z0)} → ${g(q.z1 - bb.z0)}`})`;
+    for (const c of diemTrongKhung(H, k)) {
+      const d = c.d, r = d.rong / 2, h = d.cao_o / 2, x = c.x + bb.x0, y = c.y + bb.y0, z = c.z + bb.z0, T = d.ten;
+      const it = { j: d.j, ten: T, nhan: d.nhan, nhom: d.nhom, loai: d.loai, mat: c.mat, x: rn(x), y: rn(y), z: rn(z), rong: d.rong, cao: d.cao_o, tron: d.tron, mau: MAU_DN[d.nhom], khoang: -1, trung: [], hau: '' };
+      const co = d.tron ? `Ø${g(d.rong)}` : `${g(d.rong)} × ${g(d.cao_o)}`, caoTxt = chamSan ? `cao +${g(d.z)}` : `cao ${g(c.z)} từ mép dưới tủ`;
+      if (c.mat === 'lung') {
+        it.khoang = khoangCua(x);
+        const o2 = cells.find(q => x >= q.x0 - 0.5 && x <= q.x1 + 0.5 && z >= q.z0 - 0.5 && z <= q.z1 + 0.5);
+        let hau = null; const cho2 = [];
+        for (const q of M.parts) {
+          if (q.loai === 'CANH' || !chong(q.x0, q.x1, x - r, x + r) || !chong(q.z0, q.z1, z - h, z + h)) continue;
+          if (q.loai === 'HAU' && !q.van_thung) { if (!hau || (x >= q.x0 && x <= q.x1 && z >= q.z0 && z <= q.z1)) hau = q; continue; }
+          if (q.y1 < bb.y1 - 40) continue;      // tấm không ra tới lưng tủ (chân trước, phào, xà / nẹp hộc kéo…)
+          it.trung.push(tenTam(q)); cho2.push(choTam(q));
+        }
+        const cho = it.khoang >= 0 ? `khoang ${it.khoang + 1}${o2 ? `, ô +${g(o2.z0)} → +${g(o2.z1)}` : ''}` : '', vt = `tâm cách mép trái tủ ${g(c.x)}, ${caoTxt}`;
+        if (hau) it.hau = `khoét ${tenTam(hau)} ${co}: tâm cách mép trái tấm ${g(x - hau.x0)}, cách mép dưới tấm ${g(z - hau.z0)} (nhìn từ trong tủ)`;
+        const che = d.loai === 'cong_tac' ? ' Tủ che công tắc — không bấm được nữa: dời tủ hoặc chuyển công tắc.' : '';
+        if (it.trung.length) kq.luu_y.push(`${T} sau lưng tủ (${vt}) TRÚNG ${cho2.join(', ')}: ô ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, cao ${g(c.z - h)} → ${g(c.z + h)}. Kéo vách / đợt tránh ra, hoặc khoét tấm đó.${che}`);
+        else if (o2 && (o2.kieu === 'nk_am' || o2.kieu === 'nk_trum')) kq.luu_y.push(`${T} nằm sau hộc ngăn kéo (${cho}; ${vt}) — ngăn kéo che mất, hộp kéo có thể vướng phích cắm / đầu ống. Đổi ô đó thành ô trống hoặc dời ngăn kéo.${che}`);
+        else if (!hau) kq.luu_y.push(`${T} sau lưng tủ (${vt}) không nằm trong lòng khoang nào (sau chân tủ / phào) — tủ che kín, không với tới từ trong tủ.${che}`);
+        else (che ? kq.luu_y : kq.ghi_chu).push(`${T}: sau lưng tủ, ${cho || 'ngoài các khoang'} — ${vt}. ${it.hau.charAt(0).toUpperCase() + it.hau.slice(1)}.${che}`);
+      } else if (c.mat === 'day') {
+        it.khoang = khoangCua(x);
+        let day = null; const cho2 = [];
+        for (const q of M.parts) {
+          if (q.loai === 'CANH' || !chong(q.x0, q.x1, x - r, x + r) || !chong(q.y0, q.y1, y - r, y + r)) continue;
+          if (q.z0 > bb.z0 + 0.5) { if (q.loai === 'DAY' && (!day || q.z0 < day.z0)) day = q; continue; }      // tấm không chạm sàn; đáy thấp nhất = tấm phải khoét
+          it.trung.push(tenTam(q)); cho2.push(/^(HOI|VACH|DEM)$/.test(q.loai) ? choTam(q) : tenTam(q));
+        }
+        const vt = `tâm cách mép trái tủ ${g(c.x)}, cách lưng tủ ${g(k.sau - c.y)}`;
+        if (d.loai === 'thoat_san') kq.luu_y.push(`${T} nằm dưới tủ (${it.khoang >= 0 ? `khoang ${it.khoang + 1}; ` : ''}${vt}) — tủ che mất thoát sàn: nước không thoát, không thông ống được. Dời tủ hoặc để hở chân tủ chỗ đó.`);
+        else if (it.trung.length) kq.luu_y.push(`${T} dưới tủ (${vt}) TRÚNG ${cho2.join(', ')} — ống ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, đâm vào tấm chạm sàn. Kéo vách tránh ra hoặc dời tủ.`);
+        else { if (day) it.hau = `khoét ${tenTam(day)} ${co}: tâm cách mép trái tấm ${g(x - day.x0)}, cách mép sau tấm ${g(day.y1 - y)}`; kq.ghi_chu.push(`${T}: dưới đáy tủ${it.khoang >= 0 ? `, khoang ${it.khoang + 1}` : ''} — ${vt}. ${it.hau ? it.hau.charAt(0).toUpperCase() + it.hau.slice(1) : `Khoét đáy ${co}`}.`); }
+      } else {
+        const ben = c.mat === 'trai' ? 'trái' : 'phải';
+        kq.luu_y.push(`${T} (tường ${d.w.ten}) nằm sau hồi ${ben} của tủ — cách lưng tủ ${g(k.sau - c.y)}, ${caoTxt}: bị tủ che kín${d.loai === 'cong_tac' ? ', công tắc không bấm được nữa' : ''}. Dời tủ ra, dời điểm này, hoặc khoét hồi ${co}.`);
+      }
+      kq.diem.push(it);
+    }
+    return kq;
   }
 
   /**
@@ -460,6 +605,70 @@
     return kq;
   }
 
+  /**
+   * Dấu ĐIỆN – NƯỚC để vẽ vào bản vẽ (bản 1.18): một bản vẽ DXF nhỏ (chuỗi). Chenfeng nhận file .dxf thả vào vùng vẽ và dựng Line / Circle / Polyline / Text
+   * đúng toạ độ trong file (lệnh "CAD图纸导入" — 1 bước hoàn tác).
+   *   Điểm trên tường: ô đúng cỡ nằm trên mặt tường (nhô 2 mm vào phòng cho khỏi chìm vào mặt tường) + dấu riêng từng loại + nhãn "ký hiệu +cao".
+   *   Điểm dưới sàn: vòng tròn trên sàn (thoát sàn gạch chéo, ống chờ có vòng trong) + nhãn.
+   * Mặt tường trong DXF: hướng đùn (mã 210 / 220 / 230) = pháp tuyến n của tường; Chenfeng lấy trục x của mặt = ẑ × n (đúng bằng hướng chạy d của tường), trục y = ẑ
+   * — đã đo trên Chenfeng thật 04/10/2026. Nhãn KHÔNG DẤU (phông của Chenfeng thiếu chữ Việt). Màu theo bảng màu CAD (đã xem trên nền tường xám lẫn sàn tối của Chenfeng): điện 30 (cam), cấp nước 140 (xanh), thoát 34 (nâu), khác 200 (tím).
+   * @returns {{ dxf: string, so: number, hop: {x0, x1, y0, y1, z0, z1} | null }}  so = số điểm có dấu; hop = hộp bao các nét (không kể chữ) để máy vẽ đối chiếu sau khi thả
+   */
+  function dienNuocDXF(H, opt) {
+    opt = Object.assign({ nho: 2, cao_chu: 40 }, opt || {});
+    const o = (H && H.p && H.p.goc) || [0, 0, 0], E = [], hop = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, z0: Infinity, z1: -Infinity };
+    const MAU = { dien: 30, cap: 140, thoat: 34, khac: 200 }, f = v => String(rn(v, 3)), ct = opt.cao_chu;
+    const khongDau = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    const ghi = (...kv) => { for (let i = 0; i < kv.length; i += 2) E.push(String(kv[i]), String(kv[i + 1])); };
+    const bao = q => { hop.x0 = Math.min(hop.x0, q[0]); hop.x1 = Math.max(hop.x1, q[0]); hop.y0 = Math.min(hop.y0, q[1]); hop.y1 = Math.max(hop.y1, q[1]); hop.z0 = Math.min(hop.z0, q[2]); hop.z1 = Math.max(hop.z1, q[2]); };
+    const doan = (a, b, mau) => { ghi(0, 'LINE', 8, '0', 62, mau, 10, f(a[0]), 20, f(a[1]), 30, f(a[2]), 11, f(b[0]), 21, f(b[1]), 31, f(b[2])); bao(a); bao(b); };
+    let so = 0;
+    ghi(0, 'SECTION', 2, 'ENTITIES');
+    for (const d of (H && H.dn) || []) {
+      const w = d.w, mau = MAU[d.nhom] || 7, r = d.rong / 2, h = d.cao_o / 2, nhan = khongDau(d.nhan);
+      if (d.cach < -0.05 || d.cach > w.dai + 0.05) continue;
+      so++;
+      if (d.san) {
+        // trên sàn: mặt phẳng XY, nhô 1 mm khỏi mặt sàn
+        const c = [d.P[0] + o[0], d.P[1] + o[1], o[2] + 1], k = r * 0.7071;
+        ghi(0, 'CIRCLE', 8, '0', 62, mau, 10, f(c[0]), 20, f(c[1]), 30, f(c[2]), 40, f(r));
+        bao([c[0] - r, c[1] - r, c[2]]); bao([c[0] + r, c[1] + r, c[2]]);
+        if (d.loai === 'thoat_san') { doan([c[0] - k, c[1] - k, c[2]], [c[0] + k, c[1] + k, c[2]], mau); doan([c[0] - k, c[1] + k, c[2]], [c[0] + k, c[1] - k, c[2]], mau); }
+        else ghi(0, 'CIRCLE', 8, '0', 62, mau, 10, f(c[0]), 20, f(c[1]), 30, f(c[2]), 40, f(r * 0.45));
+        ghi(0, 'TEXT', 8, '0', 62, mau, 10, f(c[0] + r + 20), 20, f(c[1] - ct / 2), 30, f(c[2]), 40, f(ct), 1, nhan);
+        continue;
+      }
+      // trên tường: toạ độ trong mặt tường (u dọc tường = P·d, v = cao độ), cao trình của mặt = P·n + nhô
+      const C = [d.P[0] + o[0], d.P[1] + o[1], d.z + o[2]], n = w.n, dd = w.d, u0 = C[0] * dd[0] + C[1] * dd[1], v0 = C[2], e = C[0] * n[0] + C[1] * n[1] + opt.nho;
+      const W3 = (u, v) => [C[0] + dd[0] * (u - u0) + n[0] * opt.nho, C[1] + dd[1] * (u - u0) + n[1] * opt.nho, v];      // điểm (u, v) của mặt tường → toạ độ bản vẽ
+      const dun = [210, f(n[0]), 220, f(n[1]), 230, 0], tron = (u, v, bk) => ghi(0, 'CIRCLE', 8, '0', 62, mau, 10, f(u), 20, f(v), 30, f(e), 40, f(bk), ...dun);
+      if (d.tron) {
+        tron(u0, v0, r);
+        if (d.loai === 'thoat_nuoc') tron(u0, v0, r * 0.45);
+        else { doan(W3(u0 - r * 0.6, v0), W3(u0 + r * 0.6, v0), mau); doan(W3(u0, v0 - r * 0.6), W3(u0, v0 + r * 0.6), mau); }
+      } else {
+        ghi(0, 'LWPOLYLINE', 8, '0', 62, mau, 90, 4, 70, 1, 38, f(e), 10, f(u0 - r), 20, f(v0 - h), 10, f(u0 + r), 20, f(v0 - h), 10, f(u0 + r), 20, f(v0 + h), 10, f(u0 - r), 20, f(v0 + h), ...dun);
+        if (d.loai === 'o_dien') { const a = Math.min(19, r * 0.4), bk = Math.min(7, h * 0.35); tron(u0 - a, v0, bk); tron(u0 + a, v0, bk); }
+        else if (d.loai === 'cong_tac') doan(W3(u0, v0 - h * 0.6), W3(u0, v0 + h * 0.6), mau);
+        else { doan(W3(u0 - r, v0 - h), W3(u0 + r, v0 + h), mau); doan(W3(u0 - r, v0 + h), W3(u0 + r, v0 - h), mau); }
+      }
+      bao(W3(u0 - r, v0 - h)); bao(W3(u0 + r, v0 + h));
+      // nhãn bên phải ô; sát cuối tường thì ghi sang bên trái (bề rộng chữ ≈ 0,82 × cao chữ mỗi ký tự — đo trên Chenfeng)
+      const chu = `${nhan} +${g(d.z).replace(',', '.')}`, rongChu = chu.length * ct * 0.82, uc = d.cach + r + 20 + rongChu > w.dai && d.cach - r - 20 - rongChu > 0 ? u0 - r - 20 - rongChu : u0 + r + 20;
+      ghi(0, 'TEXT', 8, '0', 62, mau, 10, f(uc), 20, f(v0 - ct / 2), 30, f(e), 40, f(ct), 1, chu, ...dun);
+      // dấu trên SÀN ở chân tường (để nhìn từ trên xuống — lúc đặt tủ trên mặt bằng — vẫn thấy điểm nằm đâu): tam giác chỉ vào tường + ký hiệu, chữ chạy dọc tường và đọc xuôi
+      const zs = o[2] + 1, F = (s2, t2) => [C[0] + dd[0] * s2 + n[0] * t2, C[1] + dd[1] * s2 + n[1] * t2, zs], ctn = ct * 0.75;
+      doan(F(-30, opt.nho), F(30, opt.nho), mau); doan(F(30, opt.nho), F(0, 55), mau); doan(F(0, 55), F(-30, opt.nho), mau);
+      let goc = ((w.a % 360) + 360) % 360, lat = false; if (goc > 90 && goc <= 270) { goc -= 180; lat = true; }      // chữ chạy theo d hoặc ngược d cho khỏi lộn đầu
+      const tx = lat ? [-dd[0], -dd[1]] : dd, len = [-tx[1], tx[0]], rc = nhan.length * ctn * 0.82, tam = F(0, 70 + ctn / 2);      // len = hướng "lên" của chữ; tam = tâm chữ
+      ghi(0, 'TEXT', 8, '0', 62, mau, 10, f(tam[0] - tx[0] * rc / 2 - len[0] * ctn / 2), 20, f(tam[1] - tx[1] * rc / 2 - len[1] * ctn / 2), 30, f(zs), 40, f(ctn), 1, nhan, 50, f(goc));
+    }
+    ghi(0, 'ENDSEC', 0, 'EOF');
+    if (!so) return { dxf: '', so: 0, hop: null };
+    for (const k in hop) hop[k] = rn(hop[k], 2);
+    return { dxf: E.join('\n') + '\n', so, hop };
+  }
+
   /** Nét khung dây của phòng (để vẽ vào bản vẽ): mỗi nét = [[x,y,z],[x,y,z]], kèm `lop` = 'tuong' | 'mo' | 'can'. */
   function duongNet(H) {
     const N = [], o = H.p.goc || [0, 0, 0], P3 = (q, z) => [rn(q[0] + o[0], 2), rn(q[1] + o[1], 2), rn(z + o[2], 2)];
@@ -486,6 +695,7 @@
     const tu = H.tuong.find(w => w.tu_tinh); if (tu && tu.dai > 0) L.push(`Tường ${tu.ten} tự tính: ${g(tu.dai)}`);
     if (p.mo.length) L.push(`${p.mo.length} cửa / ô trống` + (p.can.length ? ` · ${p.can.length} dầm, cột` : ''));
     else if (p.can.length) L.push(`${p.can.length} dầm, cột`);
+    if ((p.dn || []).length) { const dem = {}; for (const d of p.dn) dem[d.loai] = (dem[d.loai] || 0) + 1; L.push('Điện – nước: ' + Object.keys(LOAI_DN).filter(k => dem[k]).map(k => `${dem[k]} ${LOAI_DN[k].ten.toLowerCase()}`).join(' · ')); }
     if (p.khung.length) L.push(`${p.khung.length} khung không gian: ` + p.khung.map(k => `${k.ten} ${g(k.rong)}×${g(k.cao)}×${g(k.sau)}`).join(' · '));
     return L;
   }
@@ -565,6 +775,24 @@
       lopSua += oSua(`can.${c.j}.rong`, g(c.rong), tren(w, c.cach + c.rong / 2, c.nho + co * 1.1), xuoi(w), co, M_TUONG);
       lopSua += oSua(`can.${c.j}.nho`, g(c.nho), tren(w, c.cach + c.rong + co * 1.9, c.nho / 2), xuoi(w), co, M_TUONG);
     }
+    // ĐIỆN – NƯỚC (bản 1.18): điểm trên tường = dấu nhỏ nhô vào phòng, sát mặt tường (điện: vuông · nước: tròn · khác: thoi); điểm dưới sàn = vòng tròn gạch chéo đúng chỗ.
+    // Dấu mang data-dn = chỉ số điểm để giao diện đưa tới dòng của điểm đó.
+    for (const d of H.dn || []) {
+      const w = d.w, mau = MAU_DN[d.nhom], r0 = fs * 0.5;
+      if (d.cach < -0.05 || d.cach > w.dai + 0.05) continue;
+      const tip = `<title>${esc(d.ten)}: tường ${esc(w.ten)}, cách đầu trái ${g(d.cach)}, ${d.san ? `cách tường ${g(d.ra)}` : `cao +${g(d.z)}`}</title>`;
+      let hd, nh;
+      if (d.san) {
+        const r = Math.max(d.rong / 2, r0), c = d.P, k = r * 0.7;
+        hd = `<circle cx="${X(c)}" cy="${Y(c)}" r="${f(r)}" fill="${M_NEN}" stroke="${mau}" stroke-width="${f(fs / 6)}"/><path d="M ${f(c[0] - k)} ${f(-c[1] - k)} L ${f(c[0] + k)} ${f(-c[1] + k)} M ${f(c[0] - k)} ${f(-c[1] + k)} L ${f(c[0] + k)} ${f(-c[1] - k)}" stroke="${mau}" stroke-width="${f(fs / 9)}" fill="none"/>`;
+        nh = [c[0], c[1] - r - fs * 0.65];
+      } else {
+        if (d.nhom === 'cap' || d.nhom === 'thoat') { const c = tren(w, d.cach, r0); hd = `<circle cx="${X(c)}" cy="${Y(c)}" r="${f(r0)}" fill="${mau}" stroke="${M_NEN}" stroke-width="${f(fs / 12)}"/>`; }
+        else hd = `<polygon points="${poly(d.nhom === 'dien' ? [tren(w, d.cach - r0, 0), tren(w, d.cach + r0, 0), tren(w, d.cach + r0, r0 * 2), tren(w, d.cach - r0, r0 * 2)] : [tren(w, d.cach, 0), tren(w, d.cach + r0, r0), tren(w, d.cach, r0 * 2), tren(w, d.cach - r0, r0)])}" fill="${mau}" stroke="${M_NEN}" stroke-width="${f(fs / 12)}"/>`;
+        nh = tren(w, d.cach, r0 * 2 + fs * 0.62);
+      }
+      o += `<g data-dn="${d.j}" style="cursor:pointer">${tip}${hd}<text x="${X(nh)}" y="${Y(nh)}" font-size="${f(fs * 0.82)}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="${mau}" paint-order="stroke" stroke="${M_NEN}" stroke-width="${f(fs / 4)}">${esc(d.nhan)}</text></g>`;
+    }
     o += lopSua;
     // đầu tường A: mốc bắt đầu, và khe hở khi phòng chưa khép
     o += `<circle cx="${X(W[0].p0)}" cy="${Y(W[0].p0)}" r="${f(fs * 0.3)}" fill="${M_NHAN}" pointer-events="none"/>`;
@@ -578,7 +806,15 @@
     const w = H.tuong[i];
     if (!w || !(w.dai > 0)) return '';
     const L = w.dai, C = w.cao || H.p.cao || 2700, lon = Math.max(L, C), m = lon * 0.1 + 120, fs = lon / 34, f = v => rn(v, 1), Y = z => f(C - z);
-    const vb = [-m, -m * 0.8, L + 2 * m, C + m * 1.9];
+    // điện – nước (bản 1.18): điểm trên tường này + điểm dưới sàn nằm gần tường này (cách mặt tường ≤ 800) → chừa thêm 1–2 hàng chữ dưới vạch sàn
+    const dnT = (H.dn || []).filter(d => !d.san && d.tuong === i && d.cach >= -0.05 && d.cach <= L + 0.05);
+    const dnS = (H.dn || []).filter(d => d.san).map(d => { const v = [d.P[0] - w.p0[0], d.P[1] - w.p0[1]]; return { d, s: cham(v, w.d), t: cham(v, w.n) }; }).filter(q => q.s >= -0.5 && q.s <= L + 0.5 && q.t >= -0.5 && q.t <= 800);
+    // chữ dưới vạch sàn: hàng "cách trái" của điểm trên tường (điểm sát nhau thì so le 2 hàng), rồi hàng nhãn của điểm dưới sàn (cũng so le)
+    const soLe = (ds, lay, gan) => { const h = new Map(); let tr = null; ds.slice().sort((a1, b1) => lay(a1) - lay(b1)).forEach(q => { h.set(q, tr && lay(q) - lay(tr) < gan && h.get(tr) === 0 ? 1 : 0); tr = q; }); return h; };
+    const hgT = soLe(dnT, d => d.cach, fs * 3.9), hgS = soLe(dnS, q => q.s, fs * 12.5), hgN = soLe(dnT, d => d.cach, fs * 6.2), buoc = fs;      // hgN: nhãn "ký hiệu +cao" — điểm sát nhau thì nhãn điểm sau ghi DƯỚI ô
+    const nT = dnT.length ? 1 + Math.max(0, ...hgT.values()) : 0, nS = dnS.length ? 1 + Math.max(0, ...hgS.values()) : 0;
+    const them = nT + nS ? (nT + nS) * buoc + fs * 0.35 : 0, yd = C + m * 0.45 + them;
+    const vb = [-m, -m * 0.8, L + 2 * m, C + m * 1.9 + them];
     const rongPx = rn(opts.cao_px > 0 ? Math.min(opts.rong_px, opts.cao_px * vb[2] / vb[3]) : opts.rong_px, 1);
     let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.map(f).join(' ')}" width="${rongPx}" style="max-width:100%;height:auto;font-family:inherit" role="img" aria-label="Mặt đứng tường ${esc(w.ten)}">`;
     o += `<rect x="${f(vb[0])}" y="${f(vb[1])}" width="${f(vb[2])}" height="${f(vb[3])}" fill="${M_NEN}"/>`;
@@ -603,13 +839,29 @@
       if (q.cach > 0.5) o += `<text x="${f(q.cach / 2)}" y="${f(C - q.z - fs * 0.5)}" font-size="${f(fs * 0.8)}" text-anchor="middle" fill="${M_NHAN}">${g(q.cach)}</text>`;
       const con = L - q.cach - q.rong; if (con > 0.5) o += `<text x="${f(q.cach + q.rong + con / 2)}" y="${f(C - q.z - fs * 0.5)}" font-size="${f(fs * 0.8)}" text-anchor="middle" fill="${M_NHAN}">${g(con)}</text>`;
     });
+    // ĐIỆN – NƯỚC: ô đúng cỡ tại (cách trái, cao tâm), nét gióng xuống sàn; nhãn "ký hiệu +cao" và số "cách trái" bấm sửa được như các số đo khác
+    const suaA = path => (opts.sua ? ` data-sua="${path}" style="cursor:text" text-decoration="underline"` : ' pointer-events="none"');
+    for (const d of dnT) {
+      const mau = MAU_DN[d.nhom], bw = Math.max(d.rong, fs * 0.75), bh = Math.max(d.cao_o, fs * 0.75), cy = C - d.z;
+      o += `<line x1="${f(d.cach)}" y1="${f(cy + bh / 2)}" x2="${f(d.cach)}" y2="${f(C)}" stroke="${mau}" stroke-width="${f(fs / 14)}" stroke-dasharray="${f(fs * 0.3)} ${f(fs * 0.3)}" pointer-events="none"/>`;
+      o += d.tron ? `<circle data-dnd="${d.j}" cx="${f(d.cach)}" cy="${f(cy)}" r="${f(bw / 2)}" fill="${mau}" stroke="${M_TRANG}" stroke-width="${f(fs / 12)}" pointer-events="none"/>`
+        : `<rect data-dnd="${d.j}" x="${f(d.cach - bw / 2)}" y="${f(cy - bh / 2)}" width="${f(bw)}" height="${f(bh)}" rx="${f(fs / 8)}" fill="${mau}" stroke="${M_TRANG}" stroke-width="${f(fs / 12)}" pointer-events="none"/>`;
+      o += `<text x="${f(d.cach)}" y="${f(hgN.get(d) ? cy + bh / 2 + fs * 0.95 : cy - bh / 2 - fs * 0.35)}" font-size="${f(fs * 0.85)}" font-weight="700" text-anchor="middle" fill="${mau}" paint-order="stroke" stroke="${M_TRANG}" stroke-width="${f(fs / 5)}"${suaA(`dn.${d.j}.cao`)}>${esc(d.nhan)} +${g(d.z)}<title>${esc(d.ten)}${opts.sua ? ' — bấm để sửa cao độ tâm' : ''}</title></text>`;
+      o += `<text x="${f(d.cach)}" y="${f(C + fs * 1.05 + hgT.get(d) * buoc)}" font-size="${f(fs * 0.8)}" text-anchor="middle" fill="${mau}"${suaA(`dn.${d.j}.cach`)}>${g(d.cach)}<title>${esc(d.ten)}: cách đầu trái tường${opts.sua ? ' — bấm để sửa' : ''}</title></text>`;
+    }
+    for (const q of dnS) {
+      // điểm dưới sàn: tam giác trên vạch sàn + nhãn "ký hiệu · cách trái · cách tường"; hai số chỉ bấm sửa được ở mặt đứng của chính tường mà điểm đó đo theo
+      const d = q.d, mau = MAU_DN[d.nhom], a = fs * 0.42, cua = d.tuong === i, yS = C + fs * 1.05 + (nT + hgS.get(q)) * buoc + fs * 0.15;
+      o += `<path data-dnd="${d.j}" d="M ${f(q.s - a)} ${f(C)} L ${f(q.s + a)} ${f(C)} L ${f(q.s)} ${f(C + a * 1.2)} Z" fill="${mau}" pointer-events="none"/>`;
+      o += `<text x="${f(q.s)}" y="${f(yS)}" font-size="${f(fs * 0.8)}" text-anchor="middle" fill="${mau}"><title>${esc(d.ten)}: dưới sàn, cách đầu trái tường ${g(q.s)}, cách mặt tường ${g(q.t)}</title><tspan font-weight="700" pointer-events="none">${esc(d.nhan)} · </tspan><tspan${cua ? suaA(`dn.${d.j}.cach`) : ' pointer-events="none"'}>${g(q.s)}</tspan><tspan pointer-events="none"> · cách tường </tspan><tspan${cua ? suaA(`dn.${d.j}.ra`) : ' pointer-events="none"'}>${g(q.t)}</tspan></text>`;
+    }
     const sw = f(fs / 9), tick = fs * 0.45;
-    o += `<line x1="0" y1="${f(C + m * 0.45)}" x2="${f(L)}" y2="${f(C + m * 0.45)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="0" y1="${f(C + m * 0.45 - tick)}" x2="0" y2="${f(C + m * 0.45 + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(L)}" y1="${f(C + m * 0.45 - tick)}" x2="${f(L)}" y2="${f(C + m * 0.45 + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><text x="${f(L / 2)}" y="${f(C + m * 0.45 + fs * 1.3)}" font-size="${f(fs)}" text-anchor="middle" fill="${M_TUONG}"${opts.sua ? ` data-sua="tuong.${i}.dai" style="cursor:text" text-decoration="underline"` : ''}>${g(L)}${opts.sua ? '<title>Bấm để sửa chiều dài tường</title>' : ''}</text>`;
+    o += `<line x1="0" y1="${f(yd)}" x2="${f(L)}" y2="${f(yd)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="0" y1="${f(yd - tick)}" x2="0" y2="${f(yd + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(L)}" y1="${f(yd - tick)}" x2="${f(L)}" y2="${f(yd + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><text x="${f(L / 2)}" y="${f(yd + fs * 1.3)}" font-size="${f(fs)}" text-anchor="middle" fill="${M_TUONG}"${opts.sua ? ` data-sua="tuong.${i}.dai" style="cursor:text" text-decoration="underline"` : ''}>${g(L)}${opts.sua ? '<title>Bấm để sửa chiều dài tường</title>' : ''}</text>`;
     const xr = L + m * 0.45;
     o += `<line x1="${f(xr)}" y1="0" x2="${f(xr)}" y2="${f(C)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(xr - tick)}" y1="0" x2="${f(xr + tick)}" y2="0" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(xr - tick)}" y1="${f(C)}" x2="${f(xr + tick)}" y2="${f(C)}" stroke="${M_TUONG}" stroke-width="${sw}"/><text x="${f(xr + fs * 1.2)}" y="${f(C / 2)}" font-size="${f(fs)}" text-anchor="middle" fill="${M_TUONG}" transform="rotate(-90 ${f(xr + fs * 1.2)} ${f(C / 2)})"${opts.sua ? ` data-sua="${H.p.tuong[i] && H.p.tuong[i].cao > 0 ? `tuong.${i}.cao` : 'cao'}" style="cursor:text" text-decoration="underline"` : ''}>${g(C)}${opts.sua ? '<title>Bấm để sửa chiều cao</title>' : ''}</text>`;
     const truoc = H.tuong[(i - 1 + H.tuong.length) % H.tuong.length], sau = H.tuong[(i + 1) % H.tuong.length];
     o += `<text x="0" y="${f(-m * 0.3)}" font-size="${f(fs * 1.15)}" font-weight="700" fill="${M_TUONG}">Tường ${esc(w.ten)}</text>`;
-    if (H.tuong.length > 1) o += `<text x="${f(-m * 0.15)}" y="${f(C + m * 0.98)}" font-size="${f(fs * 0.8)}" fill="${M_MO}">◂ tường ${esc(truoc.ten)}</text><text x="${f(L + m * 0.15)}" y="${f(C + m * 0.98)}" font-size="${f(fs * 0.8)}" text-anchor="end" fill="${M_MO}">tường ${esc(sau.ten)} ▸</text>`;
+    if (H.tuong.length > 1) o += `<text x="${f(-m * 0.15)}" y="${f(C + m * 0.98 + them)}" font-size="${f(fs * 0.8)}" fill="${M_MO}">◂ tường ${esc(truoc.ten)}</text><text x="${f(L + m * 0.15)}" y="${f(C + m * 0.98 + them)}" font-size="${f(fs * 0.8)}" text-anchor="end" fill="${M_MO}">tường ${esc(sau.ten)} ▸</text>`;
     return o + '</svg>';
   }
 
@@ -621,5 +873,5 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
 });

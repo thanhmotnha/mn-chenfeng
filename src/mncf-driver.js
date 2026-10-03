@@ -919,14 +919,53 @@
   D.khongDau = t => String(t == null ? '' : t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/\s+/g, ' ').trim();
 
   /**
-   * Vẽ phòng hiện trạng vào bản vẽ. H = MNCFPhong.hinhHoc(phòng). opt: { day_tuong (mặc định 110), onStatus }
-   * @returns { ok, errors, warnings, dem:{tuong, mo, cot, dam}, so_buoc_hoan_tac }
+   * Thả một bản vẽ DXF (chuỗi) vào Chenfeng (bản 1.18): Chenfeng tự dựng Line / Circle / Polyline / Text đúng toạ độ trong file — lệnh "CAD图纸导入", 1 bước hoàn tác.
+   * Chenfeng hỏi "文件是否插入前视图？" (có xoay file sang mặt trước không) → trả lời N để giữ nguyên toạ độ. Tài khoản bật sẵn "luôn chèn mặt trước" thì Chenfeng không hỏi
+   * mà xoay luôn → gọi kèm `hop` (hộp bao mong đợi của các nét) để phát hiện và hoàn tác.
+   * @returns { ok, ents, reason }
+   */
+  D.importDXF = async (text, opt) => {
+    opt = opt || {};
+    if (!D.available() || !D.editing()) return { ok: false, ents: [], reason: 'Chenfeng chưa ở màn hình vẽ.' };
+    if (D.busy()) await D.cancel();
+    const truoc = new Set(root.app.Database.ModelSpace.Entitys), h0 = hmMark();
+    const moi = () => root.app.Database.ModelSpace.Entitys.filter(e => e && !truoc.has(e) && !e.IsErase);
+    let nhan = false;
+    try {
+      const f = new File([String(text)], opt.ten || 'dien-nuoc.dxf', { type: 'application/dxf' }), dt = new DataTransfer(); dt.items.add(f);
+      const ev = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt });
+      document.dispatchEvent(ev); nhan = ev.defaultPrevented;
+    } catch (e) { return { ok: false, ents: [], reason: String(e && e.message || e) }; }
+    if (!nhan) return { ok: false, ents: [], reason: 'Chenfeng không nhận file (trang này chưa mở bản vẽ?).' };
+    await cho(() => ready(kw()) || moi().length > 0, 6000);
+    if (ready(kw())) { D.input('N'); await sleep(200); }
+    await cho(() => !D.busy(), 10000);
+    if (D.busy()) await D.cancel();
+    await sleep(250);
+    const ents = moi();
+    if (!ents.length) return { ok: false, ents, reason: 'Chenfeng không dựng được nét nào từ file.' };
+    // đối chiếu vị trí: hộp bao các nét (không kể chữ) phải đúng hộp mong đợi
+    if (opt.hop) {
+      const b = [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity];
+      for (const e of ents) { if (tenLop(e) === 'Text') continue; try { const x = D.boxOf(e); for (let i = 0; i < 6; i += 2) { b[i] = Math.min(b[i], x[i]); b[i + 1] = Math.max(b[i + 1], x[i + 1]); } } catch (er) { /* bỏ qua */ } }
+      const m = [opt.hop.x0, opt.hop.x1, opt.hop.y0, opt.hop.y1, opt.hop.z0, opt.hop.z1];
+      if (b.some((v, i) => !isFinite(v) || Math.abs(v - m[i]) > 2)) {
+        const h1 = hmMark(); if (h0 && h1 && h1.i > h0.i) await D.undo(h1.i - h0.i);
+        return { ok: false, ents: [], lech: true, reason: 'Chenfeng đặt các nét lệch chỗ (tài khoản đang bật tuỳ chọn tự chèn file DXF vào mặt trước?) — đã bỏ các nét vừa dựng.' };
+      }
+    }
+    return { ok: true, ents };
+  };
+
+  /**
+   * Vẽ phòng hiện trạng vào bản vẽ. H = MNCFPhong.hinhHoc(phòng). opt: { day_tuong (mặc định 110), onStatus, dien_nuoc: MNCFPhong.dienNuocDXF(H) (dấu điện – nước, bản 1.18) }
+   * @returns { ok, errors, warnings, dem:{tuong, mo, cot, dam, dn}, so_buoc_hoan_tac }
    */
   D.drawRoom = async (H, opt) => {
     D.boManChe();
     opt = Object.assign({ day_tuong: 110, onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
-    const errors = [], warnings = [], dem = { tuong: 0, mo: 0, cot: 0, dam: 0 };
+    const errors = [], warnings = [], dem = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 };
     if (!D.available()) return { ok: false, errors: ['Không thấy bản vẽ Chenfeng trong trang này.'], warnings, dem };
     if (!H || !H.tuong || !H.tuong.length || (H.loi && H.loi.length)) return { ok: false, errors: (H && H.loi && H.loi.length ? H.loi : ['Phòng chưa có tường.']), warnings, dem };
     if (!D.editing()) return { ok: false, errors: ['Chenfeng đang ở trang chủ / màn chào — mở một bản vẽ rồi vẽ phòng.'], warnings, dem };
@@ -987,9 +1026,17 @@
         const b = D.boxOf(moi);
         if (Math.abs(b[4] - (c.z0 + o[2])) > 1 || Math.abs(b[5] - (c.z1 + o[2])) > 1) warnings.push(`${c.ten}: Chenfeng đặt dầm ở cao độ +${r2(b[4] - o[2])} → +${r2(b[5] - o[2])} (muốn +${c.z0} → +${c.z1}) — kéo lại cao độ dầm trong Chenfeng.`);
       }
+      // 5. điện – nước (bản 1.18): dấu trên mặt tường / trên sàn, dựng từ một file DXF nhỏ thả vào bản vẽ
+      const dn = opt.dien_nuoc;
+      if (dn && dn.so > 0 && dn.dxf && dem.tuong > 0) {
+        opt.onStatus(`Đang đánh dấu ${dn.so} điểm điện – nước…`);
+        await D.settle(300, 8000);
+        const r = await D.importDXF(dn.dxf, { hop: dn.hop, ten: 'dien-nuoc.dxf' });
+        if (r.ok) dem.dn = dn.so; else warnings.push(`Chưa đánh dấu được ${dn.so} điểm điện – nước lên bản vẽ: ${r.reason} Phòng vẫn vẽ đủ; vị trí các điểm xem ở mặt bằng / mặt đứng trong bảng.`);
+      }
     } catch (e) { errors.push('Lỗi khi vẽ phòng: ' + String(e && e.message || e)); await dongHopThoai(); if (D.busy()) await D.cancel(); }
     await D.settle(400, 15000);
-    // 5. tên phòng (bản 1.12): Chenfeng tự sinh vùng phòng (RoomRegion) không tên → nhãn "未命名 10.8m²". Ghi tên phòng của bảng vào.
+    // 6. tên phòng (bản 1.12): Chenfeng tự sinh vùng phòng (RoomRegion) không tên → nhãn "未命名 10.8m²". Ghi tên phòng của bảng vào.
     //    Phông chữ nhãn của Chenfeng thiếu nhiều chữ có dấu tiếng Việt (ủ, ử, ư, đ… hiện thành "?") → ghi KHÔNG DẤU.
     let tenPhong = '';
     try {
@@ -1576,6 +1623,13 @@
         // ngay trước khi trả lời (cùng một nhịp, không chờ gì nữa): hình mới nhất + điểm chuột đúng chỗ — người dùng có thể vừa rê chuột thật qua vùng vẽ
         if (viec && viec.hien) viec.hien();
         veNgay(); datChuot(diem); sua(st);
+      } else if (viec && viec.truoc_diem) {
+        // LEFTRIGHTBOARD có chế độ "đặt theo phòng" (DrawLeftRight.InsertByPoint): lời nhắc dò tia chuột (Raycast) ngay lúc mở và mỗi lần chuột rê;
+        // tia đang trúng một đối tượng PHÒNG (sàn, tường — RoomBase) thì Chenfeng đặt thùng theo chỗ chuột trên mặt đó và BỎ QUA toạ độ gõ vào
+        // (đo trên bản thật 04/10/2026: chuột để trên sàn phòng → thùng nhảy về giữa chỗ chuột, lệch chỗ đặt 6 m).
+        // → trước khi gõ điểm: quay nhìn thẳng vào đúng vùng sẽ vẽ rồi rê chuột tới đó, để tia chuột không trúng gì của phòng.
+        await viec.truoc_diem();
+        if (!D.busy()) throw new Error(`Lệnh ${ten}: lời nhắc đặt thùng bị đóng giữa chừng (có thao tác khác chen vào?).`);
       }
       D.input(toaDo(diem));
       if (!(await cho(() => !D.busy(), 20000))) { await D.cancel(); throw new Error(`Lệnh ${ten}: Chenfeng không kết thúc lệnh sau khi nhận điểm.`); }
@@ -1853,7 +1907,7 @@
       if (xoay || san.length) {
         let mx = -Infinity;
         for (const e of san) { try { const b = e.BoundingBox; if (b && isFinite(b.max.x) && Math.abs(b.max.x) < 1e7) mx = Math.max(mx, b.max.x); } catch (er) { /* bỏ qua đối tượng không có hộp bao */ } }
-        offset = [r2((isFinite(mx) ? Math.ceil((mx + 3000) / 500) * 500 : 0) - base[0]), r2(-base[1]), r2(-base[2])];
+        offset = [r2((isFinite(mx) ? Math.ceil((mx + 6000) / 500) * 500 : 0) - base[0]), r2(-base[1]), r2(-base[2])];      // cách mọi thứ 6 m: lúc nhìn thẳng vào chỗ vẽ, phòng / tủ khác nằm ngoài màn hình
         canDat = true;
       }
     }
@@ -1867,6 +1921,22 @@
     const tamCua = new Map(), doiTen = [];      // tấm thiết kế → tấm thật; tấm Chenfeng đặt tên khác thiết kế (cánh: 左开门板…)
     const hien = () => hienHinh(cuaToi().filter(D.isBoard));
     const nhin = () => { try { const V = root.app.Viewer, bs = cuaToi().filter(D.isBoard); hienHinh(bs); V.ViewToFront(); if (bs.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(bs); else V.ZoomAll(); V.UpdateRender(); veNgay(); } catch (e) { /* bỏ qua */ } };
+    // nhìn thẳng mặt trước vào đúng vùng sắp vẽ (chưa có tấm nào để ZoomtoEntitys) rồi rê chuột tới điểm đặt — xem chayGoc: tránh chế độ "đặt theo phòng" của LEFTRIGHTBOARD
+    const nhinChoVe = async diem => {
+      try {
+        const V = root.app.Viewer; let B = null;
+        for (const e of D.all()) { try { const q = e.BoundingBox; if (q && q.min && q.max && typeof q.clone === 'function') { B = q.clone(); break; } } catch (er) { /* thử đối tượng khác */ } }
+        V.ViewToFront();
+        if (B && typeof V.ZoomtoEntitys === 'function') {
+          B.min.set(bb.x0 + offset[0], bb.y0 + offset[1], bb.z0 + offset[2]); B.max.set(bb.x1 + offset[0], bb.y1 + offset[1], bb.z1 + offset[2]);
+          V.ZoomtoEntitys([{ BoundingBox: B }]);
+        }
+        V.UpdateRender(); veNgay();
+      } catch (e) { /* không quay được thì thôi: bước đối chiếu sau lệnh vẫn bắt được thùng lệch chỗ */ }
+      await sleep(60);
+      try { reChuot(diem); } catch (e) { /* bỏ qua */ }
+      await sleep(90);
+    };
     // người dùng xoay / thu phóng bản vẽ giữa chừng → lệnh dò theo chuột sẽ lệch: mỗi lần dò kiểm lại hướng nhìn thẳng mặt trước và điểm dò còn nằm trong màn hình
     const lechNhin = p => {
       try {
@@ -1890,7 +1960,7 @@
         opt.onStatus(`Lệnh gốc ${xong + 1}/${K.buoc.length}: ${TEN_BUOC[b.lenh]}${b.khoang !== undefined ? ' khoang ' + (b.khoang + 1) : ''}…`);
         const coTruoc = new Set(cuaToi());
         let tra = null;
-        if (b.lenh === 'LR') { tra = await chayGoc(TEN_LENH_GOC.LR, st => LUA_CHON.LR(st, b), dich(b.goc), 'goc'); daNhin = false; }
+        if (b.lenh === 'LR') { tra = await chayGoc(TEN_LENH_GOC.LR, st => LUA_CHON.LR(st, b), dich(b.goc), 'goc', null, { truoc_diem: () => nhinChoVe(dich(b.goc)) }); daNhin = false; }
         else if (b.lenh === 'DO') {
           const kep = b.kep.map(i => tamCua.get(M.parts[i])).filter(Boolean);
           if (kep.length !== 4) throw new Error(`Cánh khoang ${b.khoang + 1}: không tìm lại đủ 4 tấm kẹp khoang (hồi / vách, đáy, nóc) trên bản vẽ.`);
