@@ -71,6 +71,12 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.16.1 — PHẦN KHẤU CỘT TOÀN VÁN THÙNG
+ Tấm HẬU KHẤU (tấm đứng trước mặt cột) giờ là ván thùng dày như vách khấu (17,5), không còn là hậu 6 li: đứng lọt giữa 2 tấm đứng hai bên cột
+ (vách khấu / vách sẵn có; cột ở góc thì hồi + vách khấu), cao từ mặt dưới đáy tới đỉnh thân, Chenfeng khoan liên kết như tấm thùng.
+ Nóc / đáy / đợt trước cột nông hơn bản cũ 11,5 (đâm vào mặt trước hậu khấu). Hậu chính sau lưng tủ vẫn là hậu 6 li phủ sau.
+ Tủ khấu cột đã vẽ bằng bản cũ: mở lại ở bảng → "Cập nhật tủ này" để dựng lại theo kết cấu mới.
+
 MỚI Ở BẢN 1.16 — CẢ TỦ LÀ MỘT MODULE · TỦ XOAY THEO TƯỜNG VẼ BẰNG LỆNH GỐC · TỦ THEO HÌNH VẼ TRÊN MẶT BẰNG
  CẢ TỦ LÀ MỘT MODULE: tủ vẽ bằng lệnh gốc giờ được gom thành một module mang mã tủ. Chọn 1 tấm → thẻ Template (Thông số) của Chenfeng →
  bấm dòng TRÊN CÙNG của cây mẫu (mã tủ) → gõ L / W / H mới vào cột Expression → Apply data modifications: thùng, vách, đợt, hậu, cánh

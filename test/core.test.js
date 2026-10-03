@@ -684,17 +684,18 @@ T('Khấu cột (bản 1.13 — anh Jason 03/10/2026: "nhiều tủ phải khấ
   eq(C0.normalize({}).khau, { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: 10 }, 'mặc định: không khấu, hở 10');
   const M0 = B(undefined);
   ok(M0.errors.length === 0 && !M0.parts.some(p => p.khau || p.khau_cot) && M0.info.khau.length === 0, 'không khai khấu: tủ như cũ');
-  // cột trái 300 × 200, hở 10 → mặt bên cột x = 310, mặt trước cột y = 580 − 210 = 370, thùng trước cột sâu 364 (trừ hậu 6)
+  // cột trái 300 × 200, hở 10 → mặt bên cột x = 310, mặt trước cột y = 580 − 210 = 370, thùng trước cột sâu 352,5 (trừ HẬU KHẤU bằng ván thùng 17,5 — bản 1.16.1: "phần khấu phải là ván 17 hết")
   const M = B({ trai: { rong: 300, sau: 200 } });
   eq(M.errors, [], 'khấu trái: dựng không lỗi, không tấm nào đè nhau');
   eq(M.parts.length, M0.parts.length + 2, 'thêm đúng 2 tấm: vách khấu + hậu khấu');
-  eq(b4(P(M, 'HOI')[0]), [50, 67.5, 0, 364], 'hồi trái nông lại, dừng ở mặt phẳng hậu khấu');
+  eq(b4(P(M, 'HOI')[0]), [50, 67.5, 0, 370], 'hồi trái nông lại, chạy tới mặt sau hậu khấu (cùng vách khấu kẹp hậu khấu)');
   eq(b4(P(M, 'HOI')[1]), [1932.5, 1950, 0, 574], 'hồi phải giữ nguyên');
   const vk = M.parts.find(p => p.khau_cot && p.loai === 'VACH'), hk = M.parts.find(p => p.khau_cot && p.loai === 'HAU');
-  eq([vk.ten, b4(vk), vk.z0, vk.z1, vk.type], ['Vách khấu cột', [310, 327.5, 364, 574], 0, 2350, 1], 'vách khấu: đứng dọc mặt bên cột, từ hậu khấu tới mép sau thùng, cao suốt thân');
-  eq([hk.ten, b4(hk), hk.khoan, hk.phu], ['Hậu khấu cột', [51, 310, 364, 370], C0.KHONG_KHOAN, true], 'hậu khấu: trước mặt cột, phủ mép sau hồi trái (lùi 1), giáp mặt vách khấu, không khoan');
+  eq([vk.ten, b4(vk), vk.z0, vk.z1, vk.type], ['Vách khấu cột', [310, 327.5, 352.5, 574], 0, 2350, 1], 'vách khấu: đứng dọc mặt bên cột, từ mặt trước hậu khấu tới mép sau thùng, cao suốt thân');
+  eq([hk.ten, b4(hk), hk.z0, hk.z1, hk.t, hk.khoan, !!hk.phu, hk.van_thung, hk.type], ['Hậu khấu cột', [67.5, 310, 352.5, 370], 100, 2350, 17.5, C0.normalize(nen).khoan.thung, false, true, 2], 'hậu khấu: VÁN THÙNG 17,5 trước mặt cột, lọt giữa hồi trái và vách khấu, cao từ mặt dưới đáy tới đỉnh thân, khoan như tấm thùng');
+  ok(P(M, 'HAU').filter(p => !p.khau_cot).every(p => p.t === 6 && p.phu && p.khoan === C0.KHONG_KHOAN), 'hậu chính vẫn là hậu 6 li phủ sau, không khoan');
   eq(P(M, 'HAU').filter(p => !p.khau_cot).map(b4), [[311, 1000, 574, 580], [1000, 1949, 574, 580]], 'hậu chính bắt đầu từ mép vách khấu (lùi 1)');
-  const kh = [{ ben: 'trai', x0: 67.5, x1: 327.5, y0: 364, y1: 574 }];
+  const kh = [{ ben: 'trai', x0: 67.5, x1: 327.5, y0: 352.5, y1: 574 }];
   eq(M.parts.filter(p => p.khau).map(p => [p.loai, p.khau]), [['DAY', kh], ['NOC', kh], ['DOT', kh], ['DOT', kh]], 'đáy, nóc, 2 đợt của khoang sát cột: khoét góc sau trái tới mặt trong vách khấu');
   ok(!M.parts.some(p => p.khoang === 1 && p.khau), 'khoang không dính cột: không khoét');
   // không tấm nào lấn vào vùng cột (x < 310, y > 370), có tính phần đã khoét
@@ -703,28 +704,31 @@ T('Khấu cột (bản 1.13 — anh Jason 03/10/2026: "nhiều tủ phải khấ
   ok(C0.overlap(P(M, 'DAY')[0], vk) === 0 && C0.overlap(Object.assign({}, P(M, 'DAY')[0], { khau: undefined }), vk) > 0, 'dò va chạm hiểu phần đã khoét (tấm chữ nhật cùng hộp bao thì đè vách khấu)');
   // ngăn kéo của khoang sát cột chỉ sâu tới phần nông; suốt treo khoang kia giữ sâu đủ
   const nk = M.templates.filter(t => t.loai === 'NGAN_KEO'), nk0 = M0.templates.filter(t => t.loai === 'NGAN_KEO');
-  ok(nk.length === 2 && nk.every(t => t.pos[1] + t.box[1] <= 364 + 0.011) && nk0[0].box[1] > nk[0].box[1], 'hộp ngăn kéo khoang sát cột ngắn lại cho vừa phần nông', [nk.map(t => t.box[1]), nk0.map(t => t.box[1])]);
+  ok(nk.length === 2 && nk.every(t => t.pos[1] + t.box[1] <= 352.5 + 0.011) && nk0[0].box[1] > nk[0].box[1], 'hộp ngăn kéo khoang sát cột ngắn lại cho vừa phần nông', [nk.map(t => t.box[1]), nk0.map(t => t.box[1])]);
   eq(M.templates.find(t => t.loai === 'SUOT').box[1], M0.templates.find(t => t.loai === 'SUOT').box[1], 'khoang không dính cột: suốt treo như cũ');
   // xuất cho Chenfeng: đường bao chữ L (u = sâu, v = ngang)
   const cf = C0.toChenfeng(M).json.ModelSpace, day = cf.find(b => b.Name === 'Đáy' && b.ContourCurve && b.ContourCurve.length > 4);
-  eq(day.ContourCurve.map(q => q.pt), [[0, 0], [574, 0], [574, 664], [364, 664], [364, 924], [0, 924]], 'đáy khoét bên trái: đường bao 6 đỉnh, góc lõm ở phía v lớn (v của Chenfeng đo từ mép PHẢI: x = x1 − v)');
+  eq(day.ContourCurve.map(q => q.pt), [[0, 0], [574, 0], [574, 664], [352.5, 664], [352.5, 924], [0, 924]], 'đáy khoét bên trái: đường bao 6 đỉnh, góc lõm ở phía v lớn (v của Chenfeng đo từ mép PHẢI: x = x1 − v)');
   eq([day.Pos, cf.filter(b => b.ContourCurve && b.ContourCurve.length > 4).length], [[67.5, 0, 100], 4], 'điểm đặt vẫn là góc nhỏ nhất; 4 tấm có đường bao chữ L');
+  const hkCF = cf.find(b => b.Name === 'Hậu khấu cột'), hoiCF = cf.find(b => b.Name === 'Hồi trái'), hauCF = cf.find(b => b.Name === 'Hậu');
+  eq([hkCF.BrType, hkCF.Thickness, hkCF.Pos, hkCF.EachEdgeDrills, hkCF.UpSealed, hkCF.BrMatName, hkCF.Matrial, hkCF.Color, hkCF.FrontDrill, hkCF.BackDrill], [2, 17.5, [67.5, 352.5, 100], hoiCF.EachEdgeDrills, hoiCF.UpSealed, hoiCF.BrMatName, hoiCF.Matrial, hoiCF.Color, true, true], 'xuất sang Chenfeng: hậu khấu là tấm hậu dày 17,5 với vật liệu, dán cạnh, kiểu khoan của ván thùng');
+  ok(hauCF.Thickness === 6 && hauCF.UpSealed === '0' && hauCF.EachEdgeDrills.every(k => k === C0.KHONG_KHOAN), 'hậu chính xuất như cũ: 6 li, không dán cạnh, không khoan');
   // bảng kê
   const cl = C0.cutList(M).rows;
-  ok(cl.some(r => r.ten === 'Đáy' && /khoét góc sau trái 260 × 210 \(khấu cột\)/.test(r.ghi_chu)) && cl.some(r => r.ten === 'Vách khấu cột' && r.dai === 2350 && r.rong === 210) && cl.some(r => r.ten === 'Hậu khấu cột' && r.day === 6), 'bảng kê: ghi chú khoét góc, có vách khấu 2350 × 210 và hậu khấu 6 li', cl.filter(r => /hấu/.test(r.ten + r.ghi_chu)));
-  ok(M.notes.some(t => /Khấu cột: trái 310 × 210 \(cột \+ hở 10\) — thùng trước cột sâu 364, thêm vách khấu/.test(t)) && M.info.khau.length === 1, 'có dòng ghi chú khấu', M.notes);
+  ok(cl.some(r => r.ten === 'Đáy' && /khoét góc sau trái 260 × 221,5 \(khấu cột\)/.test(r.ghi_chu)) && cl.some(r => r.ten === 'Vách khấu cột' && r.dai === 2350 && r.rong === 221.5) && cl.some(r => r.ten === 'Hậu khấu cột' && r.day === 17.5 && r.nhom === 'Thùng' && r.dai === 2250 && r.rong === 242.5 && /ván thùng/.test(r.ghi_chu)) && C0.cutList(M).theo_day.find(e => e.day === 6).sl === 2, 'bảng kê: ghi chú khoét góc, vách khấu 2350 × 221,5, hậu khấu 2250 × 242,5 dày 17,5 kê trong nhóm Thùng; ván 6 li chỉ còn 2 tấm hậu chính', cl.filter(r => /hấu/.test(r.ten + r.ghi_chu)));
+  ok(M.notes.some(t => /Khấu cột: trái 310 × 210 \(cột \+ hở 10\) — thùng trước cột sâu 352,5, thêm vách khấu\. Hậu khấu \(tấm trước mặt cột\) là ván thùng dày 17,5/.test(t)) && M.info.khau.length === 1, 'có dòng ghi chú khấu', M.notes);
   // bên phải: đối xứng
   const R = B({ phai: { rong: 300, sau: 200 } });
   eq([R.errors, b4(P(R, 'HOI')[1]), b4(R.parts.find(p => p.khau_cot && p.loai === 'VACH')), b4(R.parts.find(p => p.khau_cot && p.loai === 'HAU')), P(R, 'HAU').filter(p => !p.khau_cot).map(b4), P(R, 'DAY').find(p => p.khau).khau],
-    [[], [1932.5, 1950, 0, 364], [1672.5, 1690, 364, 574], [1690, 1949, 364, 370], [[51, 1000, 574, 580], [1000, 1689, 574, 580]], [{ ben: 'phai', x0: 1672.5, x1: 1932.5, y0: 364, y1: 574 }]], 'khấu phải: đối xứng với bên trái');
-  eq(C0.toChenfeng(R).json.ModelSpace.find(b => b.Name === 'Đáy' && b.ContourCurve && b.ContourCurve.length > 4).ContourCurve.map(q => q.pt), [[0, 0], [364, 0], [364, 260], [574, 260], [574, 923.5], [0, 923.5]], 'đáy khoét bên phải: góc lõm ở phía v nhỏ');
+    [[], [1932.5, 1950, 0, 370], [1672.5, 1690, 352.5, 574], [1690, 1932.5, 352.5, 370], [[51, 1000, 574, 580], [1000, 1689, 574, 580]], [{ ben: 'phai', x0: 1672.5, x1: 1932.5, y0: 352.5, y1: 574 }]], 'khấu phải: đối xứng với bên trái');
+  eq(C0.toChenfeng(R).json.ModelSpace.find(b => b.Name === 'Đáy' && b.ContourCurve && b.ContourCurve.length > 4).ContourCurve.map(q => q.pt), [[0, 0], [352.5, 0], [352.5, 260], [574, 260], [574, 923.5], [0, 923.5]], 'đáy khoét bên phải: góc lõm ở phía v nhỏ');
   // hai bên cùng lúc
   const H2 = B({ trai: { rong: 300, sau: 200 }, phai: { rong: 250, sau: 150 } });
   ok(H2.errors.length === 0 && H2.parts.filter(p => p.khau_cot).length === 4 && H2.info.khau.length === 2, 'khấu cả hai bên');
   // mặt cột trùng mặt vách → vách đó làm vách khấu, khoang trái nông trọn, không tấm nào phải khoét
   const V = B({ trai: { rong: 981.5, sau: 200 } });
   eq([V.errors, V.parts.filter(p => p.khau).length, V.parts.filter(p => p.khau_cot).map(p => [p.loai, b4(p)]), P(V, 'HAU').filter(p => !p.khau_cot).map(b4), b4(P(V, 'VACH')[0]), P(V, 'DAY').map(b4)],
-    [[], 0, [['HAU', [51, 991.5, 364, 370]]], [[992.5, 1949, 574, 580]], [991.5, 1009, 0, 574], [[67.5, 991.5, 0, 364], [1009, 1932.5, 0, 574]]], 'mép cột trùng mặt vách: không thêm vách khấu, không khoét tấm; hậu chính phủ mép sau vách');
+    [[], 0, [['HAU', [67.5, 991.5, 352.5, 370]]], [[992.5, 1949, 574, 580]], [991.5, 1009, 0, 574], [[67.5, 991.5, 0, 352.5], [1009, 1932.5, 0, 574]]], 'mép cột trùng mặt vách: không thêm vách khấu, không khoét tấm; hậu khấu lọt giữa hồi trái và vách đó; hậu chính phủ mép sau vách');
   ok(V.info.khau[0].vach_co_san === true, 'ghi nhận vách sẵn có làm vách khấu');
   // cột nằm gọn sau phào → không khấu
   const S = B({ trai: { rong: 30, sau: 200 } });
@@ -767,31 +771,31 @@ T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa kh�
   // (1) cột 300 × 200 lọt giữa khoang 1 (lọt lòng 67,5 … 991,25): vùng cột 290 … 610 (hở 10 mỗi bên), y > 370
   const M = B([{ cach: 300, rong: 300, sau: 200 }]);
   eq(M.errors, [], 'cột lọt giữa khoang: dựng không lỗi, không tấm nào đè nhau');
-  eq(M.info.khau, [{ ben: 'giua', x: 290, y: 370, sau_thung: 364, vach_co_san: false, xa: 290, xb: 610, co_a: false, co_b: false, cot: { x0: 300, x1: 600, sau: 200 } }], 'thông tin vùng cột');
+  eq(M.info.khau, [{ ben: 'giua', x: 290, y: 370, sau_thung: 352.5, vach_co_san: false, xa: 290, xb: 610, co_a: false, co_b: false, cot: { x0: 300, x1: 600, sau: 200 } }], 'thông tin vùng cột');
   eq(M.parts.length, M0.parts.length + 4, 'thêm đúng 4 tấm: 2 vách khấu + hậu khấu + hậu chính chia thêm 1 mảnh');
-  eq(M.parts.filter(p => p.khau_cot && p.loai === 'VACH').map(b4), [[272.5, 290, 364, 574], [610, 627.5, 364, 574]], '2 vách khấu ôm hai mặt bên cột, từ hậu khấu tới mép sau thùng');
-  eq(M.parts.filter(p => p.khau_cot && p.loai === 'HAU').map(b4), [[290, 610, 364, 370]], 'hậu khấu trước mặt cột, lọt giữa 2 vách khấu');
+  eq(M.parts.filter(p => p.khau_cot && p.loai === 'VACH').map(b4), [[272.5, 290, 352.5, 574], [610, 627.5, 352.5, 574]], '2 vách khấu ôm hai mặt bên cột, từ mặt trước hậu khấu tới mép sau thùng');
+  eq(M.parts.filter(p => p.khau_cot && p.loai === 'HAU').map(p => [b4(p), p.t, p.van_thung, p.z0, p.z1]), [[[290, 610, 352.5, 370], 17.5, true, 100, 2350]], 'hậu khấu trước mặt cột: ván thùng 17,5, lọt giữa 2 vách khấu');
   eq(P(M, 'HAU').filter(p => !p.khau_cot).map(b4), [[51, 289, 574, 580], [611, 1000, 574, 580], [1000, 1949, 574, 580]], 'hậu chính chia hai bên cột (lùi 1 khỏi mặt cột)');
-  const kh = [{ ben: 'giua', x0: 272.5, x1: 627.5, y0: 364, y1: 574 }];
+  const kh = [{ ben: 'giua', x0: 272.5, x1: 627.5, y0: 352.5, y1: 574 }];
   eq(M.parts.filter(p => p.khau).map(p => [p.loai, p.khau]), [['DAY', kh], ['NOC', kh], ['DOT', kh], ['DOT', kh]], 'đáy, nóc, 2 đợt của khoang có cột: khoét chữ U tới mặt ngoài 2 vách khấu');
   eq(b4(P(M, 'HOI')[0]), [50, 67.5, 0, 574], 'hồi trái không đổi (cột không chạm hồi)');
   const cf = C0.toChenfeng(M).json.ModelSpace, day = cf.find(b => b.Name === 'Đáy' && b.ContourCurve.length > 4);
-  eq(day.ContourCurve.map(q => q.pt), [[0, 0], [574, 0], [574, 364], [364, 364], [364, 719], [574, 719], [574, 924], [0, 924]], 'đáy khoét chữ U: đường bao 8 đỉnh (v đo từ mép phải)');
+  eq(day.ContourCurve.map(q => q.pt), [[0, 0], [574, 0], [574, 364], [352.5, 364], [352.5, 719], [574, 719], [574, 924], [0, 924]], 'đáy khoét chữ U: đường bao 8 đỉnh (v đo từ mép phải)');
   eq(C0.dinhKhoet(M.parts.find(p => p.khau)).length, 8, 'dinhKhoet: 8 đỉnh');
-  ok(C0.cutList(M).rows.some(r => /khoét chữ U mép sau, cách mép trái 205: 355 × 210 \(khấu cột\)/.test(r.ghi_chu)), 'bảng thống kê ghi khoét chữ U', C0.cutList(M).rows.map(r => r.ghi_chu).filter(Boolean));
-  ok(M.notes.some(t => /Khấu cột: giữa 320 × 210 \(cột \+ hở 10\) — thùng trước cột sâu 364, thêm hai vách khấu\. .*chữ L hoặc chữ U/.test(t)), 'ghi chú khấu cột giữa', M.notes);
-  ok(/Nhìn từ trên xuống — khấu cột/.test(C0.elevationSVG(M, { kich_thuoc: true })) && /2 vách khấu · sâu 364/.test(C0.elevationSVG(M, { kich_thuoc: true })) && !/NaN|undefined/.test(C0.elevationSVG(M, { kich_thuoc: true })), 'hình nhìn từ trên xuống có cột giữa');
+  ok(C0.cutList(M).rows.some(r => /khoét chữ U mép sau, cách mép trái 205: 355 × 221,5 \(khấu cột\)/.test(r.ghi_chu)), 'bảng thống kê ghi khoét chữ U', C0.cutList(M).rows.map(r => r.ghi_chu).filter(Boolean));
+  ok(M.notes.some(t => /Khấu cột: giữa 320 × 210 \(cột \+ hở 10\) — thùng trước cột sâu 352,5, thêm hai vách khấu\. Hậu khấu .* ván thùng dày 17,5.*chữ L hoặc chữ U/.test(t)), 'ghi chú khấu cột giữa', M.notes);
+  ok(/Nhìn từ trên xuống — khấu cột/.test(C0.elevationSVG(M, { kich_thuoc: true })) && /2 vách khấu · sâu 352,5/.test(C0.elevationSVG(M, { kich_thuoc: true })) && !/NaN|undefined/.test(C0.elevationSVG(M, { kich_thuoc: true })), 'hình nhìn từ trên xuống có cột giữa');
   // (2) cột trùm lên vách giữa (vách 991,25 … 1008,75): vách nông lại, hai khoang hai bên khoét góc chữ L, MỘT tấm hậu khấu
   const V = B([{ cach: 850, rong: 300, sau: 200 }]);
   eq(V.errors, [], 'cột trùm vách giữa: dựng không lỗi');
-  eq(b4(P(V, 'VACH').find(p => !p.khau_cot)), [991.3, 1008.8, 0, 364].map((v, i) => (i < 2 ? P(V, 'VACH').find(p => !p.khau_cot)['x' + i] : v)), 'vách khoang nằm trong vùng cột nông lại tới mặt phẳng hậu khấu');
+  eq(b4(P(V, 'VACH').find(p => !p.khau_cot)), [991.3, 1008.8, 0, 352.5].map((v, i) => (i < 2 ? P(V, 'VACH').find(p => !p.khau_cot)['x' + i] : v)), 'vách khoang nằm trong vùng cột nông lại tới mặt phẳng hậu khấu');
   eq(V.parts.filter(p => p.khau).map(p => p.khau[0].ben).sort().join(','), 'phai,phai,phai,phai,trai,trai,trai', 'khoang trái khoét góc phải, khoang phải khoét góc trái');
-  eq(V.parts.filter(p => p.khau_cot && p.loai === 'HAU').map(b4), [[840, 1160, 364, 370]], 'hậu khấu là MỘT tấm suốt bề rộng vùng cột (không nối ở tim vách)');
+  eq(V.parts.filter(p => p.khau_cot && p.loai === 'HAU').map(b4), [[840, 1160, 352.5, 370]], 'hậu khấu là MỘT tấm suốt bề rộng vùng cột (vách trong vùng cột đâm vào mặt trước của nó)');
   // (3) hai vách trùng hai mép cột → khoang nông, không tấm nào khoét, không thêm vách khấu
   const N = B([{ cach: 800, rong: 300, sau: 200 }], { khoang: [{ rong: 705, canh: 2, dot: [400], o: [] }, { rong: 320, canh: 1, dot: [400, 1200], o: [] }, { rong: 'auto', canh: 2, dot: [800], o: [] }] });
   eq(N.errors, [], 'khoang nông: dựng không lỗi');
   ok(N.info.khau[0].co_a && N.info.khau[0].co_b && !N.parts.some(p => p.khau) && !N.parts.some(p => p.khau_cot && p.loai === 'VACH'), 'hai vách sẵn có làm vách khấu, không khoét', N.info.khau);
-  eq(N.parts.filter(p => p.khoang === 1 && /DAY|NOC|DOT/.test(p.loai)).map(p => p.y1), [364, 364, 364, 364], 'đáy, nóc, đợt của khoang trước cột nông 364');
+  eq(N.parts.filter(p => p.khoang === 1 && /DAY|NOC|DOT/.test(p.loai)).map(p => p.y1), [352.5, 352.5, 352.5, 352.5], 'đáy, nóc, đợt của khoang trước cột nông 352,5');
   ok(N.notes.some(t => /hai vách sẵn có làm vách khấu \(khoang nông trước cột\)/.test(t)), 'ghi chú khoang nông', N.notes);
   // vachTheoCot: tự đưa vách về hai mép cột
   const r = C0.vachTheoCot(Object.assign({}, nen, { khau: { giua: [{ cach: 800, rong: 300, sau: 200 }] } }));

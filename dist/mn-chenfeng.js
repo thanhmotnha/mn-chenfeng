@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.16.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.16.1 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.16.0';
+  const VERSION = '1.16.1';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -64,6 +64,7 @@
     //   rong = cột lấn vào tủ bao nhiêu theo chiều NGANG, đo từ mép ngoài phủ bì bên đó; sau = cột lấn bao nhiêu theo chiều SÂU, đo từ lưng tủ; 0 = không khấu.
     //   ho = khe hở giữa cột và tủ (mỗi phía). Kết cấu: hồi phía cột nông lại; nóc / đáy / đợt khoét góc chữ L; một VÁCH KHẤU đứng dọc mặt bên cột;
     //   hậu chia hai mặt phẳng — hậu khấu (trước mặt cột) + hậu chính. Chỉ làm với hậu phủ sau.
+    //   Bản 1.16.1 (anh Jason 03/10/2026 22:54: "phần khấu … phải là ván 17 hết"): HẬU KHẤU là VÁN THÙNG dày như vách khấu (không phải hậu 6 li), khoan liên kết như tấm thùng.
     khau: { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: 10 },      // giua: [{ cach, rong, sau }] — cột GIỮA tủ: cách mép ngoài bên trái của tủ, rộng, sâu (bản 1.14)
     canh: { khe: 2, khe_bien: 1, chen_ban_le: false, chen: { d: 35, sau: 12.5, tam_mep: 22.5, cach_dau: 100 } },
     // Mỗi khoang: dot = cao độ MẶT DƯỚI từng đợt (tính từ sàn). Các đợt chia khoang thành các ô; o = nội dung ô:
@@ -404,7 +405,9 @@
     /* ---- khấu cột (bản 1.13: cột ở góc sau; bản 1.14: thêm cột GIỮA tủ) ----
      * K = { ben, xa, xb, yCot, Dn, mat }: vùng cột (đã cộng khe hở) chiếm xa < x < xb, y > yCot. Cột góc trái: xa = −∞; cột góc phải: xb = +∞; cột giữa: cả hai hữu hạn.
      * Mỗi mặt bên hữu hạn của vùng cột có một VÁCH KHẤU (dày t) đứng ngay NGOÀI vùng cột: mặt xa → xa−t … xa; mặt xb → xb … xb+t; y từ Dn tới Dc (mép sau thùng chính), cao suốt thân như hồi.
-     * Vách / hồi nào có mặt trùng mặt cột thì chính nó là vách khấu (không thêm tấm): K.coA / K.coB. Thùng trong vùng khấu kết thúc ở Dn = yCot − dày hậu; hậu khấu nằm ở y Dn … yCot. */
+     * Vách / hồi nào có mặt trùng mặt cột thì chính nó là vách khấu (không thêm tấm): K.coA / K.coB.
+     * HẬU KHẤU (tấm trước mặt cột) là ván thùng dày t, đứng lọt giữa 2 tấm đứng hai bên vùng cột (vách khấu / vách sẵn có; cột góc: hồi ngoài và vách khấu), y từ Dn = yCot − t tới yCot,
+     * cao từ mặt dưới đáy tới đỉnh thân. Nóc / đáy / đợt / vách nằm trong vùng cột kết thúc ở Dn (đâm vào mặt trước hậu khấu); riêng hồi ngoài ở cột góc chạy tới yCot để kẹp hậu khấu. */
     const KH = [];
     const dsCot = [];
     for (const ben of ['trai', 'phai']) { const q = s.khau[ben]; if (q.rong > 0 && q.sau > 0) dsCot.push({ ben, ten: ben === 'trai' ? 'trái' : 'phải', rong: q.rong, sau: q.sau }); }
@@ -426,7 +429,7 @@
     for (const c of dsCot) {
       const ten = c.ten, ho = s.khau.ho, NX = c.rong + ho, NY = c.sau + ho;
       if (!phu) { err(`Khấu cột ${ten}: hiện chỉ làm với kiểu hậu phủ sau (Chuẩn xưởng → Hậu).`); continue; }
-      const K = { ben: c.ben, trai: c.ben === 'trai', ten, NX, NY, xa: -Infinity, xb: Infinity, yCot: rn(D - NY), Dn: rn(D - NY - th), coA: false, coB: false, kA: -1, kB: -1 };
+      const K = { ben: c.ben, trai: c.ben === 'trai', ten, NX, NY, xa: -Infinity, xb: Infinity, yCot: rn(D - NY), Dn: rn(D - NY - t), coA: false, coB: false, kA: -1, kB: -1 };
       if (c.ben === 'trai') { if (NX <= pL + TOL) { note(`Cột ${ten} (${g(c.rong)} + hở ${g(ho)}) nằm gọn sau phào ${ten} rộng ${g(pL)} — thùng không phải khấu.`); continue; } K.xb = rn(NX); K.cot = { x0: 0, x1: c.rong, sau: c.sau }; }
       else if (c.ben === 'phai') { if (NX <= pR + TOL) { note(`Cột ${ten} (${g(c.rong)} + hở ${g(ho)}) nằm gọn sau phào ${ten} rộng ${g(pR)} — thùng không phải khấu.`); continue; } K.xa = rn(W - NX); K.cot = { x0: rn(W - c.rong), x1: W, sau: c.sau }; }
       else {
@@ -447,7 +450,8 @@
     }
     const kTrong = (K, a, b2) => a >= K.xa - TOL && b2 <= K.xb + TOL;                                 // đoạn [a, b2] nằm trọn trong vùng cột (theo chiều ngang)
     const kNgoai = (K, a, b2) => b2 <= K.xa - K.eA + TOL || a >= K.xb + K.eB - TOL;                   // nằm hẳn ngoài vùng cột và vách khấu
-    const sauDung = (a, b2) => { let y = Dc; for (const K of KH) if (kTrong(K, a, b2)) y = Math.min(y, K.Dn); return y; };      // mép sau của một tấm đứng
+    const hoiGoc = (K, a) => (K.ben === 'trai' && Math.abs(a - xs[0]) < TOL) || (K.ben === 'phai' && Math.abs(a - xs[n]) < TOL);      // hồi ngoài ở phía cột góc: kẹp hậu khấu
+    const sauDung = (a, b2) => { let y = Dc; for (const K of KH) if (kTrong(K, a, b2)) y = Math.min(y, hoiGoc(K, a) ? K.yCot : K.Dn); return y; };      // mép sau của một tấm đứng
     // tấm nằm ngang (đáy, nóc, đợt): nằm trọn trong vùng khấu thì nông lại; vắt qua mép cột thì khoét — góc chữ L (cột trùm tới mép tấm) hoặc chữ U (cột lọt giữa tấm).
     // p.khau = các hình chữ nhật bị khoét (toạ độ tủ), ben = 'trai' / 'phai' (khoét chạm mép trái / phải của tấm) hoặc 'giua' (chữ U)
     const khauNgang = p => {
@@ -464,7 +468,7 @@
     const sauKhoang = widths.map((w, i) => { let y = shelfDepth; for (const K of KH) if (!kNgoai(K, bayX(i), bayX(i) + w)) y = Math.min(y, K.Dn); return y; });
     M.info.khau = KH.map(K => ({ ben: K.ben, x: K.x, y: K.yCot, sau_thung: K.Dn, vach_co_san: K.co_vach, xa: isFinite(K.xa) ? K.xa : null, xb: isFinite(K.xb) ? K.xb : null, co_a: K.coA, co_b: K.coB, cot: K.cot }));
     const tenVachK = K => { const m = []; if (isFinite(K.xa)) m.push(K.coA); if (isFinite(K.xb)) m.push(K.coB); return m.every(Boolean) ? (m.length > 1 ? 'hai vách sẵn có làm vách khấu (khoang nông trước cột)' : 'vách sẵn có làm vách khấu') : m.some(Boolean) ? 'một vách sẵn có + thêm một vách khấu' : (m.length > 1 ? 'thêm hai vách khấu' : 'thêm vách khấu'); };
-    if (KH.length) note(`Khấu cột: ${KH.map(K => `${K.ten} ${g(K.NX)} × ${g(K.NY)} (cột + hở ${g(s.khau.ho)}) — thùng trước cột sâu ${g(K.Dn)}, ${tenVachK(K)}`).join('; ')}. Nóc / đáy / đợt vắt qua mép cột được khoét góc chữ L${KH.some(K => K.ben === 'giua') ? ' hoặc chữ U' : ''}.`);
+    if (KH.length) note(`Khấu cột: ${KH.map(K => `${K.ten} ${g(K.NX)} × ${g(K.NY)} (cột + hở ${g(s.khau.ho)}) — thùng trước cột sâu ${g(K.Dn)}, ${tenVachK(K)}`).join('; ')}. Hậu khấu (tấm trước mặt cột) là ván thùng dày ${g(t)}, lọt giữa 2 tấm đứng hai bên cột. Nóc / đáy / đợt vắt qua mép cột được khoét góc chữ L${KH.some(K => K.ben === 'giua') ? ' hoặc chữ U' : ''}.`);
 
     /* ---- thùng từng thân ---- */
     for (const b of bodies) {
@@ -542,9 +546,17 @@
           manh.splice(q, 1);
         }
         for (const m of manh) {
+          if (m.K) continue;      // phần trước mặt cột: hậu khấu bằng ván thùng (bên dưới)
           const w = m.x1 - m.x0;
-          P({ loai: 'HAU', ten: m.K ? NM.hau_khau : NM.hau, than: b.code, tu: b.tu, type: 2, x0: m.x0, x1: m.x1, y0: m.K ? m.K.Dn : Dc, y1: m.K ? m.K.yCot : D, z0: zA, z1: zB, big: 1, fd: false, bd: false, khoan: KHONG_KHOAN, khoang: m.i, den_khoang: m.j, phu: true, khau_cot: m.K ? m.K.ben : undefined,
+          P({ loai: 'HAU', ten: NM.hau, than: b.code, tu: b.tu, type: 2, x0: m.x0, x1: m.x1, y0: Dc, y1: D, z0: zA, z1: zB, big: 1, fd: false, bd: false, khoan: KHONG_KHOAN, khoang: m.i, den_khoang: m.j, phu: true,
             lines: (w > s.van.kho_rong + TOL && zB - zA <= s.van.kho_rong + TOL) ? 1 : 0 });      // tấm rộng hơn khổ ván: vân ngang, nằm dọc theo chiều dài khổ
+        }
+        // HẬU KHẤU: ván thùng dày t, lọt giữa 2 tấm đứng hai bên vùng cột, cao từ mặt dưới đáy tới đỉnh thân; khoan liên kết như tấm thùng (mép đứng ↔ vách khấu, mép sau nóc / đáy / đợt ↔ mặt trước).
+        for (const K of KH) {
+          const x0 = isFinite(K.xa) ? K.xa : rn(xs[0] + t), x1 = isFinite(K.xb) ? K.xb : xs[n];
+          if (x1 - x0 < 30) continue;
+          const i0 = widths.findIndex((w, k) => bayX(k) + w > x0 + TOL);
+          P({ loai: 'HAU', ten: NM.hau_khau, than: b.code, tu: b.tu, type: 2, x0, x1, y0: K.Dn, y1: K.yCot, z0: rn(b.zb - t), z1: b.z1, big: 1, khoang: Math.max(0, i0), khau_cot: K.ben, van_thung: true });
         }
         // vách khấu: đứng dọc mặt bên cột, từ mặt phẳng hậu khấu tới mép sau thùng chính, cao suốt thân (nóc / đáy / đợt khoét tới mặt trong của nó)
         for (const K of KH) {
@@ -1124,7 +1136,7 @@
 
   function partToCF(p, s) {
     const [w, h, t] = localSize(p);
-    const hau = p.loai === 'HAU';
+    const hau = p.loai === 'HAU' && !p.van_thung;      // hậu khấu cột là ván thùng: vật liệu, dán cạnh, khoan như tấm thùng
     const dc = hau && (p.phu || p.mong) ? '0' : s.van.dan_canh;      // hậu mỏng (phủ / soi rãnh) không dán cạnh
     const o = {
       Type: 'Board', Name: p.ten, BrType: p.type, PositionType: 1,      // PositionType 1: Pos = góc nhỏ nhất (x, y, z) cho cả 3 loại tấm
@@ -1168,9 +1180,10 @@
     for (const p of M.parts) {
       const c = cutSize(p);
       const kh = (p.khau || []).map(k => (k.ben === 'giua' ? `khoét chữ U mép sau, cách mép trái ${g(k.x0 - p.x0)}: ${g(k.x1 - k.x0)} × ${g(k.y1 - k.y0)} (khấu cột)` : `khoét góc sau ${k.ben === 'phai' ? 'phải' : 'trái'} ${g(k.x1 - k.x0)} × ${g(k.y1 - k.y0)} (khấu cột)`)).join('; ');
-      const key = [NHOM[p.loai] || p.loai, p.tu, p.ten, c.dai, c.rong, c.day, p.khoan, p.holes && p.holes.length ? 'x' : '', kh].join('|');
-      const r = rows.get(key) || { nhom: NHOM[p.loai] || p.loai, tu: p.tu, ten: p.ten, dai: c.dai, rong: c.rong, day: c.day, sl: 0, m2: 0, khoan: p.khoan === KHONG_KHOAN ? 'không khoan' : p.khoan,
-        ghi_chu: kh || (p.phu ? (p.khau_cot ? 'hậu trước mặt cột, bắn đinh' : 'ốp sau lưng thùng, bắn đinh') : p.khau_cot ? 'vách đứng dọc mặt bên cột' : p.holes && p.holes.length ? (p.holes[0].kieu === 'tron' ? 'khoét chén bản lề' : 'soi rãnh hậu') : '') };
+      const nhom = p.van_thung ? NHOM.HOI : (NHOM[p.loai] || p.loai);      // hậu khấu cột bằng ván thùng → kê cùng nhóm thùng
+      const key = [nhom, p.tu, p.ten, c.dai, c.rong, c.day, p.khoan, p.holes && p.holes.length ? 'x' : '', kh].join('|');
+      const r = rows.get(key) || { nhom, tu: p.tu, ten: p.ten, dai: c.dai, rong: c.rong, day: c.day, sl: 0, m2: 0, khoan: p.khoan === KHONG_KHOAN ? 'không khoan' : p.khoan,
+        ghi_chu: kh || (p.phu ? 'ốp sau lưng thùng, bắn đinh' : p.van_thung ? 'tấm trước mặt cột — ván thùng, lọt giữa 2 tấm đứng hai bên cột' : p.khau_cot ? 'vách đứng dọc mặt bên cột' : p.holes && p.holes.length ? (p.holes[0].kieu === 'tron' ? 'khoét chén bản lề' : 'soi rãnh hậu') : '') };
       r.sl++; r.m2 += c.dai * c.rong / 1e6; rows.set(key, r);
     }
     const order = ['Thùng', 'Hậu', 'Chân trước', 'Phào mặt', 'Phụ trợ phào', 'Cánh'];
@@ -4661,7 +4674,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
         <fieldset><legend>Phào, chân, chia thân</legend><div class="g g3">${numField('phao.trai', 'Phào trái')}${numField('phao.phai', 'Phào phải')}${numField('phao.tren', 'Phào trên')}${numField('chan.cao', 'Chân (xà trước)')}${numField('than.cao_duoi', 'Cao thân dưới', 'title="Tủ cao hơn khổ ván thì chia thân dưới + thân kịch trần tại cao độ này. 0 = một thân."')}</div></fieldset>
         <fieldset><legend>Khấu cột (cột sát tường sau: ở góc hoặc giữa tủ)</legend><div class="g g3">${numField('khau.trai.rong', 'Cột TRÁI: lấn ngang', 'placeholder="0 = không" title="Cột lấn vào tủ bao nhiêu theo chiều ngang, đo từ mép ngoài phủ bì bên trái (kể cả phào)"')}${numField('khau.trai.sau', 'Cột TRÁI: lấn sâu', 'title="Cột lấn vào tủ bao nhiêu theo chiều sâu, đo từ lưng tủ"')}${numField('khau.ho', 'Khe hở quanh cột')}${numField('khau.phai.rong', 'Cột PHẢI: lấn ngang', 'placeholder="0 = không" title="Đo từ mép ngoài phủ bì bên phải"')}${numField('khau.phai.sau', 'Cột PHẢI: lấn sâu')}${numField('khau.giua.0.cach', 'Cột GIỮA 1: cách mép trái', 'title="Khoảng cách từ mép ngoài phủ bì bên trái của tủ tới mặt trái của cột"')}${numField('khau.giua.0.rong', 'Cột GIỮA 1: rộng', 'placeholder="0 = không"')}${numField('khau.giua.0.sau', 'Cột GIỮA 1: sâu', 'title="Cột lấn vào tủ bao nhiêu theo chiều sâu, đo từ lưng tủ"')}${numField('khau.giua.1.cach', 'Cột GIỮA 2: cách mép trái')}${numField('khau.giua.1.rong', 'Cột GIỮA 2: rộng', 'placeholder="0 = không"')}${numField('khau.giua.1.sau', 'Cột GIỮA 2: sâu')}</div>
           <div class="frow" style="margin-top:6px"><button class="sec" data-act="vach-cot" title="Dời / thêm vách cho trùng hai mép của cột giữa: khoang trước cột thành khoang nông, mọi tấm cắt thẳng, không phải khoét chữ U">Đặt vách theo mép cột giữa</button></div>
-          <p class="hint" style="margin:6px 0 0">Gõ kích thước cột (ngang × sâu), 0 = không khấu. Hồi phía cột nông lại, nóc / đáy / đợt khoét góc chữ L, thêm <b>vách khấu</b> dọc mặt bên cột và <b>hậu khấu</b> trước mặt cột — xem hình "nhìn từ trên xuống" dưới hình đứng. Vách nào có mặt trùng mép cột thì chính vách đó làm vách khấu. <b>Cột giữa tủ</b>: cột lọt giữa một khoang thì đáy / nóc / đợt khoét <b>chữ U</b> và có 2 vách khấu; bấm <b>Đặt vách theo mép cột giữa</b> để hai vách trùng hai mép cột — khoang trước cột thành khoang nông, tấm nào cũng cắt thẳng (dễ làm nhất).</p></fieldset>
+          <p class="hint" style="margin:6px 0 0">Gõ kích thước cột (ngang × sâu), 0 = không khấu. Hồi phía cột nông lại, nóc / đáy / đợt khoét góc chữ L, thêm <b>vách khấu</b> dọc mặt bên cột và <b>hậu khấu</b> trước mặt cột — cả hai đều là <b>ván thùng</b> (không dùng hậu 6 li cho phần khấu) — xem hình "nhìn từ trên xuống" dưới hình đứng. Vách nào có mặt trùng mép cột thì chính vách đó làm vách khấu. <b>Cột giữa tủ</b>: cột lọt giữa một khoang thì đáy / nóc / đợt khoét <b>chữ U</b> và có 2 vách khấu; bấm <b>Đặt vách theo mép cột giữa</b> để hai vách trùng hai mép cột — khoang trước cột thành khoang nông, tấm nào cũng cắt thẳng (dễ làm nhất).</p></fieldset>
         <fieldset><legend>Khoang, từ trái sang phải</legend><div class="bays"></div>
           <div class="frow"><button class="sec" data-act="add">+ Thêm khoang</button><button class="sec" data-act="reset">Về tủ mẫu</button></div></fieldset>
       </div>
@@ -4713,7 +4726,7 @@ ${Ph ? '<li>Thẻ <b>Phòng</b>: tự điền số đo hiện trạng (cao trầ
 <li><b>Chia đợt ngay trên hình đứng</b>: nắm một đợt kéo lên xuống (bắt bước ${BUOC_KEO} mm); bấm đúp vào ô để thêm đợt; bấm vào đợt để gõ cao độ chính xác hoặc xoá. Phím ↑ ↓ nhích 1 mm (giữ Shift: 10 mm), Delete xoá đợt.</li>
 <li><b>Bấm vào một ô</b> rồi chọn: ngăn kéo âm, ngăn kéo trùm ngoài hoặc suốt treo; chọn "Trống" để bỏ. Với ngăn kéo: chỉnh <b>số ngăn</b> và chọn <b>loại</b> (ray bi, ray âm, hộp ray Blum, ngăn chia ô, khung treo quần…).</li>
 <li><b>Vách đứng (hồi giữa)</b> — bản 1.12: bấm nút <b>＋ Vách</b> phía trên hình rồi bấm vào chỗ bất kỳ trong tủ → thêm một vách tại đó (khoang chia đôi, đợt chép sang khoang mới). <b>Kéo vách</b> sang trái / phải để chia lại bề rộng hai khoang kề; bấm vào vách để gõ số lọt lòng hoặc <b>Bỏ vách</b> (gộp 2 khoang). ↶ Lùi trả lại được.</li>
-<li><b>Khấu cột</b> — bản 1.13: tủ vướng cột ở góc sau thì gõ kích thước cột lấn vào tủ (ngang × sâu) ở khung <b>Khấu cột</b> của thẻ Tủ. Hồi phía cột nông lại, đáy / nóc / đợt khoét góc chữ L, có vách khấu dọc mặt bên cột và hậu khấu trước mặt cột; xem hình “Nhìn từ trên xuống” dưới hình đứng. Tủ vẽ từ khung của thẻ Phòng thì tự khấu theo cột trùm đầu khung.</li>
+<li><b>Khấu cột</b> — bản 1.13: tủ vướng cột ở góc sau thì gõ kích thước cột lấn vào tủ (ngang × sâu) ở khung <b>Khấu cột</b> của thẻ Tủ. Hồi phía cột nông lại, đáy / nóc / đợt khoét góc chữ L, có vách khấu dọc mặt bên cột và hậu khấu trước mặt cột — từ bản 1.16.1 hậu khấu là <b>ván thùng</b> như vách khấu (lọt giữa 2 tấm đứng hai bên cột, khoan liên kết), chỉ hậu chính sau lưng mới là hậu 6 li; xem hình “Nhìn từ trên xuống” dưới hình đứng. Tủ vẽ từ khung của thẻ Phòng thì tự khấu theo cột trùm đầu khung.</li>
 ${cf ? '<li><b>Vẽ bằng lệnh gốc của Chenfeng, cả tủ là một module</b> — bản 1.15–1.16: hồi, vách, nóc / đáy, hậu, đợt, cánh được dựng bằng chính các lệnh vẽ tấm của Chenfeng (vách chạy suốt, nóc / đáy theo từng khoang); phào, xà chân, khung hộc kéo, ngăn kéo, suốt treo được gom cùng các thùng đó thành <b>một module mang mã tủ</b>. Vẽ xong chọn 1 tấm → thẻ Template (Thông số) của Chenfeng → bấm dòng trên cùng (mã tủ) → đổi L / W / H → Apply: <b>cả tủ chạy theo</b>, Chenfeng khoan lại. Tủ được vẽ ở chỗ trống bên phải bản vẽ rồi tự đưa về chỗ đặt (xoay theo tường được) — trong lúc bảng đang vẽ đừng bấm vào bản vẽ; sang tab khác làm việc thì được (bảng tự chờ Chenfeng dựng hình xong từng bước, chậm hơn một chút). Tủ có khấu cột vẽ theo cách cũ (vẫn là một module). Tắt / bật ở Chuẩn xưởng → Cách vẽ vào Chenfeng.</li>' : ''}
 ${cf && Ph && Ph.hinhThanhKhung ? '<li><b>Tủ theo hình vẽ trên mặt bằng</b> — bản 1.16: trên mặt bằng của Chenfeng (nhìn từ trên xuống) vẽ một <b>hình chữ nhật hoặc đa tuyến kín</b> đúng chỗ tủ đứng — bắt điểm vào tường, cột; hình là phủ bì của tủ (rộng × sâu, kể cả cánh). Chỗ vướng cột: vẽ khuyết góc / khuyết giữa ở mép sau, hoặc cứ vẽ chữ nhật trùm qua cột của phòng (bảng tự khấu theo cột). Chọn hình → bấm <b>Tủ theo hình đang chọn trên mặt bằng</b>: bảng lấy rộng, sâu, vị trí, hướng xoay, khấu cột; cao lấy theo trần của phòng (sửa được ở ô Cao). Mặt trước tự nhận theo tường / chỗ khuyết, không nhận được thì bảng hỏi bấm 1 điểm phía trước tủ; nhận sai thì bấm “Chọn lại mặt trước”. Chia khoang, đợt xong bấm <b>Vẽ vào Chenfeng</b> — tủ dựng đúng chỗ hình, đúng hướng.</li>' : ''}
 <li><b>Chọn loại ngăn kéo bằng hình</b> — bản 1.13: bấm ô ngăn kéo → bấm nút hình cạnh ô Loại → bấm hình loại cần dùng.</li>

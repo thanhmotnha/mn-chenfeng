@@ -267,8 +267,8 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     const rk = await H.locator('.report').innerText();
     ok(/Đã vẽ xong/.test(rk) && !/chưa có góc khoét/.test(rk) && !/va chạm|chồng lên/i.test(rk), 'tủ khấu cột vẽ xong, đối chiếu không báo thiếu khoét / va chạm giả', rk);
     ok(kh.chuL.length >= 2 && kh.chuL.includes('Đáy') && kh.chuL.includes('Nóc'), 'đáy, nóc (và đợt vướng cột) vào Chenfeng là tấm chữ L 6 đỉnh', kh.chuL);
-    ok(kh.vach.length === 2 && kh.vach.every(v => v[0] === 40310 && v[3] === 591.5) && kh.hauK.length === 2 && kh.hauK.every(h => h[0] === 6 && h[3] === 381.5), 'mỗi thùng (dưới + trên) có 1 vách khấu dọc mặt bên cột + hậu 6 li trước mặt cột', [kh.vach, kh.hauK]);
-    ok(kh.hoi.length === 2 && kh.hoi.every(h => Math.abs((h[3] - h[2]) - (580 - 210 - 6)) < 0.6), 'hồi bên cột ngắn lại: sâu tủ − (cột + hở) − hậu = 364', kh.hoi);
+    ok(kh.vach.length === 2 && kh.vach.every(v => v[0] === 40310 && v[3] === 591.5) && kh.hauK.length === 2 && kh.hauK.every(h => h[0] === 17.5 && h[1] === 40067.5 && h[2] === 40310 && h[3] === 370 && h[4] === 387.5), 'mỗi thùng (dưới + trên) có 1 vách khấu dọc mặt bên cột + hậu khấu bằng VÁN THÙNG 17,5 trước mặt cột, lọt giữa hồi và vách khấu', [kh.vach, kh.hauK]);
+    ok(kh.hoi.length === 2 && kh.hoi.every(h => Math.abs((h[3] - h[2]) - (580 - 210)) < 0.6), 'hồi bên cột ngắn lại, chạy tới mặt sau hậu khấu: sâu tủ − (cột + hở) = 370', kh.hoi);
     // Chenfeng (giả lập) dựng tấm chữ nhật, bỏ mất góc khoét → đối chiếu phải nêu ra
     await H.locator('[data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
@@ -296,7 +296,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     const rg = await H.locator('.report').innerText();
     ok(/Đã vẽ xong/.test(rg) && !/chưa có góc khoét/.test(rg) && !/va chạm|chồng lên/i.test(rg), 'tủ có cột giữa vẽ xong, đối chiếu sạch', rg);
     ok(kg.chuU.length >= 4 && kg.chuU.includes('Đáy') && kg.chuU.includes('Nóc') && kg.chuU.includes('Đợt'), 'đáy, nóc, đợt của khoang có cột là tấm chữ U 8 đỉnh', kg.chuU);
-    ok(kg.dinh && kg.dinh.some(q => Math.abs(q[0] - 322.5) < 0.6 && Math.abs(q[1] - 364) < 0.6) && kg.dinh.some(q => Math.abs(q[0] - 627.5) < 0.6 && Math.abs(q[1] - 364) < 0.6), 'góc lõm chữ U đúng chỗ: x 322,5 và 627,5 (mặt ngoài 2 vách khấu), sâu 364', kg.dinh);
+    ok(kg.dinh && kg.dinh.some(q => Math.abs(q[0] - 322.5) < 0.6 && Math.abs(q[1] - 352.5) < 0.6) && kg.dinh.some(q => Math.abs(q[0] - 627.5) < 0.6 && Math.abs(q[1] - 352.5) < 0.6), 'góc lõm chữ U đúng chỗ: x 322,5 và 627,5 (mặt ngoài 2 vách khấu), sâu 352,5 (mặt trước hậu khấu ván thùng)', kg.dinh);
     ok(kg.vach.length === 4 && kg.hauK.length === 2 && kg.hauK.every(h => h[0] === 70340 && h[1] === 70610), '2 thân × 2 vách khấu; hậu khấu trước mặt cột 340 … 610', [kg.vach, kg.hauK]);
     await H.locator('[data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
