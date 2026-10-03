@@ -1,0 +1,20 @@
+/* Bố cục: một bảng công cụ — trái nhập thông số, phải hình đứng + kiểm tra, chân bảng là nút xuất file. Màu giấy xưởng, nhấn xanh dương kiểu CAD. */
+:root{--mn-pagebg:#e4e8e1;--mn-bg:#f4f6f2;--mn-card:#ffffff;--mn-ink:#1b2420;--mn-muted:#5d6861;--mn-line:#cdd4ca;
+  --mn-accent:#1c5fb8;--mn-accent-ink:#ffffff;--mn-head:#1c2530;--mn-head-ink:#e8edf2;--mn-head-dim:#a5b4c3;
+  --mn-field:#ffffff;--mn-foot:#e6eae3;--mn-hover:#e3ebf6;--mn-sheet:#fbfbf8;--mn-ph:#9aa39c;
+  --mn-ok:#17603f;--mn-ok-bg:#dff2e6;--mn-ok-line:#2f9e6e;--mn-err:#8d1f14;--mn-err-bg:#fde7e4;--mn-err-line:#d9402b;
+  --mn-warn:#6e4b00;--mn-warn-bg:#fff2cf;--mn-warn-line:#e0a100;--mn-note:#1d4f66;--mn-note-bg:#e2eef4;--mn-note-line:#3b86a8;
+  --mn-font:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --mn-font-data:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--mn-pagebg:#121619;--mn-bg:#1b2126;--mn-card:#222a30;--mn-ink:#e7ecea;--mn-muted:#9aa6a0;--mn-line:#38424a;
+  --mn-accent:#2a6fd1;--mn-accent-ink:#ffffff;--mn-head:#0f1316;--mn-head-ink:#e8edf2;--mn-head-dim:#93a3b3;
+  --mn-field:#2a3238;--mn-foot:#171c20;--mn-hover:#2b3a52;--mn-sheet:#f3f4ef;--mn-ph:#6f7a74;
+  --mn-ok:#bfe9d4;--mn-ok-bg:#173a2b;--mn-ok-line:#2f9e6e;--mn-err:#ffc9c1;--mn-err-bg:#4a1d17;--mn-err-line:#d9402b;
+  --mn-warn:#ffe2a1;--mn-warn-bg:#4a3a10;--mn-warn-line:#e0a100;--mn-note:#c4e3f2;--mn-note-bg:#173442;--mn-note-line:#3b86a8;color-scheme:dark}}
+:root[data-theme="dark"]{--mn-pagebg:#121619;--mn-bg:#1b2126;--mn-card:#222a30;--mn-ink:#e7ecea;--mn-muted:#9aa6a0;--mn-line:#38424a;
+  --mn-accent:#2a6fd1;--mn-accent-ink:#ffffff;--mn-head:#0f1316;--mn-head-ink:#e8edf2;--mn-head-dim:#93a3b3;
+  --mn-field:#2a3238;--mn-foot:#171c20;--mn-hover:#2b3a52;--mn-sheet:#f3f4ef;--mn-ph:#6f7a74;
+  --mn-ok:#bfe9d4;--mn-ok-bg:#173a2b;--mn-ok-line:#2f9e6e;--mn-err:#ffc9c1;--mn-err-bg:#4a1d17;--mn-err-line:#d9402b;
+  --mn-warn:#ffe2a1;--mn-warn-bg:#4a3a10;--mn-warn-line:#e0a100;--mn-note:#c4e3f2;--mn-note-bg:#173442;--mn-note-line:#3b86a8;color-scheme:dark}
+body{margin:0;padding-inline:16px;padding-block:16px;background:var(--mn-pagebg);color:var(--mn-ink);font-family:var(--mn-font)}
+@media (max-width:420px){body{padding-inline:16px;padding-block:10px}}

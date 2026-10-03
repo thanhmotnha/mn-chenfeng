@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>WebCAD - giả lập</title>
+<style>html,body{margin:0;height:100%;background:#1d2530}canvas{position:fixed;inset:0;width:100%;height:100%;display:block}</style></head>
+<body><canvas id="cv"></canvas>
+<script>
+/* Trang GIẢ LẬP Chenfeng WebCAD — chỉ đủ các đường mà mncf-driver.js dùng (đã đối chiếu với bản thật 2026-09-29):
+ *   thả file .json có ModelSpace → tạo tấm/mẫu → hỏi điểm đặt (GetPoint) → khoan → báo "lệnh kết thúc";
+ *   DRAWHOLE (chọn tấm + Enter → khoan lại), UNDO, ZOOME, Esc.
+ * Bắt chước cả 2 thói quen của bản thật: tấm của mẫu ngăn kéo mang kiểu khoan cũ "三合一"; cổng nhập ghi drillType = kiểu đầu tiên trong cấu hình. */
+(function () {
+  'use strict';
+  const DRILL = new Map([['Cam12', {}], ['Cam3Tp', {}]]);
+  window.userconfig = { DrillConfigs: DRILL };
+  const FIRST = [...DRILL.keys()][0];
+  let SO_MA = 100;
+  class Ent { constructor() { this.IsErase = false; this.DrawObject = { ent: this }; this.box = [0, 0, 0, 0, 0, 0]; this.Id = { Object: this, Index: ++SO_MA }; }
+    // tấm có đường bao nhiều đỉnh (tấm nằm khoét góc — khấu cột): bản thật trả về từng đỉnh đường bao ở 2 mặt
+    GetStretchPoints() { const b = this.box, o = []; if (this.dinh) { for (const q of this.dinh) for (const z of [b[4], b[5]]) o.push(new V3(q[0], q[1], z)); return o; } for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) for (const z of [b[4], b[5]]) o.push(new V3(x, y, z)); return o; }
+    get BoundingBox() { const b = this.box; return { min: { x: b[0], y: b[2], z: b[4] }, max: { x: b[1], y: b[3], z: b[5] } }; }
+    move(d) { this.box = [this.box[0] + d[0], this.box[1] + d[0], this.box[2] + d[1], this.box[3] + d[1], this.box[4] + d[2], this.box[5] + d[2]]; if (this.dinh) this.dinh = this.dinh.map(q => [q[0] + d[0], q[1] + d[1]]); } }
+  // mẫu (TemplateRecord) giả lập: đủ các đường mà MNCFDriver.modelize dùng
+  class V3 { constructor(x, y, z) { this.x = x; this.y = y; this.z = z; } }
+  class M4 { constructor() { this.elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; } makeTranslation(x, y, z) { this.elements[12] = x; this.elements[13] = y; this.elements[14] = z; return this; } }
+  class StretchAction { constructor(dir) { this.StretchDirection = dir || new V3(1, 0, 0); this.MoveEntitys = []; this.EntityStretchPointMap = []; this.Expr = ''; this.Name = ''; } }
+  class Tpl { constructor(name, objs) { this.Name = name; this.Id = { Object: this, Index: ++SO_MA }; this.Objects = (objs || []).map(e => e.Id); this.Children = []; this.Parent = null; this.Positioning = { tam: true };
+      this.Params = ['L', 'W', 'H', 'PX', 'PY', 'PZ', 'RX', 'RY', 'RZ', 'BH'].map(n => ({ name: n, expr: '', value: 0, actions: [] })); this.capNhat = 0; }
+    GetParam(n) { return this.Params.find(p => p.name === n); }
+    DeleteParam(n) { this.Params = this.Params.filter(p => p.name !== n); }
+    get LParam() { return this.GetParam('L'); } get WParam() { return this.GetParam('W'); } get HParam() { return this.GetParam('H'); }
+    get PXParam() { return this.GetParam('PX'); } get PYParam() { return this.GetParam('PY'); } get PZParam() { return this.GetParam('PZ'); }
+    WriteAllObjectRecord() { if (hm.mo) { const t = this, op = t._option ? Object.assign({}, t._option) : null, pr = t.Params.map(p => ({ p, expr: p.expr, value: p.value, acts: (p.actions || []).map(a => ({ a, doi: a.MoveEntitys.slice(), keo: a.EntityStretchPointMap.map(m => ({ entity: m.entity, indexs: m.indexs.slice() })) })) }));
+      hm.mo.snap.push(() => { if (op) t._option = op; for (const x of pr) { x.p.expr = x.expr; x.p.value = x.value; for (const y of x.acts) { y.a.MoveEntitys = y.doi; y.a.EntityStretchPointMap = y.keo; } } }); } }
+    // Bản thật: đổi biểu thức tham số rồi UpdateTemplateTree → từng động tác dời nguyên tấm (MoveEntitys) hoặc kéo một số điểm (EntityStretchPointMap) một đoạn Δ × hướng; mẫu hậu tự động dựng lại theo khoảng kẹp.
+    async UpdateTemplateTree() { this.capNhat++;
+      if (this.coGian) for (const p of this.Params) { const v = Number(p.expr); if (p.expr === '' || !isFinite(v) || v === p.value) continue; const d = v - p.value; p.value = v;
+        for (const a of p.actions) { const dv = [a.StretchDirection.x * d, a.StretchDirection.y * d, a.StretchDirection.z * d];
+          for (const id of a.MoveEntitys) id.Object.move(dv);
+          for (const m of a.EntityStretchPointMap) m.entity.Object.MoveStretchPoints(m.indexs, new V3(dv[0], dv[1], dv[2])); } }
+      for (const c of this.Children) if (c.Object && c.Object.dungHau) c.Object.dungHau(); } }
+  // "背板(自动)" của Chenfeng (TemplateBehindBoard): hậu tự dựng theo khoảng kẹp giữa 4 tấm [trái, phải, nóc, đáy] và các lựa chọn _option
+  class TplHau extends Tpl { constructor(name, hau, kep, option) { super(name, [hau]); this.kep = kep; this._option = Object.assign({ version: 4, leftExt: 6, rightExt: 6, topExt: 6, bottomExt: 6, thickness: 5, boardRelative: 'back', spaceSize: 20, calcSpaceSize: '20', exprThickness: '5' }, option || {}); }
+    dungHau() { const [tr, ph, no, da] = this.kep.map(b => b.box), o = this._option, h = this.Objects[0].Object, sau = Math.min(tr[3], ph[3]) - o.spaceSize;      // lưng khoảng kẹp = mép sau 2 tấm đứng
+      h._t = o.thickness; h.box = [tr[1] - o.leftExt, ph[0] + o.rightExt, sau - o.thickness, sau, da[5] - o.bottomExt, no[4] + o.topExt]; } }
+  // đối tượng phòng của thẻ "House Design" (tên lớp như bản thật: bộ điều khiển đếm theo tên lớp)
+  class RoomWallLine extends Ent {} class RoomHolePolyline extends Ent {} class RoomPillar extends Ent {} class RoomGirder extends Ent {}
+  class RoomRegion extends Ent { constructor() { super(); this._Name = ''; } get TextString() { return this._Name; } set TextString(v) { this._Name = v; } get Nhan() { return (this._Name || '未命名') + ' m²'; } WriteAllObjectRecord() { if (hm.mo) { const cu = this._Name; hm.mo.snap.push(() => { this._Name = cu; }); } } }
+  class Board extends Ent { constructor(name, type, box, t, tu, phong, drills) { super(); this.Name = name; this.BoardType = type; this.box = box; this.Thickness = t; this.Grooves = [];
+    this.BoardProcessOption = { cabinetName: tu, roomName: phong, drillType: FIRST, highDrill: drills.slice(), remarks: [] }; }
+    // trục dày trong bản vẽ: trục có bề rộng hộp = bề dày (ưu tiên y, x, z)
+    get truc() { const b = this.box, e = [b[1] - b[0], b[3] - b[2], b[5] - b[4]]; return [1, 0, 2].find(a => Math.abs(e[a] - this._t) < 0.01); }
+    get Thickness() { return this._t; }
+    set Thickness(v) { const a = this._t === undefined ? undefined : this.truc; if (a !== undefined) this.box[a * 2 + 1] = this.box[a * 2] + v; this._t = v; }
+    get OCS() { const m = new M4(), a = this.truc; m.elements[8] = m.elements[9] = m.elements[10] = 0; if (a !== undefined) m.elements[8 + a] = 1; return m; }
+    // điểm co giãn số k = ix*4 + iy*2 + iz (xem Ent.GetStretchPoints): kéo đủ 4 điểm của một mặt thì mặt đó dời theo
+    MoveStretchPoints(ks, v) { const d = [v.x, v.y, v.z], bit = [4, 2, 1], b = this.box.slice(), tr = this.truc;
+      for (let a = 0; a < 3; a++) for (let s = 0; s < 2; s++) { const mat = [0, 1, 2, 3, 4, 5, 6, 7].filter(k => (k & bit[a] ? 1 : 0) === s); if (mat.every(k => ks.includes(k))) b[a * 2 + s] += d[a]; }
+      this.box = b;
+      if (tr !== undefined) this._t = Math.round((b[tr * 2 + 1] - b[tr * 2]) * 1000) / 1000; }      // kéo mặt theo trục dày = đổi bề dày (tham số BH của mẫu làm đúng việc này)
+    ApplyMatrix(m) { this.move([m.elements[12], m.elements[13], m.elements[14]]); }
+    WriteAllObjectRecord() { if (hm.mo) { const e = this, box = e.box.slice(), t = e._t, o = e.BoardProcessOption, dt = o.drillType, hd = o.highDrill.slice(); hm.mo.snap.push(() => { e.box = box; e._t = t; o.drillType = dt; o.highDrill = hd; }); } } }
+  class HardwareCompositeEntity extends Ent { constructor(name, box, tu) { super(); this.HardwareOption = { name, cabinetName: tu, roomName: '' }; this.box = box; } }
+  class CylinderHole extends Ent { constructor(b) { super(); this.FId = { Object: b }; this.MId = { Object: b }; this.box = b.box.slice(); } }
+
+  const ents = [], history = [], prompts = [], endCbs = new Set();
+  let key = 0, state = null;      // state: null | {kind:'point', created, base} | {kind:'entity'}
+  const prompt = (type, msg) => prompts.push({ key: ++key, type, msg });
+  const svc = { IsReady: false }, gesvc = { IsReady: false }, kwsvc = { IsReady: false, keywordList: [] };
+  let selection = [], holeCfg = null;
+  const hm = { curIndex: -1, historyRecord: history, mo: null,
+    // bản thật: StartCmd mở một bước lịch sử, các WriteAllObjectRecord sau đó ghi vào bước này; EndCmd đóng lại (bước rỗng thì bỏ)
+    StartCmd(name) { hm.mo = { CommandName: name, created: [], snap: [], undo() { for (const f of this.snap.slice().reverse()) f(); } }; },
+    EndCmd() { const r = hm.mo; hm.mo = null; if (r && r.snap.length) pushHist(r); return !!r; } };
+  const fireEnd = (name, changed, created) => { for (const cb of [...endCbs]) cb(name, changed, created); };
+  const pushHist = rec => { history.length = hm.curIndex + 1; history.push(rec); hm.curIndex = history.length - 1; };
+  const toast = text => { const d = document.createElement('div'); d.className = 'bp3-toast'; d.textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 4000); };
+
+  function drill(boards) {
+    const made = [];
+    for (const b of boards) {
+      for (const e of ents) if (e instanceof CylinderHole && e.FId.Object === b && !e.IsErase) e.IsErase = true;
+      const h = b.BoardProcessOption.highDrill, t = h.find(x => x && x !== '不排');
+      if (window.__MOCK_DRILL_BACK__ && b.Name === 'Hậu') for (let i = 0; i < 2; i++) { const c = new CylinderHole(b); ents.push(c); made.push(c); }      // giả định xấu: Chenfeng vẫn khoan vào mặt tấm hậu dù hậu khai "不排"
+      if (!t) continue;
+      if (b.Thickness < 10) continue;      // tấm mỏng (đáy ngăn kéo) không có lỗ cam
+      if (!DRILL.has(t)) { prompt('ERROR', `>排钻失败!排钻类型:${t},没有合适的区间规则,或者当前配置不存在!`); continue; }
+      for (let i = 0; i < 6; i++) { const c = new CylinderHole(b); ents.push(c); made.push(c); }
+    }
+    return made;
+  }
+  const sizeOf = (o) => { const xs = o.ContourCurve.map(c => c.pt[0]), ys = o.ContourCurve.map(c => c.pt[1]); return [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)]; };
+  function boardFromJSON(o) {
+    if (!Array.isArray(o.ContourCurve) || !(o.Thickness > 0) || !Array.isArray(o.Pos)) throw new Error('bad board');
+    const [w, h] = sizeOf(o), [x, y, z] = o.Pos, t = o.Thickness;
+    const box = o.BrType === 1 ? [x, x + t, y, y + w, z, z + h] : o.BrType === 0 ? [x, x + h, y, y + w, z, z + t] : [x, x + w, y, y + t, z, z + h];
+    const b = new Board(o.Name, o.BrType, box, t, o.CabinetName, o.RoomName, o.EachEdgeDrills || ['不排', '不排', '不排', '不排']);
+    if (o.Remarks) b.BoardProcessOption.remarks = o.Remarks;      // bản thật: e.Remarks && (opt.remarks = e.Remarks)
+    if (o.BrType === 0 && o.ContourCurve.length > 4 && !window.__MOCK_BO_KHOET__) b.dinh = o.ContourCurve.map(c => [x + h - c.pt[1], y + c.pt[0]]);      // tấm nằm (đo trên bản thật): u của đường bao = chiều sâu (y), v = chiều ngang ĐẢO (x = x1 − v)
+    return b;
+  }
+  function templateFromJSON(o) {
+    const P = {}; for (const p of o.ParamMap || []) P[p.name] = parseFloat(p.value);
+    const [L, W, H] = o.BoxSize, [x, y, z] = o.Pos, out = [];
+    if (P.JS !== undefined) {      // suốt treo
+      const zc = z + H - P.JS - 15;
+      out.push(new HardwareCompositeEntity('衣杆', [x, x + L, y + W / 2 - 7.5, y + W / 2 + 7.5, zc - 15, zc + 15], o.CabinetName));
+      out.push(new HardwareCompositeEntity('衣托', [x, x + L, y + W / 2 - 14, y + W / 2 + 14, zc - 22, zc + 22], o.CabinetName));
+      return out;
+    }
+    const BH = P.BH, GD = P.GD === undefined ? 13 : P.GD, fx0 = x - P.ZYS, fx1 = x + L + P.YYS, fz0 = z - P.XYS, fz1 = z + H + P.SYS;
+    const bz0 = fz0 + (P.XLK || 0), bz1 = fz1 - (P.SLK || 0), old = ['三合一', '三合一', '三合一', '三合一'], no = ['不排', '不排', '不排', '不排'];
+    out.push(new Board('抽面板', 2, [fx0, fx1, y - BH, y, fz0, fz1], BH, o.CabinetName, o.RoomName, no));
+    out.push(new Board('抽侧板', 1, [x + GD, x + GD + BH, y, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽侧板', 1, [x + L - GD - BH, x + L - GD, y, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y, y + BH, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y + W - BH, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽底板', 0, [x + GD + BH - 6, x + L - GD - BH + 6, y + 11.5, y + W - 11.5, bz0 + 10, bz0 + 15], 5, o.CabinetName, o.RoomName, old));
+    out.push(new HardwareCompositeEntity('三节轨', [x, x + L, y, y + W, bz0, bz0 + 40], o.CabinetName));
+    return out;
+  }
+
+  async function importFile(file) {
+    let data;
+    try { data = JSON.parse(await file.text()); } catch (e) { return toast(file.name + '导入失败!'); }
+    if (!data || !Array.isArray(data.ModelSpace)) return;
+    window.__MOCK__.lastTemplates = data.ModelSpace.filter(o => o.Type === 'Template');
+    prompt('COMMAND', '>晨丰导入');
+    if (window.__MOCK_FAIL_IMPORT__) {      // bản thật: tải mẫu hỏng giữa chừng → Chenfeng báo lỗi rồi tự huỷ lệnh
+      await new Promise(r => setTimeout(r, 200)); toast('抱歉!命令<晨丰导入>执行过程中发生错误,已自动取消命令'); fireEnd('晨丰导入', [], []); return;
+    }
+    let created = [];
+    try {
+      for (const o of data.ModelSpace) {
+        if (o.Type === 'Board') created.push(boardFromJSON(o));
+        else if (o.Type === 'Template') { if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__)); const es = templateFromJSON(o); const rec = new Tpl(o.Name, es).Id; rec.Object.LParam.value = o.BoxSize[0]; rec.Object.WParam.value = o.BoxSize[1]; rec.Object.HParam.value = o.BoxSize[2]; for (const e of es) e.Template = rec; created = created.concat(es); }
+        else throw new Error('type');
+      }
+    } catch (e) { toast(file.name + '导入失败!'); fireEnd('晨丰导入', [], []); return; }
+    for (const e of created) ents.push(e);
+    const base = [Math.min(...created.map(e => e.box[0])), Math.min(...created.map(e => e.box[2])), Math.min(...created.map(e => e.box[4]))];
+    state = { kind: 'point', created, base }; svc.IsReady = true;
+    prompt('INFO', '>点取位置');
+  }
+  function placeAt(pt) {
+    const st = state; state = null; svc.IsReady = false;
+    const d = [pt[0] - st.base[0], pt[1] - st.base[1], pt[2] - st.base[2]];
+    for (const e of st.created) e.move(d);
+    const holes = drill(st.created.filter(e => e instanceof Board));
+    pushHist({ CommandName: '晨丰导入', created: st.created.concat(holes) });
+    setTimeout(() => fireEnd('晨丰导入', [], st.created.concat(holes)), 30);
+  }
+
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f || !/json$/i.test(f.name)) return;
+    e.preventDefault();
+    if (window.__MOCK_HOME__) { window.__MOCK_UPLOADED__ = (window.__MOCK_UPLOADED__ || 0) + 1; return; }      // ở trang chủ thật: file bị tải lên kho — bảng phải chặn trước
+    if (state || window.__MOCK_BUSY__) { prompt('WARNING', '>命令:"X"正忙! 如果是程序错误,请按下Ctrl+Alt+E结束命令!'); return; }      // lệnh trước chưa xong → Chenfeng từ chối
+    importFile(f);
+  });
+
+  const Editor = {
+    GetPointServices: svc, GetEntityServices: gesvc, KeywordsServices: kwsvc, InteractiveServices: [svc, gesvc, kwsvc],
+    CommandStore: { promptList: prompts, HandleInput(name) {
+      name = String(name).toUpperCase();
+      if (state) { prompt('WARNING', '>命令正忙!'); return; }
+      prompt('COMMAND', '>' + name);
+      if (name === 'DRAWHOLE') { state = { kind: 'entity' }; gesvc.IsReady = true; selection = []; }
+      else if (name === 'UNDO') { const rec = history[hm.curIndex]; if (rec) { for (const e of rec.created || []) e.IsErase = true; for (const e of rec.erased || []) e.IsErase = false; if (rec.undo) rec.undo(); hm.curIndex--; } }
+      else if (name === 'ZOOME') { window.__MOCK_ZOOM__ = (window.__MOCK_ZOOM__ || 0) + 1; }
+      else if (name === 'MODELING') { state = { kind: 'modeling' }; gesvc.IsReady = true; }      // bản thật: hỏi chọn tấm (lấy lựa chọn sẵn), Enter → gom thành 1 mẫu theo tên tủ, tự thêm hành động L/W/H + tham số BH
+      else if (name === 'DRAWWALLINSIDE') { state = { kind: 'wall', pts: [], G: 2700, H: 240, cho: '' }; if (window.__MOCK_TOPVIEW__) { svc.IsReady = true; } else { kwsvc.IsReady = true; } }      // bản thật: đang không nhìn từ trên thì hỏi "chuyển sang nhìn từ trên? 1 có / 2 không"
+      else if (name === 'DRAWDOORHOLE' || name === 'DRAWIHOLE') { holeCfg = holeCfg || { H: 2000, L: 900, D: 0 }; state = { kind: 'hole', lenh: name, cho: '' }; svc.IsReady = true; }
+      else if (name === 'DRAWPILLAR' || name === 'DRAWGIRDER') {      // bản thật: mở hộp thoại 2 ô số + OK, rồi mới hỏi điểm
+        const dl = document.createElement('div'); dl.className = 'bp3-dialog'; dl.style.cssText = 'position:fixed;left:40px;top:40px;width:260px;padding:10px;background:#fff;z-index:5';
+        dl.innerHTML = '<input type="text" value="240"><input type="text" value="240"><div class="bp3-dialog-footer"><button>OK</button><button>Cancel</button></div>';
+        const gia = [240, 240]; [...dl.querySelectorAll('input')].forEach((el, i) => el.addEventListener('focusout', () => { gia[i] = Number(el.value); }));      // bản thật chỉ nhận số khi ô mất tiêu điểm
+        const [ok, huy] = dl.querySelectorAll('button');
+        state = { kind: 'dialog', lenh: name };
+        ok.onclick = () => { dl.remove(); state = { kind: name === 'DRAWPILLAR' ? 'pillar' : 'girder', a: gia[0], b: gia[1], pts: [] }; svc.IsReady = true; };
+        huy.onclick = () => { dl.remove(); state = null; };
+        document.body.appendChild(dl);
+      }
+      else if (name === 'ROTATE') { state = { kind: 'rotate', buoc: 0 }; gesvc.IsReady = true; }
+      else if (name === 'ERASE') {      // bản thật: GetSelection({UseSelect:true}) → có lựa chọn sẵn thì xoá ngay; tấm bị xoá kéo theo lỗ khoan của nó
+        const list = selection.filter(e => !e.IsErase); selection = [];
+        if (window.__MOCK_ERASE_FAIL__) { setTimeout(() => fireEnd('ERASE', [], []), 30); return; }
+        const holes = ents.filter(e => e instanceof CylinderHole && !e.IsErase && !list.includes(e) && (list.includes(e.FId.Object) || list.includes(e.MId.Object)));
+        const all = list.concat(holes); for (const e of all) e.IsErase = true;
+        if (all.length) pushHist({ CommandName: 'ERASE', created: [], erased: all });
+        setTimeout(() => fireEnd('ERASE', all, []), 30);
+      }
+    } },
+    InputEvent(text) {
+      window.__MOCK_INPUTS__ = (window.__MOCK_INPUTS__ || []).concat([text]);
+      if (!state) return;
+      const so3 = () => { const p = String(text).split(',').map(Number); return p.length === 3 && p.every(isFinite) ? p : null; };
+      const them = (e, ten) => { ents.push(e); pushHist({ CommandName: ten, created: [e] }); setTimeout(() => fireEnd(ten, [], [e]), 20); };
+      if (state.kind === 'wall') {
+        if (kwsvc.IsReady) { kwsvc.IsReady = false; if (text === '1') svc.IsReady = true; else state = null; return; }
+        if (state.cho) { state[state.cho] = Number(text); state.cho = ''; return; }
+        if (text === 'G' || text === 'H') { state.cho = text; return; }
+        const p = so3(); if (p) { state.pts.push(p); return; }
+        if (text === 'C' || text === '') {
+          const st = state, ps = st.pts.slice(); state = null; svc.IsReady = false;
+          if (text === 'C') { if (ps.length < 3) return; ps.push(ps[0]); }
+          const made = [];
+          for (let i = 0; i + 1 < ps.length; i++) {      // bề dày nằm bên TRÁI hướng đi (đi theo chiều kim đồng hồ thì bên trái là ngoài phòng)
+            const a = ps[i], b = ps[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L * st.H, ny = (b[0] - a[0]) / L * st.H;
+            const w = new RoomWallLine(); w.box = [Math.min(a[0], b[0], a[0] + nx, b[0] + nx), Math.max(a[0], b[0], a[0] + nx, b[0] + nx), Math.min(a[1], b[1], a[1] + ny, b[1] + ny), Math.max(a[1], b[1], a[1] + ny, b[1] + ny), a[2], a[2] + st.G]; w.day = st.H;
+            made.push(w); ents.push(w);
+          }
+          if (text === 'C' && made.length) { const rg = new RoomRegion(); rg.box = [0, 0, 0, 0, 0, 0]; made.push(rg); ents.push(rg); }      // Chenfeng tự sinh vùng phòng khi tường khép kín
+          if (made.length) pushHist({ CommandName: 'DRAWWALLINSIDE', created: made });
+          setTimeout(() => fireEnd('DRAWWALLINSIDE', [], made), 20);
+        }
+        return;
+      }
+      if (state.kind === 'hole') {
+        if (state.cho) { holeCfg[state.cho] = Number(text); state.cho = ''; return; }
+        if (text === 'H' || text === 'L' || text === 'D') { state.cho = text; return; }
+        const p = so3(); if (!p) return;
+        const ten = state.lenh; state = null; svc.IsReady = false;
+        const h = new RoomHolePolyline(); h.tam = p; h.cfg = Object.assign({}, holeCfg); h.box = [p[0] - holeCfg.L / 2, p[0] + holeCfg.L / 2, p[1] - holeCfg.L / 2, p[1] + holeCfg.L / 2, p[2] + holeCfg.D, p[2] + holeCfg.D + holeCfg.H];
+        them(h, ten); return;
+      }
+      if (state.kind === 'pillar') { const p = so3(); if (!p) return; const st = state; state = null; svc.IsReady = false; const c = new RoomPillar(); c.box = [p[0] - st.a / 2, p[0] + st.a / 2, p[1] - st.b / 2, p[1] + st.b / 2, p[2], p[2] + 2700]; them(c, 'DRAWPILLAR'); return; }
+      if (state.kind === 'girder') {
+        const p = so3(); if (!p) return; state.pts.push(p); if (state.pts.length < 2) return;
+        const st = state, [a, b] = st.pts; state = null; svc.IsReady = false;
+        const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = (b[1] - a[1]) / L * st.a, ny = -(b[0] - a[0]) / L * st.a;      // bề rộng dầm nằm bên phải hướng đi (trong phòng)
+        const g = new RoomGirder(), top = window.__MOCK_TRAN__ || 2700, z0 = Math.min(a[2], top - st.b);      // bản thật: đỉnh dầm không vượt trần
+        g.box = [Math.min(a[0], b[0], a[0] + nx, b[0] + nx), Math.max(a[0], b[0], a[0] + nx, b[0] + nx), Math.min(a[1], b[1], a[1] + ny, b[1] + ny), Math.max(a[1], b[1], a[1] + ny, b[1] + ny), z0, z0 + st.b];
+        them(g, 'DRAWGIRDER'); return;
+      }
+      if (state.kind === 'rotate') {
+        if (state.buoc === 0 && text === '') { state.list = selection.filter(e => !e.IsErase); selection = []; gesvc.IsReady = false; if (!state.list.length) { state = null; return; } state.buoc = 1; svc.IsReady = true; return; }
+        const p = so3(); if (!p) return;
+        if (state.buoc === 1) { state.goc = p; state.buoc = 2; return; }
+        const st = state; state = null; svc.IsReady = false;
+        const a = Math.atan2(p[1] - st.goc[1], p[0] - st.goc[0]), c = Math.round(Math.cos(a) * 1e6) / 1e6, sn = Math.round(Math.sin(a) * 1e6) / 1e6, cu = st.list.map(e => [e, e.box.slice()]);
+        for (const e of st.list) { const b = e.box, xs = [], ys = []; for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) { const dx = x - st.goc[0], dy = y - st.goc[1]; xs.push(st.goc[0] + dx * c - dy * sn); ys.push(st.goc[1] + dx * sn + dy * c); } e.box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), b[4], b[5]]; }
+        pushHist({ CommandName: 'ROTATE', created: [], undo() { for (const [e, b] of cu) e.box = b; } });
+        window.__MOCK_ROTATE__ = (window.__MOCK_ROTATE__ || []).concat([{ goc: st.goc, do: Math.round(a * 180 / Math.PI * 100) / 100, n: st.list.length }]);
+        setTimeout(() => fireEnd('ROTATE', st.list, []), 20); return;
+      }
+      if (state.kind === 'point') { const p = String(text).split(',').map(Number); if (p.length === 3 && p.every(isFinite)) placeAt(p); }
+      else if (state.kind === 'modeling' && text === 'F') { state.cum = !state.cum; }      // đổi cách chia: theo tên tủ ↔ theo cụm tấm chạm nhau
+      else if (state.kind === 'modeling' && text === '') {
+        const cum = !!state.cum; state = null; gesvc.IsReady = false;
+        const all = selection.filter(e => e instanceof Board && !e.IsErase); selection = [];
+        if (window.__MOCK_MODELING_FAIL__ || all.length < 2) { setTimeout(() => fireEnd('MODELING', [], []), 30); return; }
+        // mặc định (bản thật): mỗi tên tủ một module; đã bấm F: cả cụm là một module
+        const nhom = new Map(); for (const b of all) { const k = cum ? '' : b.BoardProcessOption.cabinetName; if (!nhom.has(k)) nhom.set(k, []); nhom.get(k).push(b); }
+        const truoc = all.map(b => [b, b.Template]);
+        for (const bs of nhom.values()) {
+          const t = new Tpl(bs[0].BoardProcessOption.cabinetName, bs);
+          const x = [Math.min(...bs.map(b => b.box[0])), Math.max(...bs.map(b => b.box[1])), Math.min(...bs.map(b => b.box[2])), Math.max(...bs.map(b => b.box[3])), Math.min(...bs.map(b => b.box[4])), Math.max(...bs.map(b => b.box[5]))];
+          t.LParam.value = x[1] - x[0]; t.WParam.value = x[3] - x[2]; t.HParam.value = x[5] - x[4]; t.GetParam('BH').expr = '$BH'; t.GetParam('BH').value = 18;
+          t.GetParam('BH').actions.push({ EntityDirectionMap: new Map(bs.map(b => [b.Id, {}])) }); t.LParam.actions.push(new StretchAction(new V3(1, 0, 0))); t.WParam.actions.push(new StretchAction(new V3(0, 1, 0))); t.HParam.actions.push(new StretchAction(new V3(0, 0, 1)));
+          for (const b of bs) b.Template = t.Id;
+          (window.__MOCK__.templates = window.__MOCK__.templates || []).push(t);
+        }
+        const bs = all;
+        pushHist({ CommandName: 'MODELING', created: [], undo() { for (const [b, tp] of truoc) b.Template = tp; } });
+        setTimeout(() => fireEnd('MODELING', bs, []), 30);
+      }
+      else if (state.kind === 'entity' && text === '') {
+        state = null; gesvc.IsReady = false;
+        const boards = selection.filter(e => e instanceof Board), before = ents.filter(e => e instanceof CylinderHole && !e.IsErase && boards.includes(e.FId.Object));
+        prompt('COMMAND', `>选中 ${boards.length} 个!`);
+        const made = drill(boards);
+        pushHist({ CommandName: 'DRAWHOLE', created: made, erased: before });
+        selection = [];
+        setTimeout(() => fireEnd('DRAWHOLE', boards, made), 30);
+      }
+    },
+    Cancel() {
+      window.__MOCK_CANCELS__ = (window.__MOCK_CANCELS__ || 0) + 1;
+      if (!state) return;
+      if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog'].includes(state.kind)) { svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
+      if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
+      else { const ten = state.kind === 'modeling' ? 'MODELING' : 'DRAWHOLE'; gesvc.IsReady = false; state = null; setTimeout(() => fireEnd(ten, [], []), 10); }
+    },
+    SelectCtrl: { Cancel() { selection = []; }, AddSelect(sel) { selection = sel.SelectEntityList.slice(); }, SelectSet: { get SelectEntityList() { return selection.slice(); } } },
+  };
+  window.app = {
+    Editor,
+    Database: { ModelSpace: { get Entitys() { return ents; } }, hm },
+    Viewer: { Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {} },
+    CommandReactor: { OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
+    AutoSaveServer: { Stop() {}, Start() {} },
+  };
+  window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, StretchAction, V3, them(e) { ents.push(e); return e; } };
+  // người dùng bấm chuột trên vùng vẽ khi đang hỏi điểm = đặt tại (1000, -17.5, 0)
+  document.getElementById('cv').addEventListener('click', () => { if (state && state.kind === 'point') placeAt([1000, -17.5, 0]); });
+})();
+</script></body></html>
