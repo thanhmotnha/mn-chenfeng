@@ -233,7 +233,7 @@
     const bb = Core.bbox(Core.build(s).parts);
     if (bb) { const sauPB = bb.y1 - bb.y0; s.sau_thung = rn(s.sau_thung + (q.sau - sauPB), 1); }
     // khấu cột (bản 1.13): cột / hộp kỹ thuật trùm đầu khung → tủ khoét theo cột. Khung mới thì luôn đặt lại (không giữ khấu của tủ trước).
-    s.khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: (s.khau && s.khau.ho >= 0) ? s.khau.ho : 10 };
+    s.khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: (s.khau && s.khau.ho >= 0) ? s.khau.ho : Core.DEFAULT_SPEC.khau.ho };
     const kh0 = q.khau || (H && j >= 0 ? khauChoKhung(H, j) : null);      // q.khau: khấu đọc từ hình vẽ trên mặt bằng (bản 1.16)
     if (kh0) {
       const kh = { trai: kh0.trai || { rong: 0, sau: 0 }, phai: kh0.phai || { rong: 0, sau: 0 }, giua_cot: (kh0.giua_cot || []).slice(), giua: kh0.giua || [] };

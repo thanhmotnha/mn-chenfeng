@@ -676,12 +676,14 @@ T('Tách thùng theo bề rộng (bản 1.10 — anh Jason 03/10/2026: "khổ v�
   eq(C0.normalize({}).thung, { rong_max: 2000 }, 'mặc định 2000'); eq(C0.normalize({ thung: { rong_max: '1,8' } }).thung.rong_max, 1.8, 'số kiểu Việt');
 });
 
+// Các khối khấu cột bên dưới đã đối chiếu từng số với bản vẽ thật ở khe hở 10 → ghim 10; mặc định mới (15, bản 1.17.1) thử riêng ở khối "Khe hở quanh cột".
+const HO10 = k => Object.assign({ ho: 10 }, k);
 T('Khấu cột (bản 1.13 — anh Jason 03/10/2026: "nhiều tủ phải khấu cột", "làm khấu theo đúng kết cấu của vn")', () => {
   const nen = { rong: 2000, cao: 2400, sau_thung: 580, than: { cao_duoi: 0 }, chan: { cao: 100 }, thung: { rong_max: 0 },
     khoang: [{ rong: 'auto', canh: 2, dot: [400, 1200], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 2, dot: [800], o: [{ tu: 800, kieu: 'suot' }] }] };
-  const B = k => C0.build(Object.assign({}, nen, { khau: k }));
+  const B = k => C0.build(Object.assign({}, nen, { khau: k && HO10(k) }));
   const b4 = p => [p.x0, p.x1, p.y0, p.y1];
-  eq(C0.normalize({}).khau, { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: 10 }, 'mặc định: không khấu, hở 10');
+  eq(C0.normalize({}).khau, { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: 15 }, 'mặc định: không khấu, hở 15 (bản 1.17.1)');
   const M0 = B(undefined);
   ok(M0.errors.length === 0 && !M0.parts.some(p => p.khau || p.khau_cot) && M0.info.khau.length === 0, 'không khai khấu: tủ như cũ');
   // cột trái 300 × 200, hở 10 → mặt bên cột x = 310, mặt trước cột y = 580 − 210 = 370, thùng trước cột sâu 352,5 (trừ HẬU KHẤU bằng ván thùng 17,5 — bản 1.16.1: "phần khấu phải là ván 17 hết")
@@ -737,12 +739,12 @@ T('Khấu cột (bản 1.13 — anh Jason 03/10/2026: "nhiều tủ phải khấ
   ok(/rơi vào giữa bề dày vách/.test(B({ trai: { rong: 990, sau: 200 } }).errors.join(' ')), 'mặt cột rơi giữa bề dày vách → báo');
   ok(/sau vách khấu khoang 1 chỉ còn rộng/.test(B({ trai: { rong: 900, sau: 200 } }).errors.join(' ')), 'vách khấu quá sát vách của khoang → báo');
   ok(/thùng trước cột chỉ còn sâu/.test(B({ trai: { rong: 300, sau: 450 } }).errors.join(' ')), 'cột quá sâu → báo');
-  ok(/chỉ làm với kiểu hậu phủ sau/.test(C0.build(Object.assign({}, nen, { hau: { kieu: 'day' }, khau: { trai: { rong: 300, sau: 200 } } })).errors.join(' ')), 'hậu dày lọt lòng: chưa hỗ trợ khấu → báo');
+  ok(/chỉ làm với kiểu hậu phủ sau/.test(C0.build(Object.assign({}, nen, { hau: { kieu: 'day' }, khau: HO10({ trai: { rong: 300, sau: 200 } }) })).errors.join(' ')), 'hậu dày lọt lòng: chưa hỗ trợ khấu → báo');
   // tủ 2 thân, tách thùng, hậu gộp theo khổ ván
-  const T2 = C0.build({ rong: 3000, cao: 2800, khau: { trai: { rong: 320, sau: 180 }, phai: { rong: 400, sau: 250 } }, hau: { chia: 'kho_van' } });
+  const T2 = C0.build({ rong: 3000, cao: 2800, khau: HO10({ trai: { rong: 320, sau: 180 }, phai: { rong: 400, sau: 250 } }), hau: { chia: 'kho_van' } });
   ok(T2.errors.length === 0 && T2.parts.filter(p => p.khau_cot && p.loai === 'VACH').length === 4 && T2.parts.filter(p => p.khau_cot && p.loai === 'HAU').length === 4, 'tủ 3000 hai thân, hậu gộp theo khổ ván: mỗi thân một vách khấu + hậu khấu mỗi bên, không lỗi', T2.errors);
   // module tham số: hệ số của mép khoét
-  const hs = C0.heSo(Object.assign({}, nen, { khau: { trai: { rong: 300, sau: 200 }, phai: { rong: 300, sau: 200 } } }));
+  const hs = C0.heSo(Object.assign({}, nen, { khau: HO10({ trai: { rong: 300, sau: 200 }, phai: { rong: 300, sau: 200 } }) }));
   const iT = hs.M.parts.findIndex(p => p.loai === 'DAY' && p.khau && p.khau[0].ben === 'trai'), iP = hs.M.parts.findIndex(p => p.loai === 'DAY' && p.khau && p.khau[0].ben === 'phai');
   eq([hs.bien.W.khau[iT], hs.bien.L.khau[iT], hs.bien.L.khau[iP], hs.bien.W.sai_so, hs.bien.L.sai_so], [[[1, 1]], [[0, 0]], [[1, 1]], 0, 0], 'heSo: đổi Sâu thì mép khoét đi theo lưng tủ (bề sâu phần khoét giữ nguyên); đổi Rộng thì khấu trái đứng yên, khấu phải đi theo hồi phải');
   // ngẫu nhiên
@@ -751,7 +753,7 @@ T('Khấu cột (bản 1.13 — anh Jason 03/10/2026: "nhiều tủ phải khấ
   for (let k = 0; k < 300; k++) {
     const n = 1 + Math.floor(rnd() * 5), rong = 900 + Math.floor(rnd() * 30) * 100, D = 450 + Math.floor(rnd() * 4) * 50, ben = rnd() < 0.5 ? 'trai' : 'phai';
     const q = { rong: 120 + Math.floor(rnd() * 40) * 10, sau: 80 + Math.floor(rnd() * 20) * 10 };
-    const m = C0.build({ rong, cao: 2000 + Math.floor(rnd() * 8) * 100, sau_thung: D, khau: { [ben]: q }, khoang: Array.from({ length: n }, () => ({ rong: 'auto', canh: 1 + Math.floor(rnd() * 2), dot: [600, 1300], o: rnd() < 0.3 ? [{ tu: 0, kieu: 'nk_am', so: 2 }] : [] })) });
+    const m = C0.build({ rong, cao: 2000 + Math.floor(rnd() * 8) * 100, sau_thung: D, khau: HO10({ [ben]: q }), khoang: Array.from({ length: n }, () => ({ rong: 'auto', canh: 1 + Math.floor(rnd() * 2), dot: [600, 1300], o: rnd() < 0.3 ? [{ tu: 0, kieu: 'nk_am', so: 2 }] : [] })) });
     if (m.errors.length) { if (!m.errors.every(e => /Khấu cột|quá hẹp|Bề rộng lọt lòng|khổ ván|quá thấp|chỉ cao|chỉ còn|quá nông|Cánh/.test(e))) { hong++; if (hong < 3) console.log('   ', m.errors.slice(0, 2)); } continue; }
     if (!m.info.khau.length) continue;
     dung++;
@@ -764,7 +766,7 @@ T('Khấu cột (bản 1.13 — anh Jason 03/10/2026: "nhiều tủ phải khấ
 T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa khấu cột giữa tủ")', () => {
   const nen = { rong: 2000, cao: 2400, sau_thung: 580, than: { cao_duoi: 0 }, chan: { cao: 100 }, thung: { rong_max: 0 },
     khoang: [{ rong: 'auto', canh: 2, dot: [400, 1200], o: [] }, { rong: 'auto', canh: 2, dot: [800], o: [{ tu: 800, kieu: 'suot' }] }] };
-  const B = (giua, them) => C0.build(Object.assign({}, nen, them, { khau: { giua } }));
+  const B = (giua, them) => C0.build(Object.assign({}, nen, them, { khau: HO10({ giua }) }));
   const co = (ds, re) => ds.some(t => re.test(t));
   const b4 = p => [p.x0, p.x1, p.y0, p.y1];
   const M0 = B([]);
@@ -798,7 +800,7 @@ T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa kh�
   eq(N.parts.filter(p => p.khoang === 1 && /DAY|NOC|DOT/.test(p.loai)).map(p => p.y1), [352.5, 352.5, 352.5, 352.5], 'đáy, nóc, đợt của khoang trước cột nông 352,5');
   ok(N.notes.some(t => /hai vách sẵn có làm vách khấu \(khoang nông trước cột\)/.test(t)), 'ghi chú khoang nông', N.notes);
   // vachTheoCot: tự đưa vách về hai mép cột
-  const r = C0.vachTheoCot(Object.assign({}, nen, { khau: { giua: [{ cach: 800, rong: 300, sau: 200 }] } }));
+  const r = C0.vachTheoCot(Object.assign({}, nen, { khau: HO10({ giua: [{ cach: 800, rong: 300, sau: 200 }] }) }));
   eq(r.loi, '', 'vachTheoCot: làm được'); ok(r.doi.length === 2 && /dời vách 1 về mép trái cột/.test(r.doi[0]) && /thêm vách ở mép phải cột/.test(r.doi[1]), 'dời vách gần + thêm vách bên kia', r.doi);
   const R = C0.build(r.spec);
   ok(R.errors.length === 0 && R.info.khau[0].co_a && R.info.khau[0].co_b && R.info.khoang[1] === 320 && !R.parts.some(p => p.khau), 'sau khi đặt vách: khoang trước cột lọt lòng 320 (cột + 2 hở), không tấm nào khoét', [R.errors, R.info.khoang]);
@@ -810,14 +812,14 @@ T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa kh�
   ok(co(B([{ cach: 300, rong: 300, sau: 200 }, { cach: 620, rong: 200, sau: 200 }]).errors, /nằm chồng hoặc quá sát một cột khác/), 'hai cột quá sát nhau → gộp');
   ok(co(B([{ cach: 300, rong: 300, sau: 450 }]).errors, /Khấu cột giữa: cột sâu 450 thì thùng trước cột chỉ còn sâu/), 'cột sâu quá');
   ok(co(B([{ cach: 100, rong: 300, sau: 200 }]).errors, /sau vách khấu khoang 1 chỉ còn rộng/), 'vách khấu quá sát hồi');
-  eq(C0.normalize({ khau: { giua: [{ cach: '300', rong: '250,5', sau: 200 }, {}, null] } }).khau.giua, [{ cach: 300, rong: 250.5, sau: 200 }], 'chuẩn hoá: số kiểu Việt, bỏ dòng trống ở cuối');
+  eq(C0.normalize({ khau: HO10({ giua: [{ cach: '300', rong: '250,5', sau: 200 }, {}, null] }) }).khau.giua, [{ cach: 300, rong: 250.5, sau: 200 }], 'chuẩn hoá: số kiểu Việt, bỏ dòng trống ở cuối');
   // hệ số module tham số: cột đứng yên so với mép trái khi đổi Rộng; bề sâu vùng khoét giữ nguyên khi đổi Sâu
-  const hs = C0.heSo(C0.normalize(Object.assign({}, nen, { khau: { giua: [{ cach: 300, rong: 300, sau: 200 }] } })));
+  const hs = C0.heSo(C0.normalize(Object.assign({}, nen, { khau: HO10({ giua: [{ cach: 300, rong: 300, sau: 200 }] }) })));
   const iDay = M.parts.findIndex(p => p.khau);
   ok(hs.bien.L && hs.bien.L.khau[iDay] && JSON.stringify(hs.bien.L.khau[iDay]) === '[[0,0]]', 'đổi Rộng: 2 mép khoét (theo x) đứng yên', hs.bien.L && hs.bien.L.khau[iDay]);
   ok(hs.bien.W && JSON.stringify(hs.bien.W.khau[iDay]) === '[[1,1]]', 'đổi Sâu: mép khoét đi theo lưng tủ (bề sâu phần khoét giữ nguyên)', hs.bien.W && hs.bien.W.khau[iDay]);
   // kết hợp cột góc + cột giữa, tủ tách thùng
-  const T2 = C0.build({ rong: 3600, cao: 2400, sau_thung: 580, khau: { trai: { rong: 300, sau: 200 }, giua: [{ cach: 2000, rong: 250, sau: 150 }] }, khoang: [1, 2, 3, 4].map(() => ({ rong: 'auto', canh: 2, dot: [800], o: [] })) });
+  const T2 = C0.build({ rong: 3600, cao: 2400, sau_thung: 580, khau: HO10({ trai: { rong: 300, sau: 200 }, giua: [{ cach: 2000, rong: 250, sau: 150 }] }), khoang: [1, 2, 3, 4].map(() => ({ rong: 'auto', canh: 2, dot: [800], o: [] })) });
   ok(T2.errors.length === 0 && T2.info.khau.length === 2 && T2.info.khau.map(k => k.ben).join() === 'trai,giua', 'cột góc trái + cột giữa trên tủ 3600 tách thùng', [T2.errors, T2.info.khau]);
   // ngẫu nhiên: không tấm / hộp ngăn kéo nào lấn vào cột, không đè nhau
   let seed = 11; const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
@@ -825,7 +827,7 @@ T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa kh�
   for (let k = 0; k < 400; k++) {
     const n = 1 + Math.floor(rnd() * 5), rong = 1200 + Math.floor(rnd() * 28) * 100, D = 450 + Math.floor(rnd() * 4) * 50;
     const q = { cach: 150 + Math.floor(rnd() * (rong - 500) / 10) * 10, rong: 150 + Math.floor(rnd() * 35) * 10, sau: 80 + Math.floor(rnd() * 20) * 10 };
-    let sp = C0.normalize({ rong, cao: 2000 + Math.floor(rnd() * 8) * 100, sau_thung: D, khau: { giua: [q] }, khoang: Array.from({ length: n }, () => ({ rong: 'auto', canh: 1 + Math.floor(rnd() * 2), dot: [600, 1300], o: rnd() < 0.3 ? [{ tu: 0, kieu: 'nk_am', so: 2 }] : [] })) });
+    let sp = C0.normalize({ rong, cao: 2000 + Math.floor(rnd() * 8) * 100, sau_thung: D, khau: HO10({ giua: [q] }), khoang: Array.from({ length: n }, () => ({ rong: 'auto', canh: 1 + Math.floor(rnd() * 2), dot: [600, 1300], o: rnd() < 0.3 ? [{ tu: 0, kieu: 'nk_am', so: 2 }] : [] })) });
     if (rnd() < 0.5) { const v = C0.vachTheoCot(sp); if (!v.loi) { sp = v.spec; nong++; } }
     const m = C0.build(sp);
     if (m.errors.length) { if (!m.errors.every(e => /Khấu cột|quá hẹp|Bề rộng lọt lòng|khổ ván|quá thấp|chỉ cao|chỉ còn|quá nông|Cánh/.test(e))) { hong++; if (hong < 3) console.log('   ', m.errors.slice(0, 2)); } continue; }
@@ -835,6 +837,33 @@ T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa kh�
     if (overlapAny(m).length || m.parts.some(p => C0.overlap(p, cot2) > 0) || m.templates.some(tp => C0.overlap(tplBox(tp), cot2) > 0)) { hong++; if (hong < 4) console.log('    va chạm', k, JSON.stringify(q), overlapAny(m).slice(0, 2), m.parts.filter(p => C0.overlap(p, cot2) > 0).map(p => p.ten).slice(0, 3)); }
   }
   ok(hong === 0 && dung > 120 && nong > 40, `400 tủ ngẫu nhiên có cột giữa (nửa số đặt vách theo mép cột): không gì lấn vào cột, không đè nhau (${dung} tủ dựng được, ${nong} tủ khoang nông)`, [hong, dung, nong]);
+});
+
+T('Khe hở quanh cột (bản 1.17.1 — anh Jason 03/10/2026 23:58: "khe khấu cột để 1-2cm cho sau xử lý cho dễ"): mặc định 15, thông số cũ đang để 10 tự lên 15', () => {
+  const nen = { rong: 2000, cao: 2400, sau_thung: 580, than: { cao_duoi: 0 }, chan: { cao: 100 }, thung: { rong_max: 0 },
+    khoang: [{ rong: 'auto', canh: 2, dot: [400, 1200], o: [] }, { rong: 'auto', canh: 2, dot: [800], o: [] }] };
+  const b4 = p => [p.x0, p.x1, p.y0, p.y1];
+  eq(C0.DEFAULT_SPEC.khau.ho, 15, 'mặc định 15');
+  // cột trái 300 × 200, hở 15 → mặt bên cột x = 315, mặt trước cột y = 580 − 215 = 365, thùng trước cột sâu 347,5 (trừ hậu khấu ván thùng 17,5)
+  const M = C0.build(Object.assign({}, nen, { khau: { trai: { rong: 300, sau: 200 } } }));
+  eq(M.errors, [], 'khấu trái với khe mặc định: dựng không lỗi');
+  const vk = M.parts.find(p => p.khau_cot && p.loai === 'VACH'), hk = M.parts.find(p => p.khau_cot && p.loai === 'HAU');
+  eq([b4(vk), b4(hk)], [[315, 332.5, 347.5, 574], [67.5, 315, 347.5, 365]], 'vách khấu cách mặt bên cột 15, hậu khấu cách mặt trước cột 15');
+  ok(M.notes.some(t => /Khấu cột: trái 315 × 215 \(cột \+ hở 15\) — thùng trước cột sâu 347,5/.test(t)), 'ghi chú ghi khe hở 15', M.notes);
+  // gõ 20 thì theo 20
+  const M20 = C0.build(Object.assign({}, nen, { khau: { trai: { rong: 300, sau: 200 }, ho: 20 } }));
+  eq(b4(M20.parts.find(p => p.khau_cot && p.loai === 'VACH')), [320, 337.5, 342.5, 574], 'khe 20: vách khấu cách cột 20');
+  // thông số lưu từ bản cũ: đang để đúng mặc định cũ (10) → lên 15; số khác thì giữ
+  const cu = C0.normalize(Object.assign({}, nen, { khau: { trai: { rong: 300, sau: 200 }, ho: 10 } }));
+  const nc = C0.nangCap(cu, '1.17.0');
+  ok(nc.spec.khau.ho === 15 && nc.doi.some(t => /Khe hở quanh cột.*15 \(bản cũ: 10\)/.test(t)), 'lưu từ 1.17.0, khe 10, đang có khấu: lên 15 và báo', nc.doi);
+  const nc0 = C0.nangCap(C0.normalize(Object.assign({}, nen, { khau: { ho: 10 } })), '1.16.1');
+  ok(nc0.spec.khau.ho === 15 && !nc0.doi.some(t => /Khe hở/.test(t)), 'tủ không khấu: lên 15 nhưng không cần báo', nc0.doi);
+  eq(C0.nangCap(C0.normalize(Object.assign({}, nen, { khau: { ho: 12 } })), '1.17.0').spec.khau.ho, 12, 'người dùng đã gõ 12: giữ nguyên');
+  eq(C0.nangCap(cu, '1.17.1').spec.khau.ho, 10, 'lưu từ 1.17.1 trở đi mà để 10: là lựa chọn của người dùng, giữ nguyên');
+  eq(C0.nangCap(cu, undefined).spec.khau.ho, 10, 'không rõ phiên bản: không đổi');
+  // tủ đã vẽ giữ nguyên thông số lúc vẽ (để còn dò lại được trên bản vẽ)
+  eq(C0.specDaVe(cu, '1.17.0').khau.ho, 10, 'tủ ĐÃ VẼ bằng khe 10: giữ 10');
 });
 
 T('Kế hoạch vẽ bằng LỆNH GỐC của Chenfeng (bản 1.15 — anh Jason 03/10/2026: "em phải vẽ chuẩn chenfeng"; chốt: vách chạy suốt, nóc đáy từng khoang)', () => {

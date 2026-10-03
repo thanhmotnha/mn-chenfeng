@@ -173,8 +173,10 @@ T('Khấu cột (bản 1.13): cột trùm đầu khung → tủ vào khung tự 
   eq([r.spec.khau.trai, r.spec.khau.phai], [{ rong: 300, sau: 220 }, { rong: 0, sau: 0 }], 'thông số tủ mang khấu trái');
   eq(M.errors, [], 'tủ khấu cột dựng không lỗi'); eq([bb.x1 - bb.x0, bb.z1 - bb.z0], [1400, 2300], 'vẫn phủ bì đúng khung');
   ok(M.parts.some(x => x.ten === 'Vách khấu cột') || /vách trùng mép cột/.test(r.ghi_chu.join(' ')), 'có vách khấu (hoặc vách khoang trùng mép cột)', r.ghi_chu);
-  ok(co(r.ghi_chu, /Khấu cột trái: cột lấn 300 ngang × 220 sâu \(hở 10\)/), 'ghi chú khấu', r.ghi_chu);
+  ok(co(r.ghi_chu, /Khấu cột trái: cột lấn 300 ngang × 220 sâu \(hở 15\)/), 'ghi chú khấu (khe hở mặc định 15 từ bản 1.17.1)', r.ghi_chu);
   ok(M.parts.filter(x => x.khau && x.khau.length).length >= 2, 'đáy + nóc có góc khoét');
+  const r20 = P.tuChoKhung(C, Object.assign({}, C.DEFAULT_SPEC, { khau: { ho: 20 } }), H.khung[0], 'Phòng ngủ', H, 0);
+  ok(r20.spec.khau.ho === 20 && co(r20.ghi_chu, /\(hở 20\)/) && C.build(r20.spec).info.khau[0].x === 320, 'khe hở người dùng đã gõ (20) được giữ khi mở khung thành tủ: mặt bên cột + 20', [r20.spec.khau, r20.ghi_chu]);
   // cột khai ở tường bên cạnh (tường D, sát góc A–D) cũng trùm đầu trái khung tường A
   const p2 = P.macDinh(); p2.can = [{ tuong: 3, loai: 'cot', cach: 2750, rong: 250, nho: 300 }]; p2.khung = [{ tuong: 0, ten: 'TA-K', cach: 0, rong: 1400, cao: 2300, sau: 600 }];
   const H2 = P.hinhHoc(p2);
@@ -196,10 +198,10 @@ T('Khấu cột GIỮA (bản 1.14): cột sát tường nằm giữa khung → 
   eq(r.spec.khau.giua, [{ cach: 1000, rong: 300, sau: 220 }], 'thông số tủ mang cột giữa');
   eq(M.errors, [], 'dựng không lỗi'); eq([bb.x1 - bb.x0, bb.z1 - bb.z0], [2400, 2300], 'vẫn phủ bì đúng khung');
   const K = M.info.khau[0];
-  ok(K && K.ben === 'giua' && K.co_a && K.co_b && K.xa === 990 && K.xb === 1310, 'hai vách trùng hai mép cột (cột + hở 10 mỗi bên)', K);
+  ok(K && K.ben === 'giua' && K.co_a && K.co_b && K.xa === 985 && K.xb === 1315, 'hai vách trùng hai mép cột (cột + hở 15 mỗi bên — mặc định từ bản 1.17.1)', K);
   ok(!M.parts.some(x => x.khau && x.khau.length) && !M.parts.some(x => x.ten === 'Vách khấu cột'), 'khoang nông: không tấm nào phải khoét, không thêm vách khấu');
-  ok(M.parts.filter(x => x.ten === 'Hậu khấu cột').every(x => x.x0 === 990 && x.x1 === 1310) && M.parts.some(x => x.ten === 'Hậu khấu cột'), 'hậu khấu trước mặt cột đúng bề rộng vùng cột');
-  ok(co(r.ghi_chu, /Khấu cột giữa: cách đầu trái 1000, cột 300 ngang × 220 sâu \(hở 10\)/) && co(r.ghi_chu, /Cột giữa: .*khoang trước cột là khoang nông/), 'ghi chú', r.ghi_chu);
+  ok(M.parts.filter(x => x.ten === 'Hậu khấu cột').every(x => x.x0 === 985 && x.x1 === 1315) && M.parts.some(x => x.ten === 'Hậu khấu cột'), 'hậu khấu trước mặt cột đúng bề rộng vùng cột');
+  ok(co(r.ghi_chu, /Khấu cột giữa: cách đầu trái 1000, cột 300 ngang × 220 sâu \(hở 15\)/) && co(r.ghi_chu, /Cột giữa: .*khoang trước cột là khoang nông/), 'ghi chú', r.ghi_chu);
   // cột KHÔNG sát tường (đứng rời) thì chưa khấu được
   const p2 = P.macDinh(); p2.can = [{ tuong: 1, loai: 'cot', cach: 1000, rong: 300, nho: 2400 }]; p2.khung = [{ tuong: 0, ten: 'K', cach: 0, rong: 2000, cao: 2300, sau: 600 }];
   ok(P.khauChoKhung(P.hinhHoc(p2), 0).giua_cot.length === 0, 'cột không sát tường của khung: không coi là cột giữa');

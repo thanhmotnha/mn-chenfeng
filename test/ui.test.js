@@ -182,7 +182,7 @@ async function testPage(browser) {
   await S(page, '[data-act="vach-cot"]').click();
   await page.waitForFunction(() => { const K = (window.MNCF.app.getModel().info.khau || [])[0]; return K && K.co_a && K.co_b; }, null, { timeout: 5000 }).catch(() => {});
   kg = await page.evaluate(() => { const M = window.MNCF.app.getModel(); return { loi: M.errors, K: M.info.khau[0], u: M.parts.filter(p => p.khau && p.khau.length).length, vk: M.parts.filter(p => p.ten === 'Vách khấu cột').length, n: M.info.khoang.length, w: M.info.khoang }; });
-  ok(kg.loi.length === 0 && kg.K.co_a && kg.K.co_b && kg.u === 0 && kg.vk === 0 && kg.n > g0.n && kg.w.includes(270), 'bấm "Đặt vách theo mép cột giữa" → khoang nông 270 trước cột, không tấm nào khoét, không vách khấu', kg);
+  ok(kg.loi.length === 0 && kg.K.co_a && kg.K.co_b && kg.u === 0 && kg.vk === 0 && kg.n > g0.n && kg.w.includes(280), 'bấm "Đặt vách theo mép cột giữa" → khoang nông 280 trước cột (cột 250 + 2 khe hở 15), không tấm nào khoét, không vách khấu', kg);
   ok(/Đã đặt vách theo mép cột/.test(await page.evaluate(inPage.status)) && /khoang nông trước cột/.test(await S(page, '.view').innerHTML()), 'báo đã đặt vách; hình ghi "khoang nông trước cột"', await page.evaluate(inPage.status));
   await S(page, '[data-act="lui"]').click();
   await page.waitForFunction(n => window.MNCF.app.getModel().info.khoang.length === n, g0.n, { timeout: 5000 }).catch(() => {});

@@ -71,6 +71,10 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.17.1 — KHE HỞ QUANH CỘT 15 MM
+ Khấu cột: khe chừa giữa cột và tủ (mặt bên lẫn mặt trước cột) mặc định 15 thay cho 10, để lúc lắp còn chỗ xử lý. Thông số đang lưu mà còn để 10
+ thì tự lên 15; đã gõ số khác thì giữ. Muốn 10–20 tuỳ công trình: thẻ Tủ → Khấu cột → "Khe hở quanh cột". Tủ đã vẽ không bị đổi.
+
 MỚI Ở BẢN 1.17 — ĐẶT TỦ BẰNG CHUỘT (KHÔNG PHẢI VẼ + CHỌN HÌNH CHỮ NHẬT)
  Thẻ Tủ: chọn mẫu, gõ rộng × cao × sâu như bình thường → bấm "Đặt tủ bằng chuột — bấm vào chân tường" → bấm 1 điểm ở chân tường (đầu tủ) →
  rê chuột dọc tường: có BÓNG MỜ của tủ chạy theo (nét liền = tủ nếu bấm tại đây, nét đứt = tủ nếu Enter, cạnh màu cam = mặt cánh) → chọn:
