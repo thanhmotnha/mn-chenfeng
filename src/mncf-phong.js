@@ -397,6 +397,69 @@
     return kq;
   }
 
+  /**
+   * HAI ĐIỂM BẤM DỌC CHÂN TƯỜNG → HÌNH PHỦ BÌ CỦA TỦ (bản 1.17 — anh Jason 03/10/2026 23:13: "vẽ hình chữ nhật chọn rất khó, làm sao … nhanh").
+   * p1, p2 = hai đầu LƯNG tủ trên mặt bằng (bấm theo thứ tự nào cũng được); sau = chiều sâu phủ bì của tủ. Trả về 4 đỉnh hình chữ nhật để đưa tiếp vào `hinhThanhKhung`.
+   * Phía TRƯỚC tủ:
+   *   opt.truoc = [x, y]  điểm người dùng bấm thêm → phía đó;
+   *   không có thì dò tường: điểm ĐẦU nằm trên một MẶT tường (opt.tuong[i] = { a, b, ra: [nx, ny] hướng từ thân tường ra ngoài mặt đó }, lệch tối đa 30 mm) và điểm thứ hai
+   *     chạy dọc mặt đó → tủ quay ra phía `ra`; hai điểm được chiếu về đúng mặt tường (lưng tủ áp sát tường, không lệch góc vì bấm trượt, bấm vào mép cột cũng được);
+   *   vẫn không rõ → can_diem = true (gọi lại với opt.truoc).
+   * Không bám tường nào mà đoạn p1–p2 lệch trục x / y dưới 1,5° thì nắn thẳng theo trục.
+   * opt.rong > 0: bề rộng tủ đã biết (đang gõ trong bảng, hoặc người dùng gõ số) — p2 khi đó chỉ cho biết tủ chạy về PHÍA nào kể từ p1.
+   * @returns {{ ok, loi, can_diem, dinh: number[][], truoc: number[], rong, bam_tuong, mat_truoc }}
+   */
+  function haiDiemThanhHinh(p1, p2, sau, opt) {
+    opt = opt || {};
+    const kq = { ok: false, loi: '', can_diem: false };
+    const hong = t => { kq.loi = t; return kq; };
+    const so2 = q => (Array.isArray(q) ? [Number(q[0]), Number(q[1])] : [NaN, NaN]);
+    let a = so2(p1), b = so2(p2);
+    if (![a[0], a[1], b[0], b[1]].every(isFinite)) return hong('Chưa đủ 2 điểm.');
+    sau = Number(sau);
+    if (!(sau >= 100)) return hong('Chiều sâu tủ chưa hợp lệ (ô Sâu ở thẻ Tủ).');
+    const rongBiet = Number(opt.rong) > 0 ? Number(opt.rong) : 0;
+    if (rongBiet && rongBiet < 200) return hong('Bề rộng tủ phải từ 200 trở lên.');
+    if (!(Math.hypot(b[0] - a[0], b[1] - a[1]) >= (rongBiet ? 20 : 200))) return hong(rongBiet ? 'Chưa rõ tủ chạy về phía nào — rê chuột dọc tường về phía tủ chạy tới rồi mới Enter.' : 'Hai điểm quá gần nhau (tủ rộng dưới 200) — bấm lại điểm đầu và điểm cuối của tủ.');
+    // Mặt tường đi qua điểm ĐẦU (lệch ≤ 30, hình chiếu nằm trong đoạn mặt tường nới 30). Điểm thứ hai chỉ cần cho biết chạy DỌC mặt đó tới đâu (được chiếu lên đường mặt tường),
+    // nên bấm vào mép cột, hay rê chuột lệch khỏi tường rồi Enter đều được. Điểm đầu ở góc phòng (nằm trên 2 mặt tường): lấy mặt mà điểm thứ hai chạy dọc theo nhiều nhất.
+    let bam = null;
+    for (const w of opt.tuong || []) {
+      if (!w || !w.a || !w.b) continue;
+      const dx = w.b[0] - w.a[0], dy = w.b[1] - w.a[1], Lw = Math.hypot(dx, dy);
+      if (Lw < 50) continue;
+      const ux = dx / Lw, uy = dy / Lw, kc = q => Math.abs(-(q[0] - w.a[0]) * uy + (q[1] - w.a[1]) * ux), doc = q => (q[0] - w.a[0]) * ux + (q[1] - w.a[1]) * uy;
+      const d1 = kc(a), t1 = doc(a);
+      if (d1 > 30 || t1 < -30 || t1 > Lw + 30) continue;
+      const t2 = doc(b), diem = Math.abs(t2 - t1) - kc(b);      // chạy dọc nhiều hơn lệch ngang thì mới coi là đi theo mặt này
+      if (diem <= 0) continue;
+      if (!bam || diem > bam.diem + 1 || (Math.abs(diem - bam.diem) <= 1 && d1 < bam.d1)) bam = { w, diem, d1, t1, t2, ux, uy };
+    }
+    if (bam) { const w = bam.w; a = [w.a[0] + bam.ux * bam.t1, w.a[1] + bam.uy * bam.t1]; b = [w.a[0] + bam.ux * bam.t2, w.a[1] + bam.uy * bam.t2]; }
+    else {
+      const dx = b[0] - a[0], dy = b[1] - a[1], GOC = Math.tan(1.5 * Math.PI / 180);
+      if (Math.abs(dy) <= Math.abs(dx) * GOC) b = [b[0], a[1]]; else if (Math.abs(dx) <= Math.abs(dy) * GOC) b = [a[0], b[1]];
+    }
+    let L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (!(L >= (rongBiet ? 5 : 200))) return hong(rongBiet ? 'Chưa rõ tủ chạy về phía nào — rê chuột dọc tường về phía tủ chạy tới rồi mới Enter.' : 'Hai điểm quá gần nhau (tủ rộng dưới 200) — bấm lại điểm đầu và điểm cuối của tủ.');
+    const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], n1 = [-u[1], u[0]];
+    if (rongBiet) { b = [a[0] + u[0] * rongBiet, a[1] + u[1] * rongBiet]; L = rongBiet; }
+    let n = null, cach = '';
+    if (Array.isArray(opt.truoc) && opt.truoc.length >= 2) {
+      const d = cham([Number(opt.truoc[0]) - a[0], Number(opt.truoc[1]) - a[1]], n1);
+      if (!(Math.abs(d) >= 1)) return hong('Điểm phía trước nằm ngay trên lưng tủ — bấm lại 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh).');
+      n = d > 0 ? n1 : [-n1[0], -n1[1]]; cach = 'điểm anh bấm';
+    } else if (bam && Array.isArray(bam.w.ra) && Math.abs(cham(bam.w.ra, n1)) > 0.5) {
+      n = cham(bam.w.ra, n1) > 0 ? n1 : [-n1[0], -n1[1]]; cach = 'tường phía sau';
+    } else { kq.can_diem = true; return hong('Hai điểm không nằm trên mặt tường nào của phòng — bấm thêm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh).'); }
+    const r2 = q => [rn(q[0], 2), rn(q[1], 2)];
+    kq.ok = true;
+    kq.dinh = [a, b, [b[0] + n[0] * sau, b[1] + n[1] * sau], [a[0] + n[0] * sau, a[1] + n[1] * sau]].map(r2);
+    kq.truoc = r2([(a[0] + b[0]) / 2 + n[0] * (sau + 300), (a[1] + b[1]) / 2 + n[1] * (sau + 300)]);
+    kq.rong = rn(L, 1); kq.bam_tuong = !!bam; kq.mat_truoc = cach;
+    return kq;
+  }
+
   /** Nét khung dây của phòng (để vẽ vào bản vẽ): mỗi nét = [[x,y,z],[x,y,z]], kèm `lop` = 'tuong' | 'mo' | 'can'. */
   function duongNet(H) {
     const N = [], o = H.p.goc || [0, 0, 0], P3 = (q, z) => [rn(q[0] + o[0], 2), rn(q[1] + o[1], 2), rn(z + o[2], 2)];
@@ -558,5 +621,5 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, hinhThanhKhung, viTriCot, khauChoKhung, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  return { BAN, LOAI_MO, LOAI_CAN, macDinh, chuanHoa, hinhHoc, datKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
 });

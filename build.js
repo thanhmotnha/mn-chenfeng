@@ -71,6 +71,17 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.17 — ĐẶT TỦ BẰNG CHUỘT (KHÔNG PHẢI VẼ + CHỌN HÌNH CHỮ NHẬT)
+ Thẻ Tủ: chọn mẫu, gõ rộng × cao × sâu như bình thường → bấm "Đặt tủ bằng chuột — bấm vào chân tường" → bấm 1 điểm ở chân tường (đầu tủ) →
+ rê chuột dọc tường: có BÓNG MỜ của tủ chạy theo (nét liền = tủ nếu bấm tại đây, nét đứt = tủ nếu Enter, cạnh màu cam = mặt cánh) → chọn:
+   Enter            dùng đúng bề rộng đang gõ trong bảng;
+   gõ số + Enter    (vd 2400) tủ rộng đúng số đó;
+   bấm điểm cuối    tủ rộng theo đúng đoạn tường vừa bấm (bấm vào góc tường, mép cột đều được — điểm tự chiếu về mặt tường).
+ Tủ tự quay lưng vào tường (mặt cánh quay ra phòng), tự khấu cột của phòng nằm trong đoạn đó, cao hơn trần thì hạ theo trần. Điểm đầu ở góc phòng thì
+ tủ chạy theo tường mà chuột rê dọc theo. Chỗ không có tường (tủ đứng giữa phòng) bảng hỏi thêm 1 điểm phía trước tủ. Esc lúc nào cũng thôi được.
+ Ô "vẽ ngay" (mặc định bật): đặt xong là vẽ luôn. Tắt đi nếu muốn xem lại khoang / đợt rồi mới bấm "Vẽ vào Chenfeng".
+ Cách "Tủ theo hình đang chọn trên mặt bằng" vẫn còn — dùng khi tủ có chỗ khuyết tự vẽ.
+
 MỚI Ở BẢN 1.16.1 — PHẦN KHẤU CỘT TOÀN VÁN THÙNG
  Tấm HẬU KHẤU (tấm đứng trước mặt cột) giờ là ván thùng dày như vách khấu (17,5), không còn là hậu 6 li: đứng lọt giữa 2 tấm đứng hai bên cột
  (vách khấu / vách sẵn có; cột ở góc thì hồi + vách khấu), cao từ mặt dưới đáy tới đỉnh thân, Chenfeng khoan liên kết như tấm thùng.

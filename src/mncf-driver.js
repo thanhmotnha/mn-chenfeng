@@ -1727,18 +1727,87 @@
     }
     return out;
   };
-  /** Tường và cột của phòng đang có trên bản vẽ (thẻ House Design): mặt tường = 2 mặt của từng `RoomWallLine`; cột = hộp bao của `RoomPillar`. */
+  /** Tường và cột của phòng đang có trên bản vẽ (thẻ House Design): mặt tường = 2 mặt của từng `RoomWallLine`; cột = hộp bao của `RoomPillar`.
+   *  Mỗi mặt tường kèm `ra` = hướng (trên mặt bằng) từ TIM tường ra ngoài mặt đó — tủ áp mặt nào thì quay mặt trước về phía `ra` của mặt đó. */
   D.tuongPhong = () => {
     const tuong = [], cot = [];
     for (const e of D.all()) {
       const lop = tenLop(e);
       try {
         if (lop === 'RoomWallLine') {
-          for (const c of [].concat(e.LeftCurves || [], e.RightCurves || [])) { const a = c.StartPoint, b = c.EndPoint; if (a && b) tuong.push({ a: [r2(a.x), r2(a.y)], b: [r2(b.x), r2(b.y)], cao: r2(e.Height || 0), z: r2(a.z || 0) }); }
+          let S = null, E = null; try { S = e.StartPoint; E = e.EndPoint; } catch (er) { S = E = null; }
+          for (const c of [].concat(e.LeftCurves || [], e.RightCurves || [])) {
+            const a = c.StartPoint, b = c.EndPoint; if (!a || !b) continue;
+            const w = { a: [r2(a.x), r2(a.y)], b: [r2(b.x), r2(b.y)], cao: r2(e.Height || 0), z: r2(a.z || 0) };
+            if (S && E) {      // chân đường vuông góc từ giữa mặt tường xuống tim tường → hướng ra
+              const dx = E.x - S.x, dy = E.y - S.y, L2 = dx * dx + dy * dy, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+              if (L2 > 1) { const t = ((mx - S.x) * dx + (my - S.y) * dy) / L2, nx = mx - (S.x + t * dx), ny = my - (S.y + t * dy), n = Math.hypot(nx, ny); if (n > 1) w.ra = [nx / n, ny / n]; }
+            }
+            tuong.push(w);
+          }
         } else if (lop === 'RoomPillar') { const x = D.boxOf(e); cot.push({ x0: x[0], x1: x[1], y0: x[2], y1: x[3], z0: x[4], z1: x[5] }); }
       } catch (err) { /* bỏ qua đối tượng lạ */ }
     }
     return { tuong, cot };
+  };
+  /**
+   * Hỏi 1 điểm kiểu CAD (bản 1.17): có dây thun từ `opt.goc`, cho Enter không bấm (`opt.cho_enter`), báo vị trí chuột mỗi lần rê (`opt.khi_re([x, y, z])`).
+   * Có điểm gốc thì người dùng gõ được MỘT SỐ rồi Enter = điểm cách gốc đúng số đó về phía chuột (Chenfeng tự làm) → trả `go_so` = số đã gõ.
+   * @returns {{ diem: number[], chuot: number[]|null, go_so: number|null } | { enter: true, chuot: number[]|null } | null}   null = Esc / lỗi
+   */
+  D.hoiDiem2 = async (msg, opt) => {
+    opt = opt || {};
+    if (D.busy()) await D.cancel();
+    D.boManChe();
+    const o = { Msg: msg || 'Một Nhà: bấm 1 điểm:' };
+    let chuot = null;
+    const v3 = p => ed().MouseCtrl._CurMousePointVCS.clone().set(p[0], p[1], p[2]);
+    if (Array.isArray(opt.goc)) { try { o.BasePoint = v3(opt.goc); o.AllowDrawRubberBand = true; } catch (e) { /* không có dây thun cũng được */ } }
+    if (opt.cho_enter) o.AllowNone = true;
+    const khiRe = guard(opt.khi_re);
+    o.Callback = p => { try { if (p && isFinite(p.x) && isFinite(p.y)) { chuot = [r2(p.x), r2(p.y), r2(p.z || 0)]; khiRe(chuot); } } catch (e) { /* bỏ qua */ } };
+    let r = null;
+    try { r = await ed().GetPoint(o); } catch (e) { r = null; }
+    if (!r) return null;
+    if (r.Status === 1 && r.Point && isFinite(r.Point.x) && isFinite(r.Point.y)) {
+      const d = [r2(r.Point.x), r2(r.Point.y), r2(r.Point.z || 0)];
+      // bấm chuột: điểm trả về chính là điểm chuột vừa báo; gõ số: điểm nằm trên tia gốc → chuột, cách gốc đúng số đã gõ
+      let go = null;
+      if (Array.isArray(opt.goc) && chuot && Math.hypot(d[0] - chuot[0], d[1] - chuot[1], d[2] - chuot[2]) > 0.5) {
+        const a = [d[0] - opt.goc[0], d[1] - opt.goc[1], d[2] - opt.goc[2]], b = [chuot[0] - opt.goc[0], chuot[1] - opt.goc[1], chuot[2] - opt.goc[2]], la = Math.hypot(a[0], a[1], a[2]), lb = Math.hypot(b[0], b[1], b[2]);
+        const cheo = Math.hypot(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]);
+        if (la > 0.5 && lb > 0.5 && cheo <= 2e-4 * la * lb && a[0] * b[0] + a[1] * b[1] + a[2] * b[2] > 0) go = Math.round(la * 100) / 100;      // (gõ toạ độ x,y thì điểm không nằm trên tia đó → coi là điểm bấm)
+      }
+      return { diem: d, chuot, go_so: go };
+    }
+    if (opt.cho_enter && r.Status === 0) return { enter: true, chuot };
+    return null;
+  };
+  /**
+   * BÓNG MỜ trên vùng vẽ (bản 1.17): một lớp SVG phủ lên canvas, không bắt chuột — vẽ các đa tuyến theo toạ độ bản vẽ để người dùng thấy tủ sẽ nằm đâu khi đang rê chuột.
+   * net = [{ diem: [[x, y, z]…], kieu: 'lien' | 'dut' | 'truoc' }]; chu = dòng chữ ghi cạnh nét đầu. Gọi D.bongMo(null) để gỡ. Không đụng vào Scene của Chenfeng.
+   */
+  let lopBong = null;
+  D.bongMo = (net, chu) => {
+    try {
+      if (!net || !net.length) { if (lopBong) { lopBong.remove(); lopBong = null; } return false; }
+      const V = root.app.Viewer, c = V.Renderer.domElement, kh = c.getBoundingClientRect(), doc = root.document, NS = 'http://www.w3.org/2000/svg';
+      if (!lopBong || !lopBong.isConnected) { lopBong = doc.createElementNS(NS, 'svg'); lopBong.setAttribute('aria-hidden', 'true'); lopBong.style.cssText = 'position:fixed;pointer-events:none;z-index:2147482000;overflow:hidden'; doc.body.appendChild(lopBong); }
+      lopBong.style.left = kh.left + 'px'; lopBong.style.top = kh.top + 'px'; lopBong.style.width = kh.width + 'px'; lopBong.style.height = kh.height + 'px';
+      lopBong.setAttribute('viewBox', `0 0 ${kh.width} ${kh.height}`);
+      const v = ed().MouseCtrl._CurMousePointVCS.clone(), tl = kh.width / (V.Width || kh.width);
+      const sc = p => { v.set(p[0], p[1], p[2]); V.WorldToScreen(v); return [v.x * tl, v.y * tl]; };
+      const MAU = { lien: ['#2f9bff', '2', ''], dut: ['#b8c4d0', '1.4', '6 5'], truoc: ['#ff9f1a', '3', ''] };
+      let h = '', dau = null;
+      for (const n of net) {
+        const q = (n.diem || []).map(sc).filter(x => isFinite(x[0]) && isFinite(x[1])); if (q.length < 2) continue;
+        const m = MAU[n.kieu] || MAU.lien; if (!dau) dau = q[0];
+        h += `<polyline points="${q.map(x => x[0].toFixed(1) + ',' + x[1].toFixed(1)).join(' ')}" fill="none" stroke="${m[0]}" stroke-width="${m[1]}"${m[2] ? ` stroke-dasharray="${m[2]}"` : ''} stroke-linejoin="round"/>`;
+      }
+      if (chu && dau) { const t = String(chu).replace(/[<>&]/g, ''); h += `<text x="${(dau[0] + 10).toFixed(1)}" y="${(dau[1] - 10).toFixed(1)}" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#fff" stroke="#10202e" stroke-width="3" paint-order="stroke">${t}</text>`; }
+      lopBong.innerHTML = h;
+      return true;
+    } catch (e) { return false; }
   };
   /** Hỏi người dùng bấm 1 điểm trên bản vẽ. Trả về [x, y, z] hoặc null (Esc). */
   D.hoiDiem = async msg => {

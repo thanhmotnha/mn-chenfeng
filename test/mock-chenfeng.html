@@ -19,7 +19,7 @@
     get BoundingBox() { const b = this.box; return { min: { x: b[0], y: b[2], z: b[4] }, max: { x: b[1], y: b[3], z: b[5] } }; }
     move(d) { this.box = [this.box[0] + d[0], this.box[1] + d[0], this.box[2] + d[1], this.box[3] + d[1], this.box[4] + d[2], this.box[5] + d[2]]; if (this.dinh) this.dinh = this.dinh.map(q => [q[0] + d[0], q[1] + d[1]]); } }
   // mẫu (TemplateRecord) giả lập: đủ các đường mà MNCFDriver.modelize dùng
-  class V3 { constructor(x, y, z) { this.x = x; this.y = y; this.z = z; } }
+  class V3 { constructor(x, y, z) { this.x = x; this.y = y; this.z = z; } clone() { return new V3(this.x, this.y, this.z); } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } }
   class M4 { constructor() { this.elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; } makeTranslation(x, y, z) { this.elements[12] = x; this.elements[13] = y; this.elements[14] = z; return this; } }
   class StretchAction { constructor(dir) { this.StretchDirection = dir || new V3(1, 0, 0); this.MoveEntitys = []; this.EntityStretchPointMap = []; this.Expr = ''; this.Name = ''; } }
   class Tpl { constructor(name, objs) { this.Name = name; this.Id = { Object: this, Index: ++SO_MA }; this.Objects = (objs || []).map(e => e.Id); this.Children = []; this.Parent = null; this.Positioning = { tam: true };
@@ -194,6 +194,14 @@
     InputEvent(text) {
       window.__MOCK_INPUTS__ = (window.__MOCK_INPUTS__ || []).concat([text]);
       if (!state) return;
+      if (state.kind === 'hoi') {      // bản thật (GetPointServices.initHandleInput): rỗng = Enter (chỉ khi AllowNone); "x,y,z" = điểm; MỘT số + có BasePoint = điểm cách gốc đúng số đó về phía chuột
+        const st = state, o = st.o || {}, xong = r => { state = null; svc.IsReady = false; st.res(r); };
+        if (text === '') { if (o.AllowNone) xong({ Status: 0 }); return; }
+        const so = String(text).split(',').map(Number);
+        if (so.length >= 2 && so.every(isFinite)) { const p = new V3(so[0], so[1], so[2] || 0); if (o.Callback && window.__MOCK_BAM__ !== false) { st.cur = p; o.Callback(p); } return xong({ Status: 1, Point: p }); }
+        if (so.length === 1 && isFinite(so[0]) && o.BasePoint && st.cur) { const g = o.BasePoint, dx = st.cur.x - g.x, dy = st.cur.y - g.y, dz = st.cur.z - g.z, L = Math.hypot(dx, dy, dz) || 1; return xong({ Status: 1, Point: new V3(g.x + dx / L * so[0], g.y + dy / L * so[0], g.z + dz / L * so[0]) }); }
+        return;
+      }
       const so3 = () => { const p = String(text).split(',').map(Number); return p.length === 3 && p.every(isFinite) ? p : null; };
       const them = (e, ten) => { ents.push(e); pushHist({ CommandName: ten, created: [e] }); setTimeout(() => fireEnd(ten, [], [e]), 20); };
       if (state.kind === 'wall') {
@@ -208,6 +216,10 @@
           for (let i = 0; i + 1 < ps.length; i++) {      // bề dày nằm bên TRÁI hướng đi (đi theo chiều kim đồng hồ thì bên trái là ngoài phòng)
             const a = ps[i], b = ps[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L * st.H, ny = (b[0] - a[0]) / L * st.H;
             const w = new RoomWallLine(); w.box = [Math.min(a[0], b[0], a[0] + nx, b[0] + nx), Math.max(a[0], b[0], a[0] + nx, b[0] + nx), Math.min(a[1], b[1], a[1] + ny, b[1] + ny), Math.max(a[1], b[1], a[1] + ny, b[1] + ny), a[2], a[2] + st.G]; w.day = st.H;
+            w.Thickness = st.H; w.Height = st.G;
+            w.StartPoint = new V3(a[0] + nx / 2, a[1] + ny / 2, a[2]); w.EndPoint = new V3(b[0] + nx / 2, b[1] + ny / 2, a[2]);
+            w.RightCurves = [{ StartPoint: new V3(a[0], a[1], a[2]), EndPoint: new V3(b[0], b[1], a[2]) }];
+            w.LeftCurves = [{ StartPoint: new V3(a[0] + nx, a[1] + ny, a[2]), EndPoint: new V3(b[0] + nx, b[1] + ny, a[2]) }];
             made.push(w); ents.push(w);
           }
           if (text === 'C' && made.length) { const rg = new RoomRegion(); rg.box = [0, 0, 0, 0, 0, 0]; made.push(rg); ents.push(rg); }      // Chenfeng tự sinh vùng phòng khi tường khép kín
@@ -278,20 +290,26 @@
     Cancel() {
       window.__MOCK_CANCELS__ = (window.__MOCK_CANCELS__ || 0) + 1;
       if (!state) return;
+      if (state.kind === 'hoi') { const st = state; state = null; svc.IsReady = false; st.res({ Status: -1 }); return; }
       if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog'].includes(state.kind)) { svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
       if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
       else { const ten = state.kind === 'modeling' ? 'MODELING' : 'DRAWHOLE'; gesvc.IsReady = false; state = null; setTimeout(() => fireEnd(ten, [], []), 10); }
     },
     SelectCtrl: { Cancel() { selection = []; }, AddSelect(sel) { selection = sel.SelectEntityList.slice(); }, SelectSet: { get SelectEntityList() { return selection.slice(); } } },
+    // lời nhắc bấm điểm của bảng (Editor.GetPoint thật: trả PromptPointResult { Status, Point }; Callback(điểm) mỗi lần chuột rê)
+    GetPoint(o) { window.__MOCK_HOI__ = (window.__MOCK_HOI__ || []).concat([{ Msg: o && o.Msg, goc: !!(o && o.BasePoint), enter: !!(o && o.AllowNone) }]); if (state) return Promise.resolve({ Status: -1 }); return new Promise(res => { state = { kind: 'hoi', o: o || {}, res, cur: null }; svc.IsReady = true; }); },
+    MouseCtrl: { _CurMousePointVCS: new V3(0, 0, 0) },
   };
   window.app = {
     Editor,
     Database: { ModelSpace: { get Entitys() { return ents; } }, hm },
-    Viewer: { Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {} },
+    Viewer: { Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {}, Width: 800, Height: 500, WorldToScreen(v) { v.x = v.x / 20; v.y = 400 - v.y / 20 - v.z / 40; v.z = 0; return v; } },
     CommandReactor: { OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
     AutoSaveServer: { Stop() {}, Start() {} },
   };
-  window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, StretchAction, V3, them(e) { ents.push(e); return e; } };
+  window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
+    // chuột rê tới (x, y, z) khi bảng đang hỏi điểm: Chenfeng thật gọi Callback của lời nhắc với điểm dưới chuột
+    reChuot(x, y, z) { if (state && state.kind === 'hoi') { state.cur = new V3(x, y, z || 0); if (state.o.Callback) state.o.Callback(state.cur); return true; } return false; }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, StretchAction, V3, them(e) { ents.push(e); return e; } };
   // người dùng bấm chuột trên vùng vẽ khi đang hỏi điểm = đặt tại (1000, -17.5, 0)
   document.getElementById('cv').addEventListener('click', () => { if (state && state.kind === 'point') placeAt([1000, -17.5, 0]); });
 })();

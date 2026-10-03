@@ -242,6 +242,81 @@ async function tienIch() {
     await page.waitForFunction(() => /Chenfeng đặt dầm/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.pkq').innerText), null, { timeout: 40000 }).catch(() => {});
     ok(/Dầm 1: Chenfeng đặt dầm ở cao độ \+2250 → \+2600 \(muốn \+2350 → \+2700\)/.test(await H.locator('.pkq').innerText()), 'dầm lệch cao độ: có cảnh báo', await H.locator('.pkq').innerText());
 
+    /* --- bản 1.17: ĐẶT TỦ BẰNG CHUỘT — bấm điểm đầu ở chân tường, rê chuột dọc tường, rồi Enter / gõ bề rộng / bấm điểm cuối ---
+     * Phòng đang có trên bản vẽ giả lập: lòng phòng x 0 … 3600, y −3000 … 0 (tường A: mặt trong y = 0; tường B: mặt trong x = 3600), trần 2700. */
+    const sr = () => page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent);
+    const choHoi = n => page.waitForFunction(k => (window.__MOCK_HOI__ || []).length >= k && window.MNCFDriver.busy(), n, { timeout: 8000 });
+    const soHoi = () => page.evaluate(() => (window.__MOCK_HOI__ || []).length);
+    const datXong = re => page.waitForFunction(r => new RegExp(r).test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), re, { timeout: 8000 });
+    const oDat = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, q = n => r.querySelector(`[data-ui="${n}"]`).value, hc = r.querySelector('.hinhcho'); const s = window.MNCF.app.getSpec();
+      return { goc: [q('ax'), q('ay'), q('az')], rong: s.rong, cao: s.cao, khoang: s.khoang.length, hinhcho: hc && !hc.hidden ? hc.textContent : '', bong: document.querySelectorAll('svg[aria-hidden="true"] polyline').length }; });
+    const TU_DAT = { ma: 'DC1', rong: 2000, cao: 2400, sau_thung: 580, khoang: [{ rong: 'auto', canh: 2, dot: [400, 1200], o: [] }, { rong: 'auto', canh: 2, dot: [800], o: [] }] };
+    await page.evaluate(sp => window.MNCF.app.setSpec(sp), TU_DAT);
+    await H.locator('.tab[data-tab="tu"]').click();
+    ok(await H.locator('[data-act="dat"]').isVisible() && await H.locator('[data-ui="veNgay"]').isChecked(), 'thẻ Tủ có nút "Đặt tủ bằng chuột" và ô "vẽ ngay" (mặc định bật)');
+    await H.locator('[data-ui="veNgay"]').uncheck();
+    // (1) bấm điểm đầu trên tường A, rê chuột sang phải, Enter → dùng bề rộng đang gõ trong bảng
+    let h0 = await soHoi();
+    await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+    ok(/Bấm điểm ĐẦU của tủ/.test(await H.locator('.chip').textContent()) && !(await H.locator('.panel').isVisible()), 'bấm nút: bảng thu lại, nhắc bấm điểm đầu');
+    await page.evaluate(() => window.__MOCK__.clickPoint(500, 0, 0)); await choHoi(h0 + 2);
+    const hoi2 = await page.evaluate(() => window.__MOCK_HOI__[window.__MOCK_HOI__.length - 1]);
+    ok(hoi2.goc && hoi2.enter && /Enter = rộng 2000/.test(hoi2.Msg) && /Enter = rộng 2000/.test(await H.locator('.chip').textContent()), 'lời nhắc thứ hai: có dây thun từ điểm đầu, cho Enter, ghi rõ bề rộng đang gõ', hoi2);
+    await page.evaluate(() => window.__MOCK__.reChuot(1300, -80, 0));
+    const bong = await page.evaluate(() => { const g = document.querySelector('svg[aria-hidden="true"]'); return g ? { n: g.querySelectorAll('polyline').length, chu: (g.querySelector('text') || {}).textContent, cam: g.querySelectorAll('polyline[stroke="#ff9f1a"]').length, dut: g.querySelectorAll('polyline[stroke-dasharray]').length, chuot: getComputedStyle(g).pointerEvents } : null; });
+    ok(bong && bong.n === 14 && bong.cam === 2 && bong.dut === 6 && bong.chuot === 'none' && /bấm: rộng 800 · Enter: rộng 2000 · sâu 597,5/.test(bong.chu), 'rê chuột: có bóng mờ 2 hộp (nét liền = bấm tại đây, nét đứt = Enter), cạnh cam là mặt trước, không bắt chuột', bong);
+    await page.evaluate(() => window.app.Editor.InputEvent('')); await datXong('Đã đặt: rộng 2000');
+    let d = await oDat();
+    ok(JSON.stringify(d.goc) === '["500","-597.5","0"]' && d.rong === 2000 && d.bong === 0 && /Đang đặt theo điểm bấm trên mặt bằng: 2000 × 597,5, xoay 0°\. Mặt trước nhận theo tường phía sau/.test(d.hinhcho) && /rộng 2000 × sâu 597,5 × cao 2400, xoay 0°/.test(await sr()) && await H.locator('.panel').isVisible(),
+      'Enter: tủ rộng 2000 theo bảng, lưng áp tường A, mặt trước quay vào phòng, góc trái–trước (500; −597,5); bóng mờ đã gỡ, bảng mở lại', [d, await sr()]);
+    // (2) gõ bề rộng 1800 rồi Enter
+    h0 = await soHoi();
+    await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+    await page.evaluate(() => window.__MOCK__.clickPoint(500, 0, 0)); await choHoi(h0 + 2);
+    await page.evaluate(() => { window.__MOCK__.reChuot(1300, -80, 0); window.app.Editor.InputEvent('1800'); }); await datXong('Đã đặt: rộng 1800');
+    d = await oDat();
+    ok(d.rong === 1800 && JSON.stringify(d.goc) === '["500","-597.5","0"]' && d.khoang === 2, 'gõ 1800 + Enter: tủ rộng đúng 1800 dù chuột đang lệch khỏi tường, giữ 2 khoang đang mở', d);
+    // (3) bấm điểm cuối (rê sang TRÁI, bấm lệch tường 30): rộng theo đoạn tường; tủ cao hơn trần thì hạ theo trần
+    await page.evaluate(sp => window.MNCF.app.setSpec(Object.assign({}, sp, { cao: 2800, than: { cao_duoi: 2100 } })), TU_DAT);
+    h0 = await soHoi();
+    await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+    await page.evaluate(() => window.__MOCK__.clickPoint(3000, 0, 0)); await choHoi(h0 + 2);
+    await page.evaluate(() => window.__MOCK__.clickPoint(600, -30, 0)); await datXong('Đã đặt: rộng 2400');
+    d = await oDat();
+    ok(d.rong === 2400 && d.cao === 2700 && JSON.stringify(d.goc) === '["600","-597.5","0"]' && /cao 2700 \(hạ theo trần\)/.test(await sr()), 'bấm điểm cuối bên trái: rộng 2400 theo đoạn tường (điểm bấm lệch 30 được chiếu về mặt tường), cao 2800 hạ còn 2700 theo trần', [d, await sr()]);
+    // (4) không có tường: hỏi thêm điểm phía trước
+    await page.evaluate(sp => window.MNCF.app.setSpec(sp), TU_DAT);
+    h0 = await soHoi();
+    await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+    await page.evaluate(() => window.__MOCK__.clickPoint(30000, 5000, 0)); await choHoi(h0 + 2);
+    await page.evaluate(() => window.__MOCK__.clickPoint(30000, 6600, 0)); await choHoi(h0 + 3);
+    ok(/phía TRƯỚC tủ/.test(await H.locator('.chip').textContent()), 'hai điểm ngoài phòng (không bám tường): hỏi bấm 1 điểm phía trước tủ');
+    await page.evaluate(() => window.__MOCK__.clickPoint(31000, 5800, 0)); await datXong('Đã đặt: rộng 1600');
+    d = await oDat();
+    ok(d.rong === 1600 && /xoay 90°/.test(await sr()) && JSON.stringify(d.goc) === '["30597.5","5000","0"]', 'điểm phía trước ở bên phải đoạn dọc: tủ quay 90°, mặt trước ở x lớn', [d, await sr()]);
+    // (5) Esc giữa chừng: không đổi gì, bóng mờ gỡ sạch
+    const truocHuy = await page.evaluate(() => JSON.stringify(window.MNCF.app.getSpec()));
+    h0 = await soHoi();
+    await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+    await page.evaluate(() => window.__MOCK__.clickPoint(500, 0, 0)); await choHoi(h0 + 2);
+    await page.evaluate(() => { window.__MOCK__.reChuot(1000, -50, 0); window.app.Editor.Cancel(); }); await datXong('Đã huỷ — chưa đặt tủ');
+    ok((await page.evaluate(() => JSON.stringify(window.MNCF.app.getSpec()))) === truocHuy && (await oDat()).bong === 0 && await H.locator('.panel').isVisible() && !(await page.evaluate(() => window.MNCFDriver.busy())), 'Esc ở lời nhắc thứ hai: tủ trong bảng giữ nguyên, bóng mờ gỡ, bảng mở lại');
+    // (6) "vẽ ngay": đặt xong là vẽ luôn, tủ nằm đúng chỗ, quay theo tường B
+    await page.evaluate(sp => window.MNCF.app.setSpec(sp), TU_DAT);
+    await H.locator('[data-ui="veNgay"]').check();
+    const nTruoc = await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length);
+    h0 = await soHoi();
+    await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+    await page.evaluate(() => window.__MOCK__.clickPoint(3600, -400, 0)); await choHoi(h0 + 2);
+    await page.evaluate(() => { window.__MOCK__.reChuot(3500, -1500, 0); window.app.Editor.InputEvent(''); });
+    await H.locator('.report .msg').first().waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => /Đã vẽ xong|Có lỗi/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 });
+    const veDat = await page.evaluate(() => { const D = window.MNCFDriver, a = D.last.added.filter(D.isBoard); let b = null; for (const e of a) { const x = D.boxOf(e); b = b ? [Math.min(b[0], x[0]), Math.max(b[1], x[1]), Math.min(b[2], x[2]), Math.max(b[3], x[3])] : x.slice(0, 4); } return { hop: b.map(v => Math.round(v * 10) / 10), n: a.length, kq: document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText }; });
+    ok(veDat.n > 20 && JSON.stringify(veDat.hop) === '[3002.5,3600,-2400,-400]' && /Đã vẽ xong/.test(veDat.kq) && /Đã đặt tủ theo điểm bấm trên mặt bằng, xoay -90° — tủ nằm đúng chỗ đã bấm/.test(veDat.kq) && (await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length)) > nTruoc,
+      'vẽ ngay: tủ 2000 dựng dọc tường B (x 3002,5 … 3600, y −2400 … −400), xoay −90°, báo cáo ghi "đặt theo điểm bấm"', [veDat.hop, veDat.n, veDat.kq.slice(0, 300)]);
+    await H.locator('[data-act="undo"]').click();
+    await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+
     // phòng còn lỗi thì không vẽ
     await H.locator('.tab[data-tab="phong"]').click();
     await page.evaluate(p => window.MNCF.phong.dat(Object.assign(p, { khung: [{ ten: 'K1', tuong: 0, cach: 2500, rong: 2000, cao: 2700, sau: 600 }] })), PHONG);

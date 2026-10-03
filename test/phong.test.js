@@ -267,5 +267,62 @@ T('Tủ theo hình: khấu lấy từ hình, giữ ruột đang mở (bản 1.16
   ok(t3.spec.khoang.length !== 2 || JSON.stringify(t3.spec.khoang[0].dot) !== '[900,1700]', 'không giữ ruột: bảng tự chọn ruột theo bề rộng');
 });
 
+T('Hai điểm bấm dọc chân tường → hình phủ bì của tủ (bản 1.17 — "vẽ hình chữ nhật chọn rất khó")', () => {
+  // phòng 3600 × 3000: mặt trong các tường, `ra` = hướng từ thân tường vào phòng
+  const tuong = [
+    { a: [0, 3000], b: [3600, 3000], ra: [0, -1] },      // tường trên (A): phòng ở phía y nhỏ
+    { a: [3600, 3000], b: [3600, 0], ra: [-1, 0] },      // tường phải (B)
+    { a: [3600, 0], b: [0, 0], ra: [0, 1] },             // tường dưới (C)
+    { a: [0, 0], b: [0, 3000], ra: [1, 0] },             // tường trái (D)
+    { a: [-110, 3110], b: [3710, 3110], ra: [0, 1] },    // mặt ngoài tường trên
+  ];
+  let r = P.haiDiemThanhHinh([400, 3000], [2400, 3000], 600, { tuong });
+  eq([r.ok, r.rong, r.bam_tuong, r.mat_truoc, r.dinh, r.truoc], [true, 2000, true, 'tường phía sau', [[400, 3000], [2400, 3000], [2400, 2400], [400, 2400]], [1400, 2100]], 'hai điểm trên tường A: lưng áp tường, tủ quay vào phòng');
+  let k = P.hinhThanhKhung(r.dinh, { tuong, truoc: r.truoc });
+  eq([k.ok, k.rong, k.sau, k.goc, k.xoay], [true, 2000, 600, [400, 2400], 0], '→ khung: rộng 2000, sâu 600, không xoay (đứng trong phòng nhìn lên tường A: trái → phải là chiều +x), góc trái–trước ở (400, 2400)');
+  r = P.haiDiemThanhHinh([2400, 3000], [400, 3000], 600, { tuong });
+  eq(P.hinhThanhKhung(r.dinh, { tuong, truoc: r.truoc }).goc, [400, 2400], 'bấm ngược thứ tự (phải trước, trái sau): kết quả như nhau');
+  // bấm trượt khỏi mặt tường vài mm, hai điểm lệch nhau → kéo về đúng mặt tường
+  r = P.haiDiemThanhHinh([3590, 500], [3605, 2200], 550, { tuong });
+  eq([r.ok, r.rong, r.dinh], [true, 1700, [[3600, 500], [3600, 2200], [3050, 2200], [3050, 500]]], 'bấm trượt 5–10 mm quanh tường B: hai điểm được kéo về mặt tường, tủ không lệch góc');
+  k = P.hinhThanhKhung(r.dinh, { tuong, truoc: r.truoc });
+  eq([k.rong, k.sau, k.xoay, k.goc], [1700, 550, -90, [3050, 2200]], '→ khung tường B: xoay −90°');
+  r = P.haiDiemThanhHinh([3600, 500], [3300, 2200], 550, { tuong });
+  eq([r.ok, r.rong, r.dinh[1]], [true, 1700, [3600, 2200]], 'điểm cuối bấm vào mép cột cách tường 300: chiếu về mặt tường, tủ dài tới ngang mép cột');
+  r = P.haiDiemThanhHinh([0, 3000], [1500, 2980], 600, { tuong });
+  eq([r.ok, r.dinh], [true, [[0, 3000], [1500, 3000], [1500, 2400], [0, 2400]]], 'điểm đầu ở góc phòng (trên cả tường A lẫn tường D), điểm cuối chạy dọc tường A: tủ theo tường A');
+  r = P.haiDiemThanhHinh([0, 3000], [15, 1200], 600, { tuong });
+  eq([r.ok, r.dinh], [true, [[0, 3000], [0, 1200], [600, 1200], [600, 3000]]], 'cũng điểm đầu đó, điểm cuối chạy dọc tường D: tủ theo tường D');
+  r = P.haiDiemThanhHinh([1000, 3000], [1050, 1500], 600, { tuong });
+  ok(!r.ok && r.can_diem, 'điểm đầu trên tường nhưng điểm cuối chạy thẳng ra giữa phòng (tủ vuông góc tường): không đoán, hỏi phía trước');
+  // cột của phòng nằm trong đoạn 2 điểm → tự khấu
+  k = P.hinhThanhKhung(P.haiDiemThanhHinh([0, 0], [2000, 0], 600, { tuong }).dinh, { tuong, truoc: [1000, 900], cot: [{ x0: 900, x1: 1200, y0: -110, y1: 220 }] });
+  eq([k.ok, k.xoay, k.goc, k.khau.giua_cot, k.so_cot], [true, 180, [2000, 600], [{ cach: 800, rong: 300, sau: 220 }], 1], 'đoạn 2 điểm trên tường C trùm qua cột của phòng: tủ xoay 180°, tự khấu cột giữa (cách mép trái của tủ 800)');
+  // không có tường: phải hỏi phía trước; có điểm phía trước thì theo điểm đó
+  r = P.haiDiemThanhHinh([10000, 5000], [12000, 5000], 600, { tuong });
+  ok(!r.ok && r.can_diem && /phía TRƯỚC/.test(r.loi), 'hai điểm không trên mặt tường nào: hỏi bấm điểm phía trước');
+  r = P.haiDiemThanhHinh([10000, 5000], [12000, 5020], 600, { truoc: [11000, 4000] });
+  eq([r.ok, r.dinh, r.mat_truoc, r.bam_tuong], [true, [[10000, 5000], [12000, 5000], [12000, 4400], [10000, 4400]], 'điểm anh bấm', false], 'không tường + điểm phía trước ở dưới: tủ quay xuống; lệch trục 0,6° được nắn thẳng');
+  r = P.haiDiemThanhHinh([10000, 5000], [12000, 5000], 600, { truoc: [11000, 9000] });
+  eq(r.dinh, [[10000, 5000], [12000, 5000], [12000, 5600], [10000, 5600]], 'điểm phía trước ở trên: tủ quay lên');
+  r = P.haiDiemThanhHinh([0, 0], [1000, 1000], 600, { truoc: [1000, 0] });
+  ok(r.ok && Math.abs(r.rong - 1414.2) < 0.1 && P.hinhThanhKhung(r.dinh, { truoc: r.truoc }).ok, 'đoạn xiên 45° (tường xiên): vẫn ra hình chữ nhật quay 45°');
+  // điểm phía trước do người dùng bấm thắng hướng của tường (tủ áp mặt NGOÀI tường)
+  r = P.haiDiemThanhHinh([400, 3000], [2400, 3000], 600, { tuong, truoc: [1000, 4000] });
+  eq([r.ok, r.dinh[2], r.mat_truoc], [true, [2400, 3600], 'điểm anh bấm'], 'bấm điểm phía trước ngược với hướng tường: theo điểm bấm');
+  // từ chối
+  ok(/quá gần/.test(P.haiDiemThanhHinh([0, 0], [100, 0], 600, { tuong }).loi), 'hai điểm cách nhau dưới 200: từ chối');
+  ok(/sâu/.test(P.haiDiemThanhHinh([0, 0], [1000, 0], 0, { tuong }).loi), 'chưa có chiều sâu: từ chối');
+  ok(/ngay trên lưng tủ/.test(P.haiDiemThanhHinh([10000, 0], [12000, 0], 600, { truoc: [11000, 0] }).loi), 'điểm phía trước nằm trên chính đoạn 2 điểm: bảo bấm lại');
+  ok(/Chưa đủ 2 điểm/.test(P.haiDiemThanhHinh(null, [1, 2], 600).loi), 'thiếu điểm');
+  // bề rộng đã biết (đang gõ trong bảng / gõ số): điểm thứ hai chỉ cho hướng
+  r = P.haiDiemThanhHinh([400, 3000], [900, 2950], 600, { tuong, rong: 2400 });
+  eq([r.ok, r.rong, r.dinh], [true, 2400, [[400, 3000], [2800, 3000], [2800, 2400], [400, 2400]]], 'biết rộng 2400, chuột rê sang phải dọc tường A: tủ chạy sang phải đúng 2400, lưng áp tường');
+  r = P.haiDiemThanhHinh([3000, 3000], [2700, 2990], 600, { tuong, rong: 1800 });
+  eq([r.ok, r.dinh[1], r.dinh[2]], [true, [1200, 3000], [1200, 2400]], 'chuột rê sang trái: tủ chạy sang trái');
+  ok(/phía nào/.test(P.haiDiemThanhHinh([400, 3000], [402, 3000], 600, { tuong, rong: 2400 }).loi), 'biết rộng nhưng chuột chưa rê đi đâu: chưa rõ hướng');
+  ok(/từ 200/.test(P.haiDiemThanhHinh([400, 3000], [900, 3000], 600, { tuong, rong: 120 }).loi), 'bề rộng gõ vào dưới 200: từ chối');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);
