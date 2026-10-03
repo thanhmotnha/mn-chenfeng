@@ -13,14 +13,29 @@
   window.userconfig = { DrillConfigs: DRILL };
   const FIRST = [...DRILL.keys()][0];
   let SO_MA = 100;
-  class Ent { constructor() { this.IsErase = false; this.DrawObject = { ent: this }; this.box = [0, 0, 0, 0, 0, 0]; this.Id = { Object: this, Index: ++SO_MA }; }
+  class Ent { constructor() { this.IsErase = false; this.DrawObject = { ent: this }; this.box = [0, 0, 0, 0, 0, 0]; this.Id = { Object: this, Index: ++SO_MA }; this.M = new M4(); }      // M: phép dời / xoay tích luỹ từ lúc tạo (để mẫu kho biết khung của mình đang ở đâu)
+    // bản thật: ApplyMatrix dời / xoay đối tượng và tự ghi lịch sử. Giả lập: biến đổi 8 góc hộp bao (đúng với góc xoay bội của 90° quanh trục đứng)
+    ApplyMatrix(m) { const e = m.elements, b = this.box, xs = [], ys = [], zs = [], r = v => Math.round(v * 1e6) / 1e6;
+      for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) for (const z of [b[4], b[5]]) { xs.push(e[0] * x + e[4] * y + e[8] * z + e[12]); ys.push(e[1] * x + e[5] * y + e[9] * z + e[13]); zs.push(e[2] * x + e[6] * y + e[10] * z + e[14]); }
+      if (hm.mo) { const cu = b.slice(), dinh = this.dinh, M0 = this.M; hm.mo.snap.push(() => { this.box = cu; this.dinh = dinh; this.M = M0; }); }
+      this.box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), Math.min(...zs), Math.max(...zs)].map(r);
+      if (this.dinh) this.dinh = this.dinh.map(q => [r(e[0] * q[0] + e[4] * q[1] + e[12]), r(e[1] * q[0] + e[5] * q[1] + e[13])]);
+      this.M = new M4().copy(m).multiply(this.M); }
     // tấm có đường bao nhiều đỉnh (tấm nằm khoét góc — khấu cột): bản thật trả về từng đỉnh đường bao ở 2 mặt
     GetStretchPoints() { const b = this.box, o = []; if (this.dinh) { for (const q of this.dinh) for (const z of [b[4], b[5]]) o.push(new V3(q[0], q[1], z)); return o; } for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) for (const z of [b[4], b[5]]) o.push(new V3(x, y, z)); return o; }
     get BoundingBox() { const b = this.box; return { min: { x: b[0], y: b[2], z: b[4] }, max: { x: b[1], y: b[3], z: b[5] } }; }
-    move(d) { this.box = [this.box[0] + d[0], this.box[1] + d[0], this.box[2] + d[1], this.box[3] + d[1], this.box[4] + d[2], this.box[5] + d[2]]; if (this.dinh) this.dinh = this.dinh.map(q => [q[0] + d[0], q[1] + d[1]]); } }
+    move(d) { this.box = [this.box[0] + d[0], this.box[1] + d[0], this.box[2] + d[1], this.box[3] + d[1], this.box[4] + d[2], this.box[5] + d[2]]; if (this.dinh) this.dinh = this.dinh.map(q => [q[0] + d[0], q[1] + d[1]]);
+      const M = new M4().copy(this.M); M.elements[12] += d[0]; M.elements[13] += d[1]; M.elements[14] += d[2]; this.M = M; } }
   // mẫu (TemplateRecord) giả lập: đủ các đường mà MNCFDriver.modelize dùng
   class V3 { constructor(x, y, z) { this.x = x; this.y = y; this.z = z; } clone() { return new V3(this.x, this.y, this.z); } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } }
-  class M4 { constructor() { this.elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; } makeTranslation(x, y, z) { this.elements[12] = x; this.elements[13] = y; this.elements[14] = z; return this; } }
+  class M4 { constructor() { this.elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; } makeTranslation(x, y, z) { this.elements[12] = x; this.elements[13] = y; this.elements[14] = z; return this; }
+    // như Matrix4 của three.js (mảng 16 số theo CỘT) — đủ cho D.taoKhung / D.apMaTran: xoay quanh trục đứng, đặt vị trí, nhân, nghịch đảo (phép dời + xoay)
+    copy(m) { this.elements = m.elements.slice(); return this; } clone() { return new M4().copy(this); }
+    makeRotationZ(a) { const r = v => Math.round(v * 1e12) / 1e12, c = r(Math.cos(a)), s = r(Math.sin(a)); this.elements = [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; return this; }
+    setPosition(x, y, z) { this.elements[12] = x; this.elements[13] = y; this.elements[14] = z; return this; }
+    multiply(m) { const a = this.elements, b = m.elements, o = new Array(16); for (let c = 0; c < 4; c++) for (let h = 0; h < 4; h++) { let t = 0; for (let k = 0; k < 4; k++) t += a[k * 4 + h] * b[c * 4 + k]; o[c * 4 + h] = t; } this.elements = o; return this; }
+    getInverse(m) { const e = m.elements, o = [e[0], e[4], e[8], 0, e[1], e[5], e[9], 0, e[2], e[6], e[10], 0, 0, 0, 0, 1], t = [e[12], e[13], e[14]];
+      for (let i = 0; i < 3; i++) o[12 + i] = -(o[i] * t[0] + o[4 + i] * t[1] + o[8 + i] * t[2]); this.elements = o; return this; } }
   class StretchAction { constructor(dir) { this.StretchDirection = dir || new V3(1, 0, 0); this.MoveEntitys = []; this.EntityStretchPointMap = []; this.Expr = ''; this.Name = ''; } }
   class Tpl { constructor(name, objs) { this.Name = name; this.Id = { Object: this, Index: ++SO_MA }; this.Objects = (objs || []).map(e => e.Id); this.Children = []; this.Parent = null; this.Positioning = { tam: true };
       this.Params = ['L', 'W', 'H', 'PX', 'PY', 'PZ', 'RX', 'RY', 'RZ', 'BH'].map(n => ({ name: n, expr: '', value: 0, actions: [] })); this.capNhat = 0; }
@@ -41,6 +56,9 @@
   class TplHau extends Tpl { constructor(name, hau, kep, option) { super(name, [hau]); this.kep = kep; this._option = Object.assign({ version: 4, leftExt: 6, rightExt: 6, topExt: 6, bottomExt: 6, thickness: 5, boardRelative: 'back', spaceSize: 20, calcSpaceSize: '20', exprThickness: '5' }, option || {}); }
     dungHau() { const [tr, ph, no, da] = this.kep.map(b => b.box), o = this._option, h = this.Objects[0].Object, sau = Math.min(tr[3], ph[3]) - o.spaceSize;      // lưng khoảng kẹp = mép sau 2 tấm đứng
       h._t = o.thickness; h.box = [tr[1] - o.leftExt, ph[0] + o.rightExt, sau - o.thickness, sau, da[5] - o.bottomExt, no[4] + o.topExt]; } }
+  // MẪU KHO (bản 1.19): module dựng từ một mẫu của kho tài khoản. Khung module (GetTemplateRealitySpaceCS của bản thật) = gốc module lúc tạo, đi theo mọi phép dời / xoay áp lên các tấm.
+  class TplKho extends Tpl { constructor(name, objs, goc0) { super(name, objs); this.coGian = true; this.neo = objs[0]; this.goc0 = goc0.slice(); }
+    GetTemplateRealitySpaceCS() { return new M4().copy(this.neo.M).multiply(new M4().makeTranslation(this.goc0[0], this.goc0[1], this.goc0[2])); } }
   // đối tượng phòng của thẻ "House Design" (tên lớp như bản thật: bộ điều khiển đếm theo tên lớp)
   class RoomWallLine extends Ent {} class RoomHolePolyline extends Ent {} class RoomPillar extends Ent {} class RoomGirder extends Ent {}
   class RoomRegion extends Ent { constructor() { super(); this._Name = ''; } get TextString() { return this._Name; } set TextString(v) { this._Name = v; } get Nhan() { return (this._Name || '未命名') + ' m²'; } WriteAllObjectRecord() { if (hm.mo) { const cu = this._Name; hm.mo.snap.push(() => { this._Name = cu; }); } } }
@@ -56,8 +74,9 @@
       for (let a = 0; a < 3; a++) for (let s = 0; s < 2; s++) { const mat = [0, 1, 2, 3, 4, 5, 6, 7].filter(k => (k & bit[a] ? 1 : 0) === s); if (mat.every(k => ks.includes(k))) b[a * 2 + s] += d[a]; }
       this.box = b;
       if (tr !== undefined) this._t = Math.round((b[tr * 2 + 1] - b[tr * 2]) * 1000) / 1000; }      // kéo mặt theo trục dày = đổi bề dày (tham số BH của mẫu làm đúng việc này)
-    ApplyMatrix(m) { this.move([m.elements[12], m.elements[13], m.elements[14]]); }
-    WriteAllObjectRecord() { if (hm.mo) { const e = this, box = e.box.slice(), t = e._t, o = e.BoardProcessOption, dt = o.drillType, hd = o.highDrill.slice(); hm.mo.snap.push(() => { e.box = box; e._t = t; o.drillType = dt; o.highDrill = hd; }); } } }
+    WriteAllObjectRecord() { if (hm.mo) { const e = this, box = e.box.slice(), t = e._t, o = e.BoardProcessOption, dt = o.drillType, hd = o.highDrill.slice(), ten = e._ten; hm.mo.snap.push(() => { e.box = box; e._t = t; o.drillType = dt; o.highDrill = hd; e._ten = ten; }); } }
+    // bản thật: gán Name tự ghi lịch sử (đổi tên tấm trong một lệnh thì Ctrl+Z trả lại tên cũ)
+    get Name() { return this._ten; } set Name(v) { if (hm.mo && this._ten !== undefined) { const cu = this._ten; hm.mo.snap.push(() => { this._ten = cu; }); } this._ten = v; } }
   // nét 2D / chữ do Chenfeng dựng từ file DXF thả vào (bản thật: Line, Circle, Polyline, Text — ColorIndex lấy từ mã 62)
   class Line extends Ent {} class Circle extends Ent {} class Polyline extends Ent {} class Text extends Ent {}
   class HardwareCompositeEntity extends Ent { constructor(name, box, tu) { super(); this.HardwareOption = { name, cabinetName: tu, roomName: '' }; this.box = box; } }
@@ -120,6 +139,36 @@
     return out;
   }
 
+  /* ---- MẪU KHO: cổng nhập nhận { Type: 'Template', TempalteId } của một mẫu trong kho → dựng cả tủ theo BoxSize (đo trên bản thật 04/10/2026).
+   *   window.__MOCK_KHO__ = { [mã mẫu]: { cua: cánh phủ NGOÀI khung module (nhô 18 trước mặt thùng), tay: tay nắm (phụ kiện) nhô thêm 30 trước cánh,
+   *                                      co_dinh: [L, W, H] mẫu không co giãn (bỏ qua BoxSize), khong_W: chiều sâu không theo tham số W, bh: dày ván của mẫu (18), khoan: kiểu khoan của cửa hàng ('三合一') } }
+   *   Kết cấu = "标准柜" kiểu Trung: hậu dày lọt lòng giữa 2 hồi chạy suốt chiều cao, nóc / đáy dừng ở mặt trước hậu, xà chân trước + sau; có động tác L / W / H / BH. ---- */
+  function khoFromJSON(o, cfg) {
+    const [L, W, H] = cfg.co_dinh || o.BoxSize, [x, y, z] = o.Pos, t = cfg.bh || 18, K = Array(4).fill(cfg.khoan || '三合一'), bit = [4, 2, 1];
+    const B = (ten, b, day, k) => new Board(ten, 0, [x + b[0], x + b[1], y + b[2], y + b[3], z + b[4], z + b[5]], day, o.CabinetName, o.RoomName, k || K);
+    const tr = B('左侧板', [0, t, 0, W, 0, H], t), ph = B('右侧板', [L - t, L, 0, W, 0, H], t), hau = B('背板', [t, L - t, W - t, W, 0, H], t),
+      noc = B('顶板', [t, L - t, 0, W - t, H - t, H], t), day = B('底板', [t, L - t, 0, W - t, 80, 80 + t], t), ct = B('地脚线', [t, L - t, 0, t, 0, 80], t), cs = B('后地脚', [t, L - t, W - 2 * t - 2, W - t - 2, 0, 80], t);
+    const all = [tr, ph, hau, noc, day, ct, cs];
+    let canh = null; if (cfg.cua) { canh = B('左开门板', [0, L, -18, 0, 80, H], 18, ['不排', '不排', '不排', '不排']); all.push(canh); }
+    const hw = cfg.tay ? [new HardwareCompositeEntity('拉手', [x + L / 2 - 10, x + L / 2 + 10, y - (cfg.cua ? 48 : 30), y - (cfg.cua ? 18 : 0), z + H / 2, z + H / 2 + 128], o.CabinetName)] : [];
+    const T = new TplKho(o.Name, all.concat(hw), [x, y, z]);
+    for (const e of all.concat(hw)) e.Template = T.Id;
+    for (const [n, v] of [['L', L], ['W', W], ['H', H], ['BH', t]]) T.GetParam(n).value = v;
+    if (cfg.co_dinh) { T.coGian = false; return all.concat(hw); }
+    const mat = (a, sd) => [0, 1, 2, 3, 4, 5, 6, 7].filter(k => ((k & bit[a]) ? 1 : 0) === sd);
+    const dt = (ten, dir, doi, keo) => { const a = new StretchAction(new V3(dir[0], dir[1], dir[2])); a.Expr = ten; a.MoveEntitys = doi.map(b => b.Id); a.EntityStretchPointMap = keo.map(([b, q, sd]) => ({ entity: b.Id, indexs: mat(q, sd) })); T.GetParam(ten).actions.push(a); };
+    dt('L', [1, 0, 0], [ph].concat(hw), [[hau, 0, 1], [noc, 0, 1], [day, 0, 1], [ct, 0, 1], [cs, 0, 1]].concat(canh ? [[canh, 0, 1]] : []));
+    if (!cfg.khong_W) dt('W', [0, 1, 0], [hau, cs], [[tr, 1, 1], [ph, 1, 1], [noc, 1, 1], [day, 1, 1]]);      // khong_W: mẫu có chiều sâu cố định (tham số W không nối với tấm nào)
+    dt('H', [0, 0, 1], [noc], [[tr, 2, 1], [ph, 2, 1], [hau, 2, 1]].concat(canh ? [[canh, 2, 1]] : []));
+    dt('BH', [1, 0, 0], [], [[tr, 0, 1], [hau, 0, 0], [noc, 0, 0], [day, 0, 0], [ct, 0, 0], [cs, 0, 0]]);
+    dt('BH', [0, -1, 0], [cs], [[hau, 1, 0], [noc, 1, 1], [day, 1, 1]]);
+    dt('BH', [-1, 0, 0], [], [[ph, 0, 0], [hau, 0, 1], [noc, 0, 1], [day, 0, 1], [ct, 0, 1], [cs, 0, 1]]);
+    dt('BH', [0, 0, -1], [], [[noc, 2, 0]]);
+    dt('BH', [0, 0, 1], [], [[day, 2, 1]]);
+    (window.__MOCK__.templates = window.__MOCK__.templates || []).push(T);
+    return all.concat(hw);
+  }
+
   async function importFile(file) {
     let data;
     try { data = JSON.parse(await file.text()); } catch (e) { return toast(file.name + '导入失败!'); }
@@ -133,6 +182,7 @@
     try {
       for (const o of data.ModelSpace) {
         if (o.Type === 'Board') created.push(boardFromJSON(o));
+        else if (o.Type === 'Template' && (window.__MOCK_KHO__ || {})[o.TempalteId]) { if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__)); created = created.concat(khoFromJSON(o, window.__MOCK_KHO__[o.TempalteId])); }
         else if (o.Type === 'Template') { if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__)); const es = templateFromJSON(o); const rec = new Tpl(o.Name, es).Id; rec.Object.LParam.value = o.BoxSize[0]; rec.Object.WParam.value = o.BoxSize[1]; rec.Object.HParam.value = o.BoxSize[2]; for (const e of es) e.Template = rec; created = created.concat(es); }
         else throw new Error('type');
       }
@@ -347,6 +397,7 @@
     // lời nhắc bấm điểm của bảng (Editor.GetPoint thật: trả PromptPointResult { Status, Point }; Callback(điểm) mỗi lần chuột rê)
     GetPoint(o) { window.__MOCK_HOI__ = (window.__MOCK_HOI__ || []).concat([{ Msg: o && o.Msg, goc: !!(o && o.BasePoint), enter: !!(o && o.AllowNone) }]); if (state) return Promise.resolve({ Status: -1 }); return new Promise(res => { state = { kind: 'hoi', o: o || {}, res, cur: null }; svc.IsReady = true; }); },
     MouseCtrl: { _CurMousePointVCS: new V3(0, 0, 0) },
+    UCSMatrix: new M4(),
   };
   window.app = {
     Editor,
@@ -357,7 +408,7 @@
   };
   window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, Line, Circle, Polyline, Text, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
     // chuột rê tới (x, y, z) khi bảng đang hỏi điểm: Chenfeng thật gọi Callback của lời nhắc với điểm dưới chuột
-    reChuot(x, y, z) { if (state && state.kind === 'hoi') { state.cur = new V3(x, y, z || 0); if (state.o.Callback) state.o.Callback(state.cur); return true; } return false; }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, StretchAction, V3, them(e) { ents.push(e); return e; } };
+    reChuot(x, y, z) { if (state && state.kind === 'hoi') { state.cur = new V3(x, y, z || 0); if (state.o.Callback) state.o.Callback(state.cur); return true; } return false; }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, TplKho, StretchAction, V3, M4, them(e) { ents.push(e); return e; } };
   // người dùng bấm chuột trên vùng vẽ khi đang hỏi điểm = đặt tại (1000, -17.5, 0)
   document.getElementById('cv').addEventListener('click', () => { if (state && state.kind === 'point') placeAt([1000, -17.5, 0]); });
 })();

@@ -157,7 +157,7 @@
           }
         }
         if (Date.now() - t0 > opt.timeout) throw new Error('Chờ quá lâu mà Chenfeng chưa tạo xong tấm (mạng chậm khi tải mẫu ngăn kéo/suốt treo?).');
-        if (!told && Date.now() - t0 > 4000) { told = true; opt.onStatus('Chenfeng đang tải mẫu ngăn kéo / suốt treo từ máy chủ…'); }
+        if (!told && Date.now() - t0 > 4000) { told = true; opt.onStatus(opt.bao_tai || 'Chenfeng đang tải mẫu ngăn kéo / suốt treo từ máy chủ…'); }
         await sleep(120);
       }
       if (!w.ended) {
@@ -1110,9 +1110,20 @@
    * ------------------------------------------------------------------ */
   const hauTuDong = t => { try { return !!(t && t._option && 'leftExt' in t._option && 'spaceSize' in t._option); } catch (e) { return false; } };
   const tplThuong = t => { try { return !!t && !t._option; } catch (e) { return false; } };
-  // tên tấm của mẫu kho là tiếng Trung → đổi sang tiếng Việt khi báo cáo (không đổi tên trong bản vẽ)
-  const TEN_TAM = [['左侧板', 'Hồi trái'], ['右侧板', 'Hồi phải'], ['中侧板', 'Vách'], ['侧板', 'Hồi'], ['顶板', 'Nóc'], ['底板', 'Đáy'], ['背板', 'Hậu'], ['固定层板', 'Đợt cố định'], ['活动层板', 'Đợt rời'], ['层板', 'Đợt'], ['中立板', 'Vách'], ['立板', 'Vách'],
-    ['后地脚', 'Xà chân sau'], ['地脚线', 'Xà chân'], ['踢脚板', 'Xà chân'], ['前拉条', 'Xà trước'], ['后拉条', 'Xà sau'], ['拉条', 'Thanh giằng'], ['收口条', 'Nẹp'], ['垫条', 'Thanh chèn'], ['见光板', 'Tấm ốp'], ['门板', 'Cánh']];
+  // tên tấm của mẫu kho là tiếng Trung → tiếng Việt: khi báo cáo (D.tenTamViet) và khi ghi lại tên tấm của mẫu kho vừa vẽ (D.tenTamMoi — bản 1.19).
+  // Tên DÀI / RIÊNG đứng trước tên chung chứa trong nó (抽底板 trước 底板, 左开门板 trước 门板…). Tên đo trên các bộ tủ của kho ngày 04/10/2026.
+  const TEN_TAM = [
+    ['左抽侧', 'Thành trái ngăn kéo'], ['右抽侧', 'Thành phải ngăn kéo'], ['抽侧板', 'Thành ngăn kéo'], ['抽侧', 'Thành ngăn kéo'], ['抽尾板', 'Hậu ngăn kéo'], ['抽尾', 'Hậu ngăn kéo'], ['抽背板', 'Hậu ngăn kéo'],
+    ['抽前板', 'Trước ngăn kéo'], ['抽前', 'Trước ngăn kéo'], ['抽面板', 'Mặt ngăn kéo'], ['抽面', 'Mặt ngăn kéo'], ['抽底板', 'Đáy ngăn kéo'], ['抽底', 'Đáy ngăn kéo'],
+    ['左开门板', 'Cánh mở trái'], ['右开门板', 'Cánh mở phải'], ['上翻门板', 'Cánh lật lên'], ['下翻门板', 'Cánh lật xuống'], ['假门', 'Cánh giả'],
+    ['薄背板', 'Hậu mỏng'], ['厚背板', 'Hậu dày'], ['加强条', 'Thanh tăng cứng'], ['上收口', 'Nẹp bù trên'], ['左收口', 'Nẹp bù trái'], ['右收口', 'Nẹp bù phải'],
+    ['左侧板', 'Hồi trái'], ['右侧板', 'Hồi phải'], ['中侧板', 'Vách'], ['侧板', 'Hồi'], ['顶板', 'Nóc'], ['底板', 'Đáy'], ['背板', 'Hậu'], ['固定层板', 'Đợt cố định'], ['活动层板', 'Đợt rời'], ['层板', 'Đợt'], ['中立板', 'Vách'], ['立板', 'Vách'],
+    ['后地脚', 'Xà chân sau'], ['前地脚', 'Xà chân trước'], ['地脚线', 'Xà chân'], ['踢脚板', 'Xà chân'], ['前拉条', 'Xà trước'], ['后拉条', 'Xà sau'], ['拉条', 'Thanh giằng'], ['背条', 'Thanh giằng sau'], ['收口条', 'Nẹp'], ['收口板', 'Nẹp bù'], ['收口', 'Nẹp bù'],
+    ['垫条', 'Thanh chèn'], ['垫板', 'Tấm đệm'], ['见光板', 'Tấm ốp'], ['门板', 'Cánh'], ['封板', 'Tấm bịt'], ['竖隔板', 'Vách ngăn'], ['横隔板', 'Đợt ngăn'], ['隔板', 'Vách ngăn'], ['挡板', 'Tấm chắn'],
+    ['台面', 'Mặt bàn'], ['桌面', 'Mặt bàn'], ['格栅', 'Lam'], ['装饰板', 'Tấm trang trí'], ['护墙板', 'Tấm ốp tường'], ['墙板', 'Tấm ốp tường'], ['搁板', 'Kệ'], ['楣板', 'Diềm trên'], ['顶线', 'Phào đỉnh'], ['罗马柱', 'Cột La Mã']];
+  // nhận tấm hậu / cánh / tấm ngăn kéo theo TÊN — cả tên gốc tiếng Trung lẫn tên tiếng Việt mà D.tenTamMoi đã ghi (để chuẩn hoá / đổi dày ván chạy được trên module đã đổi tên)
+  const laTenHau = t => (/背/.test(t) || /^Hậu/.test(t)) && !/抽|ngăn kéo/i.test(t);
+  const laTenCanhNK = t => /门|抽|^Cánh|ngăn kéo/i.test(t);
   D.tenTamViet = t => { t = String(t || ''); for (const [a, b] of TEN_TAM) if (t.includes(a)) return t === a ? b : `${b} (${t})`; return t; };
 
   D.chuanHoa = async (ent, opt) => {
@@ -1137,8 +1148,8 @@
     const moi = b => { const o = info.get(b); o.bx = hop(b); o.day = r2(b.Thickness); return o; };
     const L = [...info.values()];
     const caoM = Math.max(...L.map(o => o.bx[2][1])) - Math.min(...L.map(o => o.bx[2][0]));
-    const laHau = o => /背/.test(o.ten) && !/抽/.test(o.ten);
-    const kc = L.filter(o => (o.tr === 0 || o.tr === 2) && !laHau(o) && !/门|抽/.test(o.ten));
+    const laHau = o => laTenHau(o.ten);
+    const kc = L.filter(o => (o.tr === 0 || o.tr === 2) && !laHau(o) && !laTenCanhNK(o.ten));
     const ngan = o => { const e = [o.bx[0][1] - o.bx[0][0], o.bx[1][1] - o.bx[1][0], o.bx[2][1] - o.bx[2][0]]; e.splice(o.tr < 0 ? 0 : o.tr, 1); return Math.min(...e); };
     const hauTat = L.filter(o => laHau(o));
     if (hauTat.some(o => o.tr === 0 && ngan(o) > 150)) return hong('Module có hậu đứng theo chiều sâu (tủ góc / hậu hông) — chưa hỗ trợ.');
@@ -1368,7 +1379,7 @@
     if (!bh) return hong('Module không có tham số dày ván (BH) — không đổi tự động được.');
     const cu = r2(Number(bh.value));
     const bang = (a, b) => Math.abs(a - b) < 0.01;
-    const laHauTen = b => /背/.test(String(b.Name || ''));
+    const laHauTen = b => /背|^Hậu/.test(String(b.Name || ''));
     const dem = (ds, t) => ds.filter(b => bang(r2(b.Thickness), t)).length;
     const coCu = dem(tam, cu), coMoi = dem(tam, day);
     if (bang(cu, day)) return { ok: true, da_dung: true, module: T.Name || '', tam: tam[0], tu: cu, day, so_tam: tam.length, doi: 0, con: 0, ten_con: [] };
@@ -1452,6 +1463,26 @@
     const d = dirs.find(x => x.ten === '抽屉') || dirs.find(x => /抽屉|ngăn kéo|drawer/i.test(x.ten));
     if (!d) throw new Error('Không thấy thư mục "抽屉" (ngăn kéo) trong kho mẫu của tài khoản Chenfeng này.');
     return { thu_muc: d.ten, mau: await D.templatesIn(d.id) };
+  };
+  /**
+   * Một trang mẫu của MỘT thư mục kho (bản 1.19 — để duyệt kho có hình ngay trong bảng). Chỉ ĐỌC.
+   * opt: { trang (1…), moi_trang (≤ 100), ten (lọc theo tên) }. Thư mục rỗng thì Chenfeng không trả `modules`.
+   * @returns {{ tong, trang, mau: [{ id, ten, hinh (địa chỉ ảnh nhỏ của mẫu), kt: [L, W, H] | null (kích thước mặc định), bh (dày ván mặc định) }] }}
+   */
+  D.khoMau = async (dirId, opt) => {
+    opt = Object.assign({ trang: 1, moi_trang: 24, ten: '' }, opt || {});
+    const trang = Math.max(1, Math.round(opt.trang) || 1), moi = Math.min(100, Math.max(1, Math.round(opt.moi_trang) || 24));
+    const body = { dir_id: String(dirId), curr_page: trang, page: trang, page_count: moi };
+    if (opt.ten) body.name = String(opt.ten).slice(0, 60);
+    const j = await post('CAD-moduleList', body), host = D.apiHost(), out = [];
+    for (const m of j.modules || []) {
+      const ts = {};
+      try { for (const r of JSON.parse(await inflate(m.props))) if (Array.isArray(r) && typeof r[1] === 'string' && typeof r[3] === 'number') ts[r[1]] = r[3]; } catch (e) { /* mẫu không đọc được tham số: vẫn liệt kê, không có kích thước mặc định */ }
+      const logo = String(m.logo || '').replace(/^\/+/, '');
+      out.push({ id: Math.round(+m.module_id) || 0, ten: String(m.name || '').trim(), hinh: logo ? (/^https?:/i.test(logo) ? logo : host + '/' + logo) : '',
+        kt: ts.L > 0 && ts.W > 0 && ts.H > 0 ? [r2(ts.L), r2(ts.W), r2(ts.H)] : null, bh: ts.BH > 0 ? r2(ts.BH) : 0 });
+    }
+    return { tong: Math.max(Math.round(+j.count) || 0, out.length), trang, mau: out };
   };
 
   /* ------------------------------------------------------------------ *
@@ -1758,6 +1789,196 @@
     if (!do_) return { ok: true, steps: 0 };
     const C = lopM4(), Mx = new C().makeRotationZ(do_ * Math.PI / 180); Mx.setPosition(goc[0], goc[1], goc[2]); Mx.multiply(new C().setPosition(-goc[0], -goc[1], -goc[2]));
     return D.apMaTran(ents, Mx, 'MNCF_XOAY');
+  };
+
+  /* ------------------------------------------------------------------ *
+   * MẪU KHO VÀO BẢN VẼ (bản 1.19 — anh Jason 03/10/2026 20:49: "vách tivi … vách đầu giường chọn các module sẵn, chia ô ra rồi chọn vào từng khu vực";
+   *   20:52: "chọn khu vực là tủ áo thì hiện lên các mẫu thư viện luôn"; 23:18: "chọn từ extension rồi nhập kích thước kéo vào").
+   * Đã đo trên Chenfeng 04/10/2026:
+   *   - cổng nhập nhận mục { Type: 'Template', TempalteId, BoxSize: [L, W, H], Pos } → Chenfeng tải mẫu của kho, đặt L / W / H rồi dựng cả cây mẫu
+   *     (bộ tủ 222 tấm mất ~80 giây khi tab bị che); khung module sau đó đúng bằng L × W × H;
+   *   - điểm đặt của cổng nhập là góc nhỏ nhất của CẢ CỤM kể cả tay nắm nhô ra trước mặt cánh → gốc module lệch khỏi điểm gõ: phải đo lại rồi dời bằng ma trận;
+   *   - mẫu của cửa hàng mang kiểu khoan không có trong cấu hình tài khoản (三合一) → Chenfeng không khoan: đổi sang kiểu khoan của xưởng rồi khoan lại (D.finalize);
+   *   - cả module dời + xoay được bằng một ma trận (D.apMaTran), khung module đi theo, đổi L / W / H sau đó vẫn đúng.
+   * Cách làm: dựng mẫu THẲNG TRỤC ở một chỗ trống → (tuỳ chọn) dày ván + hậu phủ sau theo chuẩn xưởng → chỉnh L / W / H cho các TẤM vừa đúng kích thước yêu cầu
+   *   (mẫu có cánh phủ ngoài thùng thì hộp các tấm lớn hơn L × W × H) → kiểu khoan → tên tấm tiếng Việt → đưa về chỗ đặt (dời + xoay) bằng một ma trận.
+   * opt: { id, ten, rong, sau, cao (kích thước phủ bì của các tấm), corner: [x, y, z] góc trái – trước – dưới (bỏ trống = hỏi bấm điểm), xoay (độ),
+   *        phong, ma (tên phòng / mã tủ ghi vào tấm), day (dày ván xưởng, 0 = giữ), hau (dày hậu phủ sau, 0 = giữ kết cấu mẫu), mep, khoan (kiểu khoan xưởng), ten_viet, onStatus }
+   * ------------------------------------------------------------------ */
+  const hopNhieu = (ds, kh) => { const m = [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity]; for (const e of ds) { let x; try { x = D.hopTheo(e, kh); } catch (er) { continue; } if (!x.every(isFinite)) continue; for (let i = 0; i < 6; i += 2) { m[i] = Math.min(m[i], x[i]); m[i + 1] = Math.max(m[i + 1], x[i + 1]); } } return m.map(r2); };
+  /** Tên tấm của mẫu kho (tiếng Trung) → tên tiếng Việt để ghi vào bản vẽ. Không nhận ra thì trả nguyên tên cũ. */
+  D.tenTamMoi = t => {
+    t = String(t || '').trim();
+    if (!/[㐀-鿿]/.test(t)) return t;
+    for (const [a, b] of TEN_TAM) {
+      const k = t.indexOf(a); if (k < 0) continue;
+      const truoc = t.slice(0, k), sau = t.slice(k + a.length);
+      const vi = s => s.replace(/[（(]\s*自动\s*[)）]/g, ' (tự động)').replace(/左/g, ' trái').replace(/右/g, ' phải').replace(/上/g, ' trên').replace(/下/g, ' dưới').replace(/中/g, ' giữa').replace(/前/g, ' trước').replace(/后/g, ' sau').replace(/[（]/g, '(').replace(/[）]/g, ')');
+      const tr = vi(truoc), sa = vi(sau);
+      if (/[㐀-鿿]/.test(tr + sa)) return `${b} (${t})`;      // còn chữ chưa dịch được: giữ tên gốc trong ngoặc
+      return (b + (tr ? ' ' + tr.trim() : '') + (sa ? (/^[\s(]/.test(sa) ? '' : ' ') + sa : '')).replace(/\s+/g, ' ').trim();
+    }
+    return t;
+  };
+  const veKhoImpl = async (opt) => {
+    opt = Object.assign({ xoay: 0, ten_viet: true, day: 0, hau: 0, mep: 1, khoan: '', onStatus() {} }, opt || {});
+    opt.onStatus = guard(opt.onStatus);
+    const warnings = [], notes = [];
+    const hong = t => ({ ok: false, kho: true, giai_doan: 'nhap', errors: [t], warnings, notes });
+    const id = Math.round(Number(opt.id)) || 0;
+    if (!(id > 0)) return hong('Chưa chọn mẫu kho.');
+    const kt = [opt.rong, opt.sau, opt.cao].map(v => r2(Number(v)));
+    if (!kt.every(v => v >= 20 && v <= 30000)) return hong('Kích thước rộng / sâu / cao để vẽ mẫu chưa hợp lệ.');
+    if (!D.available()) return hong('Không thấy Chenfeng trong trang này.');
+    if (!D.editing()) return hong('Chenfeng chưa ở màn hình vẽ (đang ở trang chủ hoặc có cửa sổ che kín vùng vẽ) — mở bản vẽ rồi bấm lại.');
+    const n3 = a => Array.isArray(a) && a.length === 3 && a.every(v => typeof v === 'number' && isFinite(v));
+    const xoay = Number(opt.xoay) || 0, ten = String(opt.ten || 'Mẫu kho').trim().slice(0, 60);
+    let goc;
+    if (opt.corner) { if (!n3(opt.corner)) return hong('Toạ độ đặt mẫu phải là 3 số [x, y, z].'); goc = opt.corner.map(r2); }
+    else {
+      opt.onStatus('Bấm 1 điểm trên bản vẽ để đặt mẫu (góc trái – trước – dưới).');
+      goc = await D.hoiDiem('Một Nhà: bấm điểm đặt mẫu kho (góc trái - trước - dưới):');
+      if (!goc) return hong('Đã huỷ — chưa vẽ gì.');
+    }
+    // CHỖ DỰNG: bên phải mọi thứ đang có 6 m (hộp các tấm đo ở đó không lẫn tấm khác; chuẩn hoá hậu cần module thẳng trục)
+    let mx = -Infinity;
+    for (const e of D.all()) { try { const b = e.BoundingBox; if (b && isFinite(b.max.x) && Math.abs(b.max.x) < 1e7) mx = Math.max(mx, b.max.x); } catch (er) { /* bỏ qua đối tượng không có hộp bao */ } }
+    const X0 = isFinite(mx) ? Math.ceil((mx + 6000) / 500) * 500 : 0;
+    const h0 = hmMark();
+    const truocVe = new Set(root.app.Database.ModelSpace.Entitys);
+    const cuaToi = () => root.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && !truocVe.has(e));
+    const errors = [];
+    const xong = (gd, them) => {
+      const added = cuaToi(), h1 = hmMark(), steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : (added.length ? 1 : 0);
+      if (added.length) D.last = { added, steps, mark: h1, kho: true };
+      opt.onStatus(errors.length ? 'Có lỗi — xem thẻ Kết quả.' : 'Xong.');
+      return Object.assign({ ok: errors.length === 0, kho: true, giai_doan: gd, errors, warnings, notes, so_buoc_hoan_tac: steps, mau: { id, ten }, yeu_cau: kt.slice(), goc, xoay_do: xoay, khung: { goc, xoay } }, them || {});
+    };
+    // 1. NHẬP mẫu qua cổng 晨丰导入, thẳng trục
+    opt.onStatus(`Đang tải mẫu “${ten}” từ kho Chenfeng…`);
+    let res;
+    try {
+      res = await D.importCF({ ModelSpace: [{ Type: 'Template', TempalteId: id, Name: ten, BoxSize: kt.slice(), Pos: [0, 0, 0], RoomName: String(opt.phong || ''), CabinetName: String(opt.ma || ten).slice(0, 40), ParamMap: [] }] },
+        [X0, 0, 0], { onStatus: opt.onStatus, timeout: 300000, timeout_khoan: 420000, bao_tai: `Chenfeng đang tải và dựng mẫu “${ten}” — mẫu nhiều tấm có thể mất 1–2 phút (để tab Chenfeng mở trên màn hình cho nhanh)…` });
+    } catch (e) { errors.push(String(e && e.message || e)); return xong(cuaToi().length ? 'xong' : 'nhap'); }
+    if (res.cancelled || !cuaToi().length) { errors.push('Chenfeng không dựng được mẫu này (lệnh nhập bị huỷ, hoặc mẫu không còn trong kho của tài khoản) — chưa vẽ gì.'); return xong('nhap'); }
+    const tamCua = () => cuaToi().filter(D.isBoard);
+    let boards = tamCua();
+    const T = boards.length ? rootTpl(boards[0]) : null;
+    const vat = () => { const b = tamCua(); return b.length ? b : cuaToi().filter(e => { try { return isFinite(e.BoundingBox.min.x) && !D.isHole(e); } catch (er) { return false; } }); };
+    const khM = () => (boards.length ? D.khungCua(boards[0]) : null);
+    if (!boards.length) notes.push('Mẫu này không có tấm ván (mô hình trang trí / phụ kiện): bảng chỉ đặt đúng chỗ, không chỉnh ván, không khoan.');
+    // 2. DÀY VÁN theo xưởng (tham số BH của module) — trước khi đo, vì đổi dày ván có thể làm đổi phủ bì
+    let dv = null;
+    if (boards.length && opt.day > 0) {
+      try { dv = await D.dayVan(boards[0], opt.day, { onStatus: opt.onStatus }); } catch (e) { dv = { ok: false, ly_do: String(e && e.message || e).slice(0, 160) }; }
+      if (dv.ok && !dv.da_dung) notes.push(`Dày ván: ${dv.tu} → ${dv.day} cho ${dv.doi} tấm (tham số BH của module).${dv.con ? ` Còn ${dv.con} tấm vẫn dày ${dv.tu} (${dv.ten_con.slice(0, 5).join(', ')}) — tham số của mẫu không nối tới các tấm này, đổi tay nếu cần.` : ''}`);
+      else if (!dv.ok) notes.push('Dày ván giữ nguyên như mẫu: ' + dv.ly_do);
+      boards = tamCua();
+    }
+    // 3. HẬU PHỦ SAU theo chuẩn xưởng (module đang thẳng trục — xoay rồi thì không chuẩn hoá được)
+    let ch = null;
+    if (boards.length && opt.hau > 0) {
+      try { ch = await D.chuanHoa((dv && dv.tam && !dv.tam.IsErase && dv.tam) || boards[0], { hau: opt.hau, mep: opt.mep, khoan: opt.khoan, khoan_lai: false, onStatus: opt.onStatus }); } catch (e) { ch = { ok: false, ly_do: String(e && e.message || e).slice(0, 200) }; }
+      if (ch.ok && ch.da_chuan) notes.push((ch.ghi_chu || [])[0] || 'Hậu của mẫu đã phủ sau lưng sẵn.');
+      else if (ch.ok) { notes.push(`Hậu: ${ch.so_hau} tấm chuyển thành hậu ${r2(opt.hau)} li phủ sau lưng thùng (lùi mép ${r2(opt.mep)}), không khoan${ch.sua_mep_sau && ch.sua_mep_sau.length ? `; mép sau của ${ch.sua_mep_sau.length} tấm thùng lùi lại cho hậu phủ lên` : ''}${ch.xoa_giang ? `; đã bỏ ${ch.xoa_giang} thanh giằng sau hậu` : ''}.`); for (const g of (ch.ghi_chu || [])) warnings.push(g); }
+      else warnings.push('Hậu giữ nguyên kết cấu của mẫu (chưa chuyển được sang hậu phủ sau): ' + ch.ly_do);
+      boards = tamCua();
+    }
+    // 4. VỪA KÍCH THƯỚC: hộp của các TẤM (trong hệ module) phải đúng rộng × sâu × cao yêu cầu.
+    //    Mẫu có cánh / tấm phủ ngoài khung module thì hộp các tấm lớn hơn L × W × H → chỉnh tham số trục đó đúng bằng phần dư rồi đo lại.
+    //    Trục nào chỉnh rồi mà các tấm vẫn không về đúng số (mẫu có phần CỐ ĐỊNH theo trục đó — đo trên "Tủ giày 10" của kho: 2 tấm sâu cố định 350) → trả tham số trục đó
+    //    về số yêu cầu, không để module lệch nửa vời (thùng nông đi mà tấm cố định vẫn thò ra).
+    let kh = khM(), hop = hopNhieu(vat(), kh);
+    const tran = () => [r2(hop[1] - hop[0]), r2(hop[3] - hop[2]), r2(hop[5] - hop[4])];
+    const lech = () => tran().map((v, i) => r2(kt[i] - v));
+    let vua = null;
+    if (T && boards.length && lech().some(d => Math.abs(d) > 0.6)) {
+      const ps = [T.LParam, T.WParam, T.HParam];
+      if (ps.every(p => p && isFinite(Number(p.value)))) {
+        const cu = ps.map(p => r2(Number(p.value))), d0 = lech(), moi = cu.map((v, i) => (Math.abs(d0[i]) > 0.6 ? r2(v + d0[i]) : v));
+        if (moi.every(v => v > 20)) {
+          opt.onStatus(`Chỉnh kích thước module cho vừa: ${moi.join(' × ')}…`);
+          let mo = false, loi = '', den = cu.slice();
+          try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_VUA'); mo = true; } } catch (e) { mo = false; }
+          const cay = []; (function di(t, n) { if (!t || cay.includes(t) || n > 8) return; cay.push(t); for (const c of (t.Children || [])) di(idOf(c), n + 1); })(T, 0);
+          for (const b of boards) { try { b.WriteAllObjectRecord(); } catch (e) { /* bỏ qua */ } }
+          for (const t of cay) { try { if (typeof t.WriteAllObjectRecord === 'function') t.WriteAllObjectRecord(); } catch (e) { /* bỏ qua */ } }
+          const dat = async gt => { ps.forEach((p, i) => { if (r2(Number(p.value)) !== gt[i] || (p.expr !== '' && p.expr != null && Number(p.expr) !== gt[i])) p.expr = String(gt[i]); }); await T.UpdateTemplateTree(); await sleep(300); boards = tamCua(); kh = khM(); hop = hopNhieu(vat(), kh); den = gt.slice(); };
+          try {
+            await dat(moi);
+            const d1 = lech(), tra = moi.map((v, i) => (v !== cu[i] && Math.abs(d1[i]) > 0.6 ? cu[i] : v));
+            if (tra.some((v, i) => v !== moi[i])) await dat(tra);
+          } catch (e) { loi = String(e && e.message || e).slice(0, 120); }
+          if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
+          await D.settle(500, 60000);
+          boards = tamCua(); kh = khM(); hop = hopNhieu(vat(), kh);
+          vua = { tu: cu, den, loi };
+          if (loi) warnings.push('Chenfeng báo lỗi khi chỉnh kích thước module: ' + loi);
+          else if (den.some((v, i) => v !== cu[i])) notes.push(`Kích thước module (L × W × H) chỉnh từ ${cu.join(' × ')} thành ${den.join(' × ')} để các tấm vừa đúng ${kt.join(' × ')} (mẫu có phần phủ ra ngoài khung module, vd cánh phủ trước thùng).`);
+        }
+      }
+    }
+    {
+      const d = lech(), tr = tran(), TEN = ['rộng', 'sâu', 'cao'], khac = TEN.map((t, i) => (Math.abs(d[i]) > 0.6 ? `${t} ${tr[i]} (yêu cầu ${kt[i]})` : '')).filter(Boolean);
+      if (khac.length) warnings.push(`Mẫu này không co giãn đúng theo kích thước yêu cầu: các tấm đang chiếm ${khac.join(', ')} — mẫu có phần kích thước cố định, hoặc cánh / tấm phủ ngoài khung module mà tham số của mẫu không bù được. Lưng, mép trái và đáy vẫn đặt đúng chỗ; phần chênh nằm ở phía trước / bên phải / phía trên. Chỉnh tiếp ở ô Thông số của Chenfeng.`);
+    }
+    // 5. KIỂU KHOAN: mẫu của cửa hàng mang kiểu khoan không có trong cấu hình tài khoản → đổi sang kiểu của xưởng, khoan lại (cũng là lần khoan sau khi đổi dày ván / hậu / kích thước)
+    let fix = null;
+    if (boards.length) {
+      const daDoi = !!(vua || (dv && dv.ok && !dv.da_dung) || (ch && ch.ok && !ch.da_chuan));
+      const kq = opt.khoan || D.drillTypes()[0] || '';
+      try { fix = await D.finalize(boards, kq, { ep: daDoi, kem: boards.filter(b => { try { return (b.BoardProcessOption.highDrill || []).every(x => !x || x === Core.KHONG_KHOAN); } catch (e) { return false; } }), onStatus: opt.onStatus }); } catch (e) { fix = { fixed: 0, normalized: 0, reason: String(e && e.message || e).slice(0, 160) }; }
+      if (fix.fixed) notes.push(`Kiểu khoan của mẫu (${(fix.old || []).join(', ')}) không có trong cấu hình tài khoản: đã đổi sang ${fix.to} cho ${fix.fixed} tấm rồi cho Chenfeng khoan lại.`);
+      if (fix.reason) warnings.push(fix.reason);
+      boards = tamCua();
+    }
+    // 6. TÊN TẤM tiếng Việt (sau chuẩn hoá — bước đó nhận tấm hậu / cánh theo tên gốc) — 1 bước lịch sử riêng
+    let doiTen = 0;
+    if (opt.ten_viet && boards.length) {
+      const ds = []; for (const b of boards) { const cu = String(b.Name || ''), moi = D.tenTamMoi(cu); if (moi && moi !== cu) ds.push([b, moi]); }
+      if (ds.length) {
+        let mo = false;
+        try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_TENTAM'); mo = true; } } catch (e) { mo = false; }
+        for (const [b, moi] of ds) { try { b.Name = moi; doiTen++; } catch (e) { /* bỏ qua */ } }
+        if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
+      }
+    }
+    // 7. ĐƯA VỀ CHỖ ĐẶT (dời + xoay quanh trục đứng) — 1 bước hoàn tác. Neo theo LƯNG: mép trái, đáy và mặt SAU của hộp các tấm về đúng mép trái, đáy và
+    //    mặt sau của chỗ đặt (lưng tủ là thứ áp tường) — mẫu sâu hơn yêu cầu thì phần dư nhô ra phía trước, không đâm vào tường.
+    await D.settle(400, 20000);
+    kh = khM(); hop = hopNhieu(vat(), kh);
+    const neo = [hop[0], r2(hop[3] - kt[1]), hop[4]];
+    const p0 = kh ? apM(kh.G, neo) : neo;
+    let dat = null, hopCuoi = null;
+    if (p0.every(isFinite)) {
+      opt.onStatus(xoay ? `Đưa mẫu về chỗ đặt, xoay ${r2(xoay)}°…` : 'Đưa mẫu về chỗ đặt…');
+      try {
+        const C = lopM4(), nguon = D.taoKhung(p0, kh ? kh.xoay : 0), Mx = new C().makeRotationZ(xoay * Math.PI / 180);
+        Mx.setPosition(goc[0], goc[1], goc[2]); Mx.multiply(nguon.Gn);
+        dat = await D.apMaTran(cuaToi(), Mx, 'MNCF_DAT');
+        if (dat.ok) {
+          hopCuoi = hopNhieu(vat(), D.taoKhung(goc, xoay));
+          const lc = [hopCuoi[0], r2(hopCuoi[3] - kt[1]), hopCuoi[4]];
+          if (lc.some(v => Math.abs(v) > 0.6)) errors.push(`Đưa mẫu về chỗ đặt xong bị lệch (mép trái / lưng / đáy cách chỗ đặt ${lc.join(' / ')}) — hoàn tác rồi vẽ lại.`);
+        } else errors.push(`Mẫu đã dựng xong ở chỗ trống (x ≈ ${r2(p0[0])}) nhưng chưa đưa được về chỗ đặt: ${dat.reason} — dùng lệnh MOVE của Chenfeng để dời.`);
+      } catch (e) { errors.push(`Chưa đưa được mẫu về chỗ đặt: ${e && e.message || e}`); }
+    } else errors.push('Không đo được hộp bao của mẫu vừa dựng — mẫu đang nằm ở chỗ dựng tạm, dùng lệnh MOVE của Chenfeng để dời.');
+    const tat = cuaToi(), ten_tam = {};
+    for (const b of tat.filter(D.isBoard)) { const t = String(b.Name || ''); ten_tam[t] = (ten_tam[t] || 0) + 1; }
+    return xong('xong', { so_tam: tat.filter(D.isBoard).length, so_phu_kien: tat.filter(D.isHardware).length, so_lo: tat.filter(D.isHole).length, kich: hopCuoi ? [r2(hopCuoi[1] - hopCuoi[0]), r2(hopCuoi[3] - hopCuoi[2]), r2(hopCuoi[5] - hopCuoi[4])] : tran(),
+      hop: hopCuoi, vua, day_van: dv, chuan_hoa: ch, sua_khoan: fix, doi_ten: doiTen, ten_tam, dat, module: T ? String(T.Name || '') : '', la_module: !!kh });
+  };
+  /** Vẽ một mẫu của kho Chenfeng vào bản vẽ theo kích thước + chỗ đặt (xem chú thích ở trên). Giữ Web Lock như D.draw để tab nền không bị đóng băng giữa chừng. */
+  D.veKho = async (opt) => {
+    D.boManChe();
+    let res, ran = false;
+    const run = async () => { ran = true; res = await veKhoImpl(opt); return res; };
+    try {
+      const nav = root.navigator;
+      if (nav && nav.locks && typeof nav.locks.request === 'function') { await nav.locks.request('mncf-ve-tu', { mode: 'shared' }, run); return res; }
+    } catch (e) { if (ran) throw e; }
+    return run();
   };
 
   /* ------------------------------------------------------------------ *

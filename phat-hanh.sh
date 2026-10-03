@@ -8,7 +8,7 @@ node test/core.test.js | tail -1
 node test/dich.test.js | tail -1
 node test/phong.test.js | tail -1
 if node -e "require('playwright')" 2>/dev/null; then
-  for t in chuanhoa ui phong-ui ext nap; do node test/$t.test.js | tail -1; done
+  for t in chuanhoa ui phong-ui ext nap kho; do node test/$t.test.js | tail -1; done
 else
   echo "(bỏ qua phép thử cần trình duyệt: chưa có playwright — đặt NODE_PATH / PLAYWRIGHT_BROWSERS_PATH rồi chạy lại nếu sửa giao diện / bộ nạp)"
 fi

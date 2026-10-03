@@ -434,5 +434,77 @@ T('Điện – nước hiện trạng (bản 1.18 — anh Jason 03/10/2026 23:46
   eq(P.dienNuocDXF(P.hinhHoc(P.macDinh())), { dxf: '', so: 0, hop: null }, 'phòng không có điểm: không có file');
 });
 
+T('Khung đặt mẫu kho, chia ô, sửa ô trên mặt đứng (bản 1.19 — anh Jason 03/10/2026 20:49: "vách tivi … chia ô ra rồi chọn vào từng khu vực")', () => {
+  const p = P.macDinh();
+  p.khung = [{ ten: 'K1', tuong: 0, cach: 0, rong: 3600, cao: 2700, sau: 400 },
+    { ten: 'TV', tuong: 1, cach: 500, rong: 2000, cao: 600, sau: 400, z: 300, kieu: 'kho', nhom: 'tivi', kho: { id: '9621', ten: 'Tủ tivi 1', hinh: 'https://api.cfcad.cn/CAD/logos/a.jpg', kt: [2800, '350', 2400], rac: 1 } },
+    { ten: 'X', tuong: 2, cach: 1500, rong: 500, cao: 500, sau: 300, kieu: 'kho', kho: { id: 0, ten: 'hỏng' } }, { ten: 'Y', tuong: 2, cach: 2100, rong: 500, cao: 500, sau: 300, kieu: 'la', kho: { id: 5 } }];
+  const q = P.chuanHoa(p).khung;
+  ok(q[0].kieu === undefined && q[0].kho === undefined, 'khung thường: không có kieu / kho');
+  eq([q[1].kieu, q[1].kho, q[1].nhom], ['kho', { id: 9621, ten: 'Tủ tivi 1', hinh: 'https://api.cfcad.cn/CAD/logos/a.jpg', kt: [2800, 350, 2400] }, 'tivi'], 'khung mẫu kho: giữ mã, tên, ảnh, kích thước mặc định (đã ép số), nhóm; bỏ trường lạ');
+  ok(q[2].kieu === 'kho' && q[2].kho === undefined, 'mã mẫu không hợp lệ → khung mẫu kho chưa chọn mẫu');
+  ok(q[3].kieu === undefined && q[3].kho === undefined, 'kieu lạ → khung thường, bỏ mẫu');
+  eq(P.chuanHoa(P.chuanHoa(p)), P.chuanHoa(p), 'chuẩn hoá hai lần ra như nhau');
+  const H = P.hinhHoc(p);
+  eq(H.loi, [], 'không lỗi');
+  ok(co(P.tomTat(H), /TV 2000×600×400 \(mẫu kho: Tủ tivi 1\) · X 500×500×300 \(mẫu kho\)/), 'tóm tắt ghi khung nào đặt mẫu kho', P.tomTat(H));
+  eq(P.datKhung(H, 1), { goc: [3200, -500, 300], xoay: -90, tuong: 'B' }, 'chỗ đặt của khung treo trên tường B: đáy +300, xoay −90°');
+  // cột chạm khung mẫu kho: không khấu được → lưu ý (khung thường thì ghi chú "sẽ được khấu cột")
+  const pc = P.macDinh(); pc.can = [{ tuong: 0, loai: 'cot', cach: 0, rong: 300, nho: 200 }];
+  pc.khung = [{ ten: 'A1', tuong: 0, cach: 0, rong: 1500, cao: 2700, sau: 400, kieu: 'kho' }];
+  let Hc = P.hinhHoc(pc);
+  ok(co(Hc.luu_y, /Khung A1 \(mẫu kho\) vướng cột 1.*mẫu kho không khấu cột được/) && !co(Hc.ghi_chu, /KHẤU CỘT/), 'cột lấn vào khung mẫu kho: báo vướng, không hứa khấu cột', [Hc.luu_y, Hc.ghi_chu]);
+  delete pc.khung[0].kieu; Hc = P.hinhHoc(pc);
+  ok(co(Hc.ghi_chu, /Khung A1: cột 1 trùm đầu trái khung.*KHẤU CỘT/), 'cùng khung đó để tủ tự chia: vẫn khấu cột như trước');
+  // điện – nước sau khung mẫu kho: lời nhắc riêng
+  const pd = P.macDinh(); pd.dn = [{ tuong: 0, loai: 'o_dien', cach: 500, cao: 300 }]; pd.khung = [{ ten: 'A1', tuong: 0, cach: 0, rong: 1500, cao: 2700, sau: 400, kieu: 'kho' }];
+  ok(co(P.hinhHoc(pd).ghi_chu, /Khung A1 che 1 điểm điện – nước.*Khung đặt mẫu kho: vẽ xong tự khoét/), 'điểm điện sau khung mẫu kho: nhắc tự khoét sau khi vẽ');
+
+  // CHIA Ô
+  let r = P.chiaKhung(p, 0, 3, 'doc');
+  eq([r.tu, r.den, r.p.khung.length], [0, 2, 6], 'chia 3: thay khung K1 bằng 3 ô, các khung khác giữ nguyên thứ tự');
+  eq(r.p.khung.slice(0, 3).map(k => [k.ten, k.cach, k.z, k.rong, k.cao, k.sau]), [['K1.1', 0, 0, 1200, 2700, 400], ['K1.2', 1200, 0, 1200, 2700, 400], ['K1.3', 2400, 0, 1200, 2700, 400]], '3 ô cạnh nhau, giữ cao + sâu');
+  eq(P.hinhHoc(r.p).loi, [], 'các ô chạm mép nhau: không báo chồng');
+  const le = P.chiaKhung(Object.assign(P.macDinh(), { khung: [{ ten: 'L', tuong: 0, cach: 100, rong: 1000, cao: 2700, sau: 400, z: 0 }] }), 0, 3, 'doc').p.khung;
+  eq(le.map(k => [k.cach, k.rong]), [[100, 333], [433, 333], [766, 334]], 'số lẻ dồn vào ô cuối: tổng vẫn đúng 1000');
+  r = P.chiaKhung(r.p, 1, 2, 'ngang');
+  eq(r.p.khung.slice(1, 3).map(k => [k.ten, k.cach, k.z, k.rong, k.cao]), [['K1.2.1', 1200, 0, 1200, 1350], ['K1.2.2', 1200, 1350, 1200, 1350]], 'chia ngang: 2 ô chồng nhau từ dưới lên');
+  const rk = P.chiaKhung(p, 1, 2, 'doc').p.khung.slice(1, 3);
+  ok(rk.every(k => k.kieu === 'kho' && k.kho === undefined && k.nhom === 'tivi' && k.z === 300), 'chia khung mẫu kho: ô con giữ loại + nhóm + đáy, bỏ mẫu đã chọn (mỗi ô chọn lại)', rk);
+  ok(P.chiaKhung(p, 0, 1, 'doc') === null && P.chiaKhung(p, 0, 13, 'doc') === null && P.chiaKhung(p, 9, 2, 'doc') === null && P.chiaKhung(p, 2, 12, 'doc') === null, 'số ô ngoài 2…12, khung không có, ô nhỏ hơn 50 → không chia');
+  const trung = P.chiaKhung(Object.assign(P.macDinh(), { khung: [{ ten: 'K', tuong: 0, cach: 0, rong: 1000, cao: 2700, sau: 400 }, { ten: 'K.1', tuong: 1, cach: 0, rong: 500, cao: 500, sau: 300 }] }), 0, 2, 'doc').p.khung.map(k => k.ten);
+  ok(new Set(trung).size === 3, 'tên ô con không trùng tên khung đã có', trung);
+
+  // SỬA Ô: ô kề nhận phần bù
+  let s = P.chiaKhung(Object.assign(P.macDinh(), { khung: [{ ten: 'K1', tuong: 0, cach: 0, rong: 3600, cao: 2700, sau: 400 }] }), 0, 3, 'doc').p;
+  let d = P.doiCoKhung(s, 0, 'rong', 600);
+  eq([d.ke, d.p.khung.map(k => [k.cach, k.rong])], ['K1.2', [[0, 600], [600, 1800], [2400, 1200]]], 'thu ô trái còn 600: ô kề phải giãn ra bù');
+  d = P.doiCoKhung(d.p, 2, 'rong', 600);
+  eq([d.ke, d.p.khung.map(k => [k.cach, k.rong])], ['K1.2', [[0, 600], [600, 2400], [3000, 600]]], 'thu ô phải (không có ô kề phải): mép phải đứng yên, ô kề trái nhận bù');
+  d = P.doiCoKhung(P.chiaKhung(d.p, 1, 2, 'ngang').p, 1, 'cao', 450);
+  eq([d.ke, d.p.khung.slice(1, 3).map(k => [k.z, k.cao])], ['K1.2.2', [[0, 450], [450, 2250]]], 'sửa cao ô dưới: ô trên nhận bù');
+  ok(/Ô kề K1\.2\.2 chỉ còn 20/.test(P.doiCoKhung(d.p, 1, 'cao', 2680).loi), 'ô kề còn dưới 50 → báo, không sửa');
+  eq(P.doiCoKhung(d.p, 0, 'cao', 2000).ke, '', 'ô không có ô kề trùng khít (ô trái cao khác) → chỉ đổi ô đó');
+  eq(P.doiCoKhung(d.p, 0, 'cao', 2000).p.khung[0].cao, 2000, '… cao mới được ghi');
+  ok(P.doiCoKhung(d.p, 0, 'rong', 20) === null && P.doiCoKhung(d.p, 99, 'rong', 500) === null, 'số dưới 50 / khung không có → null');
+  eq(P.hinhHoc(d.p).loi, [], 'sau các lần sửa: không hở, không chồng');
+
+  // MẶT ĐỨNG
+  d.p.khung[2].kieu = 'kho'; d.p.khung[2].kho = { id: 9, ten: 'Tủ tivi 13' };
+  const Hd = P.hinhHoc(d.p), md = P.matDungSVG(Hd, 0, { rong_px: 420, chon_khung: 2, sua: true }), md0 = P.matDungSVG(Hd, 0, { rong_px: 420 });
+  ok(!/NaN|undefined|Infinity/.test(md), 'mặt đứng không có số hỏng');
+  for (const k of ['khung.0.rong', 'khung.1.cao', 'khung.2.sau', 'khung.2.z']) ok(md.includes(`data-sua="${k}"`), 'mặt đứng (chế độ sửa): bấm được ' + k);
+  ok(md.includes('data-sua="khung.0.cach"') === false && (md.match(/data-sua="khung\.\d\.cach"/g) || []).length === 0, 'ô sát đầu tường / ô có ô kề trái: không có số “cách trái” để sửa (khoảng hở = 0 hoặc tính theo ô kề)');
+  ok(/mẫu: Tủ tivi 13/.test(md) && /stroke-dasharray/.test(md.split('data-khung="2"')[1].split('/>')[0]) && md.includes('#0b7a5e'), 'ô mẫu kho: màu + nét riêng, ghi tên mẫu');
+  ok(/\+450/.test(md) && !md0.includes('data-sua="khung'), 'ô treo ghi +450; không ở chế độ sửa thì không có số bấm được');
+  ok(/2400 × 2250 · sâu 400/.test(md0), 'không ở chế độ sửa: dòng kích thước là chữ liền (như bản trước)');
+  const hoP = Object.assign(P.macDinh(), { khung: [{ ten: 'A', tuong: 0, cach: 300, rong: 1000, cao: 2700, sau: 400 }, { ten: 'B', tuong: 0, cach: 1800, rong: 1000, cao: 2700, sau: 400 }] }), mdH = P.matDungSVG(P.hinhHoc(hoP), 0, { rong_px: 420, sua: true });
+  ok(mdH.includes('data-sua="khung.0.cach"') && !mdH.includes('data-sua="khung.1.cach"') && />500</.test(mdH) && />800</.test(mdH), 'khung cách đầu tường 300: số bấm sửa được; khe 500 giữa 2 khung và 800 còn lại bên phải chỉ ghi', mdH.match(/>\d+</g));
+
+  // khung treo mở thành tủ: không có chân
+  const tu = P.tuChoKhung(C, C.DEFAULT_SPEC, { ten: 'TR', rong: 1200, cao: 900, sau: 350, z: 1500, mau: '' }, 'P', null, -1), tuSan = P.tuChoKhung(C, C.DEFAULT_SPEC, { ten: 'S', rong: 1200, cao: 2400, sau: 600, z: 0, mau: '' }, 'P', null, -1);
+  ok(tu.spec.chan.cao === 0 && co(tu.ghi_chu, /Khung treo \(đáy \+1500\): bỏ chân tủ/) && tuSan.spec.chan.cao === C.DEFAULT_SPEC.chan.cao, 'khung treo → tủ không chân (có ghi chú); khung đứng sàn giữ chân', [tu.spec.chan, tu.ghi_chu]);
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

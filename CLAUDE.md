@@ -4,7 +4,7 @@ Tiện ích "Một Nhà · Vẽ tủ vào Chenfeng" (plugin cho Chenfeng WebCAD 
 
 ## Kho này là KÊNH PHÁT HÀNH
 - Mọi máy đã cài tiện ích tự tải `dist/mn-chenfeng.js` trên nhánh `main` mỗi lần mở Chenfeng (xem README → Tự cập nhật). **Đẩy lên `main` = phát hành cho xưởng.**
-- Chỉ đẩy khi: `node build.js` đã chạy, mọi bộ thử đạt (core, dich, phong, chuanhoa, ui, phong-ui, ext, nap), và `dist/phien-ban.json` khớp `dist/mn-chenfeng.js` (build tự làm). Dùng `./phat-hanh.sh "ghi chú"`.
+- Chỉ đẩy khi: `node build.js` đã chạy, mọi bộ thử đạt (core, dich, phong, chuanhoa, ui, phong-ui, ext, nap, kho), và `dist/phien-ban.json` khớp `dist/mn-chenfeng.js` (build tự làm). Dùng `./phat-hanh.sh "ghi chú"`.
 - Đổi hành vi → tăng `VERSION` trong `src/mncf-core.js` (sửa luôn chuỗi phiên bản trong `test/ui.test.js`).
 - Việc đang làm dở, chưa thử xong: để ở nhánh khác, không để trên `main`.
 - Sửa `src/mncf-nap.js` hoặc manifest → dựng lại `tai-ve/mn-chenfeng-tien-ich.zip` (nội dung = `dist/extension/`, thư mục gốc trong zip tên `mn-chenfeng/`) và báo anh cài lại; sửa phần khác thì KHÔNG cần đụng zip.
@@ -21,6 +21,7 @@ NODE_PATH=/home/claude/.npm-global/lib/node_modules PLAYWRIGHT_BROWSERS_PATH=/op
 - `mncf-core.js` chạy được cả trong Node (không đụng DOM). Mọi thứ đụng Chenfeng nằm trong `mncf-driver.js`.
 - Tủ mặc định vẽ bằng lệnh gốc Chenfeng (`D.veGoc`, kế hoạch từ `Core.keHoachGoc`): vách chạy suốt, nóc / đáy theo từng khoang, hậu 6 li phủ sau. Trường hợp chưa hỗ trợ (khấu cột, hậu khác kiểu phủ, tủ xoay) rơi về cách nhập tấm (`drawImpl`) và phải báo cho người dùng.
 - Không bấm "Lưu cấu hình" trong hộp thoại Chenfeng; trả lại lựa chọn của người dùng sau mỗi lệnh.
+- Mẫu kho Chenfeng (`D.veKho`, thẻ Kho mẫu): chỉ ĐỌC kho của tài khoản đang đăng nhập (`CAD-dirQuery`, `CAD-moduleList`); mã nguồn không ghi sẵn mã thư mục / mã mẫu nào — nhóm nhanh dò theo TÊN thư mục. Mẫu dựng thẳng trục ở chỗ trống rồi mới đưa về chỗ đặt bằng một ma trận, neo theo lưng.
 - Cả tủ lệnh gốc được gom thành MỘT module (`ganModuleGoc`): thùng là mẫu con, biểu thức L / W / H lấy từ `Core.heSo`. Tủ luôn vẽ thẳng trục ở chỗ trống rồi đưa về chỗ đặt bằng một ma trận (`D.apMaTran`) — lệnh ROTATE của Chenfeng không xoay được cây mẫu gốc.
 - Lệnh gốc dò khoảng trống trên HÌNH đang dựng, mà Chenfeng đưa hình tấm mới vào Scene trễ một nhịp `setTimeout` (tab bị che: trễ cả giây). Mọi lần dò phải đi qua `doKhoang`: `hienHinh` → `veNgay` → rê chuột cho Chenfeng dò thử → so hộp xem trước với `Core.khoangMong`. Đừng gọi thẳng `D.input` cho lệnh hỏi khoảng trống.
 - Bộ thử nào nạp tiện ích thật thì phải `require('./kho-gia')` để chặn kênh cập nhật về `dist/` trong máy; không thì phép thử chạy bản đã phát hành trên mạng.

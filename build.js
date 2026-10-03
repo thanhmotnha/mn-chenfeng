@@ -71,6 +71,23 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.19 — VÁCH TIVI / ĐẦU GIƯỜNG: CHIA Ô TRÊN MẶT ĐỨNG + CHỌN MẪU KHO CHENFENG
+ Thẻ Phòng: mỗi "khung" là một ô trên mặt tường.
+   • Tạo ô: "+ Thêm khung", hoặc bật "＋ Vẽ khung trên mặt đứng" rồi KÉO CHUỘT ngay trên mặt đứng của tường (số bắt chẵn 10, bám mép tường / cửa / khung có sẵn).
+   • Chia ô: ở thẻ của khung chọn số ô rồi bấm "cạnh nhau" hoặc "chồng lên nhau" (vd vách tivi 3600: chia 3 cạnh nhau, ô giữa chia 2 tầng).
+   • Sửa ô: bấm vào SỐ của ô trên mặt đứng (rộng, cao, sâu, cách trái, đáy) rồi gõ lại. Sửa rộng / cao thì ô kề tự nhận phần bù — không hở, không chồng.
+   • Mỗi ô chọn "Đặt gì vào khung": Tủ tự chia khoang (mở ở thẻ Tủ như trước; ô treo thì tủ không chân) hoặc MẪU KHO CHENFENG.
+ Thẻ Kho mẫu (chỉ có trong Chenfeng): mẫu trong kho của tài khoản, có hình — nhóm nhanh (Tủ tivi, Tủ áo, Tủ giày…), chọn thư mục, tìm theo tên.
+   • Từ khung: "Chọn mẫu kho…" → bấm mẫu → "Dùng mẫu này cho khung" → "Vẽ mẫu vào khung": mẫu dựng đúng rộng × sâu × cao của ô, quay lưng vào tường,
+     đúng cao độ đáy của ô.
+   • Không cần khung: chọn mẫu, gõ Rộng / Sâu / Cao rồi "Đặt bằng chuột — bấm vào chân tường" (như đặt tủ bằng chuột) hoặc "Vẽ tại 1 điểm bấm".
+   • Bảng tự làm thêm: kiểu khoan của cửa hàng (三合一, 二合一…) không có trong cấu hình tài khoản → đổi sang kiểu khoan của xưởng rồi khoan lại;
+     "Theo chuẩn xưởng" (dày ván + hậu mỏng phủ sau; mẫu kết cấu lạ thì giữ nguyên, có báo lý do); "Tên tấm tiếng Việt" (Hồi trái, Đợt, Cánh mở trái…);
+     mẫu có cánh phủ ngoài thùng thì chỉnh W để cả cánh nằm gọn trong chiều sâu ô.
+   • Mẫu vào bản vẽ vẫn là MODULE của Chenfeng: đổi L / W / H và tham số riêng (số đợt, khoang…) ở ô Thông số. Mẫu không co giãn theo kích thước thì bảng
+     báo "cần … / đang chiếm …". Thẻ Kết quả có "Hoàn tác lần vẽ này".
+ Giới hạn: mẫu kho không khấu cột được (bảng báo khi ô vướng cột); bộ tủ nhiều thùng của cửa hàng thường không chuyển được hậu sang phủ sau.
+
 MỚI Ở BẢN 1.18 — ĐIỆN – NƯỚC HIỆN TRẠNG (Ổ ĐIỆN, CÔNG TẮC, CẤP – THOÁT NƯỚC, THOÁT SÀN)
  Thẻ Phòng → khung "Điện – nước": bấm + Ổ điện / + Công tắc / + Cấp nước / + Thoát nước / + Thoát sàn / + Ống chờ sàn / + Điểm khác (điểm nằm trên
  tường đang chọn) → gõ "cách trái" (từ đầu trái tường tới TÂM điểm) và "cao tâm" (từ sàn); điểm dưới sàn gõ "cách tường". Điểm hiện ngay trên mặt
