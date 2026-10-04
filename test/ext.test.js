@@ -43,6 +43,16 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     const man = JSON.parse(fs.readFileSync(path.join(EXT, 'manifest.json'), 'utf8'));
     ok((await page.evaluate(() => window.MNCF.version)) === man.version, 'tiện ích tự nạp vào trang (world MAIN), đúng phiên bản manifest');
     ok(await H.locator('.launch').isVisible() && !(await H.locator('.panel').isVisible()), 'chỉ hiện nút mở bảng, bảng đang thu gọn');
+    // bản 1.20.1 — phím tắt Alt + M ẩn / hiện bảng (anh Jason 04/10/2026 09:10: "cho anh phím tắt ẩn hiện tool"); phím đó không lọt xuống trang Chenfeng
+    await page.evaluate(() => { window.__phimLot = 0; document.addEventListener('keydown', e => { if (e.altKey && e.code === 'KeyM') window.__phimLot++; }); });
+    await page.keyboard.press('Alt+KeyM');
+    ok(await H.locator('.panel').isVisible() && !(await H.locator('.launch').isVisible()), 'Alt + M: mở bảng');
+    await page.keyboard.press('Alt+KeyM');
+    ok(!(await H.locator('.panel').isVisible()) && await H.locator('.launch').isVisible(), 'Alt + M lần nữa: thu gọn, còn lại nút mở bảng');
+    ok((await page.evaluate(() => window.__phimLot)) === 0, 'phím tắt không lọt xuống trang Chenfeng');
+    await page.keyboard.press('Control+Alt+KeyM'); await page.keyboard.press('Alt+Shift+KeyM');
+    ok(!(await H.locator('.panel').isVisible()) && (await page.evaluate(() => window.__phimLot)) === 2, 'tổ hợp có thêm Ctrl / Shift không phải phím tắt của bảng: bảng đứng yên, phím vẫn tới Chenfeng');
+    ok(/Alt \+ M/.test(await H.locator('.launch').getAttribute('title')) && /Alt \+ M/.test(await H.locator('[data-act="close"]').getAttribute('title')), 'nút mở bảng và nút thu gọn có ghi phím tắt');
     await H.locator('.launch').click();
     ok(await H.locator('[data-act="draw"]').isVisible() && /Vẽ vào Chenfeng/.test(await H.locator('[data-act="draw"]').innerText()), 'bảng nổi có nút "Vẽ vào Chenfeng"');
     ok((await H.locator('[data-dot]').count()) > 0 && (await H.locator('[data-o]').count()) > 0, 'hình đứng tương tác trong bảng nổi');

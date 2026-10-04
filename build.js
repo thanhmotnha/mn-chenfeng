@@ -71,6 +71,9 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.20.1 — PHÍM TẮT ẨN / HIỆN BẢNG
+ Alt + M: ẩn / hiện bảng Một Nhà trong Chenfeng (khi ẩn còn lại nút "Một Nhà · Vẽ tủ" ở góc dưới bên phải). Phím này Chenfeng và Chrome không dùng.
+
 MỚI Ở BẢN 1.20 — DÒ LỖI SẢN XUẤT (THIẾT KẾ + TẤM VÀ LỖ KHOAN THẬT)
  Trước khi vẽ — thẻ Tủ có phiếu "Tự kiểm trước khi vẽ" (bấm để mở), mỗi mục một dòng ✓ / ! / ✗.
    • Thêm các phép kiểm theo chuẩn kết cấu: nhịp đợt (khoang lọt lòng quá 1000 → võng), cánh cao quá 2300 (cong vênh), ngăn kéo rộng quá 1000,
