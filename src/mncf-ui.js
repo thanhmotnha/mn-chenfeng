@@ -1033,7 +1033,18 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
             : `Trang sản xuất mở ở tab mới (máy chủ Chenfeng tính khoảng ${giay} giây cho ${r.so_tam} tấm). Ở đó: bảng 优化进度 hiện → <b>开始优化</b> → đếm 3–5 giây → <b>停止优化</b> → <b>确认新优化</b> (thanh tiến độ không bao giờ tự dừng). Tiện ích trên máy này là bản cũ: tải zip mới ở kho và cài lại để có trợ lý tự làm các bước đó.`;
           el.innerHTML = `<div class="msg ok">Khung xuất ván đã mở — ${esc(dem)}. Bấm 打开 trong khung nhỏ “Order Splitting”.</div><div class="msg note">${sau} ${XV_DUNG_F5}</div>`;
           setStatus('Khung xuất ván đã mở — bấm 打开 trong khung nhỏ.');
-          r.da_mo.then(safe(mo => { if (!mo || luot !== xv.luot) return; el.innerHTML = `<div class="msg ok">Đã bấm 打开 — trang sản xuất đang mở ở tab mới (${esc(dem)}).</div><div class="msg note">${XV_DUNG_F5} Trang trắng quá 1 phút mà trợ lý không báo gì: đóng tab đó rồi bấm Xuất ván lại.</div>`; setStatus('Trang sản xuất đang mở ở tab mới.'); }));
+          // bảng đang che khung nhỏ (cửa sổ hẹp, hoặc bảng đang "Mở rộng") → thu bảng lại cho thấy nút 打开, hiện lời nhắc nổi; khung đóng thì mở bảng lại
+          let daThu = false;
+          try {
+            const h = typeof Drv.hopXuat === 'function' ? Drv.hopXuat() : null, a = h && h.getBoundingClientRect(), b = panel.getBoundingClientRect();
+            if (a && !panel.hidden && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom) { daThu = true; panel.hidden = true; chip.textContent = 'Xuất ván: bấm 打开 trong khung nhỏ “Order Splitting”'; chip.hidden = false; }
+          } catch (e) { /* không đo được thì để nguyên bảng */ }
+          r.da_mo.then(safe(kq => {
+            if (daThu) { chip.hidden = true; if (panel.hidden && launch.hidden) panel.hidden = false; }
+            if (luot !== xv.luot) return;
+            if (kq === 'mo') { el.innerHTML = `<div class="msg ok">Đã bấm 打开 — trang sản xuất đang mở ở tab mới (${esc(dem)}).</div><div class="msg note">${XV_DUNG_F5} Trang trắng quá 1 phút mà trợ lý không báo gì: đóng tab đó rồi bấm Xuất ván lại.</div>`; setStatus('Trang sản xuất đang mở ở tab mới.'); }
+            else if (kq === 'dong') { el.innerHTML = '<div class="msg note">Khung xuất ván đã đóng mà chưa bấm 打开 — chưa có gì được gửi đi. Bấm Xuất ván để chạy lại.</div>'; setStatus('Khung xuất ván đã đóng, chưa gửi gì.'); }
+          }));
         } else if (sn.ly_do === 'dong') { el.innerHTML = '<div class="msg note">Khung xuất ván đã bị đóng trước khi sẵn sàng — chưa có gì được gửi đi. Bấm Xuất ván để chạy lại.</div>'; setStatus('Khung xuất ván đã đóng.'); }
         else {
           el.innerHTML = `<div class="msg err">${sn.ly_do === 'loi' ? 'Khung xuất ván không tải được — máy không nối được tới máy chủ sản xuất của Chenfeng (sc.leye.site) lúc này.' : 'Khung xuất ván tải quá lâu mà chưa xong — máy chủ sản xuất của Chenfeng đang chậm.'} Chưa có gì được gửi đi. Bấm Thử lại (bảng tự đóng khung hỏng rồi chạy lại lệnh CD).</div>${xvNutLai}`;

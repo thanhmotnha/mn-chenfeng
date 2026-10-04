@@ -46,7 +46,12 @@
     trang.orderData = d.content.webCadData.cadData; trang.roomList = d.content.roomList; moc('nhận webCadData');
     goi('/api/v1/Cad/GetPlanOrder').then(r => {
       moc('GetPlanOrder ' + r.status);
-      if (!r.ok || C.kieu === 'loi_may_chu') return goi('/api/v1/Account/Reporting').then(() => moc('Reporting'), () => {});      // trang thật: báo lỗi về máy chủ rồi đứng trắng
+      if (!r.ok || C.kieu === 'loi_may_chu') {      // trang thật (đo 04/10/2026): hiện thông báo đỏ kiểu Element UI ($notify, tự mất sau 3 giây), báo lỗi về máy chủ rồi đứng trắng
+        const tb = document.createElement('div'); tb.className = 'el-notification element-center-center right'; tb.setAttribute('role', 'alert'); tb.style.cssText = 'position:fixed;top:16px;right:16px;padding:10px;background:#fff;border:1px solid #f56c6c';
+        tb.innerHTML = '<i class="el-notification__icon el-icon-error"></i><div class="el-notification__group"><h2 class="el-notification__title"></h2><div class="el-notification__content"><p>' + (C.loi_chu || '拆单数据异常,请联系管理员') + '</p></div></div>';
+        document.body.appendChild(tb); setTimeout(() => tb.remove(), C.loi_ms || 3000); moc('thông báo lỗi');
+        return goi('/api/v1/Account/Reporting').then(() => moc('Reporting'), () => {});
+      }
       trang.planOrder = { ok: 1 };
       return goi('/api/v1/Account/CutBlockVersion').then(hienCutBlock);
     }, () => moc('GetPlanOrder hỏng'));

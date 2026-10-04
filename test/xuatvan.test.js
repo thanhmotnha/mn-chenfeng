@@ -157,6 +157,7 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     ok(/trợ lý/i.test(chu) && !/停止优化/.test(chu), 'tiện ích bản mới (bộ nạp ≥ 2): nói trợ lý trang sản xuất tự tối ưu, không bắt nhớ các nút tiếng Trung', chu);
     ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc + 1 && (await soHop()) === 1, 'đã chạy CD một lần, khung đang mở');
     ok(/打开/.test(await H.locator('.status').innerText()), 'dòng trạng thái cũng nhắc bấm 打开', await H.locator('.status').innerText());
+    ok(await H.locator('.panel').isVisible() && !(await H.locator('.chip').isVisible()), 'khung nhỏ không bị bảng che: bảng giữ nguyên, không hiện lời nhắc nổi');
     // người dùng bấm 打开 trong khung → trang sản xuất báo closeWindow → hộp thoại đóng → bảng đổi lời
     await page.frameLocator('.bp3-dialog.board-config iframe').locator('#mo').click();
     ok(!/Đã bấm 打开/.test(chu), 'chưa bấm 打开 thì chưa nói "đã bấm"');
@@ -164,6 +165,33 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     chu = await H.locator('[data-ui="xuatvan"]').innerText();
     ok(/trang sản xuất/i.test(chu) && /tab mới/.test(chu) && /F5/.test(chu), 'sau khi bấm 打开: báo trang sản xuất mở ở tab mới, dặn đừng F5', chu);
     ok((await soHop()) === 0, 'hộp thoại đã đóng');
+
+    console.log('— Đóng khung mà chưa bấm 打开: bảng báo chưa gửi gì');
+    await chonTu('XA');
+    await H.locator('[data-act="xuatvan"]').click();
+    await page.waitForFunction(() => /Khung xuất ván đã mở/.test(document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="xuatvan"]').textContent), null, { timeout: 15000 });
+    await page.locator('.bp3-dialog.board-config .bp3-dialog-close-button').click();
+    await page.waitForFunction(() => /đã đóng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="xuatvan"]').textContent), null, { timeout: 10000 }).catch(() => {});
+    chu = await H.locator('[data-ui="xuatvan"]').innerText();
+    ok(/đã đóng/.test(chu) && /chưa có gì/i.test(chu) && !/Bấm 打开 trong khung/.test(chu), 'đóng khung khi chưa bấm 打开: không còn bảo bấm 打开, nói rõ chưa gửi gì', chu);
+
+    console.log('— Bảng đang che khung nhỏ (cửa sổ hẹp / bảng mở rộng): bảng tự thu lại cho thấy nút 打开, xong thì mở lại');
+    await page.evaluate(() => { window.__MOCK_CD_VI_TRI__ = 'left:1100px;top:200px'; });      // khung nằm dưới bảng (bảng chiếm 458 px bên phải của cửa sổ rộng 1500)
+    await chonTu('XA');
+    await H.locator('[data-act="xuatvan"]').click();
+    await H.locator('.chip').waitFor({ state: 'visible', timeout: 15000 });
+    ok(!(await H.locator('.panel').isVisible()) && /打开/.test(await H.locator('.chip').innerText()), 'bảng thu lại, lời nhắc nổi bảo bấm 打开', await H.locator('.chip').innerText());
+    ok(await page.frameLocator('.bp3-dialog.board-config iframe').locator('#mo').isVisible(), 'nút 打开 trong khung không còn bị che');
+    await page.frameLocator('.bp3-dialog.board-config iframe').locator('#mo').click();
+    await H.locator('.panel').waitFor({ state: 'visible', timeout: 10000 });
+    ok(!(await H.locator('.chip').isVisible()) && /Đã bấm 打开/.test(await H.locator('[data-ui="xuatvan"]').innerText()), 'bấm 打开 xong: lời nhắc tắt, bảng mở lại với dòng báo');
+    await chonTu('XA');                                                      // lần nữa, lần này người dùng đóng khung: bảng cũng phải mở lại
+    await H.locator('[data-act="xuatvan"]').click();
+    await H.locator('.chip').waitFor({ state: 'visible', timeout: 15000 });
+    await page.locator('.bp3-dialog.board-config .bp3-dialog-close-button').click();
+    await H.locator('.panel').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+    ok(await H.locator('.panel').isVisible() && !(await H.locator('.chip').isVisible()), 'người dùng đóng khung: bảng cũng mở lại, lời nhắc tắt');
+    await page.evaluate(() => { window.__MOCK_CD_VI_TRI__ = null; });
 
     console.log('— Bộ nạp cũ (chưa có trợ lý trang sản xuất): chỉ cách bấm tay + nhắc cài lại tiện ích');
     await page.evaluate(() => { window.__nap_cu = window.__MNCF_NAP__.ban_nap; window.__MNCF_NAP__.ban_nap = 1; });

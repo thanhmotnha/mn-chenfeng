@@ -2645,6 +2645,8 @@
    * ------------------------------------------------------------------ */
   const NGUON_SX = /^https:\/\/([a-z0-9-]+\.)*leye\.site$/;      // trang sản xuất của Chenfeng (khung "Order Splitting")
   const hopXuat = () => { try { return [...document.querySelectorAll('.bp3-dialog')].find(d => d.querySelector('iframe')) || null; } catch (e) { return null; } };
+  /** Hộp "Order Splitting" đang mở (phần tử của Chenfeng) hoặc null — bảng dùng để biết mình có đang che nó không. */
+  D.hopXuat = hopXuat;
   /** Tấm + phụ kiện sẽ xuất: đang chọn tấm nào thì lấy cả (các) tủ chứa tấm đó; không chọn gì = cả bản vẽ. Lỗ khoan không đưa vào (Chenfeng tự lấy theo tấm). */
   D.phamViXuat = () => {
     const chon = D.selected().filter(D.isBoard), all = D.all(), pkAll = all.filter(D.isHardware);
@@ -2671,7 +2673,7 @@
    * opt: onStatus; cho_hop (ms chờ hộp thoại, mặc định 90000); cho_khung (ms chờ khung lên tiếng, 45000); tre_loi (ms sau sự kiện load mà khung vẫn im thì coi là trang lỗi, 2500).
    * @returns {{ ok, giai_doan: 'chon' | 'dang_mo' | 'lenh' | 'hoi' | 'khung', pham_vi, so_tam, so_pk, tu: [tên tủ], reason?, hoi? (câu Chenfeng đang hỏi),
    *   san_sang?: Promise<{ ok, ly_do: '' | 'loi' (khung ra trang lỗi) | 'cham' (quá hạn) | 'dong' (hộp bị đóng), ms }>,
-   *   da_mo?: Promise<boolean> (true khi trang sản xuất báo closeWindow = người dùng đã bấm 打开) }}
+   *   da_mo?: Promise<'mo' (trang sản xuất báo closeWindow = người dùng đã bấm 打开) | 'dong' (hộp bị đóng mà chưa bấm 打开) | 'cho' (10 phút vẫn chưa bấm)> }}
    */
   D.xuatVan = async (opt) => {
     opt = opt || {};
@@ -2735,10 +2737,10 @@
         }
       } finally { try { fr.removeEventListener('load', taiXong); } catch (e) { /* bỏ qua */ } }
     })();
-    // người dùng bấm 打开 → trang sản xuất báo closeWindow → hộp thoại đóng. Theo dõi tối đa 10 phút rồi thôi nghe.
+    // người dùng bấm 打开 → trang sản xuất báo closeWindow → hộp thoại đóng ('mo'); người dùng tự đóng hộp mà chưa bấm 打开 ('dong'). Theo dõi tối đa 10 phút rồi thôi nghe ('cho').
     kq.da_mo = (async () => {
       const r = await kq.san_sang;
-      try { if (!r.ok) return false; const t2 = Date.now(); while (hop.isConnected && !tin.mo && Date.now() - t2 < 600000) await sleep(200); return tin.mo; } finally { thoiNghe(); }
+      try { if (!r.ok) return 'dong'; const t2 = Date.now(); while (hop.isConnected && !tin.mo && Date.now() - t2 < 600000) await sleep(200); return tin.mo ? 'mo' : hop.isConnected ? 'cho' : 'dong'; } finally { thoiNghe(); }
     })();
     return kq;
   };

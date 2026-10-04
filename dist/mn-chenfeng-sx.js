@@ -36,7 +36,7 @@ var __MNCF_SX_PB__ = "1.22.0";
   var luuCai = function () { try { root.localStorage.setItem(LS, JSON.stringify(cai)); } catch (e) { /* không lưu được thì thôi */ } };
 
   // S: trước khi bảng tối ưu hiện.  A: tự tối ưu — 'cho' (chưa thấy hộp) → 'tay' (đang tắt) | 'dem' → 'chay' → 'dung' → 'xac' → 'xong'; 'thoi' = nhường người dùng (A.ly: lý do)
-  var S = { t0: now(), dl: 0, so_tam: 0, pl: 0, pl_ms: 0, pl_loi: false, bao: 0, cuu: 0, cuu_luc: 0, rong_tu: 0, an: false, gon: false, khoa: '', chu: '', loai: '', nhat_ky: [] };
+  var S = { t0: now(), dl: 0, so_tam: 0, pl: 0, pl_ms: 0, pl_loi: false, bao: 0, tb: '', cuu: 0, cuu_luc: 0, rong_tu: 0, an: false, gon: false, khoa: '', chu: '', loai: '', nhat_ky: [] };
   var A = { giai: 'cho', t: 0, t_chay: 0, to: '', t_doi: 0, lan_bam: 0, nguoi: false, ly: '', bang: null, ket: null, t_xong: 0, nghe: null };
 
   /* ---- nghe trang (thụ động) ---- */
@@ -90,6 +90,8 @@ var __MNCF_SX_PB__ = "1.22.0";
     } catch (e) { /* bỏ qua */ }
     return kq;
   };
+  // dòng báo của chính trang (Element UI $notify / $message, tự mất sau ~3 giây — đo thật: showErrorMessage → $notify type "error") → ghi lại để bảng báo nêu nguyên văn
+  var thongBao = function () { try { var ds = doc.querySelectorAll('.el-notification, .el-message'), ra = []; for (var i = 0; i < ds.length; i++) { if (!hienThay(ds[i])) continue; var t = chuoi(ds[i]); if (t) ra.push(t.slice(0, 160)); } return ra.join(' · '); } catch (e) { return ''; } };
   var tong = function (a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; };
   var bam = function (el) { try { el.click(); return true; } catch (e) { return false; } };
   var ngheNguoi = function (d) {      // người dùng tự bấm / gõ trong hộp tối ưu lúc trợ lý đang đếm hoặc đang chờ → nhường
@@ -108,8 +110,9 @@ var __MNCF_SX_PB__ = "1.22.0";
       if (!S.rong_tu) S.rong_tu = t;
       if (t - S.rong_tu >= CH.cho_cuu && S.cuu < CH.cuu_toi_da && t - S.cuu_luc >= 1500) { S.cuu++; S.cuu_luc = t; try { iv.invokeUpdate(); } catch (e) { /* bỏ qua */ } }
     } else S.rong_tu = 0;
-    var giay = Math.round((t - S.t0) / 1000);
-    if (S.pl_loi || (S.bao && t - S.bao >= 3000) || (S.pl && t - S.pl >= CH.han_bang)) return dat('loi', 'err', 'Trang sản xuất của Chenfeng không mở được bảng tối ưu' + (S.pl_loi ? ' (máy chủ báo lỗi)' : '') + '. Đóng tab này rồi bấm Xuất ván lại trong Chenfeng — đừng F5: tải lại là mất dữ liệu tấm.');
+    var giay = Math.round((t - S.t0) / 1000), tb = thongBao();
+    if (tb) S.tb = tb;
+    if (S.pl_loi || (S.bao && t - S.bao >= 3000) || (S.pl && t - S.pl >= CH.han_bang)) return dat('loi', 'err', 'Trang sản xuất của Chenfeng không mở được bảng tối ưu' + (S.pl_loi ? ' (máy chủ báo lỗi)' : '') + '.' + (S.tb ? ' Trang báo: “' + S.tb + '”.' : '') + ' Đóng tab này rồi bấm Xuất ván lại trong Chenfeng — đừng F5: tải lại là mất dữ liệu tấm.');
     if (S.pl) return S.cuu ? dat('cuu', 'note', 'Trang bị kẹt trắng — trợ lý đã gọi lại, bảng tối ưu đang hiện…') : dat('mo_bang', 'note', 'Máy chủ đã trả sơ đồ' + (S.pl_ms ? ' (' + (S.pl_ms / 1000).toFixed(1).replace('.', ',') + ' giây)' : '') + ' — đang mở bảng tối ưu…');
     if (S.dl) { var u = uocTinh(S.so_tam), da = Math.round((t - S.dl) / 1000); return dat('tinh', 'note', 'Máy chủ Chenfeng đang tính ' + (S.so_tam ? S.so_tam + ' tấm' : 'sơ đồ') + '… ' + da + ' giây (thường khoảng ' + u + ' giây).' + (da > 3 * u + 20 ? ' Lâu bất thường — chờ thêm, hoặc đóng tab này rồi bấm Xuất ván lại.' : '')); }
     if (t - S.t0 >= CH.han_dl) return dat('mat_dl', 'warn', 'Trang này chưa nhận được dữ liệu tấm từ Chenfeng CAD. Nếu anh vừa F5 hoặc mở lại tab: đóng tab này rồi bấm Xuất ván lại trong Chenfeng (dữ liệu chỉ được trao một lần lúc bấm 打开).');

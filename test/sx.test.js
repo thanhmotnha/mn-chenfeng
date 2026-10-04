@@ -117,9 +117,12 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     eq((await T.so()).bam, [], 'không bấm gì');
     await T.dong();
     may.loi_pl = false;
-    T = await mo({ kieu: 'loi_may_chu' });                                   // máy chủ trả 200 nhưng trang tự báo lỗi (Account/Reporting) rồi đứng trắng
+    T = await mo({ kieu: 'loi_may_chu', loi_chu: '拆单数据异常,请联系管理员', loi_ms: 1500 });      // máy chủ trả 200 nhưng trang hiện thông báo đỏ (1,5 giây), báo lỗi (Account/Reporting) rồi đứng trắng
     await T.choChu(/không mở được bảng tối ưu/, 12000);
     ok(true, 'trang báo lỗi về máy chủ (Account/Reporting) mà không hiện bảng: cũng báo');
+    await ngu(1800);                                                         // thông báo đỏ của trang đã tự mất
+    chu = await T.B.locator('.chu').innerText();
+    ok((await T.page.locator('.el-notification').count()) === 0 && /拆单数据异常,请联系管理员/.test(chu) && /Trang báo/.test(chu), 'bảng báo giữ lại nguyên văn dòng lỗi của trang (dòng đó chỉ hiện vài giây)', chu);
     await T.dong();
 
     console.log('— Tab bị tải lại (F5): không còn dữ liệu tấm');
