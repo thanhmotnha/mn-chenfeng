@@ -6,7 +6,7 @@
   'use strict';
   const Core = root.MNCFCore, Drv = root.MNCFDriver, Ph = root.MNCFPhong;
   if (!Core || typeof document === 'undefined') return;
-  const LS_KEY = 'mncf.spec.v2', LS_KEY_CU = 'mncf.spec.v1', LS_WIDE = 'mncf.ui.wide', LS_BAN = 'mncf.spec.ban', LS_PHONG = 'mncf.phong.v1';      // v1 = thông số lưu từ bản 1.0–1.2
+  const LS_KEY = 'mncf.spec.v2', LS_KEY_CU = 'mncf.spec.v1', LS_WIDE = 'mncf.ui.wide', LS_BAN = 'mncf.spec.ban', LS_PHONG = 'mncf.phong.v1', LS_MAU = 'mncf.mau.v1';      // v1 = thông số lưu từ bản 1.0–1.2
   const BUOC_KEO = 5;      // kéo đợt bắt bước 5 mm; gõ số hoặc phím mũi tên thì chính xác tới 1 mm
   const TEN_KIEU = { nk_am: 'ngăn kéo âm', nk_trum: 'ngăn kéo trùm ngoài', suot: 'suốt treo' };
   /* ---- hình của từng loại ngăn kéo (bản 1.13): mặt cắt nhìn từ trước — 2 hồi tủ, hộp ngăn kéo, đáy, ray. Vẽ bằng SVG nên chạy cả ở trang độc lập / artifact (không tải ảnh ngoài).
@@ -101,8 +101,8 @@ header{background:var(--head);color:var(--head-ink);padding:9px 10px 0 12px}
 .ibtn{background:transparent;border:0;color:inherit;font:inherit;cursor:pointer;padding:4px 8px;border-radius:7px;opacity:.85}
 .ibtn:hover{background:rgba(255,255,255,.12);opacity:1}
 .tabs{display:flex;gap:1px;margin-top:7px;flex-wrap:wrap}
-.tab{background:transparent;border:0;color:var(--head-dim);font:inherit;padding:7px 6.5px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap}
-.panel.wide .tab,.mn.page .tab{padding:7px 12px}
+.tab{background:transparent;border:0;color:var(--head-dim);font:inherit;padding:7px 4px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;flex:1 1 auto;text-align:center}
+.panel.wide .tab,.mn.page .tab{padding:7px 12px;flex:0 0 auto}
 .tab:hover{color:var(--head-ink)}
 .tab.on{background:var(--bg);color:var(--ink);font-weight:650}
 .body{flex:1;overflow:auto;padding:12px;overscroll-behavior:contain}
@@ -296,6 +296,41 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
 .panel.wide .psplit{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);column-gap:14px;align-items:start}
 .panel.wide .psplit .pview{order:2;position:sticky;top:0}
 @media (min-width:900px){.mn.page .psplit{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);column-gap:16px;align-items:start}.mn.page .psplit .pview{order:2;position:sticky;top:12px}}
+/* thẻ Màu (bản 1.21): 3 ô màu (thùng / cánh + phào / hậu), danh sách màu của kho vật liệu, màu đang dùng trên bản vẽ */
+.panel[data-tabon="mausac"] footer>:not(.status){display:none}
+.vlos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.vlo{position:relative;display:flex;min-width:0;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+.vlo.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--hover)}
+.vlob{flex:1;min-width:0;display:flex;gap:7px;align-items:center;padding:6px 7px;border:0;border-radius:9px;background:none;color:var(--ink);font:inherit;font-size:12px;line-height:1.25;text-align:left;cursor:pointer}
+.vlob img,.vlob i{width:30px;height:30px;flex:none;border-radius:6px;border:1px solid var(--line);object-fit:cover;display:block}
+.vlob i,.vlg i,.vld i{background:repeating-linear-gradient(45deg,var(--field),var(--field) 4px,var(--foot) 4px,var(--foot) 8px)}
+.vlob span{min-width:0;display:flex;flex-direction:column}
+.vlob small{color:var(--muted);font-size:11px;white-space:nowrap}
+.vlob b{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vlob b.tr{font-weight:400;color:var(--muted)}
+.vlo .x{position:absolute;top:0;right:0;padding:1px 5px;font-size:11px}
+.vlds{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px;max-height:268px;overflow:auto;padding:2px;margin:8px 0 6px;overscroll-behavior:contain}
+.vlds:empty{display:none}
+.vlds .hint{grid-column:1/-1;margin:6px 0}
+.vlc{display:flex;flex-direction:column;gap:2px;padding:3px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:10.5px;line-height:1.2;text-align:center;cursor:pointer;min-width:0}
+.vlc:hover{border-color:var(--accent);background:var(--hover)}
+.vlc.on{outline:2px solid var(--accent);outline-offset:-2px;background:var(--hover)}
+.vlc img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:5px;display:block;background:var(--field)}
+.vlc b{font-weight:600;overflow-wrap:anywhere}
+.vlgan,.vldung{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.vlgan:empty,.vldung:empty{display:none}
+.vlgan>span{font-size:11.5px;color:var(--muted)}
+.vldung .hint{margin:0}
+.vlg,.vld{display:inline-flex;align-items:center;gap:5px;padding:2px 9px 2px 3px;border:1px solid var(--line);border-radius:999px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;cursor:pointer;min-height:28px}
+.vlg:hover,.vld:hover{border-color:var(--accent);background:var(--hover)}
+.vlg img,.vlg i,.vld img,.vld i{width:20px;height:20px;flex:none;border-radius:50%;border:1px solid var(--line);object-fit:cover;display:block}
+.vld.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:650}
+.vlchan{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.vlchan .frow{gap:6px;margin-left:auto}
+.vlthay{font-size:12.5px;margin:8px 0}
+.vlthay b{font-family:var(--font-data)}
+[data-ui="vl-kq"]{margin-top:8px}
+[data-ui="vl-kq"]:empty{display:none}
 /* trang độc lập */
 .mn.page{display:block}
 .mn.page .panel{position:static;width:auto;max-width:1180px;margin:0 auto;box-shadow:0 2px 14px rgba(0,0,0,.14)}
@@ -339,6 +374,20 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
     ['Tên tấm', ['hoi_trai', 'hoi_phai', 'vach', 'day', 'noc', 'dot', 'hau', 'chan', 'phao_trai', 'phao_phai', 'phao_tren', 'phu_tro', 'canh_trai', 'canh_phai', 'dem', 'xa', 'nep'].map(k => F('ten_tam.' + k, k.replace(/_/g, ' '), { text: 1 }))],
   ];
 
+  /* ---- đổ màu (bản 1.21): ba nhóm tấm của một tủ + dòng "thùng 21 tấm → 103T · cánh + phào 5 tấm → …" dùng chung cho thẻ Màu và thẻ Kết quả ---- */
+  const NHOM_MAU = [['thung', 'Thùng'], ['mat', 'Cánh + phào'], ['hau', 'Hậu']];
+  const dongMau = r => NHOM_MAU.filter(([k]) => r.mau && r.mau[k] && r.so && r.so[k] > 0).map(([k, t]) => `${t.toLowerCase()} ${r.so[k]} tấm → ${r.mau[k]}`).join(' · ');
+  const khoaMau = r => (r && r.khoa ? ` ${r.khoa} tấm đang khoá vật liệu trong Chenfeng nên giữ màu cũ.` : '');
+  // hai dòng của thẻ Kết quả: màu của tủ cũ được giữ khi "Cập nhật tủ này" (rep.giu_mau), và tủ / mẫu kho vẽ mới tự đổ màu theo các ô của thẻ Màu (rep.do_mau)
+  function mauVeHTML(rep) {
+    const h = [], g = rep.giu_mau, d = rep.do_mau;
+    if (g && g.ok) h.push(`<div class="msg note">Đã giữ màu của tủ cũ: ${esc(dongMau(g))}.${esc(khoaMau(g))}${(g.lan || []).map(k => ` ${esc((NHOM_MAU.find(N => N[0] === k) || [0, k])[1])} của tủ cũ có nhiều màu — tủ mới lấy màu nhiều tấm nhất; tấm nào đổ màu riêng thì đổ lại ở thẻ Màu.`).join('')}</div>`);
+    else if (g) h.push(`<div class="msg warn">Tủ cũ đã đổ màu (${esc(NHOM_MAU.filter(N => g.mau && g.mau[N[0]]).map(N => `${N[1].toLowerCase()} ${g.mau[N[0]]}`).join(', '))}) nhưng tủ vẽ lại chưa đổ lại được: ${esc(g.reason || '')} Vào thẻ Màu → chọn 1 tấm của tủ → Đổ màu tủ đang chọn.</div>`);
+    if (d && d.ok) h.push(`<div class="msg note">Đã tự đổ màu: ${esc(dongMau(d) || 'không có tấm nào thuộc nhóm đã chọn màu')}.${esc(khoaMau(d))} Đổi màu hoặc tắt tự đổ ở thẻ <b>Màu</b>.</div>`);
+    else if (d) h.push(`<div class="msg warn">Chưa tự đổ màu được: ${esc(d.reason || '')}</div>`);
+    return h.join('');
+  }
+
   /* ---- phiếu kiểm (bản 1.20) ---- */
   const KY_KIEM = { dat: '✓', luu_y: '!', loi: '✗', chua: '…' };
   const phieuTom = d => [d.dat ? `${d.dat} mục đạt` : '', d.luu_y ? `${d.luu_y} mục cần xem` : '', d.loi ? `${d.loi} mục lỗi` : '', d.chua ? `${d.chua} mục chưa kiểm` : ''].filter(Boolean).join(' · ');
@@ -353,6 +402,16 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
   function App(mode) {
     const inCF = mode === 'panel';
     const coKho = inCF && !!Drv && typeof Drv.veKho === 'function' && typeof Drv.khoMau === 'function';      // thẻ Kho mẫu: chỉ trong Chenfeng (đọc kho bằng phiên đăng nhập của trang)
+    const coMau = inCF && !!Drv && typeof Drv.khoVatLieu === 'function' && typeof Drv.doMauTu === 'function';      // thẻ Màu: chỉ trong Chenfeng (đọc kho vật liệu bằng phiên đăng nhập của trang)
+    // Thẻ Màu nhớ trong máy: màu của 3 ô, ô đang bật, các màu vừa dùng, có tự đổ màu cho tủ vẽ mới không. Mỗi màu = { id (mã vật liệu trong kho), ten (mã màu), nhom, hinh }.
+    const mauS = { o: { thung: null, mat: null, hau: null }, bat: 'thung', gan: [], tu_dong: false };
+    if (coMau) {
+      try {
+        const j = JSON.parse(root.localStorage.getItem(LS_MAU) || 'null'), mk = m => (m && m.ten ? { id: String(m.id || ''), ten: String(m.ten), nhom: String(m.nhom || ''), hinh: /^https:\/\//.test(m.hinh || '') ? String(m.hinh) : '' } : null);
+        if (j && typeof j === 'object') { for (const [k] of NHOM_MAU) mauS.o[k] = mk(j.o && j.o[k]); if (NHOM_MAU.some(N => N[0] === j.bat)) mauS.bat = j.bat; mauS.gan = (Array.isArray(j.gan) ? j.gan : []).map(mk).filter(Boolean).slice(0, 8); mauS.tu_dong = !!j.tu_dong; }
+      } catch (e) { /* không đọc được thì bắt đầu trống */ }
+    }
+    const luuMau = () => { try { root.localStorage.setItem(LS_MAU, JSON.stringify(mauS)); } catch (e) { /* không lưu được thì thôi */ } };
     const daLuu = store.load();
     let spec = Core.normalize(daLuu.spec || undefined);
     let model = null, showDoors = true, busy = false, lastRep = null;
@@ -388,7 +447,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
   <header>
     <div class="hrow"><div class="brand">Một Nhà <span>· Vẽ tủ vào Chenfeng · v${Core.VERSION}</span></div>
       ${inCF ? `<button class="ibtn" data-act="wide" title="Đổi bề rộng bảng — bảng rộng thì hình đứng to, kéo đợt dễ hơn">${wide ? 'Thu hẹp' : 'Mở rộng'}</button><button class="ibtn" data-act="close" title="Thu gọn (Alt + M)">—</button>` : ''}</div>
-    <div class="tabs"><button class="tab on" data-tab="tu">Tủ</button>${Ph ? '<button class="tab" data-tab="phong">Phòng</button>' : ''}${coKho ? '<button class="tab" data-tab="kho">Kho mẫu</button>' : ''}<button class="tab" data-tab="chuan">Chuẩn xưởng</button><button class="tab" data-tab="kq">Kết quả</button><button class="tab" data-tab="hd">Hướng dẫn</button></div>
+    <div class="tabs"><button class="tab on" data-tab="tu">Tủ</button>${Ph ? '<button class="tab" data-tab="phong">Phòng</button>' : ''}${coKho ? '<button class="tab" data-tab="kho">Kho mẫu</button>' : ''}${coMau ? '<button class="tab" data-tab="mausac">Màu</button>' : ''}<button class="tab" data-tab="chuan">Chuẩn xưởng</button><button class="tab" data-tab="kq">Kết quả</button><button class="tab" data-tab="hd">Hướng dẫn</button></div>
   </header>
   <div class="body">
     <div class="pane" data-pane="tu">${inCF ? '' : '<p class="hint">Mở lần đầu là <b>tủ mẫu</b> (tủ áo 3000 × 2800, 3 khoang). Nhập kích thước, rồi <b>kéo đợt ngay trên hình</b> và bấm vào từng ô để đặt ngăn kéo, suốt treo — cảnh báo và bảng kê tự cập nhật.</p>'}<div class="split">
@@ -446,6 +505,28 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
         <div class="frow" style="margin-top:8px"><button class="sec" data-act="kho-ve" title="Bấm 1 điểm trên bản vẽ = góc trái – trước – dưới của mẫu; mẫu đặt thẳng trục (không xoay).">Vẽ tại 1 điểm bấm (không xoay)</button></div>
       </fieldset>
     </div>` : ''}
+    ${coMau ? `<div class="pane" data-pane="mausac" hidden>
+      <p class="hint">Trên bản vẽ bấm chọn <b>1 tấm của tủ</b> → <b>Đổ màu tủ đang chọn</b>: thùng một màu, cánh + phào một màu (xà chân trước, mặt ngăn kéo lộ ngoài, tấm ốp, nẹp đi theo cánh), hậu theo thùng. Màu lấy từ <b>kho vật liệu Chenfeng</b> của tài khoản.</p>
+      <fieldset><legend>Màu sẽ đổ — bấm một ô, rồi bấm màu ở danh sách dưới</legend>
+        <div class="vlos"></div>
+        <div class="frow"><button class="pri" data-act="vl-do" style="flex:1" title="Chọn 1 tấm bất kỳ của tủ trên bản vẽ (chọn tấm của nhiều tủ thì đổ nhiều tủ một lượt) rồi bấm: mọi tấm của tủ đó được đổ màu theo 3 ô ở trên. Ô nào chưa chọn màu thì nhóm đó giữ nguyên. Một bước hoàn tác.">Đổ màu tủ đang chọn</button></div>
+        <div class="frow" style="margin-top:8px"><button class="sec" data-act="vl-tam" title="Chỉ đổ đúng các tấm đang chọn trên bản vẽ (không lan ra cả tủ) bằng màu của ô đang bật — dùng khi một vài tấm cần màu khác.">Đổ màu ô đang bật cho riêng các tấm đang chọn</button></div>
+        <label class="kopt" title="Bật: tủ vẽ bằng nút “Vẽ vào Chenfeng” và mẫu kho vừa đặt vào bản vẽ được đổ màu ngay theo 3 ô ở trên; “Hoàn tác lần vẽ này” lùi cả bước đổ màu."><input type="checkbox" id="mncf-ui-vltudong" data-ui="vl-tudong"${mauS.tu_dong ? ' checked' : ''}> Tủ và mẫu kho vẽ mới tự đổ màu theo 3 ô này</label>
+        <div data-ui="vl-kq" aria-live="polite"></div>
+      </fieldset>
+      <fieldset><legend>Màu của xưởng (kho vật liệu Chenfeng)</legend>
+        <div class="g g2"><label>Tìm mã màu<input type="text" data-text="1" id="mncf-ui-vltim" data-ui="vl-tim" placeholder="vd: 103, lux279" autocomplete="off"></label><label>Nhóm<select id="mncf-ui-vlnhom" data-ui="vl-nhom"><option value="">Mọi nhóm</option></select></label></div>
+        <div class="vlgan"></div>
+        <div class="vlds" aria-live="polite"></div>
+        <div class="vlchan"></div>
+      </fieldset>
+      <fieldset><legend>Tìm và thay màu trên bản vẽ</legend>
+        <div class="frow"><button class="sec" data-act="vl-quet" title="Liệt kê các màu đang có trên bản vẽ kèm số tấm">Xem màu đang dùng trên bản vẽ</button></div>
+        <div class="vldung" data-ui="vl-dung"></div>
+        <p class="vlthay">Thay <b data-ui="vl-tu"></b> bằng <b data-ui="vl-den"></b> <span class="hint" data-ui="vl-den-o"></span></p>
+        <div class="frow"><button class="sec" data-act="vl-xem" title="Chọn (bôi sáng) trên bản vẽ mọi tấm đang mang màu vừa bấm — để xem màu đó nằm ở đâu">Chọn các tấm màu này</button><button class="sec" data-act="vl-thay" data-v="tat" title="Mọi tấm trên bản vẽ đang mang màu đó được đổi sang màu của ô đang bật. Một bước hoàn tác.">Thay trên cả bản vẽ</button><button class="sec" data-act="vl-thay" data-v="chon" title="Quét chọn trước các tấm (một tủ, một phòng…) trên bản vẽ: chỉ những tấm đang chọn mang màu đó mới được đổi.">Chỉ thay trong các tấm đang chọn</button></div>
+      </fieldset>
+    </div>` : ''}
     <div class="pane" data-pane="chuan" hidden><p class="hint">Số chuẩn của xưởng — chốt một lần, máy này tự nhớ. Đơn vị mm.</p><div class="settings"></div>
       <div class="frow"><button class="sec" data-act="defaults">Khôi phục mặc định</button></div><datalist id="drill"></datalist></div>
     <div class="pane" data-pane="kq" hidden><div class="report"><p class="hint">Chưa vẽ lần nào.</p></div>
@@ -487,6 +568,7 @@ ${Ph && Ph.chiaKhung ? `<li><b>Vách tivi, đầu giường: chia ô trên mặt
 ${Ph && Ph.LOAI_DN ? `<li><b>Điện – nước hiện trạng</b> — bản 1.18: thẻ <b>Phòng</b> → khung <b>Điện – nước</b>: bấm <b>+ Ổ điện / + Công tắc / + Cấp nước / + Thoát nước / + Thoát sàn / + Ống chờ sàn / + Điểm khác</b> (điểm nằm trên tường đang chọn) rồi gõ <b>cách trái</b> (từ đầu trái tường tới tâm điểm) và <b>cao tâm</b> (từ sàn); điểm dưới sàn thì gõ <b>cách tường</b>. Điểm hiện ngay trên mặt bằng và mặt đứng — bấm vào số trên mặt đứng để sửa, bấm vào dấu trên mặt bằng để tới dòng của nó. Khung đặt tủ che điểm nào thì bảng báo dưới mặt bằng. Mở khung thành tủ${cf ? ' (hoặc đặt tủ bằng chuột / theo hình ngay trong phòng đó)' : ''}: hình đứng của tủ có dấu từng điểm — <b>ô nét đứt</b> = chỗ phải khoét hậu, <b>màu đỏ</b> = trúng vách / đợt / hồi (kéo vách, đợt tránh ra là hết đỏ) — kèm dòng ghi khoét tấm nào, tâm cách mép tấm bao nhiêu; công tắc và thoát sàn bị tủ che thì báo riêng.${cf ? ' Bấm <b>Vẽ phòng vào Chenfeng</b> thì các điểm được đánh dấu luôn trên mặt tường / mặt sàn của bản vẽ (nét màu + nhãn như “O1 +300”), nhìn từ trên xuống cũng thấy; thẻ Kết quả của tủ vừa vẽ ghi lại các điểm sau tủ.' : ''}</li>` : ''}
 <li><b>Dò lỗi sản xuất</b> — bản 1.20: thẻ Tủ có phiếu <b>Tự kiểm trước khi vẽ</b> ngay dưới các dòng cảnh báo (bấm để mở): kích thước, thân, khổ ván, va chạm, tấm lơ lửng, nhịp đợt, cánh, ngăn kéo, khoang treo, hậu, phào – chân, khấu cột — mỗi mục một dòng ✓ / ! / ✗. Ngưỡng cảnh báo (nhịp đợt 1000, cánh cao 2300, ngăn kéo rộng 1000, khoang treo sâu 480, cao trần) đổi ở <b>Chuẩn xưởng → Dò lỗi sản xuất</b>; để 0 là không kiểm mục đó.${cf ? ' Vẽ xong, bảng <b>tự đọc lại tấm và lỗ khoan thật</b> trên bản vẽ và ghi phiếu ở thẻ Kết quả: tấm đè / trùng nhau, lỗ khoan giao nhau, lỗ lệch khỏi tấm hoặc khoan thủng tấm, kiểu khoan lạ, tấm vượt khổ ván (đỏ — phải sửa trước khi xuất file cắt); tấm không lỗ, mối nối dài không có liên kết, tấm đứng riêng, tấm chưa có tên tủ (vàng — xưởng xem lại). Sau khi anh tự vẽ thêm, sửa tay hay chèn mẫu kho: thẻ <b>Kết quả → Dò lỗi sản xuất</b> — không chọn gì là dò cả bản vẽ, chọn vài tấm trước thì chỉ dò các tấm đó. Phép dò chỉ đọc bản vẽ, không sửa gì.' : ''}</li>
 <li><b>Chọn loại ngăn kéo bằng hình</b> — bản 1.13: bấm ô ngăn kéo → bấm nút hình cạnh ô Loại → bấm hình loại cần dùng.</li>
+${cf ? '<li><b>Đổ màu</b> — bản 1.21, thẻ <b>Màu</b>: ba ô <b>Thùng</b> / <b>Cánh + phào</b> / <b>Hậu</b> — bấm một ô rồi bấm một màu trong danh sách (màu là vật liệu trong kho vật liệu của tài khoản Chenfeng; gõ mã để tìm, vd <code>103</code>, <code>lux279</code>; chọn nhóm MDF / Acrylic). Trên bản vẽ bấm chọn 1 tấm của tủ → <b>Đổ màu tủ đang chọn</b>: thùng một màu; cánh, phào, xà chân trước, mặt ngăn kéo lộ ngoài, tấm ốp, nẹp một màu; hậu theo thùng (hoặc màu riêng). Mặt ngăn kéo nằm sau cánh và cả hộp ngăn kéo theo màu thùng. Tấm nhận vật liệu hiển thị + tên ván / vật liệu / màu, nên bảng cắt gom đúng loại ván. <b>Đổ màu ô đang bật cho riêng các tấm đang chọn</b> để sửa vài tấm lẻ. Bật <b>Tủ và mẫu kho vẽ mới tự đổ màu</b> thì tủ vẽ ra đã có màu. <b>Tìm và thay</b>: <b>Xem màu đang dùng trên bản vẽ</b> → bấm một màu → <b>Chọn các tấm màu này</b> (bôi sáng trên bản vẽ) hoặc <b>Thay trên cả bản vẽ</b> / <b>Chỉ thay trong các tấm đang chọn</b> bằng màu của ô đang bật. Mỗi lần đổ / thay là một bước, có nút <b>Hoàn tác</b>. “Cập nhật tủ này trên bản vẽ” giữ lại màu của tủ cũ; đổi L / W / H của module trong Chenfeng màu vẫn giữ.</li>' : ''}
 ${cf ? '<li><b>Phím tắt Alt + M</b>: ẩn / hiện bảng này (khi ẩn còn lại nút “Một Nhà · Vẽ tủ” ở góc dưới bên phải).</li>' : ''}
 <li>Vẫn gõ được cao độ các đợt trong thẻ khoang: <code>400, 750, 1800</code> (mặt dưới, tính từ sàn) hoặc <code>deu:4</code> để chia đều 4 đợt.</li>
 ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản vẽ để đặt tủ (điểm đó là góc trái – trước – dưới). Chenfeng tự khoan lỗ. Tab <b>Kết quả</b> báo số tấm, số lỗ, chỗ cần xem lại.</li><li>Vẽ nhầm: tab Kết quả → <b>Hoàn tác lần vẽ này</b> (hoặc Ctrl+Z).</li><li><b>Sửa ngay trong Chenfeng</b>: tủ vẽ xong là một <b>module tham số của Chenfeng</b>. Chọn 1 tấm của tủ → thẻ <b>Template</b> (Thông số) ở bảng bên phải của Chenfeng hiện Rộng (L) / Sâu (W) / Cao (H) → gõ số mới vào <b>cột cuối “Expression”</b> của dòng đó (cột “Parameter Value” chỉ để xem, không gõ được) → <b>Apply data modifications</b>: tủ co giãn đúng kết cấu (cánh, vách, đợt, hộp ngăn kéo chạy theo), Chenfeng tự khoan lại. Tắt ở Chuẩn xưởng → Module Chenfeng.</li><li><b>Sửa tủ đã vẽ</b>: vẽ xong, bảng tự nối với tủ đó — sửa số rồi bấm <b>Cập nhật tủ này trên bản vẽ</b>: tủ cũ được bỏ, tủ mới nằm đúng chỗ cũ, không bấm điểm lại. Tủ vẽ từ trước: trên bản vẽ bấm chọn 1 tấm của tủ → bấm <b>Sửa tủ đang chọn</b> → bảng mở lại đúng thông số của tủ đó. Dùng được cả khi đã vẽ thêm thứ khác, đã di chuyển tủ, đã lưu rồi mở lại bản vẽ (tủ bị xoay thì không). Thông số từng tủ lưu trong trình duyệt của máy này; mỗi tấm mang một ghi chú ngắn “MNCF: mã tủ” để tìm lại. Bản lề, tay nắm anh tự gắn thêm không bị xoá. (Tấm do bảng này vẽ là tấm rời nên bảng Thông số bên phải của Chenfeng không có tham số — sửa tủ thì sửa ở bảng này.)</li><li>Nút <b>Mở rộng</b> ở góc trên làm bảng rộng ra, hình đứng to hơn để kéo đợt cho dễ.</li>'
@@ -872,6 +954,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         if (model) h.push(`<details class="phieu" data-ui="phieu-tk">${phieuHTML(Core.phieu(model), 'Tự kiểm trước khi vẽ')}</details>`);
         if (rep.do_loi) h.push(phieuVeHTML(rep.do_loi, 'Dò lỗi sản xuất trên tấm thật', 'phieu-ve', rep.do_loi.dem.loi + rep.do_loi.dem.luu_y > 0) + dongDoLoi(rep.do_loi, true, (rep.warnings || []).some(t => /chưa có lỗ khoan|không có lỗ cam/.test(t)) ? ['khong_lo'] : null));
       }
+      h.push(mauVeHTML(rep));
       if (rep.cap_nhat) h.push(`<div class="msg note">Đã bỏ ${rep.cap_nhat.bo} đối tượng của tủ cũ (tấm, hộp ngăn kéo, suốt treo, lỗ khoan) rồi vẽ lại đúng chỗ cũ.${rep.cap_nhat.thieu ? ` Tủ cũ thiếu ${rep.cap_nhat.thieu} tấm so với lúc vẽ (đã bị xoá / sửa tay).` : ''} Bản lề, tay nắm anh tự gắn thêm được giữ nguyên — kiểm tra lại vị trí của chúng.</div>`);
       if (k) {
         const rows = [['Tấm theo thiết kế', `${k.so_tam_khop} / ${k.so_tam_thiet_ke}`], ['Tấm do mẫu sinh (hộp ngăn kéo…)', k.so_tam_mau], ['Lỗ khoan', k.so_lo],
@@ -900,7 +983,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       setStatus(p.dem.loi ? `Dò lỗi sản xuất: có ${p.dem.loi} mục lỗi — xem thẻ Kết quả.` : p.dem.luu_y ? `Dò lỗi sản xuất: không lỗi, ${p.dem.luu_y} mục cần xem lại.` : 'Dò lỗi sản xuất: không thấy lỗi.');
     }
 
-    function switchTab(name) { panel.dataset.tabon = name; $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name)); $$('.pane').forEach(p => { p.hidden = p.dataset.pane !== name; }); if (name === 'tu' && model) { if (dnTuHT || dnTu()) paint(); else paintView(); } if (name === 'phong') paintPhong(); if (name === 'kho') { veChon(); khoNap(); } if (name !== 'phong' && veMD) datVeMD(false); }      // có điện – nước sau tủ: vẽ lại cả dòng báo (phòng có thể vừa sửa ở thẻ Phòng)
+    function switchTab(name) { panel.dataset.tabon = name; $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name)); $$('.pane').forEach(p => { p.hidden = p.dataset.pane !== name; }); if (name === 'tu' && model) { if (dnTuHT || dnTu()) paint(); else paintView(); } if (name === 'phong') paintPhong(); if (name === 'kho') { veChon(); khoNap(); } if (name === 'mausac') { veO(); veGan(); veDung(); vlNap(); } if (name !== 'phong' && veMD) datVeMD(false); }      // có điện – nước sau tủ: vẽ lại cả dòng báo (phòng có thể vừa sửa ở thẻ Phòng)
     function open() { panel.hidden = false; launch.hidden = true; if (model) paintView(); }
     function close() { panel.hidden = true; launch.hidden = !inCF; if (xem) dongXem(); }
     // PHÍM TẮT ẩn / hiện bảng: Alt + M (bản 1.20.1 — anh Jason 04/10/2026 09:10). Bắt ở pha "capture" của cửa sổ nên tới trước dòng lệnh của Chenfeng và phím không lọt xuống trang.
@@ -927,6 +1010,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       let rep;
       try { rep = await Drv.draw(spec, o); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
+      if (rep.giai_doan === 'xong') rep.do_mau = await tuDoMau();      // trước lệnh "xem toàn bộ": bước đổ màu phải nối liền lần vẽ thì "Hoàn tác lần vẽ này" mới lùi được cả hai
       khungCho = null; capHinh();
       if (kc && rep.giai_doan === 'xong') { try { ghiKhung(rep, kc); } catch (e) { /* báo ở kết quả */ } }
       chip.hidden = true; panel.hidden = false; launch.hidden = true; busy = false;
@@ -965,6 +1049,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       let rep;
       try { rep = await Drv.update(spec, { id: noi.id, specCu: noi.spec, pick: noi.pick }, { onStatus: setStatus }); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
+      if (rep.giai_doan === 'xong' && !rep.giu_mau) rep.do_mau = await tuDoMau();      // tủ cũ đã có màu thì bộ điều khiển giữ màu đó (rep.giu_mau); chưa có thì theo ô "tự đổ màu"
       busy = false;
       try {
         lastRep = rep;
@@ -1641,6 +1726,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       (rep.warnings || []).forEach(t => h.push(`<div class="msg warn">${esc(t)}</div>`));
       (rep.notes || []).forEach(t => h.push(`<div class="msg note">${esc(t)}</div>`));
       if (xongRoi && rep.do_loi) h.push(phieuVeHTML(rep.do_loi, 'Dò lỗi sản xuất trên tấm thật', 'phieu-ve', rep.do_loi.dem.loi + rep.do_loi.dem.luu_y > 0) + dongDoLoi(rep.do_loi, true));
+      h.push(mauVeHTML(rep));
       if (xongRoi) {
         const tt = rep.ten_tam || {}, ds = Object.keys(tt);
         if (rep.doi_ten) h.push(`<div class="msg note">Đã ghi tên tiếng Việt cho ${rep.doi_ten} tấm: ${esc(ds.slice(0, 12).map(t => (tt[t] > 1 ? `${t} ×${tt[t]}` : t)).join(', '))}${ds.length > 12 ? '…' : ''}.</div>`);
@@ -1665,6 +1751,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       let rep;
       try { rep = await Drv.veKho(opt); }
       catch (e) { rep = { ok: false, kho: true, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [], notes: [], mau: { id: o.id, ten: o.ten } }; }
+      if (rep.giai_doan === 'xong') rep.do_mau = await tuDoMau();
       chip.hidden = true; panel.hidden = false; launch.hidden = true; busy = false;
       try {
         if (ctx.luu_y && ctx.luu_y.length && rep.warnings) rep.warnings.unshift(...ctx.luu_y);
@@ -1707,6 +1794,148 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const kt = docKTKho(); if (!kt) return null;
       return veKho({ id: m.id, ten: m.ten, rong: kt[0], sau: kt[1], cao: kt[2], phong: phong ? phong.ten : '', ma: m.ten }, { j: -1, ten: '' });
     }
+    /* ---- THẺ MÀU (bản 1.21 — anh Jason 04/10/2026: "chọn một tủ: thùng một màu riêng, cánh + phào một màu … liệt kê các màu của mình cho nhanh, cho phép tìm kiếm và thay thế") ----
+     * Màu = vật liệu trong kho vật liệu của tài khoản (Drv.khoVatLieu — chỉ đọc). Ba ô (thùng / cánh + phào / hậu) giữ màu sẽ đổ; "ô đang bật" là ô nhận màu khi bấm vào danh sách
+     * và cũng là màu dùng cho "đổ riêng các tấm đang chọn" / "thay màu". Việc gán vào tấm do bộ điều khiển làm (Drv.doMauTu / doMau / thayMau — mỗi lần một bước hoàn tác). */
+    const vl = { ds: null, nhom: [], dang: false, loi: '', tim: '', loc: '', het: false, dung: null, tu: null, ban: false };      // dung = màu đang dùng trên bản vẽ (sau khi bấm "Xem…"); tu = màu cần thay (null = chưa bấm, '' = tấm chưa đổ màu)
+    const MAU_HIEN = 120;      // kho của xưởng vài trăm mã: dựng 120 ô đầu cho nhẹ; gõ mã để tìm, hoặc bấm "Hiện hết" (vl.het)
+    const tenNhomMau = k => (NHOM_MAU.find(N => N[0] === k) || [k, k])[1];
+    const mauBat = () => mauS.o[mauS.bat] || (mauS.bat === 'hau' ? mauS.o.thung : null);      // ô Hậu chưa có màu riêng = theo màu thùng
+    const anhMau = m => (m && m.hinh ? `<img src="${esc(m.hinh)}" alt="" loading="lazy">` : '<i></i>');
+    function veO() {
+      const el = $('.vlos'); if (!el) return;
+      el.innerHTML = NHOM_MAU.map(([k, ten]) => {
+        const m = mauS.o[k], on = mauS.bat === k;
+        return `<div class="vlo${on ? ' on' : ''}" data-v="${k}"><button class="vlob" data-act="vl-o" data-v="${k}" aria-pressed="${on}" title="Bấm để bật ô ${esc(ten)}: màu bấm ở danh sách sẽ vào ô này">${anhMau(m)}<span><small>${esc(ten)}</small><b${m ? '' : ' class="tr"'}>${m ? esc(m.ten) : k === 'hau' ? 'như thùng' : 'chưa chọn'}</b></span></button>${m ? `<button class="x" data-act="vl-bo" data-v="${k}" title="Bỏ màu của ô ${esc(ten)}" aria-label="Bỏ màu của ô ${esc(ten)}">✕</button>` : ''}</div>`;
+      }).join('');
+      veThay();
+    }
+    function veGan() { const el = $('.vlgan'); if (!el) return; el.innerHTML = mauS.gan.length ? '<span>Vừa dùng:</span>' + mauS.gan.map((m, i) => `<button class="vlg" data-act="vl-gan" data-v="${i}" title="Gán ${esc(m.ten)} cho ô đang bật">${anhMau(m)}${esc(m.ten)}</button>`).join('') : ''; }
+    function veNhom() { const el = $('[data-ui="vl-nhom"]'); if (!el) return; el.innerHTML = '<option value="">Mọi nhóm</option>' + vl.nhom.map(n => `<option value="${esc(n)}"${n === vl.loc ? ' selected' : ''}>${esc(n)}</option>`).join(''); }
+    function danhDauDS() { const m = mauS.o[mauS.bat], id = m ? m.id : null; $$('.vlds .vlc').forEach(c => c.classList.toggle('on', id !== null && c.dataset.v === id)); }
+    function veDS() {
+      const el = $('.vlds'), chan = $('.vlchan'); if (!el || !chan) return;
+      const datChan = (chu, conNua) => { chan.innerHTML = `<span data-ui="vl-dem">${esc(chu)}</span><span class="frow">${conNua ? '<button class="knut" data-act="vl-het" title="Dựng hết các màu còn lại vào danh sách (để cuộn xem)">Hiện hết</button>' : ''}<button class="knut" data-act="vl-lai" title="Vừa thêm / đổi tên vật liệu trong Chenfeng thì bấm để đọc lại danh sách">↻ Đọc lại kho</button></span>`; };
+      datChan('', false);
+      if (vl.dang) { el.innerHTML = '<p class="hint">Đang đọc kho vật liệu của tài khoản Chenfeng…</p>'; return; }
+      if (vl.loi) { el.innerHTML = `<p class="hint">Không đọc được kho vật liệu: ${esc(vl.loi)} Bấm “Đọc lại kho” để thử lại.</p>`; return; }
+      if (!vl.ds) { el.innerHTML = ''; return; }
+      const ds = Core.locMau(vl.ds, vl.tim, vl.loc), tong = vl.ds.length, hien_ = vl.het ? ds.length : Math.min(ds.length, MAU_HIEN);
+      el.innerHTML = ds.length ? ds.slice(0, hien_).map(m => `<button class="vlc" data-act="vl-chon" data-v="${esc(m.id)}" title="${esc(m.ten)}${m.nhom ? ' — ' + esc(m.nhom) : ''}">${m.hinh ? `<img src="${esc(m.hinh)}" alt="" loading="lazy">` : ''}<b>${esc(m.ten)}</b></button>`).join('')
+        : `<p class="hint">${tong ? `Không có mã màu nào khớp “${esc(vl.tim)}”${vl.loc ? ` trong nhóm ${esc(vl.loc)}` : ''}.` : 'Kho vật liệu của tài khoản chưa có màu nào — thêm vật liệu trong Chenfeng (thẻ Material) rồi bấm “Đọc lại kho”.'}</p>`;
+      datChan((vl.tim || vl.loc ? `${ds.length} / ${tong} màu` : `${tong} màu`) + (ds.length > hien_ ? ` — đang hiện ${hien_}, còn ${ds.length - hien_} (gõ mã để tìm)` : ''), ds.length > hien_);
+      danhDauDS();
+    }
+    let tmrVL = 0; const laterVL = () => { clearTimeout(tmrVL); tmrVL = setTimeout(safe(() => { const t = $('[data-ui="vl-tim"]'); vl.tim = t ? String(t.value).trim() : ''; veDS(); }), 160); };
+    async function vlNap(lamMoi) {      // lần đầu mở thẻ: đọc kho vật liệu của tài khoản (bộ điều khiển nhớ lại; lamMoi = hỏi lại máy chủ)
+      if (!coMau || vl.dang || (vl.ds && !lamMoi)) return;
+      vl.dang = true; vl.loi = ''; veDS();
+      try { const k = await Drv.khoVatLieu(lamMoi ? { lam_moi: true } : undefined); vl.ds = k.ds; vl.nhom = k.nhom; if (vl.loc && vl.nhom.indexOf(vl.loc) < 0) vl.loc = ''; }
+      catch (e) { vl.loi = String(e && e.message || e); }
+      vl.dang = false; veNhom(); veDS(); veDung();
+      if (lamMoi) setStatus(vl.loi ? 'Chưa đọc lại được kho vật liệu.' : `Đã đọc lại kho vật liệu: ${vl.ds.length} màu.`);
+    }
+    function ganMau(m) {      // bấm một màu (ở danh sách / ở "Vừa dùng") → vào ô đang bật
+      if (!m) return;
+      const g = { id: String(m.id), ten: String(m.ten), nhom: m.nhom || '', hinh: m.hinh || '' };
+      mauS.o[mauS.bat] = g; mauS.gan = [g].concat(mauS.gan.filter(x => x.ten !== g.ten)).slice(0, 8);
+      luuMau(); veO(); veGan(); danhDauDS();
+      setStatus(`Ô ${tenNhomMau(mauS.bat)}: ${g.ten}.`);
+    }
+    const tamChon = () => { try { return Drv.selected().filter(Drv.isBoard); } catch (e) { return []; } };
+    const tenTuCua = tam => { const t = [...new Set(tam.map(b => { try { return String((b.BoardProcessOption && b.BoardProcessOption.cabinetName) || ''); } catch (e) { return ''; } }).filter(Boolean))]; return t.length && t.length <= 3 ? 'tủ ' + t.join(', ') : t.length ? `${t.length} tủ` : `${tam.length} tấm`; };
+    const tenDS = o => Object.keys(o || {}).sort((a, b) => a.localeCompare(b, 'vi')).map(t => (o[t] > 1 ? `${t} ×${o[t]}` : t)).join(', ');
+    function vlKQ(html, coHoan) { const el = $('[data-ui="vl-kq"]'); if (el) el.innerHTML = html + (coHoan ? '<div class="frow" style="margin-bottom:8px"><button class="sec" data-act="vl-hoan" title="Lùi đúng lần đổ / thay màu vừa rồi (chỉ khi sau đó bản vẽ chưa có thao tác khác)">Hoàn tác lần đổ màu này</button></div>' : ''); }
+    // mọi việc đụng bản vẽ của thẻ Màu đi qua đây: không chạy chồng, không chen vào lúc bảng đang vẽ
+    async function vlLam(fn) {
+      if (!coMau || vl.ban) return;
+      if (busy) { setStatus('Bảng đang vẽ — chờ vẽ xong rồi đổ màu.'); return; }
+      if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return; }
+      vl.ban = true;
+      try { await fn(); }
+      catch (e) { vlKQ(`<div class="msg err">Chưa làm được: ${esc(String(e && e.message || e))}</div>`); setStatus('Chưa đổ được màu.'); }
+      finally { vl.ban = false; }
+    }
+    async function vlDoTu() {      // "Đổ màu tủ đang chọn"
+      const chon = tamChon();
+      if (!chon.length) return setStatus('Chọn 1 tấm của tủ trên bản vẽ (hồi, đợt, cánh… — chọn tấm của nhiều tủ thì đổ nhiều tủ một lượt) rồi bấm lại.');
+      if (!mauS.o.thung && !mauS.o.mat && !mauS.o.hau) return setStatus('Chưa chọn màu: bấm một ô (Thùng / Cánh + phào / Hậu) rồi bấm một màu trong danh sách.');
+      const tam = Drv.tamCuaTu(chon), tu = tenTuCua(tam);
+      vlKQ('<p class="hint">Đang đổ màu…</p>'); setStatus(`Đang đổ màu ${tu} (${tam.length} tấm)… màu dùng lần đầu phải tải từ kho, mất vài giây.`);
+      const r = await Drv.doMauTu(tam, mauS.o);
+      if (!r.ok) { vlKQ(`<div class="msg err">${esc(r.reason)}</div>`); return setStatus('Chưa đổ được màu.'); }
+      const giu = NHOM_MAU.filter(N => !r.mau[N[0]]).map(N => N[1].toLowerCase());
+      vlKQ(`<div class="msg ok">Đã đổ màu ${esc(tu)}: ${esc(dongMau(r) || 'không có tấm nào thuộc nhóm đã chọn màu')}.</div>`
+        + (r.so.mat ? `<div class="msg note">Cánh + phào gồm: ${esc(tenDS(r.ten.mat))}.</div>` : r.mau.mat ? '<div class="msg note">Tủ này không có tấm nào thuộc nhóm cánh + phào.</div>' : '')
+        + (giu.length ? `<div class="msg note">Phần ${esc(giu.join(', '))} giữ nguyên vì ô đó chưa chọn màu.</div>` : '')
+        + (r.khoa ? `<div class="msg warn">${esc(khoaMau(r).trim())}</div>` : ''), r.steps > 0);
+      setStatus(`Đã đổ màu ${tu}.`); vlQuetLai();
+    }
+    async function vlDoTam() {      // "Đổ màu ô đang bật cho riêng các tấm đang chọn"
+      const chon = tamChon(), m = mauBat();
+      if (!m) return setStatus(`Ô ${tenNhomMau(mauS.bat)} chưa có màu — bấm một màu trong danh sách trước.`);
+      if (!chon.length) return setStatus('Chọn các tấm cần đổ màu trên bản vẽ rồi bấm lại.');
+      vlKQ('<p class="hint">Đang đổ màu…</p>'); setStatus(`Đang đổ màu ${m.ten} cho ${chon.length} tấm…`);
+      const r = await Drv.doMau(chon, m);
+      if (!r.ok) { vlKQ(`<div class="msg err">${esc(r.reason)}</div>`); return setStatus('Chưa đổ được màu.'); }
+      vlKQ(`<div class="msg ok">Đã đổ màu ${esc(m.ten)} cho ${r.so} tấm đang chọn.</div>` + (r.khoa ? `<div class="msg warn">${esc(khoaMau(r).trim())}</div>` : ''), r.steps > 0);
+      setStatus(`Đã đổ màu ${m.ten} cho ${r.so} tấm.`); vlQuetLai();
+    }
+    async function vlHoan() {
+      setStatus('Đang hoàn tác…');
+      const r = await Drv.undoMau();
+      if (!r.ok) return setStatus(r.reason);
+      vlKQ('<p class="hint">Đã hoàn tác lần đổ màu vừa rồi.</p>'); setStatus('Đã hoàn tác lần đổ màu vừa rồi.'); vlQuetLai();
+    }
+    /* tìm và thay */
+    function vlQuet() { vl.dung = Drv.mauDangDung(); if (vl.tu !== null && !vl.dung.some(x => x.ten === vl.tu)) vl.tu = null; veDung(); }
+    function vlQuetLai() { if (vl.dung) vlQuet(); }
+    function veDung() {
+      const el = $('[data-ui="vl-dung"]'); if (!el) return;
+      el.innerHTML = !vl.dung ? '' : !vl.dung.length ? '<p class="hint">Bản vẽ chưa có tấm ván nào.</p>'
+        : vl.dung.map(x => `<button class="vld${vl.tu === x.ten ? ' on' : ''}" data-act="vl-tu" data-v="${esc(x.ten)}" aria-pressed="${vl.tu === x.ten}" title="${x.ten ? 'Màu ' + esc(x.ten) : 'Tấm còn vật liệu mặc định của bản vẽ'} — bấm để chọn tấm hoặc thay màu này">${anhMau(x.ten && vl.ds ? vl.ds.find(q => q.ten === x.ten) : null)}${x.ten ? esc(x.ten) : 'Chưa đổ màu'} · ${x.so} tấm</button>`).join('');
+      veThay();
+    }
+    function veThay() {
+      const tu = $('[data-ui="vl-tu"]'), den = $('[data-ui="vl-den"]'), o = $('[data-ui="vl-den-o"]'); if (!tu || !den) return;
+      const m = mauBat();
+      tu.textContent = vl.tu === null ? '(bấm một màu đang dùng)' : vl.tu === '' ? 'tấm chưa đổ màu' : vl.tu;
+      den.textContent = m ? m.ten : '(chưa có màu)';
+      if (o) o.textContent = `— màu của ô đang bật: ${tenNhomMau(mauS.bat)}`;
+    }
+    function vlXem() {
+      if (!coMau || !Drv.available()) return;
+      if (vl.tu === null) return setStatus('Bấm “Xem màu đang dùng trên bản vẽ” rồi bấm vào một màu trước.');
+      const ds = Drv.tamTheoMau(vl.tu);
+      if (!ds.length) { vlQuet(); return setStatus('Không còn tấm nào mang màu đó trên bản vẽ.'); }
+      Drv.chonRieng(ds);      // bỏ chọn cũ trước: lệnh chọn của Chenfeng cộng thêm vào tập đang chọn
+      setStatus(`Đã chọn ${ds.length} tấm ${vl.tu ? 'màu ' + vl.tu : 'chưa đổ màu'} trên bản vẽ.`);
+    }
+    async function vlThay(phamVi) {
+      const m = mauBat(), tuTen = vl.tu;
+      if (tuTen === null) return setStatus('Bấm “Xem màu đang dùng trên bản vẽ” rồi bấm vào màu cần thay.');
+      if (!m) return setStatus(`Ô ${tenNhomMau(mauS.bat)} chưa có màu — bấm ô đó rồi bấm màu thay vào trong danh sách.`);
+      if (m.ten === tuTen) return setStatus(`Màu thay vào (${m.ten}) trùng với màu cần thay — bật ô khác hoặc chọn màu khác.`);
+      let pv = null;
+      if (phamVi === 'chon') { pv = tamChon(); if (!pv.length) return setStatus('Trên bản vẽ, quét chọn các tấm cần thay màu (một tủ, một phòng…) rồi bấm lại.'); }
+      const chuTu = tuTen || 'chưa đổ màu', cho = pv ? 'trong các tấm đang chọn' : 'trên cả bản vẽ';
+      vlKQ('<p class="hint">Đang thay màu…</p>'); setStatus(`Đang thay ${chuTu} → ${m.ten}…`);
+      const r = pv ? await Drv.thayMau(tuTen, m, pv) : await Drv.thayMau(tuTen, m);
+      if (!r.ok) { vlKQ(`<div class="msg err">${esc(r.reason)}</div>`); return setStatus('Chưa thay được màu.'); }
+      if (!r.so && !r.khoa) { vlKQ(`<div class="msg note">Không có tấm nào ${tuTen ? 'màu ' + esc(tuTen) : 'chưa đổ màu'} ${cho}.</div>`); setStatus('Không có tấm nào để thay.'); return vlQuetLai(); }
+      vlKQ(`<div class="msg ok">Đã thay ${esc(chuTu)} → ${esc(m.ten)}: ${r.so} tấm ${cho}.</div>` + (r.khoa ? `<div class="msg warn">${esc(khoaMau(r).trim())}</div>` : ''), r.steps > 0);
+      setStatus(`Đã thay ${chuTu} → ${m.ten}: ${r.so} tấm.`); vlQuetLai();
+    }
+    /** Tủ / mẫu kho vừa vẽ xong: đổ màu ngay theo 3 ô (khi ô "tự đổ màu" đang bật). → null (không làm) | kết quả Drv.doMauTu. Không ném lỗi. */
+    async function tuDoMau() {
+      if (!coMau || !mauS.tu_dong || !(mauS.o.thung || mauS.o.mat || mauS.o.hau)) return null;
+      let tam = [];
+      try { tam = ((Drv.last && Drv.last.added) || []).filter(e => e && !e.IsErase && Drv.isBoard(e)); } catch (e) { tam = []; }
+      if (!tam.length) return null;
+      setStatus('Đang đổ màu tủ vừa vẽ…');
+      try { return await Drv.doMauTu(tam, mauS.o, { gop_ve: true }); } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
+    }
+
     /* ---- ảnh hiện trạng ---- */
     function veAnh() {
       const el = $('.thumbs'); if (!el) return;
@@ -1767,6 +1996,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (t.dataset.b) { readBay(t.closest('.bay')); later(); }
       else if (t.dataset.ui === 'doors') { showDoors = t.checked; paintView(); }
       else if (t.dataset.ui === 'kho-tim') laterKho();
+      else if (t.dataset.ui === 'vl-tim') laterVL();
+      else if (t.dataset.ui === 'vl-tudong') { mauS.tu_dong = !!t.checked; luuMau(); setStatus(mauS.tu_dong ? 'Đã bật: tủ và mẫu kho vẽ mới tự đổ màu theo 3 ô của thẻ Màu.' : 'Đã tắt tự đổ màu cho tủ vẽ mới.'); }
     }));
     // ô "Đợt": nhớ trạng thái lúc bắt đầu gõ để ngăn kéo / suốt treo đi theo đợt; rời ô thì ghi lại danh sách đã chuẩn hoá
     rootEl.addEventListener('focusin', safe(e => {
@@ -1814,6 +2045,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (t.dataset.p) { if (t.tagName === 'SELECT') phongInput(t); else if (/\.ten$/.test(t.dataset.p)) { phongStore.save(); renderPhong(); } }
       else if (t.dataset.ui === 'mau') capMau();
       else if (t.dataset.ui === 'kho-dir') { if (t.value) return khoDoiDir(t.value); }
+      else if (t.dataset.ui === 'vl-nhom') { vl.loc = t.value; veDS(); }
       else if (t.dataset.ed === 'z') applyZ(t);
       else if (t.dataset.ed === 'wl') applyWL(t);
       else if (t.dataset.ed === 'loai') { const c = sel && sel.loai === 'o' ? cellFor(sel.khoang, sel.tu) : null; if (c && c.kieu && c.kieu !== 'suot') setCell(c, c.kieu, c.so, t.value); }
@@ -1826,6 +2058,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (e.key === 'Escape' && cheDoVach) { e.preventDefault(); datCheDoVach(false); setStatus(''); }
       else if (e.key === 'Escape' && veMD) { e.preventDefault(); datVeMD(false); setStatus('Đã thôi vẽ khung trên mặt đứng.'); }
       else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ui === 'kho-tim') { e.preventDefault(); clearTimeout(tmrKho); kho.tim = String(e.target.value).trim(); kho.trang = 1; veLuoi(); }
+      else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ui === 'vl-tim') { e.preventDefault(); clearTimeout(tmrVL); vl.tim = String(e.target.value).trim(); veDS(); }
       else if (e.key === 'Escape' && moLoai) { e.preventDefault(); moLoai = false; renderBar(); }
       // Ctrl+Z ngoài ô nhập = lùi thao tác trên hình (trong ô nhập thì để trình duyệt lùi chữ đang gõ)
       else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase() === 'z' && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) { e.preventDefault(); lui(); }
@@ -1981,6 +2214,19 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (act === 'kho-khung') return khoDung();
       if (act === 'kho-dat') return khoDat();
       if (act === 'kho-ve') return khoVeDiem();
+      if (act === 'vl-o') { mauS.bat = b.dataset.v; luuMau(); veO(); return danhDauDS(); }
+      if (act === 'vl-bo') { mauS.o[b.dataset.v] = null; luuMau(); veO(); return danhDauDS(); }
+      if (act === 'vl-chon') return ganMau(vl.ds && vl.ds.find(m => m.id === b.dataset.v));
+      if (act === 'vl-gan') return ganMau(mauS.gan[+b.dataset.v]);
+      if (act === 'vl-do') return vlLam(vlDoTu);
+      if (act === 'vl-tam') return vlLam(vlDoTam);
+      if (act === 'vl-hoan') return vlLam(vlHoan);
+      if (act === 'vl-thay') return vlLam(() => vlThay(b.dataset.v));
+      if (act === 'vl-quet') { vlQuet(); return setStatus(vl.dung && vl.dung.length ? `Bản vẽ đang dùng ${vl.dung.filter(x => x.ten).length} màu — bấm vào một màu để chọn tấm hoặc thay.` : 'Bản vẽ chưa có tấm ván nào.'); }
+      if (act === 'vl-tu') { vl.tu = b.dataset.v; return veDung(); }
+      if (act === 'vl-xem') return vlXem();
+      if (act === 'vl-lai') return vlNap(true);
+      if (act === 'vl-het') { vl.het = true; return veDS(); }
       if (act === 'p-ve') return vePhong();
       if (act === 'p-hoantac') { if (!Drv || busy) return; setStatus('Đang hoàn tác phòng…'); return Drv.undoRoom().then(r => { setStatus(r.ok ? 'Đã bỏ phòng vừa vẽ khỏi bản vẽ.' : r.reason); if (r.ok) { $('.pkq').innerHTML = ''; b.disabled = true; } }); }
       if (act === 'anh-chon') return $('[data-ui="anh-file"]').click();
@@ -2048,6 +2294,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     (inCF ? document.documentElement : document.body).appendChild(host);
     renderAll(); capMau();
+    if (coMau) { veO(); veGan(); veDung(); }
     if (Ph) renderPhong();
     if (daLuu.doi.length) setStatus(daLuu.doi.join(' '));
     // phông chữ tải xong có thể làm thanh sửa đổi chiều cao → tính lại cỡ hình một lần

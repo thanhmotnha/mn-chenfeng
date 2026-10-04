@@ -4,7 +4,7 @@ Tiện ích "Một Nhà · Vẽ tủ vào Chenfeng" (plugin cho Chenfeng WebCAD 
 
 ## Kho này là KÊNH PHÁT HÀNH
 - Mọi máy đã cài tiện ích tự tải `dist/mn-chenfeng.js` trên nhánh `main` mỗi lần mở Chenfeng (xem README → Tự cập nhật). **Đẩy lên `main` = phát hành cho xưởng.**
-- Chỉ đẩy khi: `node build.js` đã chạy, mọi bộ thử đạt (core, dich, phong, kiem, chuanhoa, ui, phong-ui, ext, nap, kho, doloi), và `dist/phien-ban.json` khớp `dist/mn-chenfeng.js` (build tự làm). Dùng `./phat-hanh.sh "ghi chú"`.
+- Chỉ đẩy khi: `node build.js` đã chạy, mọi bộ thử đạt (core, dich, phong, kiem, mau, chuanhoa, ui, phong-ui, ext, nap, kho, doloi, mau-ui), và `dist/phien-ban.json` khớp `dist/mn-chenfeng.js` (build tự làm). Dùng `./phat-hanh.sh "ghi chú"`.
 - Đổi hành vi → tăng `VERSION` trong `src/mncf-core.js` (sửa luôn chuỗi phiên bản trong `test/ui.test.js`).
 - Việc đang làm dở, chưa thử xong: để ở nhánh khác, không để trên `main`.
 - Sửa `src/mncf-nap.js` hoặc manifest → dựng lại `tai-ve/mn-chenfeng-tien-ich.zip` (nội dung = `dist/extension/`, thư mục gốc trong zip tên `mn-chenfeng/`) và báo anh cài lại; sửa phần khác thì KHÔNG cần đụng zip.
@@ -26,9 +26,11 @@ NODE_PATH=/home/claude/.npm-global/lib/node_modules PLAYWRIGHT_BROWSERS_PATH=/op
 - Lệnh gốc dò khoảng trống trên HÌNH đang dựng, mà Chenfeng đưa hình tấm mới vào Scene trễ một nhịp `setTimeout` (tab bị che: trễ cả giây). Mọi lần dò phải đi qua `doKhoang`: `hienHinh` → `veNgay` → rê chuột cho Chenfeng dò thử → so hộp xem trước với `Core.khoangMong`. Đừng gọi thẳng `D.input` cho lệnh hỏi khoảng trống.
 - Bộ thử nào nạp tiện ích thật thì phải `require('./kho-gia')` để chặn kênh cập nhật về `dist/` trong máy; không thì phép thử chạy bản đã phát hành trên mạng.
 - Dò lỗi sản xuất (bản 1.20): phép dò là HÀM THUẦN trong `mncf-core.js` — thiết kế: `kiemSX`, `kiemLienKet`, `phieu`; tấm + lỗ thật: `kiemVaCham`, `kiemLoGiao`, `kiemLoLech`, `kiemMoiNoi`, `doLoiThat`. `D.docThat` chỉ ĐỌC tấm / lỗ của Chenfeng thành dữ liệu thuần (hộp theo nhóm hướng, đường bao thật của tấm khoét / bo cong, mã mẫu), `D.doLoi` chạy sau mỗi lần vẽ (`doLoiSauVe`) và từ nút ở thẻ Kết quả. Thêm phép dò: viết phép thử trong `test/kiem.test.js` trước; dữ liệu giả phải đúng cấu trúc đã đo trên Chenfeng (OBB, ContourCurve + OCS, CylinderHole._Matrix). Mục LỖI làm lần vẽ không "ok"; mục LƯU Ý chỉ nằm trong phiếu — đừng biến chuyện thường của mẫu kho (mép sau đợt tì lên hậu dày, cánh hở thùng) thành dòng báo.
+- Đổ màu (bản 1.21, thẻ Màu): "màu" = vật liệu trong kho vật liệu của tài khoản — `D.khoVatLieu` chỉ ĐỌC (`CAD-dirQuery` loại 2, `CAD-materialList`, `CAD-materialDetail`), mã nguồn không ghi sẵn mã thư mục / mã vật liệu nào. Chia nhóm thùng / cánh + phào / hậu là hàm thuần `Core.nhomMau` (theo tên tấm + hình học: mặt ngăn kéo nằm sau cánh là thùng). Gán vào tấm đi qua `ganVL` — vật liệu hiển thị + tên ván / vật liệu / màu, MỘT bước hoàn tác; tự đổ sau khi vẽ thì gộp bước vào lần vẽ (`gop_ve`); `D.update` giữ màu của tủ cũ (`giuMau`). `AddSelect` của Chenfeng CỘNG THÊM vào tập đang chọn — muốn chọn riêng thì `D.chonRieng`. Ba ô màu + lựa chọn tự đổ nhớ ở localStorage `mncf.mau.v1`.
 
 ## Khi thử trên Chenfeng thật (trình duyệt của anh)
 - Chỉ làm trong tab riêng do mình mở, tắt tự lưu trong tab đó, không đụng bản vẽ anh đang mở, không lưu bản vẽ / mẫu / cấu hình vào tài khoản anh khi chưa được bảo.
 - Khoá `mncf.*` trong localStorage của cfcad.cn là dữ liệu của anh — không xoá, không ghi đè.
 - Không để lỗi JS lọt ra trang, không gọi alert / confirm, thử xong thì hoàn tác và đóng tab.
-- Mua mẫu trả tiền, lệnh gửi bản vẽ ra ngoài: hỏi anh trước từng lần.
+- Mua mẫu trả tiền, lệnh gửi bản vẽ ra ngoài: hỏi anh trước từng lần. Lệnh tách đơn `CD` (và `TU`, 拆单导出) thuộc loại này: chọn tấm + Enter là Chenfeng đưa dữ liệu tấm sang trang sản xuất của họ ngay, không có bước hỏi lại.
+- Cửa sổ Chrome bị thu nhỏ / che kín thì trang không dựng hình (không có `requestAnimationFrame`, không chụp được ảnh, khung trang sản xuất không chạy): phép thử bằng lệnh vẫn chạy, còn việc cần nhìn thì nhờ anh mở lại cửa sổ.

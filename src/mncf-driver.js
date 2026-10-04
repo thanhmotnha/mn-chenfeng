@@ -202,7 +202,8 @@
     return { added, cancelled: added.length === 0, logs: logsSince(mark) };
   };
 
-  /** Chọn đối tượng bằng mã (giống người dùng quét chọn). */
+  /** Chọn đối tượng bằng mã (giống người dùng quét chọn). Trên Chenfeng thật `AddSelect` CỘNG THÊM vào tập đang chọn — muốn chọn riêng các đối tượng này thì dùng D.chonRieng. */
+  D.chonRieng = (ents) => { try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ } return D.select(ents); };
   D.select = (ents) => {
     const list = ents.filter(e => e && e.DrawObject);
     const sel = { _SelectList: new Set(list.map(e => e.DrawObject)), SelectGroup() { return 0; }, get SelectEntityList() { return list.slice(); } };
@@ -857,6 +858,8 @@
     const loc = D.locate(ref.id, Mc, ref.pick);
     if (!loc.ok) return { ok: false, giai_doan: 'tim', errors: [loc.reason], warnings: [] };
     const ents = D.cabinetEntities(ref.id, Mc, loc);
+    let mauCu = null;      // bản 1.21: tủ cũ đã đổ màu → tủ vẽ lại mang lại đúng màu đó (tấm mới sinh ra là vật liệu mặc định)
+    try { mauCu = D.mauCuaTu(ents.filter(D.isBoard)); } catch (e) { mauCu = null; }
     opt.onStatus(`Đang bỏ tủ cũ (${ents.filter(e => D.isBoard(e) || D.isHardware(e)).length} tấm và phụ kiện)…`);
     const er = await D.erase(ents);
     if (!er.ok) {
@@ -874,6 +877,7 @@
     if (D.last) D.last.steps = (D.last.steps || 1) + (er.steps || 0);
     rep.so_buoc_hoan_tac = (rep.so_buoc_hoan_tac || 1) + (er.steps || 0);
     rep.cap_nhat = { bo: er.n, thieu: loc.thieu };
+    if (mauCu && mauCu.co) { opt.onStatus('Đang đổ lại màu của tủ cũ…'); rep.giu_mau = await giuMau(mauCu); if (rep.giu_mau.ok) rep.so_buoc_hoan_tac += rep.giu_mau.steps || 0; }
     return rep;
   };
 
@@ -2359,7 +2363,7 @@
    * mẫu kho nằm trong module tủ của bảng (ngăn kéo, suốt treo) thì tính theo từng mẫu con; còn lại theo module gốc. opt.nen = mọi tấm của bản vẽ (để nhận ra module tủ khi chỉ kiểm vài tấm).
    */
   D.docThat = (ents, opt) => {
-    const tam = [], vt = new Map(), hes = [], maMau = new Map();
+    const tam = [], vt = new Map(), hes = [], maMau = new Map(), entTam = [];
     let lech = 0, cong = 0;
     const gocTu = new Set();
     for (const b of ((opt && opt.nen) || ents || [])) { try { if (b && !b.IsErase && D.isBoard(b) && D.tagOf(b)) { const g0 = rootTpl(b); if (g0) gocTu.add(g0); } } catch (e) { /* bỏ qua */ } }
@@ -2409,7 +2413,7 @@
       const t1 = { ten: String(b.Name || ''), tu: String(o.cabinetName || ''), hop,
         day: r2(+b.Thickness > 0 ? +b.Thickness : 2 * h3[2]), khoan: o.drillType !== Core.KHONG_KHOAN && kieu.length > 0, kieu, mau: goc0 ? maMau.get(goc0) : null, kich: [r2(Math.max(W, H)), r2(Math.min(W, H))], he, vl: String(o.material || o.boardName || '') };
       if (bao) t1.bao = bao;
-      tam.push(t1);
+      tam.push(t1); entTam.push(b);
     }
     const lo = [], nhomPhu = new Map();
     for (const h of (ents || [])) {
@@ -2424,7 +2428,9 @@
       if (nhom === null) { const k = (cai === undefined ? -1 : cai) + '|' + (duc === undefined ? -1 : duc); if (!nhomPhu.has(k)) nhomPhu.set(k, 'p' + nhomPhu.size); nhom = nhomPhu.get(k); }      // không đọc được nhóm: coi mọi lỗ nối cùng hai tấm là một nhóm
       lo.push({ p: [el[12], el[13], el[14]], d: [el[8] / ld, el[9] / ld, el[10] / ld], dai, r, nhom, cai: cai === undefined ? -1 : cai, duc: duc === undefined ? -1 : duc });
     }
-    return { tam, lo, lech, cong, goc_he: hes.slice() };
+    const ra = { tam, lo, lech, cong, goc_he: hes.slice() };
+    Object.defineProperty(ra, 'ent', { value: entTam, enumerable: false });      // tấm thật ứng với từng dòng của `tam` (cho các việc cần quay lại đối tượng: đổ màu)
+    return ra;
   };
 
   /**
@@ -2447,6 +2453,183 @@
     const p = Core.doLoiThat(dl);
     p.pham_vi = pv;
     return p;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * ĐỔ MÀU (bản 1.21 — anh Jason 04/10/2026 09:08: "chọn một tủ: phần thùng một màu riêng, cánh tủ và phào tủ một màu … liệt kê các màu của mình cho nhanh, cho phép tìm kiếm và thay thế").
+   * "Màu của xưởng" = kho vật liệu của tài khoản Chenfeng (thư mục loại 2; mỗi vật liệu đặt tên theo mã màu). Chỉ ĐỌC kho; mã nguồn không ghi sẵn mã thư mục / mã vật liệu nào.
+   * Đã đo trên Chenfeng thật 04/10/2026:
+   *   - `CAD-dirQuery { dir_type: '2' }` → thư mục vật liệu; `CAD-materialList { dir_id, curr_page, page_count ≤ 100 }` → `{ count, materials: [{ material_id, name, logo }] }` (100 mã ≈ 0,3 giây);
+   *     ảnh nhỏ 100 × 100 = máy chủ API + '/' + logo; `CAD-materialDetail { material_id }` → `materials.file` (base64 của zlib) — CHẬM, 2–4 giây mỗi mã, nên mỗi mã chỉ tải một lần;
+   *   - file vật liệu là một Database thu nhỏ: `new Database(false, false, true).FileRead(new CADFiler(mảng)).MaterialTable.Symbols` có đúng một `PhysicalMaterialRecord`;
+   *     lớp Database lấy từ `app.Database.constructor`, lớp CADFiler từ `new Database(…).FileWrite().constructor` — đúng cách chính Chenfeng làm khi kéo vật liệu vào bản vẽ (`MaterialIn` + `WblockCloneObejcts(…, DuplicateRecordCloning.Ignore = 1)`);
+   *   - bản vẽ đã có vật liệu cùng tên (`MaterialTable.GetAt(tên)`) thì dùng lại; gán cho tấm: `tấm.Material = bản ghi.Id` (tấm khoá vật liệu thì bỏ qua);
+   *   - vật liệu mang "thông tin ván" `GoodsInfo { name, color, material }` (kho của xưởng: MDF / mã màu / MDF) → ghi vào ô 板材名 / 颜色 / 材料 của tấm như Chenfeng làm (`ApplyGoodInfo`) để bảng cắt gom đúng loại ván;
+   *   - gán trong `hm.StartCmd … EndCmd` = MỘT bước hoàn tác; đổi L / W / H của module sau đó màu vẫn giữ.
+   * ------------------------------------------------------------------ */
+  let khoVL = null;
+  /** Mọi màu trong kho vật liệu của tài khoản (đọc một lần rồi nhớ; opt.lam_moi = đọc lại). @returns {{ ds: [{ id, ten, nhom (tên thư mục), hinh (ảnh nhỏ) }], nhom: [tên thư mục] }} */
+  D.khoVatLieu = async (opt) => {
+    if (khoVL && !(opt && opt.lam_moi)) return khoVL;
+    const j = await post('CAD-dirQuery', { dir_type: '2' }), dirs = [], host = D.apiHost();
+    (function di(a) { for (const d of a || []) { dirs.push({ id: String(d.dir_id), ten: String(d.dir_name || '').trim() }); di(d.childs); } })(j.dirs);
+    const CO = 100, trang = (d, tr) => post('CAD-materialList', { dir_id: d.id, curr_page: tr, page: tr, page_count: CO });
+    const doi = (d, a) => (a || []).map(m => { const logo = String(m.logo || '').replace(/^\/+/, ''); return { id: String(m.material_id), ten: String(m.name || '').trim(), nhom: d.ten, hinh: logo ? (/^https?:/i.test(logo) ? logo : host + '/' + logo) : '' }; });
+    const doc = async d => {
+      const r1 = await trang(d, 1), a1 = r1.materials || [], tong = Math.round(+r1.count) || 0, ra = doi(d, a1);
+      if (a1.length < CO || (tong && tong <= CO)) return ra;
+      // máy chủ Chenfeng có lúc trả lời chậm vài giây mỗi trang (đo 04/10/2026: 0,3 – 6,5 giây) → biết tổng số rồi thì các trang sau hỏi CÙNG LÚC
+      if (tong) { const con = await Promise.all(Array.from({ length: Math.min(59, Math.ceil(tong / CO) - 1) }, (x, i) => trang(d, i + 2))); return ra.concat(...con.map(r => doi(d, r.materials))); }
+      for (let tr = 2; tr <= 60; tr++) { const a = (await trang(d, tr)).materials || []; ra.push(...doi(d, a)); if (a.length < CO) break; }      // máy chủ không báo tổng số: hỏi lần lượt tới trang thiếu
+      return ra;
+    };
+    const tung = await Promise.all(dirs.map(doc));
+    khoVL = { ds: [].concat(...tung), nhom: dirs.filter((d, i) => tung[i].length).map(d => d.ten) };
+    return khoVL;
+  };
+  const tenVL = rec => { try { return String(rec.Name !== undefined && rec.Name !== null ? rec.Name : rec.name || ''); } catch (e) { return ''; } };
+  /** Bản ghi vật liệu TRONG BẢN VẼ của màu m = { id, ten }: đã có thì dùng lại, chưa có thì tải file của kho rồi chép vào bảng vật liệu của bản vẽ. */
+  D.napVatLieu = async (m) => {
+    const db = root.app.Database, ten = String((m && m.ten) || '');
+    let rec = ten ? db.MaterialTable.GetAt(ten) : null;
+    if (rec) return rec;
+    const j = await post('CAD-materialDetail', { material_id: String(m && m.id) });
+    const file = j.materials && j.materials.file;
+    if (!file) throw new Error('kho không trả file của vật liệu này');
+    const DB = db.constructor, F = new DB(false, false, true).FileWrite().constructor, db2 = new DB(false, false, true);
+    db2.FileRead(new F(JSON.parse(await inflate(file))));
+    const goc = db2.MaterialTable.Symbols.entries().next().value[1];
+    if (ten) goc.Name = ten;
+    rec = db.MaterialTable.GetAt(tenVL(goc));      // người dùng vừa kéo đúng màu này vào trong lúc chờ tải
+    return rec || db.WblockCloneObejcts([goc], db.MaterialTable, new Map(), 1)[0];
+  };
+  const vlCua = b => { try { const id = b.Material; return (id && id.Object) || null; } catch (e) { return null; } };
+  const tenMauCua = b => { let md = null; try { md = root.app.Database.DefaultMaterial; } catch (e) { md = null; } const r = vlCua(b); return !r || r === md ? '' : tenVL(r); };      // '' = chưa đổ màu (vật liệu mặc định của bản vẽ)
+  const khoaVL = b => { try { if (b.LockMaterial) return true; const st = typeof b.GetMtlLockedStatus === 'function' ? b.GetMtlLockedStatus() : null; return !!(st && (st.partMtlLocked || st.allMtlLocked)); } catch (e) { return false; } };
+  // Gán vật liệu + thông tin ván cho từng tấm trong MỘT bước lịch sử. cap = [[tấm, bản ghi vật liệu, nhóm]…] → { so: { nhóm: số tấm đã gán }, khoa, steps, mark }
+  const ganVL = (cap, tenLenh) => {
+    const h0 = hmMark(), so = {}; let mo = false, khoa = 0, n = 0;
+    try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd(tenLenh || 'MNCF_MAU'); mo = true; } } catch (e) { mo = false; }
+    try {
+      for (const [b, rec, nh] of cap) {
+        if (!b || b.IsErase || !rec) continue;
+        if (khoaVL(b)) { khoa++; continue; }
+        b.Material = rec.Id || rec.objectId;
+        const g = rec.GoodsInfo || {}, o = b.BoardProcessOption || {};      // vật liệu không mang thông tin ván (vd mua ở cửa hàng): giữ tên ván / vật liệu cũ của tấm, màu = tên vật liệu
+        b.BoardProcessOption = Object.assign({}, o, { boardName: String(g.name || o.boardName || ''), material: String(g.material || o.material || ''), color: String(g.color || tenVL(rec)) });
+        so[nh] = (so[nh] || 0) + 1; n++;
+      }
+    } finally { if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } } }
+    try { root.app.Viewer.UpdateRender(); } catch (e) { /* bỏ qua */ }
+    const h1 = hmMark(), steps = h0 && h1 ? Math.max(0, h1.i - h0.i) : (n ? 1 : 0);
+    if (steps) D.lastMau = { steps, mark: h1 };
+    return { so, khoa, steps, mark: h1, n };
+  };
+  const laTam = b => !!(b && !b.IsErase && D.isBoard(b));
+  /** Các tấm của (các) TỦ chứa những tấm đưa vào: cùng mã tủ của bảng, cùng module gốc, hoặc (tấm rời) cùng tên phòng + tên tủ. */
+  D.tamCuaTu = (ents) => {
+    const chon = (ents || []).filter(laTam);
+    if (!chon.length) return [];
+    const all = D.all().filter(D.isBoard), goc = new Map(all.map(b => [b, rootTpl(b)])), khoa = b => { const o = b.BoardProcessOption || {}; return o.cabinetName ? String(o.roomName || '') + '\u0001' + o.cabinetName : ''; };
+    const the = new Set(), mod = new Set(), ten = new Set(), le = new Set();
+    for (const b of chon) { const t = D.tagOf(b), g = goc.has(b) ? goc.get(b) : rootTpl(b); if (t) the.add(t); if (g) mod.add(g); if (!t && !g) { if (khoa(b)) ten.add(khoa(b)); else le.add(b); } }
+    // tủ của bảng chưa gom module: hộp ngăn kéo (mẫu kho, không mang mã tủ) đi theo tên tủ của các tấm mang mã đó
+    if (the.size) for (const b of all) if (the.has(D.tagOf(b)) && !goc.get(b) && khoa(b)) ten.add(khoa(b));
+    return all.filter(b => { const t = D.tagOf(b), g = goc.get(b); return (t && the.has(t)) || (g && mod.has(g)) || le.has(b) || (!t && khoa(b) && ten.has(khoa(b))); });
+  };
+  /** Chia tấm thành nhóm màu (Core.nhomMau): { nhom: ['thung' | 'mat' | 'hau'…] cùng thứ tự, dem: { thung, mat, hau }, ten: { nhóm: { tên tấm: số tấm } } } */
+  D.phanNhomMau = (boards) => {
+    boards = (boards || []).filter(laTam);
+    const dl = D.docThat(boards), vt = new Map(); (dl.ent || []).forEach((b, i) => vt.set(b, i));
+    const nhom = Core.nhomMau(boards.map(b => { const i = vt.get(b), t = i === undefined ? null : dl.tam[i]; return t ? { ten: t.ten, hop: t.hop, he: t.he } : { ten: String(b.Name || '') }; }));
+    const dem = { thung: 0, mat: 0, hau: 0 }, ten = { thung: {}, mat: {}, hau: {} };
+    nhom.forEach((n, i) => { dem[n]++; const t = String(boards[i].Name || ''); ten[n][t] = (ten[n][t] || 0) + 1; });
+    return { nhom, dem, ten };
+  };
+  const napNhieu = async (ds) => { const ra = []; for (const m of ds) { if (!m) { ra.push(null); continue; } try { ra.push(await D.napVatLieu(m)); } catch (e) { return { loi: `Không tải được màu “${m.ten}” từ kho vật liệu của Chenfeng (${String(e && e.message || e).slice(0, 140)}).` }; } } return { rec: ra }; };
+  /**
+   * Đổ màu theo NHÓM cho các tấm của tủ: mau = { thung, mat, hau } (mỗi cái là { id, ten } của D.khoVatLieu, hoặc bỏ trống = giữ nguyên nhóm đó; hậu bỏ trống = theo màu thùng).
+   * Một bước hoàn tác. opt.gop_ve = đang tự đổ màu ngay sau một lần vẽ → cộng bước này vào lần vẽ (để "Hoàn tác lần vẽ này" lùi cả hai).
+   * opt.hau_rieng = hậu KHÔNG tự theo màu thùng (dùng khi trả lại màu cũ cho tủ vừa cập nhật: hậu của tủ cũ chưa đổ thì để nguyên).
+   * @returns {{ ok, so: { thung, mat, hau }, khoa (số tấm khoá vật liệu bị bỏ qua), steps, mau: { thung, mat, hau } (tên màu đã đổ, '' = giữ nguyên), ten (tên tấm từng nhóm) } | { ok: false, reason }}
+   */
+  D.doMauTu = async (boards, mau, opt) => {
+    opt = opt || {}; mau = mau || {};
+    boards = (boards || []).filter(laTam);
+    if (!boards.length) return { ok: false, reason: 'Không có tấm nào để đổ màu — chọn 1 tấm của tủ trên bản vẽ rồi bấm lại.' };
+    const can = { thung: mau.thung || null, mat: mau.mat || null, hau: mau.hau || (opt.hau_rieng ? null : mau.thung) || null };
+    if (!can.thung && !can.mat && !can.hau) return { ok: false, reason: 'Chưa chọn màu nào.' };
+    const N = ['thung', 'mat', 'hau'], nap = await napNhieu(N.map(k => can[k]));
+    if (nap.loi) return { ok: false, reason: nap.loi };
+    const rec = {}; N.forEach((k, i) => { rec[k] = nap.rec[i]; });
+    const pn = D.phanNhomMau(boards), lastCu = D.last && D.last.mark ? hmMark() : null;
+    const kq = ganVL(boards.map((b, i) => [b, rec[pn.nhom[i]], pn.nhom[i]]));
+    if (opt.gop_ve && D.last && kq.steps && lastCu && D.last.mark && lastCu.i === D.last.mark.i && lastCu.rec === D.last.mark.rec) { D.last.steps = (D.last.steps || 1) + kq.steps; D.last.mark = kq.mark; }
+    return { ok: true, so: { thung: kq.so.thung || 0, mat: kq.so.mat || 0, hau: kq.so.hau || 0 }, khoa: kq.khoa, steps: kq.steps, mau: { thung: can.thung ? can.thung.ten : '', mat: can.mat ? can.mat.ten : '', hau: can.hau ? can.hau.ten : '' }, ten: pn.ten };
+  };
+  /** Màu đang mang của một tủ, theo nhóm = màu có NHIỀU TẤM NHẤT của nhóm ('' = nhóm đó chưa đổ màu). lan = các nhóm đang có hơn một màu (có tấm đổ riêng). */
+  D.mauCuaTu = (boards) => {
+    boards = (boards || []).filter(laTam);
+    const pn = D.phanNhomMau(boards), dem = { thung: new Map(), mat: new Map(), hau: new Map() }, mau = {}, lan = [];
+    boards.forEach((b, i) => { const t = tenMauCua(b), m = dem[pn.nhom[i]]; m.set(t, (m.get(t) || 0) + 1); });
+    for (const k of Object.keys(dem)) { const a = [...dem[k]].sort((x, y) => y[1] - x[1]); mau[k] = a.length ? a[0][0] : ''; if (a.length > 1) lan.push(k); }
+    return { mau, lan, co: !!(mau.thung || mau.mat || mau.hau) };
+  };
+  // Màu của kho theo TÊN (để tải lại nếu bản vẽ không còn bản ghi vật liệu đó); bản vẽ còn bản ghi thì D.napVatLieu dùng lại ngay, không cần mã.
+  const mauTheoTen = async ten => {
+    if (!ten) return null;
+    let m = khoVL && khoVL.ds.find(x => x.ten === ten);
+    if (!m && !root.app.Database.MaterialTable.GetAt(ten)) { try { m = (await D.khoVatLieu()).ds.find(x => x.ten === ten); } catch (e) { m = null; } }
+    return m || { id: '', ten };
+  };
+  /** Trả lại màu cũ (cu = D.mauCuaTu của tủ TRƯỚC khi bỏ) cho tủ vừa vẽ lại — D.update gọi; bước đổ màu được cộng vào lần vẽ. */
+  const giuMau = async (cu) => {
+    try {
+      const tam = ((D.last && D.last.added) || []).filter(laTam), m = {};
+      for (const k of ['thung', 'mat', 'hau']) m[k] = await mauTheoTen(cu.mau[k]);
+      const kq = await D.doMauTu(tam, m, { gop_ve: true, hau_rieng: true });
+      return kq.ok ? Object.assign(kq, { lan: cu.lan }) : { ok: false, reason: kq.reason, mau: cu.mau };
+    } catch (e) { return { ok: false, reason: String(e && e.message || e), mau: cu.mau }; }
+  };
+  /** Đổ MỘT màu cho đúng các tấm đưa vào (không chia nhóm). @returns {{ ok, so, khoa, steps } | { ok: false, reason }} */
+  D.doMau = async (boards, m) => {
+    boards = (boards || []).filter(laTam);
+    if (!boards.length) return { ok: false, reason: 'Không có tấm nào để đổ màu — chọn tấm trên bản vẽ rồi bấm lại.' };
+    if (!m) return { ok: false, reason: 'Chưa chọn màu nào.' };
+    const nap = await napNhieu([m]);
+    if (nap.loi) return { ok: false, reason: nap.loi };
+    const kq = ganVL(boards.map(b => [b, nap.rec[0], 'x']));
+    return { ok: true, so: kq.so.x || 0, khoa: kq.khoa, steps: kq.steps };
+  };
+  /** Các màu đang dùng trên bản vẽ (hoặc trong các tấm đưa vào): [{ ten ('' = chưa đổ màu), so }] — nhiều tấm trước, "chưa đổ màu" xếp cuối. */
+  D.mauDangDung = (boards) => {
+    const dem = new Map();
+    for (const b of (boards || D.all())) { if (!laTam(b)) continue; const t = tenMauCua(b); dem.set(t, (dem.get(t) || 0) + 1); }
+    return [...dem].map(([ten, so]) => ({ ten, so })).sort((a, b) => (a.ten === '') - (b.ten === '') || b.so - a.so || (a.ten < b.ten ? -1 : 1));
+  };
+  /** Các tấm đang mang màu `ten` ('' = chưa đổ màu), trong cả bản vẽ hoặc trong các tấm đưa vào. */
+  D.tamTheoMau = (ten, boards) => (boards || D.all()).filter(b => laTam(b) && tenMauCua(b) === String(ten || ''));
+  /** Thay màu `tuTen` bằng màu m trên cả bản vẽ (hoặc chỉ trong các tấm đưa vào). Một bước hoàn tác. */
+  D.thayMau = async (tuTen, m, boards) => {
+    if (!m) return { ok: false, reason: 'Chưa chọn màu thay vào.' };
+    const ds = D.tamTheoMau(tuTen, boards);
+    if (!ds.length) return { ok: true, so: 0, khoa: 0, steps: 0 };
+    const nap = await napNhieu([m]);
+    if (nap.loi) return { ok: false, reason: nap.loi };
+    const kq = ganVL(ds.map(b => [b, nap.rec[0], 'x']), 'MNCF_THAYMAU');
+    return { ok: true, so: kq.so.x || 0, khoa: kq.khoa, steps: kq.steps };
+  };
+  /** Hoàn tác lần đổ / thay màu vừa rồi — chỉ khi bản vẽ chưa có thao tác nào khác sau đó. */
+  D.undoMau = async () => {
+    const L = D.lastMau;
+    if (!L || !L.steps) return { ok: false, reason: 'Chưa có lần đổ màu nào để hoàn tác.' };
+    if (D.busy()) await D.cancel();
+    const moved = () => { const now = hmMark(); return !!(L.mark && now && (now.i !== L.mark.i || now.rec !== L.mark.rec)); };
+    for (let i = 0; i < 6 && moved(); i++) await sleep(300);
+    if (moved()) return { ok: false, reason: 'Sau lần đổ màu đó bản vẽ đã có thao tác khác — hãy dùng Ctrl+Z của Chenfeng để lùi từng bước.' };
+    await D.undo(L.steps);
+    D.lastMau = null;
+    return { ok: true };
   };
 
   D.zoom = () => { try { D.cmd('ZOOME'); } catch (e) { /* bỏ qua */ } };

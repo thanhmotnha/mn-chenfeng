@@ -152,7 +152,7 @@ async function chay() {
     /* ================= B. GIAO DIỆN ================= */
     console.log('— Giao diện: thẻ Kho mẫu');
     await H.locator('.launch').click();
-    eq(await H.locator('.tab').allTextContents(), ['Tủ', 'Phòng', 'Kho mẫu', 'Chuẩn xưởng', 'Kết quả', 'Hướng dẫn'], 'trong Chenfeng có thẻ “Kho mẫu”');
+    eq(await H.locator('.tab').allTextContents(), ['Tủ', 'Phòng', 'Kho mẫu', 'Màu', 'Chuẩn xưởng', 'Kết quả', 'Hướng dẫn'], 'trong Chenfeng có thẻ “Kho mẫu” (và thẻ “Màu” từ bản 1.21)');
     goiAPI.length = 0;
     await H.locator('.tab[data-tab="kho"]').click();
     await page.waitForFunction(() => /chưa có mẫu/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.kluoi').textContent), null, { timeout: 8000 });

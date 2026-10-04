@@ -71,6 +71,19 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.21 — ĐỔ MÀU: THÙNG MỘT MÀU, CÁNH + PHÀO MỘT MÀU; TÌM VÀ THAY MÀU
+ Thẻ Màu (chỉ có trong Chenfeng): màu = các vật liệu trong kho vật liệu của tài khoản (thẻ Material của Chenfeng), có hình; gõ mã để tìm (103, lux279…), lọc theo nhóm.
+   • Ba ô: Thùng / Cánh + phào / Hậu (hậu để trống = theo màu thùng). Bấm một ô rồi bấm một màu; máy tự nhớ, có dãy "Vừa dùng".
+   • Trên bản vẽ chọn 1 tấm của tủ → "Đổ màu tủ đang chọn": cả tủ đổi màu trong một bước. Cánh, phào, xà chân trước, mặt ngăn kéo lộ ngoài, tấm ốp, nẹp
+     theo màu cánh; hồi, vách, đợt, nóc, đáy, hộp ngăn kéo, mặt ngăn kéo nằm sau cánh theo màu thùng. Dùng được cho tủ của bảng, mẫu kho, tủ vẽ tay.
+   • Tấm nhận vật liệu hiển thị + tên ván / vật liệu / màu (lấy từ thông tin ván của vật liệu) → bảng cắt gom đúng loại ván.
+   • "Đổ màu ô đang bật cho riêng các tấm đang chọn": sửa vài tấm lẻ. Tấm đang khoá vật liệu được bỏ qua và có báo.
+   • Bật "Tủ và mẫu kho vẽ mới tự đổ màu theo 3 ô này": vẽ ra là có màu; "Hoàn tác lần vẽ này" lùi cả bước đổ màu.
+   • "Cập nhật tủ này trên bản vẽ" giữ lại màu của tủ cũ; đổi L / W / H của module trong Chenfeng màu vẫn giữ.
+ Tìm và thay: "Xem màu đang dùng trên bản vẽ" → bấm một màu → "Chọn các tấm màu này" (bôi sáng trên bản vẽ), "Thay trên cả bản vẽ"
+   hoặc "Chỉ thay trong các tấm đang chọn" — thay bằng màu của ô đang bật.
+ Mỗi lần đổ / thay là một bước, có nút Hoàn tác (Ctrl+Z của Chenfeng cũng lùi được). Bảng chỉ ĐỌC kho vật liệu, không sửa kho.
+
 MỚI Ở BẢN 1.20.1 — PHÍM TẮT ẨN / HIỆN BẢNG
  Alt + M: ẩn / hiện bảng Một Nhà trong Chenfeng (khi ẩn còn lại nút "Một Nhà · Vẽ tủ" ở góc dưới bên phải). Phím này Chenfeng và Chrome không dùng.
 

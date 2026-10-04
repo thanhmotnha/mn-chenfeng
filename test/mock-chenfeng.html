@@ -63,7 +63,13 @@
   class RoomWallLine extends Ent {} class RoomHolePolyline extends Ent {} class RoomPillar extends Ent {} class RoomGirder extends Ent {}
   class RoomRegion extends Ent { constructor() { super(); this._Name = ''; } get TextString() { return this._Name; } set TextString(v) { this._Name = v; } get Nhan() { return (this._Name || '未命名') + ' m²'; } WriteAllObjectRecord() { if (hm.mo) { const cu = this._Name; hm.mo.snap.push(() => { this._Name = cu; }); } } }
   class Board extends Ent { constructor(name, type, box, t, tu, phong, drills) { super(); this.Name = name; this.BoardType = type; this.box = box; this.Thickness = t; this.Grooves = [];
-    this.BoardProcessOption = { cabinetName: tu, roomName: phong, drillType: FIRST, highDrill: drills.slice(), remarks: [] }; }
+    this.BoardProcessOption = { cabinetName: tu, roomName: phong, boardName: '', material: '', color: '', drillType: FIRST, highDrill: drills.slice(), remarks: [] }; }
+    // bản thật (đo 04/10/2026): gán BoardProcessOption / Material trong một lệnh thì Chenfeng tự ghi lịch sử (Ctrl+Z trả lại); tấm chưa gán vật liệu trả về vật liệu mặc định "默认" của bản vẽ;
+    // LockMaterial = tấm bị khoá vật liệu (Chenfeng không cho đổi), GetMtlLockedStatus() = { partMtlLocked, allMtlLocked }.
+    get BoardProcessOption() { return this._bpo; } set BoardProcessOption(v) { if (hm.mo && this._bpo) { const cu = this._bpo; hm.mo.snap.push(() => { this._bpo = cu; }); } this._bpo = v; }
+    get Material() { return this._vl || window.app.Database.DefaultMaterial.Id; } set Material(id) { if (hm.mo) { const cu = this._vl; hm.mo.snap.push(() => { this._vl = cu; }); } this._vl = id; }
+    get LockMaterial() { return !!this._khoaVL; } set LockMaterial(v) { this._khoaVL = !!v; }
+    GetMtlLockedStatus() { return { partMtlLocked: false, allMtlLocked: !!this._khoaVL }; }
     // trục dày trong bản vẽ: trục có bề rộng hộp = bề dày (ưu tiên y, x, z)
     get truc() { const b = this.box, e = [b[1] - b[0], b[3] - b[2], b[5] - b[4]]; return [1, 0, 2].find(a => Math.abs(e[a] - this._t) < 0.01); }
     get Thickness() { return this._t; }
@@ -439,15 +445,27 @@
       if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
       else { const ten = state.kind === 'modeling' ? 'MODELING' : 'DRAWHOLE'; gesvc.IsReady = false; state = null; setTimeout(() => fireEnd(ten, [], []), 10); }
     },
-    SelectCtrl: { Cancel() { selection = []; }, AddSelect(sel) { selection = sel.SelectEntityList.slice(); }, SelectSet: { get SelectEntityList() { return selection.slice(); } } },
+    // bản thật (đo 04/10/2026): AddSelect CỘNG THÊM vào tập đang chọn (không thay tập cũ) — muốn chọn riêng thì Cancel() trước
+    SelectCtrl: { Cancel() { selection = []; }, AddSelect(sel) { for (const e of sel.SelectEntityList) if (selection.indexOf(e) < 0) selection.push(e); }, SelectSet: { get SelectEntityList() { return selection.slice(); } } },
     // lời nhắc bấm điểm của bảng (Editor.GetPoint thật: trả PromptPointResult { Status, Point }; Callback(điểm) mỗi lần chuột rê)
     GetPoint(o) { window.__MOCK_HOI__ = (window.__MOCK_HOI__ || []).concat([{ Msg: o && o.Msg, goc: !!(o && o.BasePoint), enter: !!(o && o.AllowNone) }]); if (state) return Promise.resolve({ Status: -1 }); return new Promise(res => { state = { kind: 'hoi', o: o || {}, res, cur: null }; svc.IsReady = true; }); },
     MouseCtrl: { _CurMousePointVCS: new V3(0, 0, 0) },
     UCSMatrix: new M4(),
   };
+  // VẬT LIỆU (bản 1.21) — như bản thật đã đo 04/10/2026: Database.MaterialTable (Symbols: Map tên → PhysicalMaterialRecord, GetAt, Has), Database.DefaultMaterial ("默认");
+  // file vật liệu của kho là một Database thu nhỏ: new Database(false, false, true).FileRead(new CADFiler(mảng)).MaterialTable.Symbols chứa đúng một bản ghi;
+  // WblockCloneObejcts([bản ghi], bảng vật liệu của bản vẽ, new Map, 1) chép bản ghi sang bản vẽ. Bản ghi có Name, GoodsInfo { name, color, material } (thông tin ván ghi vào tấm), IsMaterialLock.
+  // File giả: ['MOCK_VL', tên, tên ván, màu, vật liệu].
+  class CADFiler { constructor(data) { this.Data = data || []; } }
+  class PhysicalMaterialRecord { constructor(name, goods) { this.Name = name; this.GoodsInfo = Object.assign({ name: '', color: '', material: '' }, goods || {}); this.IsMaterialLock = false; this.Id = { Object: this, Index: ++SO_MA }; } get objectId() { return this.Id; } }
+  class MaterialTable { constructor() { this.Symbols = new Map(); } GetAt(n) { return this.Symbols.get(n); } Has(n) { return this.Symbols.has(n); } Add(r) { this.Symbols.set(r.Name, r); return r; } }
+  class Database { constructor() { this.MaterialTable = new MaterialTable(); this.DefaultMaterial = this.MaterialTable.Add(new PhysicalMaterialRecord('默认')); }
+    FileWrite() { return new CADFiler([]); }
+    FileRead(f) { const d = f && f.Data; if (!(f instanceof CADFiler) || !Array.isArray(d) || d[0] !== 'MOCK_VL') throw new Error('file vật liệu hỏng'); this.MaterialTable = new MaterialTable(); this.MaterialTable.Add(new PhysicalMaterialRecord(d[1], { name: d[2], color: d[3], material: d[4] })); return this; }
+    WblockCloneObejcts(objs, bang, map, kieu) { if (kieu !== 1) throw new Error('DuplicateRecordCloning phải là Ignore (1)'); return objs.map(o => { window.__MOCK_CHEP_VL__ = (window.__MOCK_CHEP_VL__ || 0) + 1; return bang.Add(new PhysicalMaterialRecord(o.Name, o.GoodsInfo)); }); } }
   window.app = {
     Editor,
-    Database: { ModelSpace: { get Entitys() { return ents; } }, hm },
+    Database: Object.assign(new Database(), { ModelSpace: { get Entitys() { return ents; } }, hm }),
     Viewer: { Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {}, Width: 800, Height: 500, WorldToScreen(v) { v.x = v.x / 20; v.y = 400 - v.y / 20 - v.z / 40; v.z = 0; return v; } },
     CommandReactor: { OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
     AutoSaveServer: { Stop() {}, Start() {} },
