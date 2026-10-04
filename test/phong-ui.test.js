@@ -315,6 +315,70 @@ async function tienIch() {
     await H.locator('[data-act="p-hoantac"]').click();
     await page.waitForFunction(() => /Đã bỏ phòng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
     ok((await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length)) === n0 && /Đã bỏ phòng vừa vẽ/.test(await st()), 'Hoàn tác phòng: bản vẽ về như trước', await st());
+    /* --- bản 1.23 — VẼ LẠI PHÒNG khi phòng đã có trên bản vẽ (anh Jason 04/10/2026 23:06: "vẽ phòng hay bị … Chenfeng chỉ vẽ được 0/4 tường") --- */
+    {
+      const demPh = () => page.evaluate(() => { const M = window.__MOCK__, n = c => M.ents.filter(e => e instanceof c && !e.IsErase).length; return [n(M.RoomWallLine), n(M.RoomHolePolyline), n(M.RoomPillar), n(M.RoomGirder), n(M.RoomRegion)]; });
+      const hopTuong = () => page.evaluate(() => { const M = window.__MOCK__; return M.ents.filter(e => e instanceof M.RoomWallLine && !e.IsErase).map(e => e.box.map(v => Math.round(v))).sort((a, b) => a[0] - b[0] || a[2] - b[2]); });
+      const vePh = async nut => { await page.evaluate(() => { document.getElementById('mncf-host').shadowRoot.querySelectorAll('.pkq .msg').forEach(e => e.setAttribute('data-cu', '1')); }); await H.locator(nut || '[data-act="p-ve"]').click(); await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelector('.pkq .msg:not([data-cu])'), null, { timeout: 40000 }); await page.waitForFunction(() => !document.getElementById('mncf-host').shadowRoot.querySelector('[data-act="p-ve"]').disabled, null, { timeout: 40000 }); return H.locator('.pkq').innerText(); };
+      const doiPh = fn => page.evaluate(src => { const p = window.MNCF.phong.lay(); (new Function('p', src))(p); window.MNCF.phong.dat(p); }, fn);
+      const P2 = Object.assign({}, PHONG, { goc: [60000, 0, 0], day: 220, khung: [], dn: [], mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200 }, { tuong: 1, loai: 'cua_so', cach: 400, rong: 1200, cao: 1300, be: 900 }],
+        can: [{ tuong: 0, loai: 'cot', cach: 0, rong: 220, nho: 300, z0: 0, z1: 2700 }, { tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }] });
+      const nen = await demPh();
+      const cong = d => nen.map((v, i) => v + d[i]);
+      await page.evaluate(p => window.MNCF.phong.dat(p), P2);
+      let kq2 = await vePh();
+      ok(/Đã vẽ phòng: 4 tường, 2 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm/.test(kq2), '(lần đầu) vẽ phòng như cũ', kq2);
+      eq1(await demPh(), cong([4, 2, 1, 1, 1]), '(lần đầu) 4 tường, 2 lỗ cửa, 1 cột, 1 dầm, 1 vùng phòng');
+      const ghi1 = await page.evaluate(() => window.MNCF.phong.lay().da_ve);
+      ok(ghi1 && ghi1.tuong.length === 4 && ghi1.mo.length === 2 && ghi1.cot.length === 1 && ghi1.dam.length === 1 && JSON.stringify(ghi1.tuong[0]) === '[60000,0,63600,0,0,2700,220]', 'phòng ghi nhớ lần vẽ (da_ve): 4 tường, 2 lỗ, 1 cột, 1 dầm — để lần sau đối chiếu', ghi1);
+      // 1. bấm Vẽ phòng lần nữa, không đổi gì → KHÔNG báo "chỉ vẽ được 0/4 tường", không vẽ chồng
+      kq2 = await vePh();
+      ok(/Phòng này đã có đủ trên bản vẽ \(4 tường, 2 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm\) — không vẽ chồng/.test(kq2) && !/Chưa vẽ xong|chỉ vẽ được|chỉ dựng được/.test(kq2), 'vẽ lại phòng y hệt: báo phòng đã có đủ, không báo lỗi tường', kq2);
+      eq1(await demPh(), cong([4, 2, 1, 1, 1]), 'vẽ lại phòng y hệt: không thêm lỗ cửa / cột / dầm chồng lên cái cũ');
+      ok(!(await H.locator('[data-act="p-hoantac"]').isDisabled()) && (await page.evaluate(() => !!window.MNCFDriver.lastRoom && window.MNCFDriver.lastRoom.steps > 0)), 'lần bấm thừa không ghi đè lần vẽ thật: nút Hoàn tác phòng vẫn lùi được lần vẽ đầu');
+      // 2. thêm một cột ở tường C rồi vẽ lại: chỉ vẽ thêm đúng cột đó
+      await doiPh("p.can.push({ tuong: 2, loai: 'cot', cach: 1500, rong: 300, nho: 200 });");
+      kq2 = await vePh();
+      ok(/Đã cập nhật phòng: vẽ thêm 1 cột \/ hộp; giữ nguyên 4 tường, 2 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm/.test(kq2), 'thêm cột rồi vẽ lại: chỉ vẽ thêm cột, giữ nguyên phần còn lại', kq2);
+      eq1(await demPh(), cong([4, 2, 2, 1, 1]), '… bản vẽ thêm đúng 1 cột');
+      // 3. đổi tường B 3000 → 3400 rồi vẽ lại: tường cũ của lần vẽ trước được thay, không còn tường thừa; cửa, cột theo tường C dời theo
+      await doiPh('p.tuong[1].dai = 3400;');
+      kq2 = await vePh();
+      eq1(await hopTuong(), [[59780, 60000, -3400, 0, 0, 2700], [60000, 63600, -3620, -3400, 0, 2700], [60000, 63600, 0, 220, 0, 2700], [63600, 63820, -3400, 0, 0, 2700]], 'đổi dài tường B: bản vẽ còn đúng 4 tường theo số mới');
+      ok(/Đã cập nhật phòng: vẽ thêm 3 tường, 2 cửa \/ ô trống, 1 cột \/ hộp; bỏ 3 tường, 1 cửa \/ ô trống, 1 cột \/ hộp của lần vẽ trước; giữ nguyên 1 tường, 1 cột \/ hộp, 1 dầm/.test(kq2), 'báo rõ đã bỏ gì, vẽ thêm gì, giữ gì', kq2);
+      eq1(await demPh(), cong([4, 2, 2, 1, 1]), '… vẫn 2 lỗ cửa, 2 cột, 1 dầm, 1 vùng phòng — không chồng, không thừa');
+      const lo3 = await page.evaluate(() => { const M = window.__MOCK__; return M.ents.filter(e => e instanceof M.RoomHolePolyline && !e.IsErase && e.box[0] > 50000).map(e => e.box.map(v => Math.round(v))).sort((a, b) => a[0] - b[0]); });
+      eq1(lo3, [[62500, 63400, -3620, -3400, 0, 2200], [63600, 63820, -1600, -400, 900, 2200]], 'cửa đi theo tường C mới (y = −3400); cửa sổ tường B được mở lại trên tường B mới');
+      // 4. Hoàn tác phòng: về đúng phòng trước lần cập nhật, bản ghi cũng lùi theo
+      await H.locator('[data-act="p-hoantac"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác lần cập nhật phòng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+      ok(/Đã hoàn tác lần cập nhật phòng — bản vẽ về như trước lần đó/.test(await st()), 'hoàn tác một lần cập nhật: nói rõ là lùi lần cập nhật', await st());
+      eq1([await demPh(), (await hopTuong())[0]], [cong([4, 2, 2, 1, 1]), [59780, 60000, -3000, 0, 0, 2700]], 'Hoàn tác phòng sau một lần cập nhật: tường B dài 3000 trở lại, đủ lỗ cửa / cột');
+      eq1((await page.evaluate(() => window.MNCF.phong.lay().da_ve.tuong[1])), [63600, 0, 63600, -3000, 0, 2700, 220], '… bản ghi lần vẽ cũng lùi về lần trước');
+      kq2 = await vePh();
+      ok(/Đã cập nhật phòng/.test(kq2) && JSON.stringify((await hopTuong())[0]) === '[59780,60000,-3400,0,0,2700]', 'vẽ lại sau khi hoàn tác: cập nhật lại được như thường', kq2);
+      // 5. sau khi tải lại trang (bản ghi chỉ còn trong phòng đã lưu, máy vẽ không còn nhớ gì): vẫn cập nhật được
+      await doiPh('p.tuong[1].dai = 3000;');
+      await page.evaluate(() => { window.MNCFDriver.lastRoom = null; });
+      kq2 = await vePh();
+      ok(/Đã cập nhật phòng/.test(kq2) && JSON.stringify(await hopTuong()) === JSON.stringify([[59780, 60000, -3000, 0, 0, 2700], [60000, 63600, -3220, -3000, 0, 2700], [60000, 63600, 0, 220, 0, 2700], [63600, 63820, -3000, 0, 0, 2700]]), 'chỉ còn bản ghi đi theo phòng: vẫn thay đúng tường cũ', [kq2, await hopTuong()]);
+      // 6. KHÔNG có bản ghi (phòng vẽ từ bản trước) + phòng to ra: tường cũ nằm trong lòng phòng mới → bảng dừng lại hỏi, chưa vẽ gì
+      await doiPh('delete p.da_ve; p.tuong[1].dai = 3500;');
+      await page.evaluate(() => { window.MNCFDriver.lastRoom = null; });
+      const truoc6 = await demPh();
+      kq2 = await vePh();
+      ok(/Chưa vẽ: trên bản vẽ đang có 1 tường khác nằm trong lòng phòng sắp vẽ/.test(kq2) && (await H.locator('[data-act="p-ve-bo"]').count()) === 1, 'không có bản ghi, có tường cũ nằm trong lòng phòng mới: dừng lại, có nút "bỏ tường cũ rồi vẽ"', kq2);
+      eq1(await demPh(), truoc6, '… chưa đụng gì vào bản vẽ');
+      kq2 = await vePh('[data-act="p-ve-bo"]');
+      ok(/Đã cập nhật phòng/.test(kq2) && JSON.stringify(await hopTuong()) === JSON.stringify([[59780, 60000, -3500, 0, 0, 2700], [60000, 63600, -3720, -3500, 0, 2700], [60000, 63600, 0, 220, 0, 2700], [63600, 63820, -3500, 0, 0, 2700]]), 'bấm "bỏ tường cũ rồi vẽ": tường cũ vướng được bỏ, phòng mới đủ 4 tường', [kq2, await hopTuong()]);
+      eq1(await demPh(), cong([4, 2, 2, 1, 1]), '… cột cũ nằm lạc trong phòng (theo tường C cũ) cũng được bỏ, không thành cột thừa');
+      // 7. Chenfeng không dựng được tường (lệnh bị từ chối): vẫn báo lỗi thật, đếm theo tường CÓ trên bản vẽ
+      await doiPh("p.goc = [80000, 0, 0]; delete p.da_ve;");
+      await page.evaluate(() => { window.MNCFDriver.lastRoom = null; window.__MOCK_TUONG_HONG__ = true; });
+      kq2 = await vePh();
+      ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng chỉ dựng được 0\/4 tường/.test(kq2), 'Chenfeng không dựng tường: báo lỗi thật', kq2);
+      await page.evaluate(() => { window.__MOCK_TUONG_HONG__ = false; });
+    }
     // dầm bị Chenfeng ép cao độ (đỉnh dầm không vượt trần của Chenfeng) → báo rõ
     await page.evaluate(p => { window.__MOCK_TRAN__ = 2600; window.MNCF.phong.dat(Object.assign({}, p, { khung: [], mo: [], can: [{ tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }] })); }, PHONG);
     await H.locator('[data-act="p-ve"]').click();

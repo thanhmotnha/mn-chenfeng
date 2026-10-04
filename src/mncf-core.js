@@ -477,43 +477,73 @@
      * cao từ mặt dưới đáy tới đỉnh thân. Nóc / đáy / đợt / vách nằm trong vùng cột kết thúc ở Dn (đâm vào mặt trước hậu khấu); riêng hồi ngoài ở cột góc chạy tới yCot để kẹp hậu khấu. */
     bao.muc('khau');
     const KH = [];
-    const dsCot = [];
-    for (const ben of ['trai', 'phai']) { const q = s.khau[ben]; if (q.rong > 0 && q.sau > 0) dsCot.push({ ben, ten: ben === 'trai' ? 'trái' : 'phải', rong: q.rong, sau: q.sau }); }
-    (s.khau.giua || []).forEach((q, i) => { if (q.rong > 0 && q.sau > 0) dsCot.push({ ben: 'giua', so: i, ten: (s.khau.giua.filter(x => x.rong > 0 && x.sau > 0).length > 1 ? `giữa ${i + 1}` : 'giữa'), cach: q.cach, rong: q.rong, sau: q.sau }); });
-    // một mặt bên của vùng cột tại x; phia = +1: thùng nằm bên PHẢI mặt này (mặt xb), −1: thùng nằm bên TRÁI (mặt xa)
-    const xetMat = (ten, x, phia) => {
-      for (let j = 0; j <= n; j++) {
-        const a = xs[j], b2 = rn(xs[j] + tv[j]), mat = phia > 0 ? a : b2;      // mặt của cụm tấm đứng quay về phía cột
-        if (Math.abs(mat - x) <= 1) return { x: mat, co: true, khoang: -1 };
-        if (x > a + TOL && x < b2 - TOL) { err(`Khấu cột ${ten}: mặt bên cột (x = ${g(x)}) rơi vào giữa bề dày ${j === 0 || j === n ? 'hồi' : 'vách'} — nới khe hở hoặc dời vách cho mặt vách trùng mép cột.`); return null; }
+    /* Bản 1.23 (anh Jason 04/10/2026 23:02: "khấu cột giữa thì phải cân đối khoang tủ … thường khấu sẽ nằm trong khoang tủ, không can thiệp bổ sung các đợt ngang hay dọc"):
+     * KHÔNG dời, KHÔNG thêm vách của tủ vì cột. Mép vùng khấu rơi vào chỗ không dựng được (giữa bề dày một vách, vách khấu quá sát vách của khoang) thì vùng khấu tự NỚI ra xa cột
+     * tới vị trí dựng được gần nhất — khe quanh cột chỗ đó rộng hơn, nằm khuất sau hậu khấu:
+     *   (A) trùng mặt một cụm tấm đứng quay về phía cột → tấm đó làm vách khấu;
+     *   (B) nằm trong một khoang: vách khấu cách tấm đứng phía cột ≥ TRONG_MIN, sau vách khấu còn ≥ CON_MIN tới tấm đứng kế.
+     * Cột giữa dính hồi ngoài → khấu như cột góc. Hai cột sát nhau (không đủ chỗ cho 2 vách khấu + một dải CON_MIN) → gộp thành một vùng khấu. */
+    const CON_MIN = 100, TRONG_MIN = 30, ho = s.khau.ho;
+    // phia = +1: mép PHẢI của vùng cột (thùng nằm bên phải mép này); −1: mép TRÁI. null = hết chỗ (cột trùm tới / qua hồi ngoài phía đó).
+    const datMep = (x0, phia) => {
+      let best = null;
+      const xet = (x, co, khoang) => { if (phia > 0 ? (x >= x0 - 1 && (!best || x < best.x - TOL)) : (x <= x0 + 1 && (!best || x > best.x + TOL))) best = { x: rn(x), co, khoang }; };
+      if (phia > 0) {
+        for (let j = 1; j <= n; j++) xet(xs[j], true, -1);
+        for (let i = 0; i < n; i++) { const lo = bayX(i) + TRONG_MIN, hi = bayX(i) + widths[i] - t - CON_MIN; if (hi >= lo - TOL && x0 <= hi + TOL) xet(Math.max(x0, lo), false, i); }
+      } else {
+        for (let j = 0; j < n; j++) xet(bayX(j), true, -1);
+        for (let i = 0; i < n; i++) { const lo = bayX(i) + t + CON_MIN, hi = bayX(i) + widths[i] - TRONG_MIN; if (hi >= lo - TOL && x0 >= lo - TOL) xet(Math.min(x0, hi), false, i); }
       }
-      const i = widths.findIndex((w, k) => x > bayX(k) - TOL && x < bayX(k) + w + TOL);
-      if (i < 0) { err(`Khấu cột ${ten}: mặt bên cột (x = ${g(x)}) nằm ngoài các khoang của tủ.`); return null; }
-      const con = phia > 0 ? bayX(i) + widths[i] - (x + t) : (x - t) - bayX(i), trong = phia > 0 ? x - bayX(i) : bayX(i) + widths[i] - x;
-      if (con < 100) { err(`Khấu cột ${ten}: sau vách khấu khoang ${i + 1} chỉ còn rộng ${g(con)} (cần ≥ 100) — dời vách của khoang cho trùng mép cột${/giữa/.test(ten) ? ' (nút "Đặt vách theo mép cột giữa")' : ''}, hoặc nới khoang.`); return null; }
-      if (trong < 30) { err(/giữa/.test(ten) ? `Khấu cột ${ten}: mép cột chỉ cách vách của khoang ${i + 1} có ${g(trong)} — dời vách cho trùng mép cột (nút "Đặt vách theo mép cột giữa").` : `Khấu cột ${ten}: cột chỉ lấn vào khoang ${i + 1} có ${g(trong)} — chỉnh khe hở cho mặt cột trùng mặt ${phia > 0 ? 'trong hồi trái' : 'trong hồi phải'}, hoặc nới phào.`); return null; }
-      return { x, co: false, khoang: i };
+      return best;
     };
-    for (const c of dsCot) {
-      const ten = c.ten, ho = s.khau.ho, NX = c.rong + ho, NY = c.sau + ho;
-      if (!phu) { err(`Khấu cột ${ten}: hiện chỉ làm với kiểu hậu phủ sau (Chuẩn xưởng → Hậu).`); continue; }
-      const K = { ben: c.ben, trai: c.ben === 'trai', ten, NX, NY, xa: -Infinity, xb: Infinity, yCot: rn(D - NY), Dn: rn(D - NY - t), coA: false, coB: false, kA: -1, kB: -1 };
-      if (c.ben === 'trai') { if (NX <= pL + TOL) { note(`Cột ${ten} (${g(c.rong)} + hở ${g(ho)}) nằm gọn sau phào ${ten} rộng ${g(pL)} — thùng không phải khấu.`); continue; } K.xb = rn(NX); K.cot = { x0: 0, x1: c.rong, sau: c.sau }; }
-      else if (c.ben === 'phai') { if (NX <= pR + TOL) { note(`Cột ${ten} (${g(c.rong)} + hở ${g(ho)}) nằm gọn sau phào ${ten} rộng ${g(pR)} — thùng không phải khấu.`); continue; } K.xa = rn(W - NX); K.cot = { x0: rn(W - c.rong), x1: W, sau: c.sau }; }
-      else {
-        K.xa = rn(c.cach - ho); K.xb = rn(c.cach + c.rong + ho); K.NX = rn(c.rong + 2 * ho); K.cot = { x0: c.cach, x1: rn(c.cach + c.rong), sau: c.sau };
-        if (K.xa <= X0 + t + TOL) { err(`Khấu cột ${ten}: cột cách mép trái ${g(c.cach)} là dính hồi trái — khai cột này ở ô "Cột TRÁI" (lấn ngang ${g(c.cach + c.rong)}).`); continue; }
-        if (K.xb >= X1 - t - TOL) { err(`Khấu cột ${ten}: cột tới ${g(c.cach + c.rong)} là dính hồi phải (tủ rộng ${g(W)}) — khai cột này ở ô "Cột PHẢI" (lấn ngang ${g(W - c.cach)}).`); continue; }
-      }
-      if (K.Dn < 150) { err(`Khấu cột ${ten}: cột sâu ${g(c.sau)} thì thùng trước cột chỉ còn sâu ${g(K.Dn)} (cần ≥ 150).`); continue; }
-      if (KH.some(o => Math.min(o.xb, K.xb) - Math.max(o.xa, K.xa) > -2 * t)) { err(`Khấu cột ${ten}: nằm chồng hoặc quá sát một cột khác đã khai — gộp hai cột thành một.`); continue; }
-      // vị trí từng mặt bên cột so với các tấm đứng
-      let hong = false;
-      if (isFinite(K.xa)) { const F = xetMat(ten, K.xa, -1); if (!F) hong = true; else { K.xa = F.x; K.coA = F.co; K.kA = F.khoang; } }
-      if (!hong && isFinite(K.xb)) { const F = xetMat(ten, K.xb, 1); if (!F) hong = true; else { K.xb = F.x; K.coB = F.co; K.kB = F.khoang; } }
-      if (hong) continue;
+    // vùng cột danh nghĩa (cột + khe hở), từ trái sang phải: a … b theo chiều ngang (cột góc: −∞ / +∞), x0 … x1 = chính cây cột
+    let vung = [];
+    { const q = s.khau.trai; if (q.rong > 0 && q.sau > 0) vung.push({ a: -Infinity, b: rn(q.rong + ho), sau: q.sau, x0: 0, x1: q.rong, ten: 'trái' }); }
+    { const ds = (s.khau.giua || []).map((q, i) => ({ q, i })).filter(o => o.q.rong > 0 && o.q.sau > 0);
+      ds.slice().sort((u, v) => u.q.cach - v.q.cach).forEach(({ q, i }) => vung.push({ a: rn(q.cach - ho), b: rn(q.cach + q.rong + ho), sau: q.sau, x0: q.cach, x1: rn(q.cach + q.rong), ten: ds.length > 1 ? `giữa ${i + 1}` : 'giữa' })); }
+    { const q = s.khau.phai; if (q.rong > 0 && q.sau > 0) vung.push({ a: rn(W - q.rong - ho), b: Infinity, sau: q.sau, x0: rn(W - q.rong), x1: W, ten: 'phải' }); }
+    const gopVung = (u, v) => ({ a: Math.min(u.a, v.a), b: Math.max(u.b, v.b), sau: Math.max(u.sau, v.sau), x0: Math.min(u.x0, v.x0), x1: Math.max(u.x1, v.x1), ten: `${u.ten} + ${v.ten}`, gop: (u.gop || 1) + (v.gop || 1) });
+    const gopDuoc = (u, v) => isFinite(u.a) || isFinite(v.b);      // cột góc trái với cột góc phải thì không gộp (thành ra cả tủ nằm trước cột)
+    // một vùng → K (đã đặt mép) | { loi } | { bo } ; ghi = các dòng ghi chú kèm theo
+    const giaiVung = z => {
+      const ghi = [], ten = z.ten;
+      if (!phu) return { loi: `Khấu cột ${ten}: hiện chỉ làm với kiểu hậu phủ sau (Chuẩn xưởng → Hậu).` };
+      let a = z.a, b = z.b;
+      const FA = isFinite(a) ? datMep(a, -1) : null, FB = isFinite(b) ? datMep(b, 1) : null;
+      if (isFinite(a) && !FA) { ghi.push(`Khấu cột ${ten}: cột cách mép trái ${g(z.x0)} là dính hồi trái — khấu như cột góc trái (lấn ngang ${g(z.x1)}).`); a = -Infinity; }
+      if (isFinite(b) && !FB) { ghi.push(`Khấu cột ${ten}: cột tới ${g(z.x1)} là dính hồi phải (tủ rộng ${g(W)}) — khấu như cột góc phải (lấn ngang ${g(W - z.x0)}).`); b = Infinity; }
+      if (!isFinite(a) && !isFinite(b)) return { loi: `Khấu cột ${ten}: cột trùm hết bề ngang tủ — không khấu được; làm tủ nông lại (giảm sâu thùng) thay vì khấu.` };
+      if (!isFinite(a) && b <= pL + TOL) return { bo: `Cột ${ten} (${g(z.x1)} + hở ${g(ho)}) nằm gọn sau phào trái rộng ${g(pL)} — thùng không phải khấu.` };
+      if (!isFinite(b) && a >= W - pR - TOL) return { bo: `Cột ${ten} (${g(W - z.x0)} + hở ${g(ho)}) nằm gọn sau phào phải rộng ${g(pR)} — thùng không phải khấu.` };
+      const NY = z.sau + ho, ben = !isFinite(a) ? 'trai' : !isFinite(b) ? 'phai' : 'giua';
+      const K = { ben, trai: ben === 'trai', ten, NX: ben === 'trai' ? rn(z.x1 + ho) : ben === 'phai' ? rn(W - z.x0 + ho) : rn(z.x1 - z.x0 + 2 * ho), NY, xa: -Infinity, xb: Infinity, yCot: rn(D - NY), Dn: rn(D - NY - t), coA: false, coB: false, kA: -1, kB: -1, cot: { x0: z.x0, x1: z.x1, sau: z.sau }, ghi };
+      if (K.Dn < 150) return { loi: `Khấu cột ${ten}: cột sâu ${g(z.sau)} thì thùng trước cột chỉ còn sâu ${g(K.Dn)} (cần ≥ 150).` };
+      if (isFinite(a)) { K.xa = FA.x; K.coA = FA.co; K.kA = FA.khoang; if (a - FA.x > 1) ghi.push(`Khấu cột ${ten}: vùng khấu nới thêm ${g(a - FA.x)} về bên trái ${FA.co ? 'tới mặt tấm đứng kế đó (tấm đó làm vách khấu)' : `để vách khấu đứng cách vách của khoang ${TRONG_MIN}`} — khoang của tủ giữ nguyên.`); }
+      if (isFinite(b)) { K.xb = FB.x; K.coB = FB.co; K.kB = FB.khoang; if (FB.x - b > 1) ghi.push(`Khấu cột ${ten}: vùng khấu nới thêm ${g(FB.x - b)} về bên phải ${FB.co ? 'tới mặt tấm đứng kế đó (tấm đó làm vách khấu)' : `để vách khấu đứng cách vách của khoang ${TRONG_MIN}`} — khoang của tủ giữ nguyên.`); }
       K.eA = isFinite(K.xa) && !K.coA ? t : 0; K.eB = isFinite(K.xb) && !K.coB ? t : 0;      // bề dày vách khấu thêm ở từng mặt
       K.x = K.trai ? K.xb : K.xa; K.co_vach = K.trai ? K.coB : K.coA; K.khoang = K.trai ? K.kB : K.kA;      // (tên cũ của bản 1.13, cột góc chỉ có một mặt)
+      return K;
+    };
+    let kqVung = [];
+    for (let lan = 0; lan < 16; lan++) {
+      for (let i = 0; i + 1 < vung.length; i++) { const u = vung[i], v = vung[i + 1]; if (v.a - u.b < 2 * t + CON_MIN - TOL && gopDuoc(u, v)) { vung.splice(i, 2, gopVung(u, v)); i--; } }
+      kqVung = vung.map(giaiVung);
+      // hai vùng đã đặt mép mà dải giữa hai vách khấu của chúng còn dưới CON_MIN (cùng nằm trong một khoang) → gộp rồi đặt lại
+      let gop = -1;
+      for (let i = 0; i + 1 < kqVung.length && gop < 0; i++) {
+        const u = kqVung[i], v = kqVung[i + 1]; if (u.loi || u.bo || v.loi || v.bo || !isFinite(u.xb) || !isFinite(v.xa)) continue;
+        const dai = (v.xa - v.eA) - (u.xb + u.eB);
+        if (dai < CON_MIN - TOL && !(u.coB && v.coA && v.xa - u.xb >= t - TOL) && gopDuoc(vung[i], vung[i + 1])) gop = i;
+      }
+      if (gop < 0) break;
+      vung.splice(gop, 2, gopVung(vung[gop], vung[gop + 1]));
+    }
+    for (const K of kqVung) {
+      if (K.loi) { err(K.loi); continue; }
+      if (K.bo) { note(K.bo); continue; }
+      if (KH.some(o => Math.min(o.xb, K.xb) - Math.max(o.xa, K.xa) > TOL)) { err(`Khấu cột ${K.ten}: vùng khấu chồng lên vùng khấu của một cột khác — tủ quá hẹp so với hai cột; làm tủ nông lại (giảm sâu thùng) thay vì khấu.`); continue; }
+      for (const m of K.ghi) note(m);
       KH.push(K);
     }
     const kTrong = (K, a, b2) => a >= K.xa - TOL && b2 <= K.xb + TOL;                                 // đoạn [a, b2] nằm trọn trong vùng cột (theo chiều ngang)
@@ -534,6 +564,7 @@
     };
     // chiều sâu dùng được của từng khoang (ngăn kéo, vách đệm, suốt treo): khoang dính vùng khấu thì chỉ tính tới mép sau của phần nông
     const sauKhoang = widths.map((w, i) => { let y = shelfDepth; for (const K of KH) if (!kNgoai(K, bayX(i), bayX(i) + w)) y = Math.min(y, K.Dn); return y; });
+    M.info.nk_vuong_cot = [];      // khoang có ngăn kéo không đủ sâu VÌ CỘT phía sau (bản 1.23) — thẻ Phòng dùng để đổi chỗ khoang / bỏ ngăn kéo khoang đó
     M.info.khau = KH.map(K => ({ ben: K.ben, x: K.x, y: K.yCot, sau_thung: K.Dn, vach_co_san: K.co_vach, xa: isFinite(K.xa) ? K.xa : null, xb: isFinite(K.xb) ? K.xb : null, co_a: K.coA, co_b: K.coB, cot: K.cot }));
     const tenVachK = K => { const m = []; if (isFinite(K.xa)) m.push(K.coA); if (isFinite(K.xb)) m.push(K.coB); return m.every(Boolean) ? (m.length > 1 ? 'hai vách sẵn có làm vách khấu (khoang nông trước cột)' : 'vách sẵn có làm vách khấu') : m.some(Boolean) ? 'một vách sẵn có + thêm một vách khấu' : (m.length > 1 ? 'thêm hai vách khấu' : 'thêm vách khấu'); };
     if (KH.length) note(`Khấu cột: ${KH.map(K => `${K.ten} ${g(K.NX)} × ${g(K.NY)} (cột + hở ${g(s.khau.ho)}) — thùng trước cột sâu ${g(K.Dn)}, ${tenVachK(K)}`).join('; ')}. Hậu khấu (tấm trước mặt cột) là ván thùng dày ${g(t)}, lọt giữa 2 tấm đứng hai bên cột. Nóc / đáy / đợt vắt qua mép cột được khoét góc chữ L${KH.some(K => K.ben === 'giua') ? ' hoặc chữ U' : ''}.`);
@@ -786,7 +817,7 @@
         if (hopCao(lo, mat) < 40) { err(`${viTri}: mặt ngăn kéo cao ${g(mat)} thì hộp ngăn kéo chỉ còn ${g(hopCao(lo, mat))} (loại "${lo.ten}") — giảm số ngăn hoặc nới ô.`); continue; }
         if (mat > 450) warn(`${viTri}: mặt ngăn kéo cao ${g(mat)} (> 450) — nên thêm ngăn hoặc hạ đợt phía trên.`);
         const sauNK = Math.floor((shelfDepth - nk.lui - nk.ho_sau) / nk.buoc_sau + 1e-9) * nk.buoc_sau;
-        if (sauNK < 200) { err(`${viTri}: thùng quá nông cho ngăn kéo (sâu hộp ${g(sauNK)}).`); continue; }
+        if (sauNK < 200) { const viCot = shelfDepth < yb0 - TOL; if (viCot && M.info.nk_vuong_cot.indexOf(i) < 0) M.info.nk_vuong_cot.push(i); err(`${viTri}: thùng quá nông cho ngăn kéo (sâu hộp ${g(sauNK)})${viCot ? ` — khoang này có cột phía sau, thùng trước cột chỉ sâu ${g(shelfDepth)}: chuyển ngăn kéo sang khoang khác` : ''}.`); continue; }
         if (nk.lui < t) { err(`Ngăn kéo: "lùi" (${g(nk.lui)}) phải ≥ dày mặt ngăn kéo (${g(t)}).`); continue; }
         // Ngăn kéo âm nằm sau cánh mở: bản lề bắt trên chính hồi/vách của khoang, nên mặt + hộp ngăn kéo phải lùi vào `dem` ở mỗi bên có bản lề.
         // Bên đó đặt 1 vách đệm (đứng giữa 2 tấm nằm trên dưới ô) để bắt ray; khe giữa hồi/vách và vách đệm là chỗ cho bản lề.
@@ -863,7 +894,7 @@
       if (hopCao(lo, hf) < 40) { err(`${viTri}: mặt ngăn kéo cao ${g(hf)} thì hộp ngăn kéo chỉ còn ${g(hopCao(lo, hf))} (loại "${lo.ten}") — giảm số ngăn hoặc nới ô.`); continue; }
       if (hf > 450) warn(`${viTri}: mặt ngăn kéo cao ${g(hf)} (> 450) — nên thêm ngăn hoặc hạ đợt phía trên.`);
       const sauNK = Math.floor((shelfDepth - nk.ho_sau) / nk.buoc_sau + 1e-9) * nk.buoc_sau;
-      if (sauNK < 200) { err(`${viTri}: thùng quá nông cho ngăn kéo (sâu hộp ${g(sauNK)}).`); continue; }
+      if (sauNK < 200) { const viCot = shelfDepth < yb0 - TOL; if (viCot && M.info.nk_vuong_cot.indexOf(i) < 0) M.info.nk_vuong_cot.push(i); err(`${viTri}: thùng quá nông cho ngăn kéo (sâu hộp ${g(sauNK)})${viCot ? ` — khoang này có cột phía sau, thùng trước cột chỉ sâu ${g(shelfDepth)}: chuyển ngăn kéo sang khoang khác` : ''}.`); continue; }
       const [fx0, fx1] = vungMat(i);
       if (fx1 - fx0 > 1200) { warn(`${viTri}: mặt ngăn kéo rộng ${g(fx1 - fx0)} (> 1200) — nên chia khoang nhỏ hơn.`); nkRongDaBao.add(i); }
       vungTrum.push({ khoang: i, b: c.b, f0, f1 });

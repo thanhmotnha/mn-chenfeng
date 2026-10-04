@@ -1553,25 +1553,43 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     let chanSan = 0;          // cao chân tủ trước khi mở một khung treo (khung treo đặt chân = 0)
     let khungCho = null;      // khung vừa mở thành tủ: vẽ đúng toạ độ khung thì tự xoay theo tường và ghi "đã vẽ" cho khung
-    async function vePhong() {
+    // Bản 1.23: phòng nhớ lần vẽ gần nhất của nó (phong.da_ve — đi theo phòng, lưu cùng phòng) → bấm "Vẽ phòng" lần nữa là CẬP NHẬT: cái gì đã có đúng chỗ thì giữ,
+    // phần của lần vẽ trước không còn đúng thì bỏ, chỉ vẽ phần còn thiếu. Không còn cảnh "Chenfeng chỉ vẽ được 0/4 tường" khi phòng đã có sẵn.
+    let daVeTruoc = null, veLaCapNhat = false;      // bản ghi trước lần vẽ vừa rồi — "Hoàn tác phòng" trả lại; lần vẽ vừa rồi là cập nhật một phòng đã có (để nói cho đúng khi hoàn tác)
+    const kePhong = o => [o.tuong ? `${o.tuong} tường` : '', o.mo ? `${o.mo} cửa / ô trống` : '', o.cot ? `${o.cot} cột / hộp` : '', o.dam ? `${o.dam} dầm` : ''].filter(Boolean).join(', ');
+    const tongPhong = o => (o ? (o.tuong || 0) + (o.mo || 0) + (o.cot || 0) + (o.dam || 0) : 0);
+    async function vePhong(boChong) {
       if (!Drv || busy) return;
       if (!Drv.available()) return setStatus('Không thấy bản vẽ Chenfeng trong trang này.');
       phong = Ph.chuanHoa(phong); hinh = Ph.hinhHoc(phong);
       if (hinh.loi.length) return setStatus('Phòng còn lỗi (ô đỏ dưới mặt bằng) — sửa xong rồi vẽ.');
       busy = true; paintPhong();
+      // bản ghi lần vẽ trước: của chính phòng này; phòng vừa mở / vừa dán chưa có thì lấy lần vẽ phòng gần nhất của trang (máy vẽ chỉ dùng nếu lần đó nằm chồng lên chỗ sắp vẽ)
+      const cu = phong.da_ve || (Drv.lastRoom && Drv.lastRoom.da_ve) || null;
       let r;
-      try { r = await Drv.drawRoom(hinh, { day_tuong: hinh.p.day, onStatus: setStatus, dien_nuoc: Ph.dienNuocDXF ? Ph.dienNuocDXF(hinh) : null }); }
+      try { r = await Drv.drawRoom(hinh, { day_tuong: hinh.p.day, onStatus: setStatus, dien_nuoc: Ph.dienNuocDXF ? Ph.dienNuocDXF(hinh) : null, da_ve: cu, bo_chong: !!boChong }); }
       catch (e) { r = { ok: false, errors: [String(e && e.message || e)], warnings: [], dem: { tuong: 0, mo: 0, cot: 0, dam: 0 } }; }
       busy = false;
+      const chan = r.giai_doan === 'chan';
+      if (r.da_ve && !chan && (!r.khong_doi || (r.ok && !phong.da_ve))) {      // phòng đã có sẵn đúng chỗ mà chưa có bản ghi (vẽ từ bản trước): cũng ghi nhận để lần sau cập nhật được
+        if (!r.khong_doi) { daVeTruoc = phong.da_ve ? clone(phong.da_ve) : null; veLaCapNhat = !!(tongPhong(r.giu) || tongPhong(r.bo)); }
+        phong.da_ve = r.da_ve; phongStore.save();
+      }
       const d = r.dem || {}, h = [];
-      if (r.ok) h.push(`<div class="msg ok">Đã vẽ phòng: ${d.tuong} tường${d.mo ? `, ${d.mo} cửa / ô trống` : ''}${d.cot ? `, ${d.cot} cột / hộp` : ''}${d.dam ? `, ${d.dam} dầm` : ''}${d.dn ? `, ${d.dn} dấu điện – nước (nét + nhãn trên mặt tường / trên sàn)` : ''}. Sửa tiếp bằng các lệnh ở thẻ House Design của Chenfeng.</div>`);
+      if (chan) h.push(`<div class="msg err">${esc((r.errors || [])[0] || '')}</div><div class="frow" style="margin:0 0 8px"><button class="sec" data-act="p-ve-bo" title="Bỏ các tường cũ nằm trong lòng / nằm chồng lên phòng sắp vẽ (cùng cột, dầm cũ không khớp), rồi vẽ phòng theo số đang điền. Một lần Hoàn tác phòng trả lại tất cả.">Bỏ ${r.can_hoi ? r.can_hoi.trong + r.can_hoi.chong : ''} tường cũ nằm vướng rồi vẽ phòng</button></div>`);
+      else if (r.ok && r.khong_doi) h.push(`<div class="msg ok">Phòng này đã có đủ trên bản vẽ (${kePhong(d)}${d.dn ? `, ${d.dn} dấu điện – nước` : ''}) — không vẽ chồng. Sửa số đo rồi bấm lại thì bảng chỉ vẽ phần thay đổi.</div>`);
+      else if (r.ok && (tongPhong(r.giu) || tongPhong(r.bo) || (r.bo && r.bo.dn))) {
+        const ph = [tongPhong(r.them) ? 'vẽ thêm ' + kePhong(r.them) : '', tongPhong(r.bo) ? `bỏ ${kePhong(r.bo)} ${boChong ? 'cũ nằm vướng' : 'của lần vẽ trước'}` : '', tongPhong(r.giu) ? 'giữ nguyên ' + kePhong(r.giu) : '', d.dn && r.bo && r.bo.dn ? `đánh lại ${d.dn} dấu điện – nước` : ''].filter(Boolean);
+        h.push(`<div class="msg ok">Đã cập nhật phòng: ${ph.join('; ')}. Bấm “Hoàn tác phòng” để về như trước lần cập nhật này.</div>`);
+      }
+      else if (r.ok) h.push(`<div class="msg ok">Đã vẽ phòng: ${d.tuong} tường${d.mo ? `, ${d.mo} cửa / ô trống` : ''}${d.cot ? `, ${d.cot} cột / hộp` : ''}${d.dam ? `, ${d.dam} dầm` : ''}${d.dn ? `, ${d.dn} dấu điện – nước (nét + nhãn trên mặt tường / trên sàn)` : ''}. Sửa tiếp bằng các lệnh ở thẻ House Design của Chenfeng.</div>`);
       else h.push('<div class="msg err">Chưa vẽ xong phòng.</div>');
-      (r.errors || []).forEach(t => h.push(`<div class="msg err">${esc(t)}</div>`));
+      if (!chan) (r.errors || []).forEach(t => h.push(`<div class="msg err">${esc(t)}</div>`));
       (r.warnings || []).forEach(t => h.push(`<div class="msg warn">${esc(t)}</div>`));
       $('.pkq').innerHTML = h.join('');
-      const ht = $('[data-act="p-hoantac"]'); if (ht) ht.disabled = !(r.so_buoc_hoan_tac > 0);
-      paintPhong(); setStatus(r.ok ? 'Đã vẽ phòng vào Chenfeng.' : 'Vẽ phòng chưa xong — xem ô báo dưới mặt bằng.');
-      if (r.ok) Drv.zoom();
+      const ht = $('[data-act="p-hoantac"]'); if (ht && !chan && !r.khong_doi) ht.disabled = !(r.so_buoc_hoan_tac > 0);
+      paintPhong(); setStatus(chan ? 'Chưa vẽ — có tường cũ nằm trong lòng phòng sắp vẽ, xem ô báo dưới mặt bằng.' : r.ok ? (r.khong_doi ? 'Phòng đã có đủ trên bản vẽ — không vẽ chồng.' : 'Đã vẽ phòng vào Chenfeng.') : 'Vẽ phòng chưa xong — xem ô báo dưới mặt bằng.');
+      if (r.ok && !r.khong_doi) Drv.zoom();
       return r;
     }
     // sau khi vẽ tủ đúng vị trí một khung / một hình: ghi kết quả đặt + xoay vào báo cáo, ghi nhớ khung đã vẽ
@@ -2298,8 +2316,9 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (act === 'vl-xem') return vlXem();
       if (act === 'vl-lai') return vlNap(true);
       if (act === 'vl-het') { vl.het = true; return veDS(); }
-      if (act === 'p-ve') return vePhong();
-      if (act === 'p-hoantac') { if (!Drv || busy) return; setStatus('Đang hoàn tác phòng…'); return Drv.undoRoom().then(r => { setStatus(r.ok ? 'Đã bỏ phòng vừa vẽ khỏi bản vẽ.' : r.reason); if (r.ok) { $('.pkq').innerHTML = ''; b.disabled = true; } }); }
+      if (act === 'p-ve') return vePhong(false);
+      if (act === 'p-ve-bo') return vePhong(true);
+      if (act === 'p-hoantac') { if (!Drv || busy) return; setStatus('Đang hoàn tác phòng…'); return Drv.undoRoom().then(r => { setStatus(r.ok ? (veLaCapNhat ? 'Đã hoàn tác lần cập nhật phòng — bản vẽ về như trước lần đó.' : 'Đã bỏ phòng vừa vẽ khỏi bản vẽ.') : r.reason); if (r.ok) { $('.pkq').innerHTML = ''; b.disabled = true; if (daVeTruoc) phong.da_ve = daVeTruoc; else delete phong.da_ve; daVeTruoc = null; phongStore.save(); } }); }
       if (act === 'anh-chon') return $('[data-ui="anh-file"]').click();
       if (act === 'anh-xem') return moXem(b.closest('.thumb').dataset.aid);
       if (act === 'anh-xoa') return xoaAnh(b.closest('.thumb').dataset.aid);

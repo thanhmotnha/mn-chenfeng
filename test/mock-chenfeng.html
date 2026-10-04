@@ -342,7 +342,9 @@
         const list = selection.filter(e => !e.IsErase); selection = [];
         if (window.__MOCK_ERASE_FAIL__) { setTimeout(() => fireEnd('ERASE', [], []), 30); return; }
         const holes = ents.filter(e => e instanceof CylinderHole && !e.IsErase && !list.includes(e) && (list.includes(e.FId.Object) || list.includes(e.MId.Object)));
-        const all = list.concat(holes); for (const e of all) e.IsErase = true;
+        // bản thật (đo 04/10/2026): xoá tường thì lỗ cửa trên tường đó, sàn, trần, vùng phòng mất theo trong cùng bước; cột, dầm đứng yên
+        const theoTuong = ents.filter(e => !e.IsErase && !list.includes(e) && ((e instanceof RoomHolePolyline && list.includes(e.tuong)) || (e instanceof RoomRegion && (e.vong || []).some(w => list.includes(w)))));
+        const all = list.concat(holes, theoTuong); for (const e of all) e.IsErase = true;
         if (all.length) pushHist({ CommandName: 'ERASE', created: [], erased: all });
         setTimeout(() => fireEnd('ERASE', all, []), 30);
       }
@@ -370,16 +372,38 @@
           const st = state, ps = st.pts.slice(); state = null; svc.IsReady = false;
           if (text === 'C') { if (ps.length < 3) return; ps.push(ps[0]); }
           const made = [];
+          if (window.__MOCK_TUONG_HONG__) ps.length = 0;      // giả lệnh vẽ tường không dựng được gì
           for (let i = 0; i + 1 < ps.length; i++) {      // bề dày nằm bên TRÁI hướng đi (đi theo chiều kim đồng hồ thì bên trái là ngoài phòng)
-            const a = ps[i], b = ps[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L * st.H, ny = (b[0] - a[0]) / L * st.H;
-            const w = new RoomWallLine(); w.box = [Math.min(a[0], b[0], a[0] + nx, b[0] + nx), Math.max(a[0], b[0], a[0] + nx, b[0] + nx), Math.min(a[1], b[1], a[1] + ny, b[1] + ny), Math.max(a[1], b[1], a[1] + ny, b[1] + ny), a[2], a[2] + st.G]; w.day = st.H;
-            w.Thickness = st.H; w.Height = st.G;
-            w.StartPoint = new V3(a[0] + nx / 2, a[1] + ny / 2, a[2]); w.EndPoint = new V3(b[0] + nx / 2, b[1] + ny / 2, a[2]);
-            w.RightCurves = [{ StartPoint: new V3(a[0], a[1], a[2]), EndPoint: new V3(b[0], b[1], a[2]) }];
-            w.LeftCurves = [{ StartPoint: new V3(a[0] + nx, a[1] + ny, a[2]), EndPoint: new V3(b[0] + nx, b[1] + ny, a[2]) }];
-            made.push(w); ents.push(w);
+            const a0 = ps[i], b0 = ps[i + 1], L = Math.hypot(b0[0] - a0[0], b0[1] - a0[1]) || 1, u = [(b0[0] - a0[0]) / L, (b0[1] - a0[1]) / L], nx = -u[1] * st.H, ny = u[0] * st.H;
+            // bản thật (đo 04/10/2026): đoạn tường nằm trùng thân một tường đã có thì KHÔNG được dựng (vẽ lại phòng y hệt → 0 tường mới); chỉ phần thò ra ngoài tường cũ mới thành tường mới
+            let doan = [[0, L]];
+            for (const w of ents) {
+              if (!(w instanceof RoomWallLine) || w.IsErase) continue;
+              const S = w.StartPoint, E = w.EndPoint, kc = p => Math.abs(-(p.x - (a0[0] + nx / 2)) * u[1] + (p.y - (a0[1] + ny / 2)) * u[0]), doc = p => (p.x - a0[0]) * u[0] + (p.y - a0[1]) * u[1];
+              if (kc(S) > 1 || kc(E) > 1 || Math.abs(S.z - a0[2]) > 1) continue;      // tim tường cũ không nằm trên tim tường mới
+              const t0 = Math.min(doc(S), doc(E)), t1 = Math.max(doc(S), doc(E));
+              doan = doan.flatMap(([x0, x1]) => (t1 <= x0 || t0 >= x1 ? [[x0, x1]] : [[x0, Math.min(x1, t0)], [Math.max(x0, t1), x1]].filter(d => d[1] - d[0] > 1)));
+            }
+            for (const [x0, x1] of doan) {
+              const a = [a0[0] + u[0] * x0, a0[1] + u[1] * x0, a0[2]], b = [a0[0] + u[0] * x1, a0[1] + u[1] * x1, a0[2]], e2 = [u[0] * st.H / 2, u[1] * st.H / 2];
+              const w = new RoomWallLine(); w.box = [Math.min(a[0], b[0], a[0] + nx, b[0] + nx), Math.max(a[0], b[0], a[0] + nx, b[0] + nx), Math.min(a[1], b[1], a[1] + ny, b[1] + ny), Math.max(a[1], b[1], a[1] + ny, b[1] + ny), a[2], a[2] + st.G]; w.day = st.H;
+              w.Thickness = st.H; w.Height = st.G;
+              // tim tường dài thêm nửa bề dày ở mỗi đầu (tới tim góc), mặt ngoài dài thêm một bề dày — như bản thật: tường A 3000 dày 110 có tim −55 … 3055, mặt ngoài −110 … 3110
+              w.StartPoint = new V3(a[0] + nx / 2 - e2[0], a[1] + ny / 2 - e2[1], a[2]); w.EndPoint = new V3(b[0] + nx / 2 + e2[0], b[1] + ny / 2 + e2[1], a[2]);
+              w.RightCurves = [{ StartPoint: new V3(a[0], a[1], a[2]), EndPoint: new V3(b[0], b[1], a[2]) }];
+              w.LeftCurves = [{ StartPoint: new V3(a[0] + nx - 2 * e2[0], a[1] + ny - 2 * e2[1], a[2]), EndPoint: new V3(b[0] + nx + 2 * e2[0], b[1] + ny + 2 * e2[1], a[2]) }];
+              made.push(w); ents.push(w);
+            }
           }
-          if (text === 'C' && made.length) { const rg = new RoomRegion(); rg.box = [0, 0, 0, 0, 0, 0]; made.push(rg); ents.push(rg); }      // Chenfeng tự sinh vùng phòng khi tường khép kín
+          // Chenfeng tự sinh vùng phòng (RoomRegion) cho mỗi vòng tường khép kín — kể cả khi vòng khép lại nhờ một tường vẽ thêm sau
+          const tuongSong = ents.filter(e => e instanceof RoomWallLine && !e.IsErase), ganD = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) <= 1;
+          for (const w0 of tuongSong) {
+            const vong = [w0]; let w = w0, kin = false;
+            for (let k = 0; k < tuongSong.length; k++) { const ke = tuongSong.find(x => ganD(x.RightCurves[0].StartPoint, w.RightCurves[0].EndPoint)); if (!ke) break; if (ke === w0) { kin = true; break; } if (vong.includes(ke)) break; vong.push(ke); w = ke; }
+            if (!kin || vong.length < 3) continue;
+            if (ents.some(e => e instanceof RoomRegion && !e.IsErase && (e.vong || []).length === vong.length && e.vong.every(x => vong.includes(x)))) continue;
+            const rg = new RoomRegion(); rg.box = [0, 0, 0, 0, 0, 0]; rg.vong = vong; made.push(rg); ents.push(rg);
+          }
           if (made.length) pushHist({ CommandName: 'DRAWWALLINSIDE', created: made });
           setTimeout(() => fireEnd('DRAWWALLINSIDE', [], made), 20);
         }
@@ -390,7 +414,12 @@
         if (text === 'H' || text === 'L' || text === 'D') { state.cho = text; return; }
         const p = so3(); if (!p) return;
         const ten = state.lenh; state = null; svc.IsReady = false;
-        const h = new RoomHolePolyline(); h.tam = p; h.cfg = Object.assign({}, holeCfg); h.box = [p[0] - holeCfg.L / 2, p[0] + holeCfg.L / 2, p[1] - holeCfg.L / 2, p[1] + holeCfg.L / 2, p[2] + holeCfg.D, p[2] + holeCfg.D + holeCfg.H];
+        // bản thật (đo 04/10/2026): lỗ cửa nằm TRÊN một tường — hộp bao = bề rộng lỗ dọc tường × bề dày tường × cao lỗ; bấm chỗ không có tường thì không có lỗ nào
+        const tw = ents.find(w => { if (!(w instanceof RoomWallLine) || w.IsErase) return false; const A = w.RightCurves[0].StartPoint, B = w.RightCurves[0].EndPoint, dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, t = ((p[0] - A.x) * dx + (p[1] - A.y) * dy) / L; return t >= -1 && t <= L + 1 && Math.abs(-(p[0] - A.x) * dy + (p[1] - A.y) * dx) / L <= 1; });
+        if (!tw) { setTimeout(() => fireEnd(ten, [], []), 20); return; }
+        const A = tw.RightCurves[0].StartPoint, B = tw.RightCurves[0].EndPoint, Lw = Math.hypot(B.x - A.x, B.y - A.y) || 1, u = [(B.x - A.x) / Lw, (B.y - A.y) / Lw], n = [-u[1] * tw.day, u[0] * tw.day];
+        const q = [[p[0] - u[0] * holeCfg.L / 2, p[1] - u[1] * holeCfg.L / 2], [p[0] + u[0] * holeCfg.L / 2 + n[0], p[1] + u[1] * holeCfg.L / 2 + n[1]]];
+        const h = new RoomHolePolyline(); h.tam = p; h.cfg = Object.assign({}, holeCfg); h.tuong = tw; h.box = [Math.min(q[0][0], q[1][0]), Math.max(q[0][0], q[1][0]), Math.min(q[0][1], q[1][1]), Math.max(q[0][1], q[1][1]), p[2] + holeCfg.D, p[2] + holeCfg.D + holeCfg.H];
         them(h, ten); return;
       }
       if (state.kind === 'pillar') { const p = so3(); if (!p) return; const st = state; state = null; svc.IsReady = false; const c = new RoomPillar(); c.box = [p[0] - st.a / 2, p[0] + st.a / 2, p[1] - st.b / 2, p[1] + st.b / 2, p[2], p[2] + 2700]; them(c, 'DRAWPILLAR'); return; }
