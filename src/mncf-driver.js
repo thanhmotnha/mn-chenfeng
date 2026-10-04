@@ -123,10 +123,66 @@
 
   const failToast = () => [...document.querySelectorAll('.bp3-toast, .bp3-toast-message')].some(t => (t.textContent || '').includes(FILE_NAME));
 
+  // Chenfeng báo gì khi tải mẫu hỏng → vì sao: mã mẫu không phải của cửa hàng đang đăng nhập (máy chủ trả "不是您店铺的模板，鉴权失败" — thử lại cũng vô ích), còn lại coi là máy chủ / mạng
+  const lyDoMau = bao => (/鉴权|不是您店铺|无权|没有权限/.test(String(bao || '')) ? 'khong_thuoc_tk' : 'may_chu');
+  /** Khung của các MẪU trong một nhóm đối tượng (đo trên Chenfeng thật 05/10/2026): mẫu gốc của từng đối tượng → GetTemplateRealitySpaceCS() = GỐC HỘP mẫu (đúng `Pos` trong file nhập), L / W / H = `BoxSize`. */
+  const gocMauCua = ents => {
+    const ds = new Map();
+    for (const e of ents || []) {
+      const T = rootTpl(e); if (!T || ds.has(T)) continue;
+      try { const m = T.GetTemplateRealitySpaceCS().elements, kich = [Number(T.LParam.value), Number(T.WParam.value), Number(T.HParam.value)], goc = [m[12], m[13], m[14]]; if (kich.concat(goc).every(isFinite)) ds.set(T, { kich, goc }); } catch (er) { /* đối tượng không thuộc mẫu nào */ }
+    }
+    return [...ds.values()];
+  };
+  /**
+   * Điểm trả lời cho một lệnh nhập CHỈ CÓ MẪU. Chenfeng đặt GÓC NHỎ NHẤT của cả cụm vừa tạo vào điểm trả lời; với mẫu thì góc đó nằm đâu so với hộp mẫu là chuyện riêng của từng mẫu
+   * (mặt ngăn kéo nhô ra, suốt treo nằm lưng chừng hộp). Lúc lệnh hỏi điểm, cụm đã nằm sẵn ở một chỗ chờ và từng mẫu đã có khung → dời cả cụm sao cho gốc hộp của từng mẫu
+   * về đúng `pos + doi`. mau = [{ kich: [L, W, H], pos: [x, y, z] }]. Trả null nếu không khớp được mẫu nào với khung nào.
+   */
+  const diemChoMau = (moi, mau, doi) => {
+    const G = gocMauCua(moi), bs = [];
+    for (const e of moi) { try { const b = D.boxOf(e); if (b && b.every(isFinite)) bs.push(b); } catch (er) { /* bỏ qua */ } }
+    if (!G.length || !bs.length || !mau.length) return null;
+    const gan = (a, b2, t) => a.every((v, i) => Math.abs(v - b2[i]) <= t), dich = q => q.pos.map((v, i) => v + doi[i]);
+    for (const c of G.filter(g => gan(g.kich, mau[0].kich, 0.06))) {
+      const T = dich(mau[0]).map((v, i) => v - c.goc[i]), dung = new Set([c]);
+      const du = mau.slice(1).every(q => { const h = G.find(g => !dung.has(g) && gan(g.kich, q.kich, 0.06) && gan(g.goc.map((v, i) => v + T[i]), dich(q), 0.06)); if (h) dung.add(h); return !!h; });
+      if (du) return [0, 2, 4].map((k, i) => Math.min(...bs.map(b => b[k])) + T[i]);
+    }
+    return null;
+  };
+
+  // Lệnh nhập bị bảng bỏ vì chờ máy chủ quá lâu VẪN CHẠY NGẦM trong Chenfeng (đo trên Chenfeng thật 05/10/2026: lúc Chenfeng đang tải mẫu, Esc không có tác dụng và Chenfeng không báo bận);
+  // máy chủ rốt cuộc trả lời thì Chenfeng hỏi điểm đặt mà không còn ai trả lời → cụm mẫu bám theo chuột. Canh tối đa 3 phút: lời hỏi điểm hiện ra trong khi lệnh bắt đầu gần nhất
+  // của Chenfeng vẫn là lệnh nhập đó (app.CommandReactor._cmdName) và bảng không có lệnh nhập nào đang chạy → gửi Esc (Chenfeng tự bỏ các đối tượng của lệnh đó).
+  // Trong lúc lệnh cũ còn chạy ngầm, Chenfeng bỏ qua mọi lệnh khác (khoan lại, gom module… đều không chạy) → `lenhTre.xong` cho nơi gọi biết lúc nào Chenfeng rảnh lại.
+  let dangNhap = 0, lenhTre = null;
+  const tenLenhCuoi = () => { try { return String(root.app.CommandReactor._cmdName || ''); } catch (e) { return ''; } };
+  const canhLenhTre = () => {
+    const ten = tenLenhCuoi(), tre = { xong: false }, w = watchEnd(); lenhTre = tre;
+    (async () => {
+      const t0 = Date.now();
+      try {
+        while (Date.now() - t0 < 180000) {
+          await sleep(300);
+          if (w.ended || (ten && tenLenhCuoi() !== ten)) break;      // Chenfeng tự kết thúc lệnh đó (tải hỏng), hoặc đã nhận lệnh khác
+          if (!dangNhap && ready(gp())) { ed().Cancel(); await sleep(400); break; }
+        }
+      } catch (e) { /* bỏ qua */ }
+      w.off(); tre.xong = true;
+    })();
+  };
+  /** Chờ lệnh nhập bị bỏ (đang chạy ngầm) kết thúc, tối đa `ms`. true = Chenfeng đã rảnh. */
+  const choLenhTre = async ms => { const tre = lenhTre; if (!tre || tre.xong) return true; await cho(() => tre.xong, ms); return tre.xong; };
+
   /**
    * Nhập một khối dữ liệu {ModelSpace:[…]} bằng cổng 晨丰导入.
    * @param obj   dữ liệu
    * @param point [x,y,z] điểm đặt cho GÓC NHỎ NHẤT của cả cụm; bỏ trống = người dùng tự bấm điểm trên bản vẽ
+   * @param opt   { onStatus, timeout, co_mau: dữ liệu có mẫu phải tải từ máy chủ (để báo cho đúng),
+   *                cho_im: (bản 1.23, lệnh có mẫu) hạn chờ tính theo TIẾN TRIỂN — Chenfeng dựng thêm được đối tượng nào (tải xong thêm một mẫu) thì tính lại từ đầu; đứng im quá hạn mới bỏ,
+   *                mau + doi (bản 1.23): lệnh chỉ có mẫu — bảng tự tính điểm đặt cho gốc hộp từng mẫu về `pos + doi` (xem diemChoMau) }
+   * Lỗi ném ra mang `ly_do` ('may_chu' | 'khong_thuoc_tk' | 'lech') và `bao` (các dòng Chenfeng báo) khi Chenfeng tự huỷ lệnh.
    */
   D.importCF = async (obj, point, opt) => {
     opt = Object.assign({ timeout: 120000, timeout_khoan: 180000, onStatus() {} }, opt || {});
@@ -140,12 +196,13 @@
     const w = watchEnd();
     const toastCu = new Set(document.querySelectorAll('.bp3-toast'));
     let dropped = false, khongHuy = false;      // khongHuy: không được gửi Esc khi thoát lỗi (lệnh đang chạy không phải của mình, hoặc tủ đã đặt xong)
+    dangNhap++;
     try {
       opt.onStatus('Đang gửi dữ liệu cho Chenfeng…');
       const n0 = root.app.Database.ModelSpace.Entitys.length;
       if (!D.dropJSON(obj)) throw new Error('Chenfeng không nhận dữ liệu (trang này chưa mở bản vẽ?).');
       dropped = true;
-      const t0 = Date.now(); let told = false;
+      const t0 = Date.now(); let told = false, nCu = n0, tCu = t0;
       while (!ready(gp()) && !w.ended) {
         if (failToast()) throw new Error('Chenfeng báo dữ liệu không hợp lệ (导入失败).');
         // Chenfeng đang chạy dở một lệnh khác thì từ chối lệnh nhập: chỉ ghi 1 dòng CẢNH BÁO vào dòng lệnh, không tạo gì, không hỏi điểm.
@@ -156,11 +213,20 @@
             throw new Error('Chenfeng đang bận một lệnh khác (lệnh trước chưa chạy xong) — chờ lệnh đó xong, hoặc bấm Esc trong Chenfeng, rồi bấm vẽ lại.');
           }
         }
-        if (Date.now() - t0 > opt.timeout) throw new Error('Chờ quá lâu mà Chenfeng chưa tạo xong tấm (mạng chậm khi tải mẫu ngăn kéo/suốt treo?).');
-        if (!told && Date.now() - t0 > 4000) { told = true; opt.onStatus(opt.bao_tai || 'Chenfeng đang tải mẫu ngăn kéo / suốt treo từ máy chủ…'); }
+        { const nNay = root.app.Database.ModelSpace.Entitys.length; if (nNay !== nCu) { nCu = nNay; tCu = Date.now(); } }      // Chenfeng vừa dựng thêm đối tượng (tải xong thêm một mẫu) → còn đang chạy
+        if (opt.cho_im > 0 ? Date.now() - tCu > opt.cho_im : Date.now() - t0 > opt.timeout) {
+          const e = new Error(opt.co_mau ? `Máy chủ Chenfeng không trả lời sau ${Math.round((opt.cho_im > 0 ? opt.cho_im : opt.timeout) / 1000)} giây (mạng tới máy chủ Chenfeng đang chậm hoặc rớt).` : 'Chờ quá lâu mà Chenfeng chưa tạo xong tấm.');
+          e.ly_do = 'may_chu'; e.qua_gio = true; throw e;
+        }
+        if (!told && Date.now() - t0 > 4000) { told = true; opt.onStatus(opt.bao_tai || (opt.co_mau === false ? 'Chenfeng đang dựng tấm…' : 'Chenfeng đang tải mẫu ngăn kéo / suốt treo từ máy chủ…')); }
         await sleep(120);
       }
       if (!w.ended) {
+        if (!point && opt.mau && opt.doi) {
+          const d = diemChoMau(root.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && !before.has(e)), opt.mau, opt.doi);
+          if (!d) { const e = new Error('Chenfeng đã tải mẫu nhưng bảng không nhận ra khung của mẫu để đặt đúng chỗ.'); e.ly_do = 'lech'; throw e; }
+          point = d;
+        }
         if (point) {
           const txt = point.map(v => String(Math.round(v * 1000) / 1000)).join(',');
           for (let i = 0; i < 6 && ready(gp()) && !w.ended; i++) { await sleep(450); if (ready(gp()) && !w.ended) D.input(txt); await sleep(350); }
@@ -190,14 +256,19 @@
     } catch (e) {
       // đã thả file mà hỏng giữa chừng (quá giờ, không nhận điểm…): gửi Esc để lệnh nhập không treo lại ở lời nhắc chọn điểm
       if (dropped && !w.ended && !khongHuy) { try { ed().Cancel(); } catch (e2) { /* bỏ qua */ } await sleep(300); if (ready(gp())) { try { ed().Cancel(); } catch (e2) { /* bỏ qua */ } } }
+      if (e && e.qua_gio && dropped && !w.ended) canhLenhTre();      // lệnh cũ còn chạy ngầm trong Chenfeng → canh để huỷ khi nó hiện lời hỏi điểm
       throw e;
-    } finally { w.off(); }
+    } finally { w.off(); dangNhap = Math.max(0, dangNhap - 1); }
     const added = root.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && !before.has(e));
     if (!added.length && failToast()) throw new Error('Chenfeng báo dữ liệu không hợp lệ (导入失败).');
     if (!added.length) {
       // Lệnh nhập kết thúc mà không còn gì: người dùng bấm Esc, hoặc Chenfeng gặp lỗi giữa chừng rồi tự huỷ lệnh (hay gặp khi mạng tới máy chủ Chenfeng chậm, tải mẫu không xong) — lúc đó Chenfeng hiện một thông báo.
       const bao = [...document.querySelectorAll('.bp3-toast')].filter(t => !toastCu.has(t)).map(t => (t.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
-      if (bao.length) throw new Error(`Chenfeng gặp lỗi khi nhập và đã tự huỷ lệnh — thường do mạng tới máy chủ Chenfeng chậm nên tải mẫu ngăn kéo / suốt treo không xong. Chưa vẽ gì, bấm vẽ lại. (Chenfeng báo: "${bao[0].slice(0, 110)}")`);
+      if (bao.length) {
+        const e = new Error(`Chenfeng gặp lỗi khi nhập và đã tự huỷ lệnh${opt.co_mau === false ? '' : ' — thường do mạng tới máy chủ Chenfeng chậm nên tải mẫu ngăn kéo / suốt treo không xong'}. Chưa vẽ gì, bấm vẽ lại. (Chenfeng báo: "${bao[0].slice(0, 110)}")`);
+        e.bao = bao.map(t => t.slice(0, 200)); e.ly_do = lyDoMau(bao.join(' ')); e.tu_huy = true;
+        throw e;
+      }
     }
     return { added, cancelled: added.length === 0, logs: logsSince(mark) };
   };
@@ -371,7 +442,9 @@
         const xoay = Number(opt && opt.xoay) || 0;
         if (xoay && res && res.giai_doan === 'xong' && D.last) {
           const tam = opt.at ? opt.at.slice() : res.goc.slice();
+          const truocXoay = new Set(root.app.Database.ModelSpace.Entitys);
           let r; try { r = await D.rotate(D.last.added, tam, xoay); } catch (e) { r = { ok: false, steps: 0, reason: String(e && e.message || e) }; }
+          if (D.last) D.last.added = docLaiDS(D.last.added, truocXoay);      // lệnh ROTATE khoan lại mọi tấm được xoay
           const bbL = Core.bbox(D.last.M.parts) || { x0: 0, y0: 0, z0: 0 };
           res.xoay_do = xoay; res.khung = { goc: opt.at ? quayZ([bbL.x0, bbL.y0, bbL.z0], xoay).map((v, i) => r2(v + tam[i])) : tam, xoay };
           res.xoay_kq = r;
@@ -394,6 +467,13 @@
    * Mục LỖI của phiếu được đưa vào danh sách lỗi của lần vẽ: tủ vẽ ra mà không sản xuất được thì lần vẽ không "ok". Mục LƯU Ý chỉ nằm trong phiếu.
    * Không bao giờ ném lỗi: phép dò hỏng thì lần vẽ vẫn trả kết quả, chỉ không có phiếu.
    */
+  /**
+   * Danh sách đối tượng của một tủ SAU một lệnh của Chenfeng = cái còn sống trong danh sách cũ + cái mới sinh ra từ mốc `truoc` (tập đối tượng của bản vẽ lúc trước lệnh).
+   * Đo trên Chenfeng thật 05/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là đối tượng khác:
+   * DRAWHOLE (mọi lỗ của tấm được chọn), MODELING (558 lỗ của các tấm được gom; 48 lỗ trong lòng hộp ngăn kéo giữ nguyên), ROTATE (cả 606 lỗ, kể cả lỗ không nằm trong tập chọn);
+   * UpdateTemplateTree giữ nguyên đối tượng lỗ. Giữ danh sách cũ thì phép dò lỗi chỉ còn thấy lỗ của hộp ngăn kéo → báo oan "N tấm có kiểu khoan mà không có lỗ nào".
+   */
+  const docLaiDS = (ds, truoc) => { const co = new Set(ds); return ds.filter(e => e && !e.IsErase).concat(root.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && !truoc.has(e) && !co.has(e))); };
   const TEN_LOI_SX = { vc_that: 'tấm đè lên nhau', lo_giao: 'lỗ khoan giao nhau', lo_lech: 'lỗ khoan lệch khỏi tấm hoặc khoan thủng tấm', kieu_khoan: 'kiểu khoan không có trong cấu hình', kho_van_that: 'tấm vượt khổ ván' };
   const doLoiSauVe = (added, errors, kho) => {
     let p = null;
@@ -408,19 +488,141 @@
     return p;
   };
 
+  /* ------------------------------------------------------------------ *
+   * TẤM TRƯỚC, MẪU SAU (bản 1.23 — anh Jason 04/10/2026 22:57: "vẽ tủ vẫn trục trặc, làm sao phải liên kết máy chủ, vẽ bằng những cái có sẵn đi").
+   * Đo trên Chenfeng thật 05/10/2026: mỗi mẫu (hộp ngăn kéo, suốt treo) trong một lệnh nhập là MỘT lần Chenfeng gọi máy chủ (CAD-moduleDetail) — không lưu đệm, hai mẫu cùng mã vẫn gọi hai lần;
+   * một lần gọi hỏng (mạng chậm / rớt, hoặc mã mẫu không phải của cửa hàng đang đăng nhập) là Chenfeng huỷ CẢ lệnh. Trước bản này tấm và mẫu đi chung một lệnh → hỏng một mẫu là cả tủ "Chưa vẽ được".
+   * Nay: phần TẤM (không cần máy chủ) nhập trước, lúc nào cũng vẽ được; mẫu thêm sau — cả cụm một lệnh, hỏng thì thêm từng mẫu (thử lại khi lỗi máy chủ);
+   * mẫu nào vẫn hỏng thì tủ chỉ thiếu đúng mẫu đó và báo rõ vì sao. Mã mẫu không thuộc tài khoản → dò mẫu CÙNG TÊN trong kho của tài khoản (chỉ ĐỌC) và dùng nó.
+   * ------------------------------------------------------------------ */
+  const mauLoi = { khong_thuoc: new Set(), thay: new Map() };      // nhớ trong phiên: mã mẫu không thuộc tài khoản; mã → mã của mẫu cùng tên trong kho tài khoản
+  D.quenMauLoi = () => { mauLoi.khong_thuoc.clear(); mauLoi.thay.clear(); };
+  const TEN_LOAI_MAU = [['NGAN_KEO', 'hộp ngăn kéo'], ['SUOT', 'suốt treo']];
+  const keMau = ds => TEN_LOAI_MAU.map(([loai, ten]) => { const a = ds.filter(x => x.loai === loai); if (!a.length) return ''; const kh = [...new Set(a.map(x => x.khoang + 1))].sort((p, q) => p - q); return `${a.length} ${ten} (${kh.map(k => 'khoang ' + k).join(', ')})`; }).filter(Boolean).join(', ');
+  // mẫu cùng tên trong kho của tài khoản đang đăng nhập (chỉ ĐỌC: thư mục + danh sách mẫu). Ngăn kéo: thư mục ngăn kéo; suốt treo: thư mục đã mua / phụ kiện trước, rồi vài thư mục khác. Tối đa 6 thư mục.
+  const timMauCungTen = async tp => {
+    if (!tp.ten) return 0;
+    try {
+      const dirs = await D.templateDirs(), nk = dirs.filter(d => /抽屉|ngăn kéo|drawer/i.test(d.ten));
+      const ds = tp.loai === 'NGAN_KEO' ? nk : dirs.filter(d => /已购买|đã mua|purchased|五金|phụ kiện|衣/i.test(d.ten)).concat(dirs.filter(d => nk.indexOf(d) < 0 && !/已购买|đã mua|purchased|五金|phụ kiện|衣/i.test(d.ten)));
+      for (const d of ds.slice(0, 6)) { let ms = []; try { ms = await D.templatesIn(d.id); } catch (e) { continue; } const m = ms.find(x => x.ten === tp.ten && x.id && x.id !== tp.id); if (m) return m.id; }
+    } catch (e) { /* không đọc được kho thì thôi: coi như không có mẫu cùng tên */ }
+    return 0;
+  };
+  /**
+   * Thêm các mẫu của tủ (M.templates) vào đúng chỗ thiết kế + `offset`. Phần tấm của tủ phải vẽ xong trước.
+   * @returns { added: đối tượng mới, thieu: [{ tp, mat, loai, khoang, id, ten, ly_do: 'may_chu' | 'khong_thuoc_tk' | 'lech' | 'huy', bao }], doi_ma: [{ tu, sang, ten }], so_lenh }
+   */
+  const themMau = async (M, offset, opt) => {
+    const kq = { added: [], thieu: [], doi_ma: [], so_lenh: 0 };
+    const ds = Core.mauCF(M).map(x => ({ tp: x.tp, mat: x.mat, json: x.json, xong: false, ly_do: '', bao: '' }));
+    if (!ds.length) return kq;
+    const ganDiem = (a, b, t) => a.every((v, i) => Math.abs(v - b[i]) <= t);
+    const muc = x => { const id = mauLoi.thay.get(x.tp.id); return id ? Object.assign({}, x.json, { TempalteId: id }) : x.json; };
+    const boQua = x => mauLoi.khong_thuoc.has(x.tp.id) && !mauLoi.thay.has(x.tp.id);
+    const nhap = async nhom => {
+      kq.so_lenh++;
+      const h0 = hmMark();
+      try {
+        const res = await D.importCF({ ModelSpace: nhom.map(muc) }, null, Object.assign({}, opt, { mau: nhom.map(x => ({ kich: x.tp.box, pos: x.tp.pos })), doi: offset, co_mau: true, cho_im: opt.cho_mau > 0 ? opt.cho_mau : 40000 }));
+        if (res.cancelled) return { ok: false, ly_do: 'huy' };
+        // kiểm lại: gốc hộp từng mẫu phải nằm đúng chỗ thiết kế — lệch thì bỏ lệnh vừa rồi, không để ngăn kéo nằm sai chỗ trong tủ
+        const G = gocMauCua(res.added), dung = new Set();
+        const lech = nhom.some(x => { const h = G.find(g => !dung.has(g) && ganDiem(g.kich, x.tp.box, 0.1) && ganDiem(g.goc, x.tp.pos.map((v, i) => v + offset[i]), 0.1)); if (h) dung.add(h); return !h; });
+        if (lech) { const h1 = hmMark(); if (h0 && h1 && h1.i > h0.i) await D.undo(h1.i - h0.i); return { ok: false, ly_do: 'lech', bao: 'Chenfeng đặt mẫu lệch chỗ thiết kế' }; }
+        kq.added.push(...res.added); for (const x of nhom) x.xong = true;
+        return { ok: true };
+      } catch (e) { return { ok: false, ly_do: (e && e.ly_do) || 'may_chu', bao: (e && e.bao && e.bao.join(' | ')) || '', treo: !!(e && e.qua_gio), loi: String(e && e.message || e) }; }
+    };
+    // máy chủ treo (không trả lời trong hạn): lệnh nhập cũ còn chạy ngầm trong Chenfeng → không gửi thêm lệnh nhập nào nữa, các mẫu còn lại coi như chưa thêm được
+    const thoiVi = (r, con) => { for (const y of con) if (!y.xong) { y.ly_do = 'may_chu'; y.treo = true; y.bao = ''; } };
+    const thu = ds.filter(x => !boQua(x));
+    for (const x of ds) if (boQua(x)) x.ly_do = 'khong_thuoc_tk';
+    if (thu.length) {
+      opt.onStatus(`Đang thêm ${keMau(thu.map(x => x.tp))} — Chenfeng tải mẫu từ máy chủ…`);
+      let r = await nhap(thu);
+      if (!r.ok && r.ly_do === 'huy') for (const x of thu) x.ly_do = 'huy';
+      else if (!r.ok && r.treo) thoiVi(r, thu);
+      else if (!r.ok) {
+        // cả cụm hỏng (một mẫu hỏng là Chenfeng huỷ cả lệnh) → thêm TỪNG mẫu: lỗi máy chủ thì thử lại một lần; máy chủ rớt liền 2 mẫu thì thôi, không bắt chờ từng mẫu
+        let hongLien = 0; const maHong = new Set();
+        for (let i = 0; i < thu.length; i++) {
+          const x = thu[i];
+          if (boQua(x)) { x.ly_do = 'khong_thuoc_tk'; continue; }
+          if (hongLien >= 2) { x.ly_do = 'may_chu'; continue; }
+          const soLan = maHong.has(x.tp.id) ? 1 : 2;
+          for (let lan = 1; lan <= soLan && !x.xong; lan++) {
+            opt.onStatus(`Thêm ${x.tp.loai === 'SUOT' ? 'suốt treo' : 'hộp ngăn kéo'} khoang ${x.tp.khoang + 1} (${i + 1}/${thu.length})${lan > 1 ? ' — thử lại' : ''}…`);
+            if (lan > 1) await sleep(1500);
+            r = await nhap([x]);
+            if (r.ok) break;
+            x.ly_do = r.ly_do; x.bao = r.bao || '';
+            if (r.ly_do === 'huy' || r.treo || r.ly_do === 'lech') break;      // đặt lệch là chuyện của cách Chenfeng đặt mẫu — thử lại cũng lệch như thế
+            if (r.ly_do === 'khong_thuoc_tk') {
+              const id0 = x.tp.id;
+              if (mauLoi.khong_thuoc.has(id0)) break;      // mẫu thay cũng không dùng được
+              mauLoi.khong_thuoc.add(id0);
+              opt.onStatus(`Mã mẫu ${id0} không thuộc tài khoản Chenfeng này — đang tìm mẫu cùng tên trong kho của tài khoản…`);
+              const id2 = await timMauCungTen(x.tp);
+              if (!id2) break;
+              mauLoi.thay.set(id0, id2); lan = 0;            // thử lại từ đầu bằng mẫu cùng tên của tài khoản
+            }
+          }
+          if (x.xong) { hongLien = 0; continue; }
+          if (r.treo) { thoiVi(r, thu.slice(i)); break; }
+          if (x.ly_do === 'huy') { for (const y of thu.slice(i + 1)) if (!y.xong) y.ly_do = 'huy'; break; }
+          if (x.ly_do === 'lech') { for (const y of thu.slice(i + 1)) if (!y.xong) { y.ly_do = 'lech'; y.bao = x.bao; } break; }      // một mẫu thêm riêng mà vẫn lệch → các mẫu còn lại cũng sẽ lệch: thôi
+          if (x.ly_do === 'may_chu') { hongLien++; maHong.add(x.tp.id); }
+        }
+      }
+    }
+    for (const [tu, sang] of mauLoi.thay) { const x = ds.find(y => y.tp.id === tu && y.xong); if (x) kq.doi_ma.push({ tu, sang, ten: x.tp.ten }); }
+    kq.thieu = ds.filter(x => !x.xong).map(x => ({ tp: x.tp, mat: x.mat, loai: x.tp.loai, khoang: x.tp.khoang, id: x.tp.id, ten: x.tp.ten, ly_do: x.ly_do || 'may_chu', bao: x.bao, treo: !!x.treo }));
+    // máy chủ treo: lệnh thêm mẫu bị bỏ còn chạy ngầm, Chenfeng chưa nhận lệnh nào khác. Chờ nó kết thúc (tối đa 25 giây — máy chủ trả lời trễ thì bảng huỷ lời hỏi điểm của nó);
+    // vẫn chưa xong thì `ban` = true: nơi gọi bỏ qua các bước cần lệnh của Chenfeng (khoan lại, gom module) và báo rõ.
+    if (kq.thieu.some(x => x.treo)) { opt.onStatus('Máy chủ Chenfeng chưa trả lời — chờ Chenfeng bỏ lệnh thêm mẫu…'); kq.ban = !(await choLenhTre(opt.cho_tre > 0 ? opt.cho_tre : 25000)); }
+    return kq;
+  };
+  const BAO_BAN = 'Chenfeng còn đang chờ máy chủ nên chưa nhận lệnh nào khác: bảng chưa ghi lại kiểu khoan, chưa gom tủ thành module được. Khi Chenfeng hết chờ (hoặc tải lại trang Chenfeng), bấm “Cập nhật tủ này” để bảng vẽ lại cho trọn.';
+  /** Lời báo cho người dùng về mẫu chưa thêm được / mẫu đã đổi mã (để đưa vào danh sách lưu ý của lần vẽ). */
+  const baoMau = tm => {
+    const out = [];
+    for (const d of tm.doi_ma) out.push(`Ngăn kéo / suốt treo: mã mẫu ${d.tu} (${d.ten}) ghi ở thẻ Chuẩn xưởng không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập — đã dùng mẫu cùng tên của tài khoản này (mã ${d.sang}). Bấm “Dò mã mẫu từ kho Chenfeng” ở thẻ Chuẩn xưởng để lưu mã đúng.`);
+    const theo = ly => tm.thieu.filter(x => x.ly_do === ly);
+    const lech = theo('lech');
+    if (lech.length) out.push(`Chưa thêm được ${keMau(lech)}: Chenfeng đặt mẫu lệch chỗ thiết kế nên bảng đã bỏ các mẫu đó (không để ngăn kéo / suốt treo nằm sai trong tủ). Phần tấm của tủ đã vẽ đủ. Có thể bản Chenfeng vừa đổi cách đặt mẫu — báo lại để sửa bảng; trong lúc chờ, chèn ngăn kéo / suốt treo bằng lệnh của Chenfeng.`);
+    const mc = theo('may_chu');
+    if (mc.length) {
+      const b = mc.map(x => x.bao).find(Boolean), treo = mc.some(x => x.treo);
+      out.push(`Chưa thêm được ${keMau(mc)}: ${treo ? 'máy chủ Chenfeng không trả lời (mạng tới máy chủ Chenfeng đang chậm hoặc rớt)' : 'máy chủ Chenfeng không trả mẫu (mạng tới máy chủ Chenfeng đang chậm hoặc rớt — bảng đã thử lại)'}. Phần tấm của tủ đã vẽ đủ; lúc mạng ổn bấm “Cập nhật tủ này” để bảng vẽ lại tủ kèm ngăn kéo / suốt treo.${b ? ` (Chenfeng báo: “${String(b).slice(0, 110)}”)` : ''}`);
+    }
+    const tk = theo('khong_thuoc_tk');
+    if (tk.length) { const ma = [...new Map(tk.map(x => [x.id, x.ten])).entries()].map(([id, ten]) => `${id} (${ten})`).join(', '); out.push(`Chưa thêm được ${keMau(tk)}: mã mẫu ${ma} ghi ở thẻ Chuẩn xưởng không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập, và tài khoản này không có mẫu cùng tên. Vào thẻ Chuẩn xưởng bấm “Dò mã mẫu từ kho Chenfeng” (hoặc gõ mã mẫu của chính tài khoản này), rồi bấm “Cập nhật tủ này”.`); }
+    const huy = theo('huy');
+    if (huy.length) out.push(`Chưa thêm ${keMau(huy)}: lệnh thêm mẫu bị huỷ (Esc). Bấm “Cập nhật tủ này” để bảng vẽ lại tủ kèm ngăn kéo / suốt treo.`);
+    return out;
+  };
+  // thiết kế chỉ còn những mẫu đã thêm được (để phép đối chiếu không báo "mặt ngăn kéo lệch" cho hộp ngăn kéo chưa có)
+  const boMauThieu = (M, tm) => {
+    if (!tm || !tm.thieu.length) return M;
+    const tp = new Set(tm.thieu.map(x => x.tp)), mat = new Set(tm.thieu.map(x => x.mat).filter(Boolean));
+    return Object.assign({}, M, { templates: M.templates.filter(t => !tp.has(t)), mat_ngan_keo: M.mat_ngan_keo.filter(q => !mat.has(q)) });
+  };
+  const gonMauThieu = tm => tm.thieu.map(x => ({ loai: x.loai, khoang: x.khoang, id: x.id, ten: x.ten, ly_do: x.ly_do }));
+
   const drawImpl = async (spec, opt) => {
     opt = Object.assign({ onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
     const M = Core.build(spec);
     if (M.errors.length) return { ok: false, giai_doan: 'thiet_ke', errors: M.errors, warnings: M.warnings };
     const id = opt.id ? String(opt.id) : D.newId();
-    const cf = Core.toChenfeng(M, { id });
+    const cf = Core.toChenfeng(M, { id, khong_mau: true });      // bản 1.23: chỉ phần TẤM (không cần máy chủ); ngăn kéo / suốt treo thêm sau — xem themMau
     const n3 = a => Array.isArray(a) && a.length === 3 && a.every(v => typeof v === 'number' && isFinite(v));
     if ((opt.corner && !n3(opt.corner)) || (opt.at && !n3(opt.at))) return { ok: false, giai_doan: 'nhap', errors: ['Toạ độ đặt tủ phải là 3 số [x, y, z].'], warnings: M.warnings };
     const point = opt.corner ? opt.corner.slice() : opt.at ? [opt.at[0] + cf.base[0], opt.at[1] + cf.base[1], opt.at[2] + cf.base[2]] : null;
     const h0 = hmMark();
     let res;
-    try { res = await D.importCF(cf.json, point, opt); }
+    try { res = await D.importCF(cf.json, point, Object.assign({}, opt, { co_mau: false })); }
     catch (e) { return { ok: false, giai_doan: 'nhap', errors: [e.message], warnings: M.warnings }; }
     if (res.cancelled) return { ok: false, giai_doan: 'nhap', errors: ['Đã huỷ — chưa vẽ gì.'], warnings: M.warnings };
     let added = res.added;
@@ -431,15 +633,21 @@
       const b0 = boards.reduce((a, b) => { const x = D.boxOf(b); return [Math.min(a[0], x[0]), Math.min(a[1], x[2]), Math.min(a[2], x[4])]; }, [Infinity, Infinity, Infinity]);
       offset = [r2(b0[0] - cf.base[0]), r2(b0[1] - cf.base[1]), r2(b0[2] - cf.base[2])];
     }
+    // ngăn kéo / suốt treo: thêm SAU phần tấm (mẫu hỏng thì tủ vẫn đủ tấm)
+    let tm = { added: [], thieu: [], doi_ma: [], so_lenh: 0 };
+    try { tm = await themMau(M, offset, opt); } catch (e) { tm.thieu = Core.mauCF(M).map(x => ({ tp: x.tp, mat: x.mat, loai: x.tp.loai, khoang: x.tp.khoang, id: x.tp.id, ten: x.tp.ten, ly_do: 'may_chu', bao: String(e && e.message || e) })); }
+    added = added.concat(tm.added);
     const before = new Set(root.app.Database.ModelSpace.Entitys);
     let fix = { fixed: 0, normalized: 0 };
-    try { fix = await D.finalize(boards, M.spec.khoan.thung, opt); } catch (e) { fix = { fixed: 0, normalized: 0, reason: e.message }; }
-    added = added.concat(root.app.Database.ModelSpace.Entitys.filter(e => e && !before.has(e))).filter(e => e && !e.IsErase);
-    const v = D.verify(M, added, offset);      // đối chiếu TRƯỚC khi gom module (gom rồi thì mọi tấm chung một mẫu, phép dò va chạm bỏ qua tấm cùng mẫu)
+    if (!tm.ban) { try { fix = await D.finalize(added.filter(D.isBoard), M.spec.khoan.thung, opt); } catch (e) { fix = { fixed: 0, normalized: 0, reason: e.message }; } }
+    added = docLaiDS(added, before);
+    const Mco = boMauThieu(M, tm);
+    const v = D.verify(Mco, added, offset);      // đối chiếu TRƯỚC khi gom module (gom rồi thì mọi tấm chung một mẫu, phép dò va chạm bỏ qua tấm cùng mẫu)
     let mod = null;
-    if (M.spec.module_cf && opt.module !== false && v.thieu.length === 0) {
+    if (M.spec.module_cf && opt.module !== false && v.thieu.length === 0 && !tm.ban) {
       try { mod = await D.modelize(M.spec, offset, added, opt); } catch (e) { mod = { ok: false, reason: String(e && e.message || e) }; }
-      if (mod && mod.ok) { const v2 = D.verify(M, added.filter(e => e && !e.IsErase), offset); if (v2.thieu.length) { mod.ok = false; mod.reason = `gom module làm lệch ${v2.thieu.length} tấm (${v2.thieu.slice(0, 2).join('; ')}).`; } }
+      added = docLaiDS(added, before);      // lệnh MODELING khoan lại các tấm vừa gom: lỗ của tủ giờ là đối tượng khác
+      if (mod && mod.ok) { const v2 = D.verify(Mco, added, offset); if (v2.thieu.length) { mod.ok = false; mod.reason = `gom module làm lệch ${v2.thieu.length} tấm (${v2.thieu.slice(0, 2).join('; ')}).`; } }
     }
     const errors = [];
     if (v.thieu.length) errors.push(`Thiếu ${v.thieu.length} tấm so với thiết kế: ${v.thieu.slice(0, 4).join('; ')}${v.thieu.length > 4 ? '…' : ''}`);
@@ -454,16 +662,19 @@
     if (fix.reason) warnings.push(fix.reason);
     if (mod && !mod.ok) warnings.push(`Chưa gom được tủ thành module tham số của Chenfeng: ${mod.reason} Tủ vẫn vẽ đủ; sửa kích thước thì dùng nút "Cập nhật tủ này" của bảng.`);
     if (mod && mod.ok) for (const g of mod.ghi_chu) warnings.push(g);
-    const want = M.templates.filter(tp => tp.id).length;
+    const want = Mco.templates.filter(tp => tp.id).length;
     const gotHW = Object.values(v.phu_kien).reduce((a, b) => a + b, 0);
     if (want && !gotHW) warnings.push('Không thấy phụ kiện nào của mẫu ngăn kéo / suốt treo — kiểm tra mã mẫu ở tab Chuẩn xưởng.');
+    warnings.push(...baoMau(tm));
+    if (tm.ban) warnings.push(BAO_BAN);
     const dl = doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong });
     opt.onStatus('Xong.');
     const h1 = hmMark();
     let steps = 1 + ((fix.fixed || fix.normalized) ? 1 : 0);
-    if (h0 && h1 && h1.i > h0.i && h1.i - h0.i <= 6) steps = h1.i - h0.i;
+    if (h0 && h1 && h1.i > h0.i && h1.i - h0.i <= 6 + tm.so_lenh) steps = h1.i - h0.i;
     D.last = { M, added, offset, steps, mark: h1, id };
-    return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + cf.base[i])), kiem_tra: v, do_loi: dl, sua_khoan: fix, so_buoc_hoan_tac: steps, module: mod, kich: Core.heSo(M.spec).kich, tom_tat: Core.summary(M) };
+    return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + cf.base[i])), kiem_tra: v, do_loi: dl, sua_khoan: fix, so_buoc_hoan_tac: steps, module: mod, kich: Core.heSo(M.spec).kich, tom_tat: Core.summary(M),
+      mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma };
   };
 
   /* ------------------------------------------------------------------ *
@@ -982,81 +1193,188 @@
   };
 
   /**
-   * Vẽ phòng hiện trạng vào bản vẽ. H = MNCFPhong.hinhHoc(phòng). opt: { day_tuong (mặc định 110), onStatus, dien_nuoc: MNCFPhong.dienNuocDXF(H) (dấu điện – nước, bản 1.18) }
-   * @returns { ok, errors, warnings, dem:{tuong, mo, cot, dam, dn}, so_buoc_hoan_tac }
+   * Đối tượng phòng đang có trên bản vẽ → dữ liệu thuần cho MNCFPhong.doiChieuPhong (bản 1.23). Chỉ ĐỌC.
+   * Đo trên Chenfeng thật 04/10/2026: RoomWallLine có RightCurves / LeftCurves (hai mặt tường, đã cắt theo góc), Thickness, Height, StartPoint (tim tường);
+   * lỗ cửa RoomHolePolyline, cột RoomPillar, dầm RoomGirder: hộp bao chính là chỗ nó chiếm (lỗ cửa = bề rộng lỗ × bề dày tường × cao lỗ).
+   * `ent` (không liệt kê) = đối tượng thật theo đúng thứ tự của từng danh sách.
+   */
+  D.docPhong = () => {
+    const kq = { tuong: [], lo: [], cot: [], dam: [] }, ent = { tuong: [], lo: [], cot: [], dam: [] };
+    for (const e of D.all()) {
+      const lop = tenLop(e);
+      try {
+        if (lop === 'RoomWallLine') {
+          const mat = [];
+          for (const c of [].concat(e.RightCurves || [], e.LeftCurves || [])) { const a = c.StartPoint, b = c.EndPoint; if (a && b) mat.push([[r2(a.x), r2(a.y)], [r2(b.x), r2(b.y)]]); }
+          let z = 0; try { z = r2(e.StartPoint.z || 0); } catch (er) { z = 0; }
+          kq.tuong.push({ mat, day: r2(+e.Thickness || 0), cao: r2(+e.Height || 0), z, hop: D.boxOf(e) }); ent.tuong.push(e);
+        } else if (lop === 'RoomHolePolyline') { kq.lo.push({ hop: D.boxOf(e) }); ent.lo.push(e); }
+        else if (lop === 'RoomPillar') { kq.cot.push({ hop: D.boxOf(e) }); ent.cot.push(e); }
+        else if (lop === 'RoomGirder') { kq.dam.push({ hop: D.boxOf(e) }); ent.dam.push(e); }
+      } catch (err) { /* bỏ qua đối tượng lạ */ }
+    }
+    Object.defineProperty(kq, 'ent', { value: ent, enumerable: false });
+    return kq;
+  };
+  // Dấu điện – nước cũ của một phòng: nét / chữ do file DXF của bảng dựng — màu theo nhóm (30 điện, 140 cấp, 34 thoát, 200 khác), nằm trong lòng phòng (`trong(hộp)` — phòng sắp vẽ
+  // hoặc vùng của lần vẽ trước); chữ phải đúng mẫu nhãn của bảng ("O1 +300", "CN2", "TS1"…). Nét / chữ khác của người dùng (màu khác, chữ khác, nằm ngoài phòng) thì không đụng tới.
+  const MAU_DAU_DN = [30, 140, 34, 200];
+  const dauDienNuoc = trong => {
+    const out = [];
+    for (const e of D.all()) {
+      const lop = tenLop(e); if (!/^(Line|Circle|Polyline|Text)$/.test(lop)) continue;
+      let mau = null, b = null; try { mau = e.ColorIndex; b = D.boxOf(e); } catch (er) { continue; }
+      if (MAU_DAU_DN.indexOf(mau) < 0 || !b || !b.every(isFinite) || !trong(b)) continue;
+      if (lop === 'Text') { let t = ''; try { t = String(e.TextString || ''); } catch (er) { t = ''; } if (!/^(O|CT|CN|TN|D|TS|OS)\d+( \+\d+([.,]\d+)?)?$/.test(t)) continue; }
+      out.push(e);
+    }
+    return out;
+  };
+  const maChuoi = t => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0; return h.toString(36) + '.' + t.length.toString(36); };
+
+  /**
+   * Vẽ phòng hiện trạng vào bản vẽ. H = MNCFPhong.hinhHoc(phòng).
+   * opt: { day_tuong (mặc định 110), onStatus, dien_nuoc: MNCFPhong.dienNuocDXF(H) (dấu điện – nước, bản 1.18),
+   *        da_ve: bản ghi lần vẽ trước của chính phòng này (MNCFPhong.banGhiPhong) — bản 1.23,
+   *        bo_chong: người dùng đã đồng ý bỏ các tường / cột / dầm cũ nằm vướng trong lòng phòng sắp vẽ }
+   * Bản 1.23 — vẽ lại không vẽ chồng: đối chiếu với phòng đang có (MNCFPhong.doiChieuPhong) → cái gì đã có đúng chỗ thì giữ, phần của lần vẽ trước nay không còn đúng thì bỏ
+   * (một lệnh ERASE), chỉ vẽ cái còn thiếu; số tường đếm theo tường CÓ trên bản vẽ sau khi vẽ chứ không theo số đối tượng mới sinh
+   * (Chenfeng không dựng đoạn tường trùng tường cũ — bảng cũ vì thế báo nhầm "chỉ vẽ được 0/4 tường").
+   * @returns { ok, giai_doan?: 'chan' (dừng lại hỏi, chưa đụng bản vẽ), can_hoi?, errors, warnings, dem: {tuong, mo, cot, dam, dn} = số mục của phòng đang CÓ trên bản vẽ,
+   *            them / giu / bo: {tuong, mo, cot, dam, dn} số mục vừa vẽ thêm / giữ nguyên / đã bỏ (bo.dn = số NÉT dấu điện – nước cũ đã bỏ), trung: {mo, cot, dam} số lỗ cửa / cột / dầm vẽ trùng đã dọn,
+   *            khong_doi, da_ve: bản ghi mới, so_buoc_hoan_tac }
    */
   D.drawRoom = async (H, opt) => {
     D.boManChe();
     opt = Object.assign({ day_tuong: 110, onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
     const errors = [], warnings = [], dem = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 };
-    if (!D.available()) return { ok: false, errors: ['Không thấy bản vẽ Chenfeng trong trang này.'], warnings, dem };
-    if (!H || !H.tuong || !H.tuong.length || (H.loi && H.loi.length)) return { ok: false, errors: (H && H.loi && H.loi.length ? H.loi : ['Phòng chưa có tường.']), warnings, dem };
-    if (!D.editing()) return { ok: false, errors: ['Chenfeng đang ở trang chủ / màn chào — mở một bản vẽ rồi vẽ phòng.'], warnings, dem };
-    const o = (H.p && H.p.goc) || [0, 0, 0], cao = H.p.cao, W = H.tuong.filter(w => w.dai > 0);
+    const them = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 }, giu = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 }, bo = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 }, trung = { mo: 0, cot: 0, dam: 0 };
+    const tra = o => Object.assign({ ok: false, errors, warnings, dem, them, giu, bo, trung }, o);
+    if (!D.available()) return tra({ errors: ['Không thấy bản vẽ Chenfeng trong trang này.'] });
+    if (!H || !H.tuong || !H.tuong.length || (H.loi && H.loi.length)) return tra({ errors: (H && H.loi && H.loi.length ? H.loi : ['Phòng chưa có tường.']) });
+    if (!D.editing()) return tra({ errors: ['Chenfeng đang ở trang chủ / màn chào — mở một bản vẽ rồi vẽ phòng.'] });
+    const Ph = root.MNCFPhong;
+    if (!Ph || typeof Ph.doiChieuPhong !== 'function') return tra({ errors: ['Thiếu phần tính phòng (MNCFPhong) — tải lại trang Chenfeng.'] });
+    const o = (H.p && H.p.goc) || [0, 0, 0], cao = H.p.cao;
     const P = (q, z) => [q[0] + o[0], q[1] + o[1], (z || 0) + o[2]];
     const tren = (w, s, t) => [w.p0[0] + w.d[0] * s + w.n[0] * t, w.p0[1] + w.d[1] * s + w.n[1] * t];
     const dsLop = lop => D.all().filter(e => tenLop(e) === lop);
+    const moi = Ph.phanPhong(H, opt.day_tuong), W = moi.tuong;
+    let co = D.docPhong(), K = Ph.doiChieuPhong(moi, co, opt.da_ve || null);
+    const cu = K.co_ban_ghi ? opt.da_ve : null;
+    // tường khác (không phải của lần vẽ trước) nằm cắt ngang lòng phòng sắp vẽ → dừng lại hỏi, chưa đụng gì vào bản vẽ
+    if (K.trong.length && !opt.bo_chong) {
+      const kem = [K.chong.length > K.trong.length ? `${K.chong.length - K.trong.length} tường nằm chồng một phần lên tường mới` : '', K.thua.cot.length + K.thua.dam.length ? `${K.thua.cot.length + K.thua.dam.length} cột / dầm không khớp phòng mới` : ''].filter(Boolean);
+      return tra({ giai_doan: 'chan', can_hoi: { trong: K.trong.length, chong: K.chong.length - K.trong.length, thua: K.thua.cot.length + K.thua.dam.length },
+        errors: [`Chưa vẽ: trên bản vẽ đang có ${K.trong.length} tường khác nằm trong lòng phòng sắp vẽ${kem.length ? ` (cùng ${kem.join(', ')})` : ''} — có vẻ là phòng cũ vẽ từ bản trước hoặc vẽ tay. Bảng không tự xoá thứ không chắc là của nó: bấm nút bên dưới để bỏ các tường cũ đó rồi vẽ, hoặc dời “điểm đặt phòng” sang chỗ trống.`] });
+    }
     const h0 = hmMark(), truoc = new Set(root.app.Database.ModelSpace.Entitys);
     try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+    const that = { mo: moi.mo.map(() => false), cot: moi.cot.map(() => false), dam: moi.dam.map(() => false) };
+    const dn = opt.dien_nuoc, coDn = !!(dn && dn.so > 0 && dn.dxf), maDn = coDn ? maChuoi(dn.dxf) : '';
+    let coTuong = W.map(() => false), giuDau = false, soNetDn = 0;
     try {
-      // 1. tường — đi theo chiều kim đồng hồ quanh lòng phòng
-      opt.onStatus('Đang vẽ tường…');
-      const n0 = dsLop('RoomWallLine').length;
-      if (!(await moLenh('DRAWWALLINSIDE'))) return { ok: false, errors: ['Chenfeng không nhận lệnh vẽ tường (DRAWWALLINSIDE).'], warnings, dem };
-      await datSo('G', cao); await datSo('H', opt.day_tuong);
-      for (const w of W) { D.input(toaDo(P(w.p0))); await sleep(420); }
-      if (H.khep.kin && W.length >= 3) D.input('C');
-      else { D.input(toaDo(P(W[W.length - 1].p1))); await sleep(420); D.input(''); }
-      await xongLenh(8000);
-      await D.settle(400, 15000);
-      dem.tuong = dsLop('RoomWallLine').length - n0;
-      if (dem.tuong < W.length) errors.push(`Chenfeng chỉ vẽ được ${dem.tuong}/${W.length} tường.`);
-      // 2. cửa đi, cửa sổ, ô trống = lỗ trên tường (điểm đặt = TÂM lỗ trên mép trong của tường)
-      for (const m of H.mo || []) {
-        if (!(m.rong > 0 && m.cao > 0)) continue;
+      // dấu điện – nước cũ của phòng này: nằm trong lòng phòng sắp vẽ hoặc trong vùng của lần vẽ trước (phòng đã đổi cỡ / dời chỗ). Không cần bản ghi cũng nhận ra
+      // (phòng vẽ từ bản trước) — nhờ thế bấm lại không đánh chồng một bộ dấu nữa. Giữ nguyên khi: có bản ghi, nội dung không đổi, trên bản vẽ còn ĐÚNG số nét đã dựng.
+      const vungCu = cu ? Ph.vungBanGhi(cu) : null;
+      const dauCu = dauDienNuoc(b => Ph.trongLongPhong(moi, b) || (!!vungCu && Ph.trongLongPhong(vungCu, b)));
+      giuDau = coDn && !!(cu && cu.dn) && cu.dn_ma === maDn && dauCu.length > 0 && dauCu.length === cu.dn_so;
+      // 0. bỏ phần của lần vẽ trước nay không còn đúng (+ tường / cột / dầm cũ vướng khi người dùng đã đồng ý) + lỗ cửa / cột / dầm vẽ trùng (chồng khít lên cái đang giữ)
+      const E = co.ent;
+      const boE = [].concat(K.bo.tuong.map(i => E.tuong[i]), K.bo.lo.map(i => E.lo[i]), K.bo.cot.map(i => E.cot[i]), K.bo.dam.map(i => E.dam[i]), K.trung.lo.map(i => E.lo[i]), K.trung.cot.map(i => E.cot[i]), K.trung.dam.map(i => E.dam[i]));
+      bo.tuong = K.bo.tuong.length; bo.mo = K.bo.lo.length; bo.cot = K.bo.cot.length; bo.dam = K.bo.dam.length;
+      trung.mo = K.trung.lo.length; trung.cot = K.trung.cot.length; trung.dam = K.trung.dam.length;
+      if (opt.bo_chong) {
+        for (const i of K.chong) if (boE.indexOf(E.tuong[i]) < 0) { boE.push(E.tuong[i]); bo.tuong++; }
+        for (const i of K.thua.cot) { boE.push(E.cot[i]); bo.cot++; }
+        for (const i of K.thua.dam) { boE.push(E.dam[i]); bo.dam++; }
+      }
+      if (boE.length) {
+        opt.onStatus(bo.tuong + bo.mo + bo.cot + bo.dam ? 'Đang bỏ phần phòng cũ không còn đúng…' : 'Đang dọn lỗ cửa / cột / dầm vẽ trùng…');
+        const er = await D.erase(boE);
+        if (!er.ok) throw new Error(`chưa bỏ được phần phòng cũ (còn ${er.con} đối tượng) — xoá tay các tường cũ trong Chenfeng rồi bấm vẽ lại`);
+        await D.settle(300, 10000);
+        co = D.docPhong(); K = Ph.doiChieuPhong(moi, co, cu);
+      }
+      // 1. tường còn thiếu — đi theo chiều kim đồng hồ quanh lòng phòng (bề dày nằm ngoài); các tường thiếu liền nhau đi chung một lệnh
+      giu.tuong = K.tuong.filter(t => t.co >= 0).length;
+      for (const c of K.ve_tuong) {
+        opt.onStatus('Đang vẽ tường…');
+        if (!(await moLenh('DRAWWALLINSIDE'))) { errors.push('Chenfeng không nhận lệnh vẽ tường (DRAWWALLINSIDE).'); break; }
+        await datSo('G', cao); await datSo('H', opt.day_tuong);
+        for (const q of c.diem) { D.input(toaDo(q)); await sleep(420); }
+        D.input(c.khep ? 'C' : '');
+        await xongLenh(8000);
+        await D.settle(400, 15000);
+      }
+      // kiểm theo TƯỜNG CÓ TRÊN BẢN VẼ: mặt tường đang có phủ kín từng cạnh lòng phòng
+      co = D.docPhong();
+      coTuong = W.map(w => Ph.tuongPhuKin(w, co));
+      dem.tuong = coTuong.filter(Boolean).length;
+      them.tuong = Math.max(0, dem.tuong - giu.tuong);
+      if (dem.tuong < W.length && !errors.length) errors.push(`Chenfeng chỉ dựng được ${dem.tuong}/${W.length} tường (thiếu tường ${W.filter((w, i) => !coTuong[i]).map(w => w.ten).join(', ')}).`);
+      // 2. đối chiếu lại rồi mới mở lỗ, vẽ cột, dầm (lỗ cửa trên tường vừa bỏ đã mất theo tường)
+      K = Ph.doiChieuPhong(moi, co, cu);
+      // cửa đi, cửa sổ, ô trống = lỗ trên tường (điểm đặt = TÂM lỗ trên mép trong của tường)
+      for (let q = 0; q < moi.mo.length; q++) {
+        const m = (H.mo || []).find(x => x.j === moi.mo[q].j), k = K.mo[q].co;
+        if (k >= 0) { giu.mo++; dem.mo++; that.mo[q] = co.lo[k].hop; continue; }
         opt.onStatus(`Đang mở ${m.ten.toLowerCase()} trên tường ${m.w.ten}…`);
-        const k0 = dsLop('RoomHolePolyline').length;
+        const ds0 = new Set(dsLop('RoomHolePolyline'));
         if (!(await moLenh(m.loai === 'cua' ? 'DRAWDOORHOLE' : 'DRAWIHOLE'))) { warnings.push(`Chưa mở được ${m.ten.toLowerCase()} (tường ${m.w.ten}).`); continue; }
         await datSo('H', m.cao); await datSo('L', m.rong); await datSo('D', m.be);
         D.input(toaDo(P(tren(m.w, m.cach + m.rong / 2, 0))));
         await xongLenh(5000);
-        if (dsLop('RoomHolePolyline').length > k0) dem.mo++; else warnings.push(`Chưa mở được ${m.ten.toLowerCase()} (tường ${m.w.ten}).`);
+        const lo = dsLop('RoomHolePolyline').find(e => !ds0.has(e));
+        if (lo) { dem.mo++; them.mo++; that.mo[q] = D.boxOf(lo); } else warnings.push(`Chưa mở được ${m.ten.toLowerCase()} (tường ${m.w.ten}).`);
       }
       // 3. cột, hộp kỹ thuật (điểm đặt = TÂM cột; Chenfeng tự cho cột cao bằng tường)
-      for (const c of (H.can || []).filter(x => x.loai !== 'dam')) {
-        if (!(c.rong > 0 && c.nho > 0)) continue;
+      for (let q = 0; q < moi.cot.length; q++) {
+        const c = (H.can || []).find(x => x.j === moi.cot[q].j), k = K.cot[q].co;
+        if (k >= 0) { giu.cot++; dem.cot++; that.cot[q] = co.cot[k].hop; continue; }
         opt.onStatus(`Đang vẽ ${c.ten.toLowerCase()}…`);
-        const k0 = dsLop('RoomPillar').length, a = ((c.w.a % 180) + 180) % 180, doc = Math.abs(a - 90) < 1;
+        const ds0 = new Set(dsLop('RoomPillar')), a = ((c.w.a % 180) + 180) % 180, doc = Math.abs(a - 90) < 1;
         if (!doc && a > 1 && a < 179) warnings.push(`${c.ten} nằm trên tường xiên: Chenfeng vẽ cột theo trục bản vẽ — xoay lại bằng lệnh của Chenfeng.`);
         if (!(await moLenh('DRAWPILLAR', doc ? [c.nho, c.rong] : [c.rong, c.nho]))) { warnings.push(`Chưa vẽ được ${c.ten.toLowerCase()} (tường ${c.w.ten}).`); continue; }
         D.input(toaDo(P(tren(c.w, c.cach + c.rong / 2, c.nho / 2))));
         await xongLenh(5000);
-        if (dsLop('RoomPillar').length > k0) { dem.cot++; if (c.z0 > 0.5 || c.z1 < cao - 0.5) warnings.push(`${c.ten}: Chenfeng vẽ cột cao hết tường (0 → ${cao}); phần +${c.z0} → +${c.z1} phải tự sửa chiều cao.`); }
+        const cot = dsLop('RoomPillar').find(e => !ds0.has(e));
+        if (cot) { dem.cot++; them.cot++; that.cot[q] = D.boxOf(cot); if (c.z0 > 0.5 || c.z1 < cao - 0.5) warnings.push(`${c.ten}: Chenfeng vẽ cột cao hết tường (0 → ${cao}); phần +${c.z0} → +${c.z1} phải tự sửa chiều cao.`); }
         else warnings.push(`Chưa vẽ được ${c.ten.toLowerCase()} (tường ${c.w.ten}).`);
       }
       // 4. dầm (2 điểm dọc mép trong của tường, ở cao độ đáy dầm)
-      for (const c of (H.can || []).filter(x => x.loai === 'dam')) {
-        if (!(c.rong > 0 && c.nho > 0 && c.z1 > c.z0)) continue;
+      for (let q = 0; q < moi.dam.length; q++) {
+        const c = (H.can || []).find(x => x.j === moi.dam[q].j), k = K.dam[q].co;
+        if (k >= 0) { giu.dam++; dem.dam++; that.dam[q] = co.dam[k].hop; continue; }
         opt.onStatus(`Đang vẽ ${c.ten.toLowerCase()}…`);
         const ds0 = new Set(dsLop('RoomGirder'));
         if (!(await moLenh('DRAWGIRDER', [c.nho, c.z1 - c.z0]))) { warnings.push(`Chưa vẽ được ${c.ten.toLowerCase()} (tường ${c.w.ten}).`); continue; }
         D.input(toaDo(P(tren(c.w, c.cach, 0), c.z0))); await sleep(450);
         D.input(toaDo(P(tren(c.w, c.cach + c.rong, 0), c.z0)));
         await xongLenh(5000);
-        const moi = dsLop('RoomGirder').find(e => !ds0.has(e));
-        if (!moi) { warnings.push(`Chưa vẽ được ${c.ten.toLowerCase()} (tường ${c.w.ten}).`); continue; }
-        dem.dam++;
-        const b = D.boxOf(moi);
+        const dam = dsLop('RoomGirder').find(e => !ds0.has(e));
+        if (!dam) { warnings.push(`Chưa vẽ được ${c.ten.toLowerCase()} (tường ${c.w.ten}).`); continue; }
+        dem.dam++; them.dam++;
+        const b = D.boxOf(dam); that.dam[q] = b;
         if (Math.abs(b[4] - (c.z0 + o[2])) > 1 || Math.abs(b[5] - (c.z1 + o[2])) > 1) warnings.push(`${c.ten}: Chenfeng đặt dầm ở cao độ +${r2(b[4] - o[2])} → +${r2(b[5] - o[2])} (muốn +${c.z0} → +${c.z1}) — kéo lại cao độ dầm trong Chenfeng.`);
       }
-      // 5. điện – nước (bản 1.18): dấu trên mặt tường / trên sàn, dựng từ một file DXF nhỏ thả vào bản vẽ
-      const dn = opt.dien_nuoc;
-      if (dn && dn.so > 0 && dn.dxf && dem.tuong > 0) {
-        opt.onStatus(`Đang đánh dấu ${dn.so} điểm điện – nước…`);
-        await D.settle(300, 8000);
-        const r = await D.importDXF(dn.dxf, { hop: dn.hop, ten: 'dien-nuoc.dxf' });
-        if (r.ok) dem.dn = dn.so; else warnings.push(`Chưa đánh dấu được ${dn.so} điểm điện – nước lên bản vẽ: ${r.reason} Phòng vẫn vẽ đủ; vị trí các điểm xem ở mặt bằng / mặt đứng trong bảng.`);
+      // 5. điện – nước (bản 1.18): dấu trên mặt tường / trên sàn, dựng từ một file DXF nhỏ thả vào bản vẽ. Dấu cũ còn nguyên và không đổi thì giữ; không thì bỏ dấu cũ rồi đánh lại
+      //    (tường không dựng được thì để yên dấu cũ — không bỏ mà không đánh lại được).
+      if (giuDau) { dem.dn = dn.so; giu.dn = dn.so; soNetDn = cu.dn_so; }
+      else if (dem.tuong > 0 || !coDn) {
+        const con = dauCu.filter(e => e && !e.IsErase);
+        if (con.length) {
+          opt.onStatus('Đang bỏ dấu điện – nước cũ…');
+          const er = await D.erase(con);
+          if (er.ok) bo.dn = con.length; else warnings.push(`Chưa bỏ hết dấu điện – nước cũ (còn ${er.con} nét) — xoá tay trong Chenfeng.`);
+        }
+        if (coDn) {
+          opt.onStatus(`Đang đánh dấu ${dn.so} điểm điện – nước…`);
+          await D.settle(300, 8000);
+          const r = await D.importDXF(dn.dxf, { hop: dn.hop, ten: 'dien-nuoc.dxf' });
+          if (r.ok) { dem.dn = dn.so; them.dn = dn.so; soNetDn = r.ents.length; } else warnings.push(`Chưa đánh dấu được ${dn.so} điểm điện – nước lên bản vẽ: ${r.reason} Phòng vẫn vẽ đủ; vị trí các điểm xem ở mặt bằng / mặt đứng trong bảng.`);
+        }
       }
     } catch (e) { errors.push('Lỗi khi vẽ phòng: ' + String(e && e.message || e)); await dongHopThoai(); if (D.busy()) await D.cancel(); }
     await D.settle(400, 15000);
@@ -1077,9 +1395,15 @@
     } catch (e) { /* tên phòng không ghi được thì thôi, phòng vẫn đủ */ }
     const h1 = hmMark(), added = root.app.Database.ModelSpace.Entitys.filter(e => e && !truoc.has(e) && !e.IsErase);
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : (added.length ? 1 : 0);
-    D.lastRoom = { added, steps, mark: h1 };
+    // bản ghi lần vẽ này: chỉ ghi tường thật sự có và do phòng này đứng tên (tường chung nằm trên tường của phòng bên thì không ghi — lần sau không coi là của mình mà bỏ)
+    let daVe = null;
+    try {
+      const cua = W.filter((w, i) => coTuong[i] && !(K.tuong[i] && K.tuong[i].nam_tren));
+      daVe = Ph.banGhiPhong(Object.assign({}, moi, { tuong: cua }), { mo: that.mo, cot: that.cot, dam: that.dam, dn: dem.dn > 0 && dn && dn.hop ? [dn.hop.x0, dn.hop.x1, dn.hop.y0, dn.hop.y1, dn.hop.z0, dn.hop.z1] : null, dn_ma: maDn, dn_so: soNetDn });
+    } catch (e) { daVe = null; }
+    if (steps > 0) D.lastRoom = { added, steps, mark: h1, da_ve: daVe };      // lần bấm thừa (bản vẽ không đổi) không ghi đè lần vẽ thật → "Hoàn tác phòng" vẫn lùi được lần vẽ trước
     opt.onStatus('Xong.');
-    return { ok: errors.length === 0 && dem.tuong > 0, errors, warnings, dem, ten_phong: tenPhong, so_buoc_hoan_tac: steps, so_doi_tuong: added.length };
+    return { ok: errors.length === 0 && dem.tuong > 0, errors, warnings, dem, them, giu, bo, trung, khong_doi: steps === 0, da_ve: daVe, ten_phong: tenPhong, so_buoc_hoan_tac: steps, so_doi_tuong: added.length };
   };
   /** Hoàn tác lần vẽ phòng gần nhất (từ chối nếu sau đó bản vẽ đã có thao tác khác). */
   D.undoRoom = async () => {
@@ -2254,33 +2578,40 @@
     // phần không có lệnh gốc (phào, phụ trợ, xà chân, khung hộc kéo, ngăn kéo, suốt treo): nhập qua cổng như trước, rồi gom với các thùng lệnh gốc thành MỘT module (bản 1.16)
     let roi = null;
     const conLai = M.parts.filter(p => !daVe.has(p));
+    let tm = null;      // kết quả thêm mẫu (ngăn kéo, suốt treo) — bản 1.23: tấm rời nhập trước (không cần máy chủ), mẫu thêm sau; mẫu hỏng thì chỉ thiếu mẫu đó
     if (!errors.length && opt.phan_roi !== false && (conLai.length || (M.templates || []).some(tp => tp.id))) {
-      opt.onStatus(`Đang vẽ ${conLai.length} tấm còn lại (phào, chân, ngăn kéo…)…`);
       try {
-        const Mr = Object.assign({}, M, { parts: conLai });
-        const cf = Core.toChenfeng(Mr, { id });
-        const pt = conLai.length ? [offset[0] + cf.base[0], offset[1] + cf.base[1], offset[2] + cf.base[2]] : null;
-        if (!conLai.length) { cf.json.ModelSpace = cf.json.ModelSpace.slice(); }
-        const res = await D.importCF(cf.json, pt || [offset[0] + base[0], offset[1] + base[1], offset[2] + base[2]], opt);
-        if (res.cancelled) warnings.push('Phần tấm rời (phào, chân, ngăn kéo…) chưa vẽ: lệnh nhập bị huỷ.');
-        else {
-          roi = { so_tam: conLai.length, added: res.added };
-          try { roi.sua_khoan = await D.finalize(res.added.filter(D.isBoard), M.spec.khoan.thung, opt); } catch (e) { roi.sua_khoan = { fixed: 0, normalized: 0, reason: e.message }; }
+        let them = [], huy = false;
+        if (conLai.length) {
+          opt.onStatus(`Đang vẽ ${conLai.length} tấm còn lại (phào, chân, khung hộc kéo…)…`);
+          const cf = Core.toChenfeng(Object.assign({}, M, { parts: conLai }), { id, khong_mau: true });
+          const res = await D.importCF(cf.json, [offset[0] + cf.base[0], offset[1] + cf.base[1], offset[2] + cf.base[2]], Object.assign({}, opt, { co_mau: false }));
+          if (res.cancelled) { huy = true; warnings.push('Phần tấm rời (phào, chân, ngăn kéo…) chưa vẽ: lệnh nhập bị huỷ.'); }
+          else them = res.added;
+        }
+        if (!huy) {
+          tm = await themMau(M, offset, opt);
+          them = them.concat(tm.added);
+          roi = { so_tam: conLai.length, added: them };
+          if (tm.ban) roi.sua_khoan = { fixed: 0, normalized: 0 };
+          else { try { roi.sua_khoan = await D.finalize(them.filter(D.isBoard), M.spec.khoan.thung, opt); } catch (e) { roi.sua_khoan = { fixed: 0, normalized: 0, reason: e.message }; } }
           conLai.forEach(p => daVe.add(p));
           // tấm rời thiết kế ↔ tấm thật (để gắn hành động co giãn)
           const dung = new Set(tamCua.values());
           for (const p of conLai) {
             const want = [p.x0 + offset[0], p.x1 + offset[0], p.y0 + offset[1], p.y1 + offset[1], p.z0 + offset[2], p.z1 + offset[2]];
-            const hit = res.added.find(e => e && !e.IsErase && D.isBoard(e) && !dung.has(e) && D.tagOf(e) === id && near(D.boxOf(e), want, 0.15));
+            const hit = them.find(e => e && !e.IsErase && D.isBoard(e) && !dung.has(e) && D.tagOf(e) === id && near(D.boxOf(e), want, 0.15));
             if (hit) { dung.add(hit); tamCua.set(p, hit); }
           }
+          warnings.push(...baoMau(tm));
+          if (tm.ban) warnings.push(BAO_BAN);
         }
       } catch (e) { warnings.push(`Phần tấm rời (phào, chân, ngăn kéo…) chưa vẽ được: ${e.message}`); }
       await D.settle(700, 20000);
     }
     let added = cuaToi();
-    const veDuMau = !!roi;
-    const Msub = Object.assign({}, M, { parts: M.parts.filter(p => daVe.has(p)), templates: veDuMau ? M.templates : [], mat_ngan_keo: veDuMau ? M.mat_ngan_keo : [] });
+    const veDuMau = !!roi, Mcm = veDuMau ? boMauThieu(M, tm) : M;
+    const Msub = Object.assign({}, M, { parts: M.parts.filter(p => daVe.has(p)), templates: veDuMau ? Mcm.templates : [], mat_ngan_keo: veDuMau ? Mcm.mat_ngan_keo : [] });
     const v = D.verify(Msub, added, offset);      // đối chiếu TRƯỚC khi gom module và trước khi xoay (gom rồi mọi tấm chung một mẫu; xoay rồi hộp bao không còn thẳng trục)
     if (!errors.length) {
       if (v.thieu.length) errors.push(`Thiếu ${v.thieu.length} tấm so với thiết kế: ${v.thieu.slice(0, 4).join('; ')}${v.thieu.length > 4 ? '…' : ''}`);
@@ -2294,7 +2625,7 @@
     // GOM CẢ TỦ THÀNH MỘT MODULE: thùng lệnh gốc + phào, chân, khung hộc kéo, ngăn kéo, suốt treo cùng chạy theo L / W / H
     let mod = null;
     const chua = K.chua;
-    if (!errors.length && xong === K.buoc.length && roi && M.spec.module_cf && opt.module !== false) {
+    if (!errors.length && xong === K.buoc.length && roi && M.spec.module_cf && opt.module !== false && !(tm && tm.ban)) {
       try { mod = await ganModuleGoc(K, offset, tamCua, added, id, opt); } catch (e) { mod = { ok: false, reason: String(e && e.message || e) }; }
       if (mod.ok) {
         added = cuaToi();
@@ -2332,7 +2663,8 @@
     D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true };      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
     opt.onStatus('Xong.');
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset: atW.slice(), goc: gocCuoi, xoay_do: xoay, khung, dat, kiem_tra: v, do_loi: dl, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps,
-      module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M) };
+      module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M),
+      mau_thieu: tm ? gonMauThieu(tm) : [], mau_doi: tm ? tm.doi_ma : [] };
   };
 
   /* ------------------------------------------------------------------ *

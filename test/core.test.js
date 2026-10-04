@@ -384,8 +384,21 @@ T('Xuất cho Chenfeng (晨丰导入)', () => {
     ParamMap: [['BH', '17.5'], ['GD', '13'], ['LC', '0'], ['SLK', '30'], ['XLK', '30'], ['SYS', '-11'], ['XYS', '-2'], ['ZYS', '-2'], ['YYS', '-2']].map(([name, value]) => ({ name, value })) }, 'mẫu ngăn kéo');
   ok(ms.filter(x => x.Type === 'Board' && x.OpenDir).length === 8, '8 cánh có hướng mở');
   ok(C.toChenfeng(M, { khong_mau: true }).json.ModelSpace.length === 46, 'tuỳ chọn không kèm mẫu');
+  // bản 1.23 — tấm trước, mẫu sau: từng mẫu (ngăn kéo / suốt treo) tách riêng để nhập sau phần tấm; kèm chỗ mẫu phải nằm và mặt ngăn kéo của nó
+  const dsMau = C.mauCF(M);
+  eq(dsMau.map(x => [x.tp.loai, x.tp.khoang, x.json.TempalteId, x.json.Pos, x.json.BoxSize, x.mat ? [x.mat.x, x.mat.z, x.mat.w, x.mat.h] : null]),
+    [['SUOT', 0, 20650931, [67.5, 0, 67.5], [924, 574, 1732.5], null], ['NGAN_KEO', 1, 20216239, [1059, 30, 67.5], [823.5, 500, 216], [1061, 69.5, 819.5, 203]], ['NGAN_KEO', 1, 20216239, [1059, 30, 283.5], [823.5, 500, 236.5], [1061, 294.5, 819.5, 203]], ['SUOT', 1, 20650931, [1009, 0, 537.5], [923.5, 574, 1262.5], null]],
+    'mauCF: 4 mẫu theo đúng thứ tự thiết kế, mỗi mẫu một mục nhập riêng; ngăn kéo kèm mặt ngăn kéo của chính nó');
+  eq(dsMau.map(x => x.json), ms.filter(x => x.Type === 'Template'), 'mục nhập của từng mẫu y hệt lúc xuất chung');
   const M0 = C.build(Object.assign({}, TU_2000, { ngan_keo: { mau_id: 0 } }));
   ok(M0.warnings.some(w => /Chưa khai mã mẫu ngăn kéo/.test(w)) && C.toChenfeng(M0).so_mau === 2, 'chưa khai mã mẫu → cảnh báo, không xuất mẫu ngăn kéo');
+  eq(C.mauCF(M0).map(x => x.tp.loai), ['SUOT', 'SUOT'], 'mẫu chưa khai mã thì không có trong danh sách');
+  // ngăn kéo âm ở khoang 1 + ngăn kéo TRÙM NGOÀI ở khoang 2: mỗi hộp đi với đúng mặt ngăn kéo của nó (cùng khoang, cùng cao độ), không lấy nhầm mặt của hộp khác
+  const Mt = C.build({ ma: 'NT', rong: 1600, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 0, dot: [600], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] }] });
+  const dsT = C.mauCF(Mt).filter(x => x.tp.loai === 'NGAN_KEO');
+  eq([Mt.errors, dsT.map(x => [x.tp.kieu, x.tp.khoang, !!x.mat, x.mat && x.mat.khoang, x.mat && !!x.mat.trum, x.mat && Mt.mat_ngan_keo.indexOf(x.mat)])],
+    [[], [['nk_am', 0, true, 0, false, 0], ['nk_am', 0, true, 0, false, 1], ['nk_trum', 1, true, 1, true, 2], ['nk_trum', 1, true, 1, true, 3]]], 'mauCF: 2 hộp ngăn kéo âm + 2 hộp trùm ngoài — hộp thứ k đi với mặt ngăn kéo thứ k');
+  ok(dsT.every(x => x.mat.z >= x.tp.pos[2] - 40 && x.mat.z + x.mat.h <= x.tp.pos[2] + x.tp.box[2] + 40), '… mặt nằm ngang tầm với hộp của nó', dsT.map(x => [x.tp.pos[2], x.tp.box[2], x.mat.z, x.mat.h]));
 });
 
 T('Bảng kê, CSV, tóm tắt', () => {
@@ -735,9 +748,15 @@ T('Khấu cột (bản 1.13 — anh Jason 03/10/2026: "nhiều tủ phải khấ
   // cột nằm gọn sau phào → không khấu
   const S = B({ trai: { rong: 30, sau: 200 } });
   ok(S.errors.length === 0 && !S.parts.some(p => p.khau || p.khau_cot) && S.notes.some(t => /nằm gọn sau phào trái/.test(t)), 'cột hẹp hơn phào: không khấu, có ghi chú');
-  // các trường hợp chặn
-  ok(/rơi vào giữa bề dày vách/.test(B({ trai: { rong: 990, sau: 200 } }).errors.join(' ')), 'mặt cột rơi giữa bề dày vách → báo');
-  ok(/sau vách khấu khoang 1 chỉ còn rộng/.test(B({ trai: { rong: 900, sau: 200 } }).errors.join(' ')), 'vách khấu quá sát vách của khoang → báo');
+  // bản 1.23 (anh Jason 04/10/2026 23:02: "khấu cột … phải cân đối khoang tủ … không can thiệp bổ sung các đợt ngang hay dọc"):
+  // mép cột rơi sát / trúng một vách thì KHÔNG báo lỗi bắt dời vách nữa — vùng khấu tự NỚI ra tới chỗ dựng được, khoang của tủ giữ nguyên
+  const G = B({ trai: { rong: 990, sau: 200 } });      // mặt cột x = 1000 rơi giữa bề dày vách 991,5 … 1009 → vách nông lại (nằm trong vùng khấu), vách khấu đứng cách vách 30 trong khoang 2
+  eq([G.errors, G.info.khoang, G.info.khau.map(k => [k.ben, k.x, k.vach_co_san])], [[], M0.info.khoang, [['trai', 1039, false]]], 'mặt cột rơi giữa bề dày vách: không lỗi, khoang giữ nguyên, vùng khấu nới tới 1039 (cách vách 30)');
+  eq([b4(P(G, 'VACH').find(p => !p.khau_cot)), b4(G.parts.find(p => p.khau_cot && p.loai === 'VACH')), b4(G.parts.find(p => p.khau_cot && p.loai === 'HAU'))], [[991.5, 1009, 0, 352.5], [1039, 1056.5, 352.5, 574], [67.5, 1039, 352.5, 370]], 'vách của khoang nông lại tới mặt hậu khấu; vách khấu + hậu khấu theo vùng đã nới');
+  ok(G.notes.some(t => /Khấu cột trái: vùng khấu nới thêm 39 /.test(t)), 'có ghi chú nới vùng khấu', G.notes);
+  const G2 = B({ trai: { rong: 900, sau: 200 } });     // vách khấu sẽ chỉ cách vách khoang 64 (< 100) → lấy luôn vách đó làm vách khấu
+  eq([G2.errors, G2.info.khoang, G2.info.khau.map(k => [k.x, k.vach_co_san]), G2.parts.filter(p => p.khau).length, G2.parts.filter(p => p.khau_cot && p.loai === 'VACH').length], [[], M0.info.khoang, [[991.5, true]], 0, 0], 'vách khấu quá sát vách khoang: vùng khấu nới tới mặt vách đó, vách làm vách khấu, khoang giữ nguyên');
+  eq(overlapAny(G).concat(overlapAny(G2)), [], 'hai trường hợp nới: không tấm nào đè nhau');
   ok(/thùng trước cột chỉ còn sâu/.test(B({ trai: { rong: 300, sau: 450 } }).errors.join(' ')), 'cột quá sâu → báo');
   ok(/chỉ làm với kiểu hậu phủ sau/.test(C0.build(Object.assign({}, nen, { hau: { kieu: 'day' }, khau: HO10({ trai: { rong: 300, sau: 200 } }) })).errors.join(' ')), 'hậu dày lọt lòng: chưa hỗ trợ khấu → báo');
   // tủ 2 thân, tách thùng, hậu gộp theo khổ ván
@@ -806,12 +825,19 @@ T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa kh�
   ok(R.errors.length === 0 && R.info.khau[0].co_a && R.info.khau[0].co_b && R.info.khoang[1] === 320 && !R.parts.some(p => p.khau), 'sau khi đặt vách: khoang trước cột lọt lòng 320 (cột + 2 hở), không tấm nào khoét', [R.errors, R.info.khoang]);
   eq(C0.vachTheoCot(nen).loi, 'Chưa khai cột giữa nào.', 'không có cột giữa thì báo');
   eq(C0.vachTheoCot(r.spec).doi, [], 'bấm lần nữa: vách đã trùng, không đổi gì');
-  // lỗi nhập
-  ok(co(B([{ cach: 40, rong: 300, sau: 200 }]).errors, /Khấu cột giữa: cột cách mép trái 40 là dính hồi trái — khai cột này ở ô "Cột TRÁI" \(lấn ngang 340\)/), 'cột dính hồi trái → bảo khai ở Cột TRÁI');
-  ok(co(B([{ cach: 1700, rong: 280, sau: 200 }]).errors, /dính hồi phải .* khai cột này ở ô "Cột PHẢI" \(lấn ngang 300\)/), 'cột dính hồi phải → bảo khai ở Cột PHẢI');
-  ok(co(B([{ cach: 300, rong: 300, sau: 200 }, { cach: 620, rong: 200, sau: 200 }]).errors, /nằm chồng hoặc quá sát một cột khác/), 'hai cột quá sát nhau → gộp');
+  // bản 1.23: các trường hợp trước đây báo lỗi bắt người dùng khai lại / dời vách — giờ bảng tự xử, khoang giữ nguyên
+  const kq = (giua, them) => { const m = B(giua, them); return [m.errors, m.info.khoang, m.info.khau.map(k => [k.ben, k.xa, k.xb, k.co_a, k.co_b])]; };
+  eq(kq([{ cach: 40, rong: 300, sau: 200 }]), [[], M0.info.khoang, [['trai', null, 350, false, false]]], 'cột giữa dính hồi trái (cách mép 40): tự coi là cột góc trái lấn ngang 340 + hở 10, hồi trái nông lại');
+  ok(co(B([{ cach: 40, rong: 300, sau: 200 }]).notes, /cột cách mép trái 40 là dính hồi trái — khấu như cột góc trái \(lấn ngang 340\)/), 'có ghi chú coi là cột góc trái', B([{ cach: 40, rong: 300, sau: 200 }]).notes);
+  eq(kq([{ cach: 1700, rong: 280, sau: 200 }]), [[], M0.info.khoang, [['phai', 1690, null, false, false]]], 'cột giữa dính hồi phải: tự coi là cột góc phải (lấn ngang 300 + hở 10)');
+  eq(kq([{ cach: 100, rong: 300, sau: 200 }]), [[], M0.info.khoang, [['giua', 67.5, 410, true, false]]], 'vách khấu trái sẽ quá sát hồi (còn 5): vùng khấu nới tới mặt trong hồi trái, hồi làm vách khấu');
+  eq(kq([{ cach: 300, rong: 300, sau: 200 }, { cach: 620, rong: 200, sau: 200 }]), [[], M0.info.khoang, [['giua', 290, 830, false, false]]], 'hai cột sát nhau (cách nhau 20): gộp thành MỘT vùng khấu 290 … 830');
+  eq(B([{ cach: 300, rong: 300, sau: 200 }, { cach: 620, rong: 200, sau: 260 }]).info.khau[0].y, 310, 'vùng gộp sâu theo cột sâu hơn (260 + hở 10)');
   ok(co(B([{ cach: 300, rong: 300, sau: 450 }]).errors, /Khấu cột giữa: cột sâu 450 thì thùng trước cột chỉ còn sâu/), 'cột sâu quá');
-  ok(co(B([{ cach: 100, rong: 300, sau: 200 }]).errors, /sau vách khấu khoang 1 chỉ còn rộng/), 'vách khấu quá sát hồi');
+  // cột rộng hơn chỗ còn lại của khoang (khoang 400, cột 300 + 2 hở): vùng khấu nới hết khoang → khoang nông, hai vách sẵn có làm vách khấu, KHÔNG thêm vách, KHÔNG đổi khoang
+  const hep = { khoang: [{ rong: 'auto', canh: 2, dot: [800], o: [] }, { rong: 400, canh: 1, dot: [800], o: [] }, { rong: 'auto', canh: 2, dot: [800], o: [] }] };
+  const H0 = B([], hep), xk = H0.info.x_khoang[1], Hh = B([{ cach: Math.round(xk) + 40, rong: 300, sau: 200 }], hep);
+  eq([Hh.errors, Hh.info.khoang, Hh.info.khau.map(k => [k.xa, k.xb, k.co_a, k.co_b]), Hh.parts.filter(p => p.khau).length, P(Hh, 'VACH').length], [[], H0.info.khoang, [[xk, xk + 400, true, true]], 0, P(H0, 'VACH').length], 'cột chiếm gần hết một khoang hẹp: khoang đó thành khoang nông, không thêm vách');
   eq(C0.normalize({ khau: HO10({ giua: [{ cach: '300', rong: '250,5', sau: 200 }, {}, null] }) }).khau.giua, [{ cach: 300, rong: 250.5, sau: 200 }], 'chuẩn hoá: số kiểu Việt, bỏ dòng trống ở cuối');
   // hệ số module tham số: cột đứng yên so với mép trái khi đổi Rộng; bề sâu vùng khoét giữ nguyên khi đổi Sâu
   const hs = C0.heSo(C0.normalize(Object.assign({}, nen, { khau: HO10({ giua: [{ cach: 300, rong: 300, sau: 200 }] }) })));
@@ -977,6 +1003,33 @@ T('Khoảng trống mỗi lệnh gốc phải dò ra (khoangMong) khớp với c
   // tấm trùm lên điểm trên hình chiếu (hậu) không tính là tấm chắn; chưa có tấm phía nào thì phía đó để trống
   eq(C0.khoangMong([{ x0: 0, x1: 18, z0: 0, z1: 2200 }, { x0: 982, x1: 1000, z0: 0, z1: 2200 }, { x0: 0, x1: 1000, z0: 100, z1: 2100 }], [500, 300, 1100]), { x0: 18, x1: 982, z0: null, z1: null }, 'chỉ có 2 hồi + hậu: trái / phải là 2 hồi, trên / dưới để trống');
   eq(C0.khoangMong([], [0, 0, 0]), { x0: null, x1: null, z0: null, z1: null }, 'chưa vẽ tấm nào: không có khoảng mong đợi');
+});
+
+// Bản 1.23 — anh Jason 04/10/2026 23:02: "khấu cột giữa thì phải cân đối khoang tủ … thường khấu sẽ nằm trong khoang tủ". Cột nằm trong khoang thì hộp che cột chỉ chiếm phần SAU của một đoạn khoang;
+// trước bản này suốt treo của khoang đó bị dồn ra phần nông trước cột (tâm suốt cách mặt trước 175) → móc áo chạm cánh, bảng báo "khoang treo chỉ sâu 350" cho cả hai khoang cạnh cột.
+T('Khấu cột: suốt treo của khoang dính cột vẫn nằm giữa chiều sâu thật của khoang khi thanh suốt đi lọt trước hộp che cột (bản 1.23)', () => {
+  const C = require('../src/mncf-core.js');
+  const TA4 = { ma: 'TA4', rong: 3000, cao: 2700, sau_thung: 582.5, than: { cao_duoi: 2200 }, chan: { cao: 100 }, phao: { trai: 50, phai: 50, tren: 50, phu_tro: 80, noi: 'moi_vach' },
+    khoang: [{ rong: 'auto', canh: 2, dot: [1900], o: [{ tu: 100, kieu: 'suot' }] }, { rong: 'auto', canh: 2, dot: [570], o: [{ tu: 100, kieu: 'nk_am', so: 2 }, { tu: 570, kieu: 'suot' }] }, { rong: 'auto', canh: 2, dot: [450, 790, 1130, 1470, 1810], o: [] }] };
+  const suot = M => M.templates.filter(t => t.loai === 'SUOT').map(t => [t.khoang, t.pos, t.box]);
+  const M0 = C.build(TA4);
+  eq([M0.errors, suot(M0)], [[], [[0, [67.5, 0, 117.5], [941, 576.5, 1782.5]], [1, [1026, 0, 587.5], [940, 576.5, 1595]]]], '(không cột) hai suốt treo sâu trọn khoang 576,5 — tâm suốt cách mặt trước 288');
+  // cột giữa 300 × 200 đứng sau vách giữa khoang 1 và 2: mặt trước hộp che cột ở +350, thanh suốt ở +288 đi lọt phía trước
+  const M1 = C.build(Object.assign({}, TA4, { khau: { giua: [{ cach: 1000, rong: 300, sau: 200 }], ho: 15 } }));
+  eq([M1.errors, M1.info.khau.map(k => k.sau_thung), suot(M1)], [[], [350], suot(M0)], 'cột giữa 300 × 200: suốt treo hai khoang dính cột y như tủ không cột (không bị dồn ra phần nông trước cột)');
+  ok(!M1.warnings.some(w => /khoang treo chỉ sâu/.test(w)), '… không còn cảnh báo "khoang treo chỉ sâu 350"', M1.warnings);
+  const che = M1.warnings.filter(w => /hộp che cột/.test(w));
+  ok(che.length === 1 && /^Khoang 2: hộp che cột chiếm 306,5 trong 940 bề ngang/.test(che[0]) && /còn 633,5/.test(che[0]), '… chỉ nhắc khoang bị hộp che cột chiếm đáng kể (khoang 2: 306,5 / 940, còn treo được 633,5); khoang 1 chỉ mất 47,5 thì không nhắc', che);
+  eq(M1.templates.filter(t => t.loai === 'NGAN_KEO').map(t => t.box[1]), [300, 300], '… hộp ngăn kéo (chạy hết bề ngang khoang) thì vẫn nông theo phần trước cột');
+  // cột sâu 260: mặt trước hộp che cột ở +290, thanh suốt ở +288 không còn lọt → suốt dồn ra phần nông như cũ, có cảnh báo
+  const k2 = TA4.khoang.map((k, i) => (i === 1 ? Object.assign({}, k, { o: [{ tu: 570, kieu: 'suot' }] }) : k));
+  const M2 = C.build(Object.assign({}, TA4, { khoang: k2, khau: { giua: [{ cach: 1000, rong: 300, sau: 260 }], ho: 15 } }));
+  eq([M2.errors, M2.info.khau.map(k => k.sau_thung), suot(M2).map(x => x[2][1])], [[], [290], [290, 290]], 'cột sâu 260: thanh suốt không lọt trước hộp che cột → suốt treo nằm trong phần nông 290');
+  eq(M2.warnings.filter(w => /khoang treo chỉ sâu 290/.test(w)).length, 2, '… và cảnh báo khoang treo nông cho cả hai khoang');
+  // cột góc trái 300 × 200: như cột giữa — suốt khoang 1 sâu trọn khoang, nhắc phần bị che
+  const M3 = C.build(Object.assign({}, TA4, { khau: { trai: { rong: 300, sau: 200 }, ho: 15 } }));
+  eq([M3.errors, suot(M3)], [[], suot(M0)], 'cột góc trái 300 × 200: suốt treo khoang 1 vẫn sâu trọn khoang');
+  ok(M3.warnings.some(w => /^Khoang 1: hộp che cột chiếm 265 trong 941 bề ngang/.test(w) && /còn 676/.test(w)) && !M3.warnings.some(w => /khoang treo chỉ sâu/.test(w)), '… nhắc khoang 1 mất 265 bề ngang treo, còn 676', M3.warnings);
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);
