@@ -361,6 +361,22 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
       ok(r.ok && r.khop === r.tk && JSON.stringify(r.thieu) === '[["NGAN_KEO",1,"khong_thuoc_tk"],["NGAN_KEO",1,"khong_thuoc_tk"]]' && r.pk['衣杆'] === 2, 'tài khoản không có mẫu cùng tên: tủ đủ tấm + suốt treo, thiếu 2 hộp ngăn kéo', [r.thieu, r.pk]);
       ok(r.warnings.some(w => /Chưa thêm được 2 hộp ngăn kéo \(khoang 2\)/.test(w) && /mã mẫu 777002 \(别人的抽屉\)/.test(w) && /không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập/.test(w) && /Dò mã mẫu từ kho Chenfeng/.test(w)), '… báo rõ mã mẫu nào không phải của tài khoản, chỉ chỗ sửa', r.warnings);
       ok(r.tai.filter(id => id === 777002).length === 2, '… mã không phải của mình: không thử đi thử lại', r.tai);
+      // 6. máy chủ TREO (không trả lời): bảng chờ có hạn theo TIẾN TRIỂN (Chenfeng dựng thêm được mẫu nào thì còn chờ tiếp); đứng im quá hạn thì thôi thêm mẫu — tủ vẫn đủ tấm.
+      //    Đo trên Chenfeng thật 05/10/2026: Esc lúc Chenfeng đang tải mẫu không có tác dụng — lệnh nhập cũ vẫn chạy ngầm, máy chủ trả lời thì Chenfeng hỏi điểm đặt. Bảng không chồng thêm lệnh nào
+      //    lên lệnh đang treo, và canh để huỷ nó khi nó hiện lời hỏi (không để cụm mẫu bám theo chuột).
+      await page.evaluate(() => { window.__MOCK_MAU_LOI__ = null; window.__MOCK_TEMPLATE_DELAY__ = 1200; });
+      r = await ve(TU_K, [140000, 0, 0], { cho_mau: 500 });
+      ok(r.giai_doan === 'xong' && r.ok && r.khop === r.tk && r.thieu.length === 4 && r.thieu.every(t => t[2] === 'may_chu') && r.nhap.length === 2, 'máy chủ treo: tủ đủ tấm; thiếu cả 4 mẫu; sau lệnh thêm mẫu bị treo bảng không gửi thêm lệnh nhập nào', [r.giai_doan, r.ok, r.khop, r.tk, r.thieu, r.nhap]);
+      ok(r.warnings.some(w => /Chưa thêm được 2 hộp ngăn kéo \(khoang 2\), 2 suốt treo \(khoang 1, khoang 2\)/.test(w) && /máy chủ Chenfeng không trả lời/.test(w)), '… báo rõ thiếu gì, vì máy chủ không trả lời', r.warnings);
+      await page.waitForTimeout(6500);
+      const tre = await page.evaluate(() => { const D = window.MNCFDriver; return { ban: D.busy(), nhap: window.__MOCK_NHAP__.map(x => x.ket), sot: D.all().filter(e => !D.last.added.includes(e) && e.box && e.box[0] > 139000 && e.box[0] < 143000).length }; });
+      await page.evaluate(() => { window.__MOCK_TEMPLATE_DELAY__ = 0; });
+      ok(!tre.ban && tre.sot === 0 && JSON.stringify(tre.nhap) === '["ok","huy"]', '… lệnh nhập cũ trả lời trễ được bảng huỷ gọn: Chenfeng không đứng chờ điểm đặt, không sót đối tượng', tre);
+      // máy chủ CHẬM nhưng vẫn trả lời (mỗi mẫu lâu hơn hạn chờ một chút thì đã hỏng; ở đây mỗi mẫu 300 ms < hạn 500 ms, cả lệnh 1,2 giây > hạn): còn tiến triển thì còn chờ → đủ mẫu
+      await page.evaluate(() => { window.__MOCK_TEMPLATE_DELAY__ = 300; });
+      r = await ve(TU_K, [145000, 0, 0], { cho_mau: 500 });
+      await page.evaluate(() => { window.__MOCK_TEMPLATE_DELAY__ = 0; });
+      ok(r.ok && r.thieu.length === 0 && r.pk['三节轨'] === 2 && r.pk['衣杆'] === 2 && r.nhap.length === 2, 'máy chủ chậm nhưng vẫn trả lời từng mẫu: bảng chờ theo tiến triển, đủ ngăn kéo + suốt treo', [r.thieu, r.pk, r.nhap]);
       // (Tủ vẽ bằng lệnh gốc — D.veGoc — dùng chung đúng hàm thêm mẫu này cho phần tấm rời; trang giả lập không có lệnh gốc nên phần đó thử trên Chenfeng thật.)
       // thẻ Kết quả: thiếu mẫu thì dòng đầu nói rõ + có nút vẽ lại kèm ngăn kéo / suốt treo
       await page.evaluate(id => { window.__MOCK_MAU_LOI__ = { [id]: { lan: 99, kieu: 'may_chu' } }; }, ST);

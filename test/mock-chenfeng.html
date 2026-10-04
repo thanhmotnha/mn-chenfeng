@@ -111,7 +111,8 @@
 
   const ents = [], history = [], prompts = [], endCbs = new Set();
   let key = 0, state = null;      // state: null | {kind:'point', created, base} | {kind:'entity'}
-  const prompt = (type, msg) => prompts.push({ key: ++key, type, msg });
+  // bản thật (đo 05/10/2026): app.CommandReactor._cmdName = tên lệnh BẮT ĐẦU gần nhất (lệnh xong rồi vẫn giữ tên đó cho tới khi lệnh khác bắt đầu)
+  const prompt = (type, msg) => { prompts.push({ key: ++key, type, msg }); if (type === 'COMMAND' && window.app && window.app.CommandReactor) window.app.CommandReactor._cmdName = String(msg).replace(/^>/, ''); };
   const svc = { IsReady: false }, gesvc = { IsReady: false }, kwsvc = { IsReady: false, keywordList: [] };
   let selection = [], holeCfg = null;
   const hm = { curIndex: -1, historyRecord: history, mo: null,
@@ -227,6 +228,9 @@
     return all.concat(hw);
   }
 
+  // Bản thật (đo 05/10/2026): trong lúc lệnh nhập còn đang tải mẫu từ máy chủ, Chenfeng KHÔNG báo bận ở các lời nhắc (GetPoint… chưa sẵn sàng), Esc không có tác dụng,
+  // nhưng mọi lệnh khác gửi vào đều bị bỏ qua và tên lệnh gần nhất (CommandReactor._cmdName) vẫn là lệnh nhập.
+  let dangTai = false;
   async function importFile(file) {
     let data;
     try { data = JSON.parse(await file.text()); } catch (e) { return toast(file.name + '导入失败!'); }
@@ -248,22 +252,27 @@
       await new Promise(r => setTimeout(r, 200)); toast('抱歉!命令<晨丰导入>执行过程中发生错误,已自动取消命令'); nk.ket = 'loi'; fireEnd('晨丰导入', [], []); return;
     }
     let created = [];
+    const daVao = new Set();      // đối tượng đã đưa vào bản vẽ trong lúc tải (mẫu) — lệnh hỏng thì Chenfeng bỏ lại hết
+    dangTai = true;
     try {
       for (const o of data.ModelSpace) {
         if (o.Type === 'Board') created.push(boardFromJSON(o));
         else if (o.Type === 'Template' && (window.__MOCK_KHO__ || {})[o.TempalteId]) { if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__)); created = created.concat(khoFromJSON(o, window.__MOCK_KHO__[o.TempalteId])); }
-        else if (o.Type === 'Template') { await taiMau(o); const es = templateFromJSON(o); const rec = new TplNhap(o.Name, es, o.Pos).Id; rec.Object.LParam.value = o.BoxSize[0]; rec.Object.WParam.value = o.BoxSize[1]; rec.Object.HParam.value = o.BoxSize[2]; for (const e of es) e.Template = rec; created = created.concat(es); }
+        else if (o.Type === 'Template') { await taiMau(o); const es = templateFromJSON(o); const rec = new TplNhap(o.Name, es, o.Pos).Id; rec.Object.LParam.value = o.BoxSize[0]; rec.Object.WParam.value = o.BoxSize[1]; rec.Object.HParam.value = o.BoxSize[2]; for (const e of es) e.Template = rec; created = created.concat(es);
+          for (const e of es) { ents.push(e); daVao.add(e); } }      // bản thật: tải xong mẫu nào là đối tượng của mẫu đó vào bản vẽ ngay (trước cả lúc hỏi điểm)
         else throw new Error('type');
       }
     } catch (e) {
-      nk.ket = 'loi';
+      nk.ket = 'loi'; dangTai = false;
+      for (const x of daVao) { const i = ents.indexOf(x); if (i >= 0) ents.splice(i, 1); }
       if (e && e.kieu) {      // tải mẫu hỏng: Chenfeng báo lỗi chung rồi tự huỷ lệnh; mã mẫu không thuộc cửa hàng thì có thêm dòng của máy chủ
         toast('抱歉!命令<晨丰导入>执行过程中发生错误,已自动取消命令,请联系软件技术人员');
         if (e.kieu === 'tk') toast('服务器返回错误 URL: https://api.cfcad.cn/CAD-moduleDetail [' + (data.ModelSpace.length) + ']不是您店铺的模板，鉴权失败');
       } else toast(file.name + '导入失败!');
       fireEnd('晨丰导入', [], []); return;
     }
-    for (const e of created) ents.push(e);
+    dangTai = false;
+    for (const e of created) if (!daVao.has(e)) ents.push(e);
     // Bản thật (đo 05/10/2026): lúc hỏi điểm, cả cụm vừa tạo KHÔNG nằm ở toạ độ trong file mà nằm ở chỗ chờ (góc nhỏ nhất của cụm đặt tại một điểm cố định) — trả lời điểm nào thì góc nhỏ nhất về đúng điểm đó.
     const CHO = [981.6, 500, 0], base0 = [Math.min(...created.map(e => e.box[0])), Math.min(...created.map(e => e.box[2])), Math.min(...created.map(e => e.box[4]))];
     for (const e of created) e.move([CHO[0] - base0[0], CHO[1] - base0[1], CHO[2] - base0[2]]);
@@ -333,7 +342,7 @@
     if (!f || !/json$/i.test(f.name)) return;
     e.preventDefault();
     if (window.__MOCK_HOME__) { window.__MOCK_UPLOADED__ = (window.__MOCK_UPLOADED__ || 0) + 1; return; }      // ở trang chủ thật: file bị tải lên kho — bảng phải chặn trước
-    if (state || window.__MOCK_BUSY__) { prompt('WARNING', '>命令:"X"正忙! 如果是程序错误,请按下Ctrl+Alt+E结束命令!'); return; }      // lệnh trước chưa xong → Chenfeng từ chối
+    if (state || window.__MOCK_BUSY__ || dangTai) { prompt('WARNING', '>命令:"X"正忙! 如果是程序错误,请按下Ctrl+Alt+E结束命令!'); return; }      // lệnh trước chưa xong → Chenfeng từ chối
     importFile(f);
   });
 
@@ -341,7 +350,7 @@
     GetPointServices: svc, GetEntityServices: gesvc, KeywordsServices: kwsvc, InteractiveServices: [svc, gesvc, kwsvc],
     CommandStore: { promptList: prompts, HandleInput(name) {
       name = String(name).toUpperCase();
-      if (state) { prompt('WARNING', '>命令正忙!'); return; }
+      if (state || dangTai) { prompt('WARNING', '>命令正忙!'); return; }
       prompt('COMMAND', '>' + name);
       if (name === 'DRAWHOLE') { state = { kind: 'entity' }; gesvc.IsReady = true; selection = []; }
       else if (name === 'UNDO') { const rec = history[hm.curIndex]; if (rec) { for (const e of rec.created || []) e.IsErase = true; for (const e of rec.erased || []) e.IsErase = false; if (rec.undo) rec.undo(); hm.curIndex--; } }
@@ -557,7 +566,7 @@
     Editor,
     Database: Object.assign(new Database(), { ModelSpace: { get Entitys() { return ents; } }, hm }),
     Viewer: { Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {}, Width: 800, Height: 500, WorldToScreen(v) { v.x = v.x / 20; v.y = 400 - v.y / 20 - v.z / 40; v.z = 0; return v; } },
-    CommandReactor: { OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
+    CommandReactor: { _cmdName: '', OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
     AutoSaveServer: { Stop() {}, Start() {} },
   };
   window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, Line, Circle, Polyline, Text, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },

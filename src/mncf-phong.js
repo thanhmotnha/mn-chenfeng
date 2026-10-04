@@ -949,6 +949,33 @@
     return toi >= L - T;
   }
 
+  /**
+   * CHỖ TRỐNG trên một tường để đặt tủ (bản 1.23 — anh Jason 04/10/2026 23:08: "chọn tường rồi chọn không gian tủ thì hợp lý hơn làm chuột", "chọn mặt cắt đứng rồi chọn luôn trên đó").
+   * Chạm vào mặt đứng của tường `i` tại điểm cách đầu trái tường `s` → đoạn tường trống rộng nhất quanh điểm đó, từ sàn tới trần (hoặc tới đáy dầm thấp nhất lấn vào đoạn đó).
+   * Vật chắn: hai đầu tường; khung đã có (của tường này, hoặc của tường kề lấn vào góc — tính theo hình chiếu mặt bằng của khung); cửa đi, cửa sổ, ô trống trên tường này.
+   * Cột, hộp kỹ thuật KHÔNG chắn: tủ phủ qua và được khấu cột. opt.sau = chiều sâu tủ định đặt (mặc định 600) — vật nào nằm sâu hơn thế tính từ mặt tường thì không vướng.
+   * @returns { ok: true, cach, rong, z: 0, cao, chan: '', dam: tên dầm làm hạ chiều cao | '' }  hoặc  { ok: false, chan: tên thứ đang chiếm chỗ vừa chạm | '' }
+   */
+  function choTrong(H, i, s, opt) {
+    opt = Object.assign({ sau: 600 }, opt || {});
+    const w = H && H.tuong && H.tuong[i];
+    if (!w || !(w.dai > 0) || !(s >= 0 && s <= w.dai)) return { ok: false, chan: '' };
+    const L = w.dai, C = w.cao || H.p.cao;
+    const chieu = poly => { const ss = [], tt = []; for (const q of poly) { const dx = q[0] - w.p0[0], dy = q[1] - w.p0[1]; ss.push(dx * w.d[0] + dy * w.d[1]); tt.push(dx * w.n[0] + dy * w.n[1]); } return { s0: Math.min(...ss), s1: Math.max(...ss), t0: Math.min(...tt), t1: Math.max(...tt) }; };
+    const lan = c => c.t0 < opt.sau - 1 && c.t1 > 1 && c.s1 > 1 && c.s0 < L - 1;      // hình chiếu lấn vào dải sát tường mà tủ sẽ đứng
+    const chan = [];
+    for (const k of H.khung || []) { if (!(k.rong > 0) || !k.poly) continue; const c = chieu(k.poly); if (lan(c)) chan.push([Math.max(0, c.s0), Math.min(L, c.s1), `khung ${k.ten}`]); }
+    for (const m of H.mo || []) if (m.tuong === i && m.rong > 0) chan.push([m.cach, m.cach + m.rong, String(m.ten).toLowerCase()]);
+    const dang = chan.find(c => s > c[0] + 0.5 && s < c[1] - 0.5);
+    if (dang) return { ok: false, chan: dang[2] };
+    let a = 0, b = L;
+    for (const c of chan) { if (c[1] <= s + 0.5) a = Math.max(a, c[1]); if (c[0] >= s - 0.5) b = Math.min(b, c[0]); }
+    if (!(b - a >= 1)) return { ok: false, chan: '' };
+    let cao = C, dam = '';
+    for (const c of H.can || []) { if (c.loai !== 'dam' || !c.poly) continue; const q = chieu(c.poly); if (q.t0 < opt.sau - 1 && q.t1 > 1 && q.s1 > a + 1 && q.s0 < b - 1 && c.z0 < cao) { cao = c.z0; dam = c.ten; } }
+    return { ok: true, cach: rn(a, 1), rong: rn(b - a, 1), z: 0, cao: rn(cao, 1), chan: '', dam };
+  }
+
   /** Nét khung dây của phòng (để vẽ vào bản vẽ): mỗi nét = [[x,y,z],[x,y,z]], kèm `lop` = 'tuong' | 'mo' | 'can'. */
   function duongNet(H) {
     const N = [], o = H.p.goc || [0, 0, 0], P3 = (q, z) => [rn(q[0] + o[0], 2), rn(q[1] + o[1], 2), rn(z + o[2], 2)];
@@ -1180,5 +1207,5 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
 });

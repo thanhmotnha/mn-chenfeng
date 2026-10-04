@@ -396,6 +396,25 @@ T('Vẽ lại phòng không vẽ chồng (bản 1.23 — anh Jason 04/10/2026 23
   eq(P.docMa(JSON.stringify(pg)).da_ve, cu, 'đọc lại mã phòng: bản ghi còn nguyên');
 });
 
+T('Chỗ trống trên tường để đặt tủ (bản 1.23 — anh Jason 04/10/2026 23:08: "chọn tường rồi chọn không gian tủ thì hợp lý hơn", "chọn mặt cắt đứng rồi chọn luôn trên đó")', () => {
+  const p = { ten: 'P', cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }],
+    mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200, be: 0 }, { tuong: 1, loai: 'cua_so', cach: 1800, rong: 1000, cao: 1200, be: 900 }],
+    can: [{ tuong: 0, loai: 'cot', cach: 1200, rong: 300, nho: 200 }, { tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }],
+    khung: [{ ten: 'K1', tuong: 0, cach: 0, rong: 1000, cao: 2350, sau: 600 }] };
+  const H = P.hinhHoc(p);
+  eq(P.choTrong(H, 0, 2000), { ok: true, cach: 1000, rong: 2600, z: 0, cao: 2350, chan: '', dam: 'Dầm 2' }, 'tường A, chạm ở 2000: từ mép khung K1 (1000) tới cuối tường; cột 1200…1500 KHÔNG chắn (tủ phủ qua, khấu cột); cao tới đáy dầm 2350');
+  eq(P.choTrong(H, 0, 500), { ok: false, chan: 'khung K1' }, 'chạm vào chỗ khung K1 đang chiếm: không có chỗ trống, nói rõ cái gì chiếm');
+  eq(P.choTrong(H, 1, 500), { ok: true, cach: 0, rong: 1800, z: 0, cao: 2350, chan: '', dam: 'Dầm 2' }, 'tường B, chạm ở 500: từ góc tới mép cửa sổ (cửa sổ chắn — tủ đứng không che cửa sổ); đầu dầm của tường A lấn vào góc này nên cao tới đáy dầm');
+  eq(P.choTrong(H, 1, 2900), { ok: true, cach: 2800, rong: 200, z: 0, cao: 2700, chan: '', dam: '' }, 'tường B, sau cửa sổ: 2800 … 3000, cao tới trần');
+  eq(P.choTrong(H, 1, 2000), { ok: false, chan: 'cửa sổ 2' }, 'chạm vào cửa sổ: báo cửa sổ');
+  eq(P.choTrong(H, 2, 2000), { ok: true, cach: 1100, rong: 2500, z: 0, cao: 2700, chan: '', dam: '' }, 'tường C: từ mép cửa đi (1100) tới cuối tường');
+  eq(P.choTrong(H, 3, 1000), { ok: true, cach: 0, rong: 2400, z: 0, cao: 2700, chan: '', dam: '' }, 'tường D (kề đầu tường A): khung K1 sâu 600 lấn vào góc → tường D chỉ trống tới cách cuối tường 600');
+  eq(P.choTrong(H, 3, 1000, { sau: 350 }), { ok: true, cach: 0, rong: 2400, z: 0, cao: 2700, chan: '', dam: '' }, 'tủ nông 350 vẫn bị khung K1 (lấn 600 vào góc) chắn như vậy');
+  eq([P.choTrong(H, 9, 100), P.choTrong(H, 0, -50).ok, P.choTrong(H, 0, 3700).ok], [{ ok: false, chan: '' }, false, false], 'tường không có / điểm chạm ngoài tường: không có chỗ');
+  const H0 = P.hinhHoc(Object.assign({}, p, { khung: [], mo: [], can: [] }));
+  eq(P.choTrong(H0, 0, 100), { ok: true, cach: 0, rong: 3600, z: 0, cao: 2700, chan: '', dam: '' }, 'tường trống: cả chiều dài tường, sàn → trần');
+});
+
 T('Mã phòng: đọc lại được, bỏ chữ thừa quanh', () => {
   const p = P.chuanHoa(P.macDinh());
   eq(P.docMa('Đây là mã phòng:\n```json\n' + JSON.stringify(p) + '\n```\nhết'), p, 'JSON lẫn trong chữ');
