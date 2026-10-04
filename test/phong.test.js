@@ -506,5 +506,21 @@ T('Khung đặt mẫu kho, chia ô, sửa ô trên mặt đứng (bản 1.19 —
   ok(tu.spec.chan.cao === 0 && co(tu.ghi_chu, /Khung treo \(đáy \+1500\): bỏ chân tủ/) && tuSan.spec.chan.cao === C.DEFAULT_SPEC.chan.cao, 'khung treo → tủ không chân (có ghi chú); khung đứng sàn giữ chân', [tu.spec.chan, tu.ghi_chu]);
 });
 
+T('Khung → tủ: bảng tự điền chiều cao trần để kiểm "thân lật đứng có lọt trần không" (bản 1.20)', () => {
+  const H = P.hinhHoc({ cao: 2400, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }],
+    khung: [{ ten: 'K', tuong: 0, cach: 500, rong: 1000, cao: 2400, sau: 600 }, { ten: 'Treo', tuong: 0, cach: 2000, z: 1400, rong: 1000, cao: 900, sau: 350 }] });
+  eq(H.loi, [], 'phòng hợp lệ');
+  const r = P.tuChoKhung(C, C.DEFAULT_SPEC, H.khung[0], 'P', H, 0);
+  eq(r.spec.kiem.tran, 2400, 'khung đứng trên sàn: trần = cao trần của tường đặt khung');
+  // khung cao bằng trần 2400, một thân 2350 sâu 582,5 → đường chéo 2421 > 2400
+  const w = C.build(r.spec).kq.filter(k => k.ma === 'than' && k.muc === 'luu_y');
+  ok(w.length === 1 && /2421/.test(w[0].t) && /2400/.test(w[0].t), 'tủ kịch trần một thân: cảnh báo không lật đứng được', w);
+  eq(P.tuChoKhung(C, C.DEFAULT_SPEC, H.khung[1], 'P', H, 1).spec.kiem.tran, 0, 'khung treo: không lật từ sàn lên nên không kiểm');
+  eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 1000, cao: 2400, sau: 600 }).spec.kiem.tran, 0, 'không có phòng: không biết trần, không kiểm');
+  const coTran = C.normalize(Object.assign({}, C.DEFAULT_SPEC, { kiem: { tran: 2600 } }));
+  eq(P.tuChoKhung(C, coTran, H.khung[0], 'P', H, 0).spec.kiem.tran, 2400, 'trần của phòng thay cho số đang lưu trong thông số');
+  eq(P.tuChoKhung(C, coTran, H.khung[1], 'P', H, 1).spec.kiem.tran, 0, 'khung treo trong phòng: bỏ số trần đang lưu (không lật từ sàn)');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

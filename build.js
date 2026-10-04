@@ -71,6 +71,21 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.20 — DÒ LỖI SẢN XUẤT (THIẾT KẾ + TẤM VÀ LỖ KHOAN THẬT)
+ Trước khi vẽ — thẻ Tủ có phiếu "Tự kiểm trước khi vẽ" (bấm để mở), mỗi mục một dòng ✓ / ! / ✗.
+   • Thêm các phép kiểm theo chuẩn kết cấu: nhịp đợt (khoang lọt lòng quá 1000 → võng), cánh cao quá 2300 (cong vênh), ngăn kéo rộng quá 1000,
+     khoang treo sâu dưới 480 (móc áo chạm cánh), tủ / thân tủ không lọt trần khi dựng (gõ cao trần; mở tủ từ khung của thẻ Phòng thì tự lấy).
+   • Tấm lơ lửng, đợt thiếu chỗ tì: lỗi, chặn trước khi vẽ.
+   • Ngưỡng đổi ở Chuẩn xưởng → "Dò lỗi sản xuất" (0 = không kiểm mục đó).
+ Sau khi vẽ — bảng tự đọc lại TẤM và LỖ KHOAN THẬT trên bản vẽ (tủ của bảng lẫn mẫu kho), phiếu nằm ở thẻ Kết quả:
+   • LỖI (đỏ — phải sửa trước khi xuất file cắt): tấm đè lên nhau, tấm chép trùng lên nhau, lỗ khoan giao nhau, lỗ nằm lệch khỏi tấm (tấm đã dời / đổi cỡ
+     mà chưa khoan lại), lỗ cam khoan thủng tấm mỏng, kiểu khoan không có trong cấu hình tài khoản, tấm vượt khổ ván.
+   • LƯU Ý (vàng — xưởng xem lại): tấm có kiểu khoan mà không có lỗ, mối nối dài không có cam / vít, tấm có kiểu khoan đứng riêng lẻ, tấm chưa có tên tủ.
+   • Ghi chú: tấm hẹp dưới 50, tấm chưa khai vật liệu, tấm nghiêng / uốn cong mà bảng không kiểm được.
+ Bất cứ lúc nào — thẻ Kết quả → nút "Dò lỗi sản xuất": không chọn gì = dò cả bản vẽ; chọn vài tấm trước = chỉ dò các tấm đó.
+   Dùng sau khi tự vẽ thêm, sửa tay, chèn mẫu kho. Tấm khoét góc (khấu cột), tấm bo cong được xét theo đường bao thật; tủ đặt xiên theo tường vẫn dò được.
+   Phép dò chỉ ĐỌC bản vẽ, không sửa gì.
+
 MỚI Ở BẢN 1.19.1 — THÊM CÂU DỊCH GHI CHÚ THAM SỐ CHO CÁC BỘ TỦ MẪU
  Bảng dịch cột "Ghi chú" (Remarks / 备注) có thêm 444 câu của các bộ tủ mẫu: tủ áo, tủ tivi, bếp, bàn học, giường tầng, tatami…
  Mẫu mới lấy về từ cửa hàng mà ghi chú còn chữ Trung thì các ghi chú hay gặp hiện tiếng Việt ngay; câu lạ vẫn dịch ghép (có dấu ~).

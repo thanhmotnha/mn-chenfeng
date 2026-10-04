@@ -75,6 +75,8 @@ async function chay() {
     // 1) mẫu thường, không xoay, giữ kết cấu của mẫu
     r = await page.evaluate(async () => { const D = window.MNCFDriver, nk = []; const k = await D.veKho({ id: 9001, ten: 'Tủ tivi 1', rong: 1200, sau: 350, cao: 1000, corner: [5000, 2000, 0], phong: 'Phòng khách', ma: 'TV1', khoan: 'Cam3Tp', onStatus: t => nk.push(t) }); return { k, nk, moc: window.__MOCK__.lastTemplates }; });
     ok(r.k.ok && r.k.kho && r.k.giai_doan === 'xong' && !r.k.errors.length && !r.k.warnings.length, 'veKho: mẫu thường vẽ xong, không lỗi, không cảnh báo', r.k);
+    // bản 1.20: vẽ xong tự dò lỗi sản xuất trên các tấm thật của mẫu
+    ok(r.k.do_loi && r.k.do_loi.muc.length === 9 && r.k.do_loi.so_tam === r.k.so_tam && r.k.do_loi.dem.loi === 0 && r.k.do_loi.pham_vi === 'dua_vao', 'veKho: kết quả có phiếu dò lỗi 9 mục trên đúng các tấm của mẫu, không mục lỗi', r.k.do_loi);
     eq(r.moc.map(o => [o.Type, o.TempalteId, o.BoxSize, o.Pos, o.RoomName, o.CabinetName]), [['Template', 9001, [1200, 350, 1000], [0, 0, 0], 'Phòng khách', 'TV1']], 'veKho: gửi cho cổng nhập đúng mã mẫu + kích thước + tên phòng / mã tủ');
     let B = await tam();
     eq(hop(B), [5000, 6200, 2000, 2350, 0, 1000], 'veKho: hộp các tấm nằm đúng chỗ đặt, đúng rộng × sâu × cao');
@@ -255,7 +257,10 @@ async function chay() {
     await page.waitForFunction(() => /Đã vẽ mẫu kho/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 20000 });
     eq(hop(await tam()), [10600, 13000, 1650, 2000, 450, 2700], 'mẫu nằm đúng ô K1.2.2 trên tường A: rộng 2400, sâu 350 (kể cả cánh), đáy +450, cao tới trần');
     rep = await H.locator('.report').innerText();
-    ok(/Đã vẽ mẫu kho “Tủ tivi 2 \(cánh phủ\)” — 2400 × 350 × 2250/.test(rep) && /K1\.2\.2 — tường A/.test(rep) && /chỉnh từ 2400 × 350 × 2250 thành 2400 × 332 × 2250/.test(rep), 'báo cáo: đúng khung, có ghi chỉnh W vì cánh phủ ngoài', rep);
+    ok(/K1\.2\.2 — tường A/.test(rep) && /Các tấm chiếm\s+2400 × 350 × 2250/.test(rep) && /chỉnh từ 2400 × 350 × 2250 thành 2400 × 332 × 2250/.test(rep), 'báo cáo: đúng khung, đúng kích thước, có ghi chỉnh W vì cánh phủ ngoài', rep);
+    // bản 1.20: mẫu kéo rộng 2400 × cao 2250 thì hậu của mẫu là MỘT tấm liền 2364 × 2250, vượt khổ ván 2440 × 1220 → phiếu dò lỗi bắt được, lần vẽ được báo là có lỗi sản xuất
+    ok(/Đã dựng mẫu kho nhưng có chỗ chưa đúng/.test(rep) && /Dò lỗi sản xuất — tấm vượt khổ ván: “Hậu” \(K1\.2\.2\) 2364 × 2250 vượt khổ ván 2440 × 1220/.test(rep), 'mẫu kho kéo quá khổ ván: báo tấm hậu vượt khổ', rep);
+    ok((await H.locator('.report [data-ui="phieu-ve"] li.loi').count()) === 1 && /Tấm thật vừa khổ ván/.test(await H.locator('.report [data-ui="phieu-ve"] li.loi').textContent()), 'phiếu sau khi vẽ: mục khổ ván lỗi');
     await H.locator('.tab[data-tab="phong"]').click();
     ok(/đã vẽ/.test(await H.locator('.pcard[data-kj="2"] .kinfo').textContent()), 'khung ghi “đã vẽ”');
     // tường B (xoay −90°)

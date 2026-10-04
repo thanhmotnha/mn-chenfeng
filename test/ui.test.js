@@ -40,7 +40,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.19\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.20\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   let m = await page.evaluate(inPage.model);
   ok(m.errors.length === 0 && m.parts === 71, 'tủ mẫu dựng 71 tấm (2 thùng rời: thêm 2 hồi; có xà + nẹp che khe hộc ngăn kéo), không lỗi', m.parts);
   // bộ mẫu tủ áo: chọn mẫu → bấm Dùng mẫu → kích thước, khoang đổi theo; Chuẩn xưởng giữ nguyên
@@ -398,9 +398,42 @@ async function testArtifact(browser) {
   await ctx.close(); fs.unlinkSync(tmp);
 }
 
+async function testPhieu(browser) {
+  console.log('— Phiếu tự kiểm trước khi vẽ + ngưỡng dò lỗi ở Chuẩn xưởng (bản 1.20)');
+  const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
+  const tom = () => S(page, '[data-ui="phieu"] summary').innerText();
+  ok(/13 mục đạt/.test(await tom()) && !/lỗi|cần xem|chưa kiểm/.test(await tom()), 'tủ mẫu: 13 mục đạt, không mục nào cần xem', await tom());
+  ok((await S(page, '[data-ui="phieu"] li').count()) === 13, 'liệt kê đúng 13 mục áp dụng (mục khấu cột không áp dụng thì không hiện)', await S(page, '[data-ui="phieu"] li').count());
+  // trang rời (không nằm trong Chenfeng) không đọc được tấm thật → không có nút "Dò lỗi sản xuất"; phần hướng dẫn vẫn nói về phiếu tự kiểm
+  ok((await S(page, '[data-act="doloi"]').count()) === 0 && (await S(page, '[data-ui="doloi"]').count()) === 0, 'trang rời: không có nút dò lỗi trên tấm thật');
+  ok(/Tự kiểm trước khi vẽ/.test(await S(page, '[data-pane="hd"]').textContent()), 'hướng dẫn có mục phiếu tự kiểm');
+  // khoang 1100 và 1130: mục nhịp thành "cần xem", các mục khác vẫn đạt; nút tải JSON vẫn bấm được (cảnh báo không khoá)
+  await page.evaluate(s => window.MNCF.app.setSpec(s), { ma: 'T', rong: 2400, cao: 2200, than: { cao_duoi: 0 }, khoang: [{ rong: 1100, canh: 0, dot: [1100] }, { rong: 'auto', canh: 0, dot: [1100] }] });
+  ok(/1 mục cần xem/.test(await tom()) && !/lỗi/.test(await tom()), 'khoang quá nhịp: 1 mục cần xem', await tom());
+  ok(/Nhịp/.test(await S(page, '[data-ui="phieu"] li.luu_y').textContent()), 'mục nhịp được đánh dấu cần xem');      // phiếu đang gập: đọc textContent
+  ok((await S(page, '.msgs .msg.warn').count()) === 2, '2 dòng cảnh báo vàng (mỗi khoang một dòng)');
+  ok(await S(page, '.pri[data-act="json"]').isEnabled(), 'cảnh báo không khoá nút xuất file');
+  // nâng ngưỡng ở Chuẩn xưởng → hết cảnh báo; máy tự nhớ như các số chuẩn khác
+  await S(page, '.tab[data-tab="chuan"]').click();
+  ok((await S(page, 'input[data-k="kiem.dot_max"]').inputValue()) === '1000', 'Chuẩn xưởng có ô ngưỡng nhịp đợt, mặc định 1000');
+  for (const k of ['kiem.canh_cao_max', 'kiem.nk_rong_max', 'kiem.suot_sau_min', 'kiem.tran']) ok((await S(page, `input[data-k="${k}"]`).count()) === 1, 'có ô ' + k);
+  await S(page, 'input[data-k="kiem.dot_max"]').fill('1200'); await S(page, 'input[data-k="kiem.dot_max"]').blur();
+  await page.waitForFunction(() => window.MNCF.app.getModel().warnings.length === 0);
+  await S(page, '.tab[data-tab="tu"]').click();
+  // tủ này hở, không ngăn kéo, không suốt treo: 14 mục − khấu cột − cánh − ngăn kéo − suốt − mã mẫu = 9 mục áp dụng
+  ok(/9 mục đạt/.test(await tom()) && !/cần xem|lỗi/.test(await tom()), 'ngưỡng 1200: 9 mục áp dụng đều đạt', await tom());
+  // lỗi (tổng khoang lệch phủ bì) → phiếu ghi mục lỗi, nút xuất bị khoá
+  await page.evaluate(s => window.MNCF.app.setSpec(s), { ma: 'T', rong: 1000, cao: 2200, than: { cao_duoi: 0 }, khoang: [{ rong: 500, canh: 0 }, { rong: 500, canh: 0 }] });
+  const mucLoi = await S(page, '[data-ui="phieu"] li.loi').allTextContents();
+  ok(/mục lỗi/.test(await tom()) && mucLoi.some(t => /Phủ bì/.test(t)), 'tổng khoang lệch: mục phủ bì lỗi', [await tom(), mucLoi]);
+  ok(!(await S(page, '.pri[data-act="json"]').isEnabled()), 'có lỗi thì khoá nút xuất');
+  ok(errs.length === 0, 'không lỗi JS', errs);
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); }
+  try { await testPage(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);

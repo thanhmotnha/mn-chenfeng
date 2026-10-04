@@ -431,6 +431,8 @@
     });
     if (bo) ghi.push(`Khung thấp: đã bỏ ${bo} đợt của mẫu nằm quá cao.`);
     s.ten = q.ten || s.ten; s.ma = String(q.ten || s.ma || 'TA').replace(/\s+/g, '').slice(0, 16); if (tenPhong) s.phong = tenPhong;
+    // trần chỗ đặt khung (bản 1.20) → lõi kiểm thân tủ ráp nằm rồi lật đứng có lọt trần không. Khung treo không lật từ sàn lên nên không kiểm.
+    { const qH = H && j >= 0 && H.khung && H.khung[j]; if (qH) s.kiem = Object.assign({}, s.kiem, { tran: (qH.z0 > 0.5 || !(qH.w && qH.w.cao > 0)) ? 0 : qH.w.cao }); }
     s = Core.normalize(s);
     // sâu khung = sâu phủ bì kể cả cánh → trừ phần cánh nhô ra trước thùng
     const bb = Core.bbox(Core.build(s).parts);

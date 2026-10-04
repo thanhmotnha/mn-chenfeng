@@ -68,7 +68,15 @@
     get truc() { const b = this.box, e = [b[1] - b[0], b[3] - b[2], b[5] - b[4]]; return [1, 0, 2].find(a => Math.abs(e[a] - this._t) < 0.01); }
     get Thickness() { return this._t; }
     set Thickness(v) { const a = this._t === undefined ? undefined : this.truc; if (a !== undefined) this.box[a * 2 + 1] = this.box[a * 2] + v; this._t = v; }
-    get OCS() { const m = new M4(), a = this.truc; m.elements[8] = m.elements[9] = m.elements[10] = 0; if (a !== undefined) m.elements[8 + a] = 1; return m; }
+    get OCS() { const m = new M4(), a = this.truc; m.elements[8] = m.elements[9] = m.elements[10] = 0; if (a !== undefined) m.elements[8 + a] = 1; if (this.dinh) m.elements[14] = this.box[4]; return m; }
+    // bản thật (đo 04/10/2026): ContourCurve.LineData = đường bao [{ pt: {x, y}, bul }] trong hệ riêng của tấm, OCS đưa (u, v) về toạ độ bản vẽ; tấm khoét góc (khấu cột) có 6 đỉnh.
+    // Giả lập: tấm khoét trả đúng các đỉnh thật (OCS = trục bản vẽ đặt ở cao độ mặt dưới tấm); tấm thường là hình chữ nhật Width × Height.
+    get ContourCurve() { const W = this.Width, H = this.Height; return { LineData: (this.dinh || [[0, 0], [W, 0], [W, H], [0, H]]).map(q => ({ pt: { x: q[0], y: q[1] }, bul: 0 })) }; }
+    // bản thật (đo 04/10/2026): Width / Height = hai cạnh của tấm; OBB = { ocs: Matrix4 (3 cột đầu = trục riêng, cột 3 = pháp tuyến), halfSizes, center }
+    get _kt() { const b = this.box, e = [b[1] - b[0], b[3] - b[2], b[5] - b[4]], a = this.truc === undefined ? 1 : this.truc; return { e, a }; }
+    get Width() { const { e, a } = this._kt; return e[(a + 1) % 3]; } get Height() { const { e, a } = this._kt; return e[(a + 2) % 3]; }
+    get OBB() { const b = this.box, { e, a } = this._kt, E = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], m = new M4(); m.elements = [...E[(a + 1) % 3], 0, ...E[(a + 2) % 3], 0, ...E[a], 0, b[0], b[2], b[4], 1];
+      return { ocs: m, halfSizes: new V3(e[(a + 1) % 3] / 2, e[(a + 2) % 3] / 2, e[a] / 2), center: new V3((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2) }; }
     // điểm co giãn số k = ix*4 + iy*2 + iz (xem Ent.GetStretchPoints): kéo đủ 4 điểm của một mặt thì mặt đó dời theo
     MoveStretchPoints(ks, v) { const d = [v.x, v.y, v.z], bit = [4, 2, 1], b = this.box.slice(), tr = this.truc;
       for (let a = 0; a < 3; a++) for (let s = 0; s < 2; s++) { const mat = [0, 1, 2, 3, 4, 5, 6, 7].filter(k => (k & bit[a] ? 1 : 0) === s); if (mat.every(k => ks.includes(k))) b[a * 2 + s] += d[a]; }
@@ -80,7 +88,14 @@
   // nét 2D / chữ do Chenfeng dựng từ file DXF thả vào (bản thật: Line, Circle, Polyline, Text — ColorIndex lấy từ mã 62)
   class Line extends Ent {} class Circle extends Ent {} class Polyline extends Ent {} class Text extends Ent {}
   class HardwareCompositeEntity extends Ent { constructor(name, box, tu) { super(); this.HardwareOption = { name, cabinetName: tu, roomName: '' }; this.box = box; } }
-  class CylinderHole extends Ent { constructor(b) { super(); this.FId = { Object: b }; this.MId = { Object: b }; this.box = b.box.slice(); } }
+  // Lỗ khoan. Không có `g`: lỗ "đếm" kiểu cũ của trang giả lập (không hình học). Có `g` = lỗ như bản thật (đo 04/10/2026): _Matrix cột 4 = MIỆNG lỗ, cột 3 = hướng khoan vào ván,
+  // Height = sâu, Radius, GroupId.Index (3 lỗ của một cam chung nhóm), FId = tấm cái (nhận ở mặt), MId = tấm đực (cạnh tì vào), Type 0 = chén, 1 = thân, 2 = mồi.
+  class CylinderHole extends Ent { constructor(b, g) { super(); this.FId = { Object: b }; this.MId = { Object: g ? g.M : b }; this.box = b.box.slice();
+      if (g) { this._Matrix = new M4(); this._Matrix.elements = [1, 0, 0, 0, 0, 1, 0, 0, g.d[0], g.d[1], g.d[2], 0, g.p[0], g.p[1], g.p[2], 1]; this.Radius = g.r; this.Height = g.dai; this.GroupId = { Index: g.nhom }; this.Type = g.T; this.capHop(); } }
+    capHop() { const e = this._Matrix.elements, p = [e[12], e[13], e[14]], q = [p[0] + e[8] * this.Height, p[1] + e[9] * this.Height, p[2] + e[10] * this.Height], r = this.Radius, b = [];
+      for (let k = 0; k < 3; k++) { const x = r * Math.sqrt(Math.max(0, 1 - e[8 + k] * e[8 + k])); b.push(Math.min(p[k], q[k]) - x, Math.max(p[k], q[k]) + x); } this.box = b; }
+    ApplyMatrix(m) { if (!this._Matrix) return super.ApplyMatrix(m); if (hm.mo) { const cu = this._Matrix, hop = this.box.slice(); hm.mo.snap.push(() => { this._Matrix = cu; this.box = hop; }); } this._Matrix = new M4().copy(m).multiply(this._Matrix); this.capHop(); }
+    move(d) { if (!this._Matrix) return super.move(d); const M = new M4().copy(this._Matrix); M.elements[12] += d[0]; M.elements[13] += d[1]; M.elements[14] += d[2]; this._Matrix = M; this.capHop(); } }
 
   const ents = [], history = [], prompts = [], endCbs = new Set();
   let key = 0, state = null;      // state: null | {kind:'point', created, base} | {kind:'entity'}
@@ -98,15 +113,46 @@
   function drill(boards) {
     const made = [];
     for (const b of boards) {
-      for (const e of ents) if (e instanceof CylinderHole && e.FId.Object === b && !e.IsErase) e.IsErase = true;
+      for (const e of ents) if (e instanceof CylinderHole && !e._Matrix && e.FId.Object === b && !e.IsErase) e.IsErase = true;      // lỗ "đếm" của tấm này; cam có hình học thì do camCho tự dọn theo tấm ĐỰC (khoan lại tấm cái không được xoá cam mà tấm đực đã bắt vào nó)
       const h = b.BoardProcessOption.highDrill, t = h.find(x => x && x !== '不排');
       if (window.__MOCK_DRILL_BACK__ && b.Name === 'Hậu') for (let i = 0; i < 2; i++) { const c = new CylinderHole(b); ents.push(c); made.push(c); }      // giả định xấu: Chenfeng vẫn khoan vào mặt tấm hậu dù hậu khai "不排"
       if (!t) continue;
       if (b.Thickness < 10) continue;      // tấm mỏng (đáy ngăn kéo) không có lỗ cam
       if (!DRILL.has(t)) { prompt('ERROR', `>排钻失败!排钻类型:${t},没有合适的区间规则,或者当前配置不存在!`); continue; }
       for (let i = 0; i < 6; i++) { const c = new CylinderHole(b); ents.push(c); made.push(c); }
+      if (window.__MOCK_CAM__) for (const c of camCho(b)) { ents.push(c); made.push(c); }
     }
     return made;
+  }
+  // Cam như Chenfeng khoan (bật bằng window.__MOCK_CAM__): tấm đực b tì CẠNH trọn bề dày lên MẶT tấm cái f, đoạn tì dài ≥ 60 → 2 cam cách mỗi đầu 50 (đoạn < 150 thì 1 cam ở giữa).
+  // Một cam = chén Ø12 sâu 13,5 ở mặt tấm đực cách cạnh 34 · thân Ø8 dài 34 từ tâm chén ra cạnh · mồi Ø5 sâu 13,5 ở mặt tấm cái.
+  //   window.__MOCK_KHONG_CAM__ = 'Đợt'  → tấm đực tên đó không được bắt cam (giả định mối nối bị sót)
+  //   window.__MOCK_LO_GIAO__ = true     → thêm một lỗ mồi của nhóm khác lệch 3 mm cạnh lỗ mồi của cam đầu tiên nối “Đợt” vào “Hồi trái” (giả định lỗ giao nhau; khoan lại thì lỗ đó lại có)
+  let SO_NHOM = 500;
+  function camCho(b) {
+    for (const e of ents) if (e instanceof CylinderHole && e._Matrix && e.MId.Object === b && !e.IsErase) e.IsErase = true;
+    const ra = [], kb = b.truc, tb = b.Thickness;
+    if (kb === undefined || (window.__MOCK_KHONG_CAM__ && b.Name === window.__MOCK_KHONG_CAM__)) return ra;
+    const coKieu = x => { const t = x.BoardProcessOption.highDrill.find(y => y && y !== '不排'); return !!t && DRILL.has(t) && x.Thickness >= 10; };
+    const ch = (p, q, k) => Math.min(p[2 * k + 1], q[2 * k + 1]) - Math.max(p[2 * k], q[2 * k]);
+    for (const f of ents) {
+      if (!(f instanceof Board) || f === b || f.IsErase || !coKieu(f)) continue;
+      const kf = f.truc; if (kf === undefined || kf === kb) continue;
+      let n = 0, c = 0;
+      if (Math.abs(b.box[2 * kf + 1] - f.box[2 * kf]) < 0.02) { n = 1; c = f.box[2 * kf]; } else if (Math.abs(b.box[2 * kf] - f.box[2 * kf + 1]) < 0.02) { n = -1; c = f.box[2 * kf + 1]; } else continue;
+      const kw = 3 - kb - kf;
+      if (ch(b.box, f.box, kb) < tb - 0.6) continue;
+      const w0 = Math.max(b.box[2 * kw], f.box[2 * kw]), L = ch(b.box, f.box, kw); if (L < 60) continue;
+      const mb = (b.box[2 * kb] + b.box[2 * kb + 1]) / 2;
+      for (const vt of (L >= 150 ? [50, L - 50] : [L / 2])) {
+        const nhom = ++SO_NHOM, diem = (akf, akb) => { const p = [0, 0, 0]; p[kf] = akf; p[kb] = akb; p[kw] = w0 + vt; return p; }, huong = (k, s) => { const d = [0, 0, 0]; d[k] = s; return d; };
+        ra.push(new CylinderHole(f, { M: b, p: diem(c - n * 34, b.box[2 * kb + 1]), d: huong(kb, -1), dai: 13.5, r: 6, nhom, T: 0 }));
+        ra.push(new CylinderHole(f, { M: b, p: diem(c - n * 34, mb), d: huong(kf, n), dai: 34, r: 4, nhom, T: 1 }));
+        ra.push(new CylinderHole(f, { M: b, p: diem(c, mb), d: huong(kf, n), dai: 13.5, r: 2.5, nhom, T: 2 }));
+        if (window.__MOCK_LO_GIAO__ && b.Name === 'Đợt' && f.Name === 'Hồi trái' && vt === 50) { const p = diem(c, mb); p[kw] += 3; ra.push(new CylinderHole(f, { M: b, p, d: huong(kf, n), dai: 13.5, r: 2.5, nhom: ++SO_NHOM, T: 2 })); }
+      }
+    }
+    return ra;
   }
   const sizeOf = (o) => { const xs = o.ContourCurve.map(c => c.pt[0]), ys = o.ContourCurve.map(c => c.pt[1]); return [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)]; };
   function boardFromJSON(o) {

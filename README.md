@@ -29,13 +29,14 @@ node build.js                 # dựng dist/ (bản gộp, phien-ban.json, users
 node test/core.test.js        # lõi kết cấu — không cần thư viện
 node test/dich.test.js        # bảng dịch ghi chú tham số
 node test/phong.test.js       # thẻ Phòng
-# các bộ cần Playwright + Chromium: chuanhoa, ui, phong-ui, ext, nap, kho
+node test/kiem.test.js        # dò lỗi sản xuất: quy tắc thiết kế + tấm và lỗ khoan thật (hàm thuần)
+# các bộ cần Playwright + Chromium: chuanhoa, ui, phong-ui, ext, nap, kho, doloi
 NODE_PATH=<node_modules> PLAYWRIGHT_BROWSERS_PATH=<trình duyệt> node test/nap.test.js
 ./phat-hanh.sh "ghi chú"      # dựng + thử + commit + đẩy lên main → các máy tự nhận
 ```
 
-- `src/mncf-core.js` — lõi: thông số tủ → danh sách tấm, kiểm tra, bảng kê, kế hoạch lệnh gốc Chenfeng. Số phiên bản (`VERSION`) nằm ở đây.
-- `src/mncf-driver.js` — điều khiển Chenfeng (lệnh gốc 左右侧板 / 立板 / 顶底板 / 背板 / 层板 / 门板, cổng nhập tấm, module tham số, đọc kho mẫu của tài khoản và vẽ mẫu kho theo kích thước).
+- `src/mncf-core.js` — lõi: thông số tủ → danh sách tấm, kiểm tra, bảng kê, kế hoạch lệnh gốc Chenfeng, phiếu tự kiểm trước khi vẽ và các phép dò lỗi sản xuất trên tấm / lỗ khoan thật. Số phiên bản (`VERSION`) nằm ở đây.
+- `src/mncf-driver.js` — điều khiển Chenfeng (lệnh gốc 左右侧板 / 立板 / 顶底板 / 背板 / 层板 / 门板, cổng nhập tấm, module tham số, đọc kho mẫu của tài khoản và vẽ mẫu kho theo kích thước, đọc tấm + lỗ khoan thật để dò lỗi sản xuất sau khi vẽ).
 - `src/mncf-phong.js` — thẻ Phòng (hiện trạng, khung đặt tủ / mẫu kho, chia ô trên mặt đứng, khấu cột, điểm điện – nước) và hình vẽ trên mặt bằng → khung tủ.
 - `src/mncf-dich.js` — dịch ghi chú tham số mẫu sang tiếng Việt.
 - `src/mncf-ui.js` — bảng nổi trong Chenfeng / trang độc lập.
