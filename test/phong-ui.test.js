@@ -282,6 +282,8 @@ async function tienIch() {
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
     const conLai = await page.evaluate(() => window.MNCFDriver.last);
     ok(/Đã hoàn tác lần vẽ vừa rồi/.test(await st()) && conLai === null && (await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length)) < soTruoc, 'Hoàn tác lần vẽ: lùi cả bước xoay lẫn bước vẽ', await st());
+    const p2u = await page.evaluate(() => window.MNCF.phong.lay().khung.map(k => [k.ten, !!k.tu_id]));
+    ok(JSON.stringify(p2u) === '[["K1",true],["K2",false]]', 'Hoàn tác lần vẽ khung K2: khung K2 thôi ghi "đã vẽ" (tủ đã rời bản vẽ), khung vẫn còn trong phòng; K1 vẽ trước đó vẫn "đã vẽ"', p2u);
 
     // Mở thành tủ rồi bấm nút vẽ của thẻ Tủ: cũng đặt đúng khung và tự xoay
     await H.locator('.tab[data-tab="phong"]').click();
@@ -720,6 +722,25 @@ async function tienIch() {
       await H.locator('.tab[data-tab="kq"]').click();
       await H.locator('[data-act="undo"]').click();
       await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+      // Hoàn tác tủ đặt theo tường: khung do lần đặt đó tự tạo cũng được bỏ — không để một khung "đã vẽ" ma chiếm tường (thấy khi thử trên Chenfeng thật 05/10/2026)
+      eq1(await soKhung(), [], 'Hoàn tác tủ đặt theo tường: khung tạm của lần đặt đó được bỏ khỏi phòng');
+      await H.locator('.tab[data-tab="tu"]').click();
+      await H.locator('[data-act="dat-tuong"]').click();
+      await H.locator('.chontuong [data-ct="1"]').click();
+      q = await diemMD(1000, 1000); await page.mouse.click(q[0], q[1]);
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["0","3000","0","2700","600"]' && c.vung, '… mở lại hộp chọn chỗ, chạm tường B: cả tường 0 → 3000 lại trống', [c.so, c.msg]);
+      // "Đóng — vẽ sau" rồi bấm "Đặt tủ theo tường" lần nữa = chọn lại chỗ: khung tạm chưa vẽ của lần chọn trước được bỏ, không chắn chính chỗ vừa chọn
+      await H.locator('[data-act="chon-tiep"]').click();
+      ok((await hop()).dlg === 'tu' && (await soKhung()).length === 1 && (await soKhung())[0][7] === 0, '(chuẩn bị) Tiếp: có một khung tạm chưa vẽ');
+      await H.locator('[data-act="hop-dong"]').click();
+      ok((await hop()).dlg === '' && (await soKhung()).length === 1, '"Đóng — vẽ sau": khung tạm còn đó (tủ + chỗ đặt vẫn ở thẻ Tủ để vẽ sau)');
+      await H.locator('[data-act="dat-tuong"]').click();
+      eq1(await soKhung(), [], 'bấm "Đặt tủ theo tường" lần nữa: khung tạm chưa vẽ của lần chọn trước được bỏ');
+      q = await diemMD(1000, 1000); await page.mouse.click(q[0], q[1]);
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["0","3000","0","2700","600"]' && c.vung, '… chạm tường B: vẫn lấy được cả tường (không bị chính khung tạm cũ chắn)', [c.so, c.msg]);
+      await H.locator('[data-act="chon-thoi"]').click();
     }
 
     // phòng còn lỗi thì không vẽ

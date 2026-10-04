@@ -1161,7 +1161,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (d.nguon === 'tuong') {
         // bỏ khung tạm vừa tạo (chưa vẽ) rồi mở lại hộp chọn chỗ với đúng tường + số vừa chọn
         if (phong && phong.khung[d.j] && !phong.khung[d.j].tu_id) { phong.khung.splice(d.j, 1); selKhung = -1; phongStore.save(); renderPhong(); }
-        khungCho = null; capHinh(); dongDlg(); moChonCho(true);
+        tamTuong = null; khungCho = null; capHinh(); dongDlg(); moChonCho(true);
         return;
       }
       khungCho = null; capHinh(); dongDlg();
@@ -1171,8 +1171,21 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     /* ---- bản 1.23: ĐẶT TỦ THEO TƯỜNG — chọn tường, chọn chỗ ngay trên mặt đứng của tường đó. Chỗ đặt tính từ phòng khai ở thẻ Phòng: không bấm điểm nào trong bản vẽ. ---- */
     const cc = { tuong: 0, co: false, cach: 0, rong: 0, z: 0, cao: 0, sau: 600, bao: '', loi: false, keo: null };
     const cmd = $('.chonmd');
+    // Khung do "Đặt tủ theo tường" tự tạo cho lần đặt đang dở (chưa vẽ). Chọn lại chỗ / bấm đặt lần nữa thì khung tạm đó được bỏ — không để nó chắn chính bức tường đang chọn;
+    // tủ vẽ xong rồi "Hoàn tác lần vẽ này" thì khung của lần đặt đó cũng đi theo (thử trên Chenfeng thật 05/10/2026: khung "đã vẽ" còn sót lại sau hoàn tác chiếm luôn cả tường).
+    let tamTuong = null;      // null | { ten }
+    function boKhungTam() {
+      const t = tamTuong; tamTuong = null;
+      if (!t || !phong) return;
+      const j = phong.khung.findIndex(k => k.ten === t.ten && !k.tu_id);
+      if (j < 0) return;
+      phong.khung.splice(j, 1); selKhung = -1;
+      if (khungCho && khungCho.j === j) { khungCho = null; capHinh(); }
+      phongStore.save(); renderPhong();
+    }
     function moChonCho(giu) {
       if (!Ph || !Ph.choTrong || busy) return;
+      if (!giu) boKhungTam();
       phong = Ph.chuanHoa(phong); hinh = Ph.hinhHoc(phong);
       if (hinh.loi.length) { switchTab('phong'); return setStatus('Phòng còn lỗi (ô đỏ dưới mặt bằng) — sửa ở thẻ Phòng rồi mới đặt tủ theo tường được.'); }
       if (!giu) { cc.co = false; cc.bao = ''; cc.loi = false; }
@@ -1296,6 +1309,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       dongDlg();
       const m = moKhung(j, { giu_ruot: giu });
       if (!m) { phong.khung.splice(j, 1); phongStore.save(); renderPhong(); return; }
+      tamTuong = { ten };
       moDlg('tu', { nguon: 'tuong', j });
       rebuild();
       const w = hinh.tuong[moi.tuong];
@@ -1321,6 +1335,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (rep.giai_doan === 'xong') rep.do_mau = await tuDoMau();      // trước lệnh "xem toàn bộ": bước đổ màu phải nối liền lần vẽ thì "Hoàn tác lần vẽ này" mới lùi được cả hai
       khungCho = null; capHinh();
       if (kc && rep.giai_doan === 'xong') { try { ghiKhung(rep, kc); } catch (e) { /* báo ở kết quả */ } }
+      // khung mà lần vẽ này đứng vào (để "Hoàn tác lần vẽ này" trả khung về "chưa vẽ"; khung do "Đặt tủ theo tường" tự tạo thì bỏ hẳn)
+      if (kc && rep.giai_doan === 'xong' && kc.j >= 0 && phong && phong.khung[kc.j] && phong.khung[kc.j].tu_id === rep.id) { const tk = phong.khung[kc.j].ten; rep.khung_tu = { j: kc.j, ten: tk, tam: !!(tamTuong && tamTuong.ten === tk) }; if (rep.khung_tu.tam) tamTuong = null; }
       chip.hidden = true; panel.hidden = false; launch.hidden = true; busy = false;
       try {
         lastRep = rep;
@@ -2627,7 +2643,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'undo-ch') { if (Drv && !busy) { const coDV = b.dataset.dv === '1'; setStatus('Đang hoàn tác…'); return Drv.undoChuanHoa().then(r => (r.ok && coDV && Drv.undoDayVan ? Drv.undoDayVan().then(d => (d.ok ? r : { ok: true, luu_y: d.reason })) : r)).then(r => { if (r.ok) { setStatus('Đã hoàn tác lần chuẩn hoá vừa rồi.'); $('.report').innerHTML = `<p class="hint">Đã hoàn tác lần chuẩn hoá vừa rồi — module trở lại kết cấu gốc của mẫu${r.luu_y ? ` (riêng dày ván chưa trả lại: ${esc(r.luu_y)})` : ''}.</p>`; } else setStatus(r.reason); }); } }
       else if (act === 'undo-dv') { if (Drv && !busy && Drv.undoDayVan) { setStatus('Đang hoàn tác…'); return Drv.undoDayVan().then(r => { if (r.ok) { setStatus('Đã trả dày ván của module về như mẫu.'); $('.report').innerHTML = '<p class="hint">Đã trả dày ván của module về như mẫu gốc.</p>'; } else setStatus(r.reason); }); } }
       else if (act === 'unlink') { noi = null; rebuild(); setStatus('Đã bỏ nối — bấm “Vẽ vào Chenfeng” sẽ vẽ một tủ mới.'); }
-      else if (act === 'undo') { if (Drv && lastRep && !busy) { const laKho = !!lastRep.kho, kv = lastRep.khung_ve; setStatus('Đang hoàn tác…'); return Drv.undoLast().then(r => { if (r.ok) { setStatus('Đã hoàn tác lần vẽ vừa rồi.'); $('.report').innerHTML = '<p class="hint">Đã hoàn tác lần vẽ vừa rồi.</p>'; lastRep = null; if (laKho) { if (kv && phong && phong.khung[kv.j] && phong.khung[kv.j].ten === kv.ten && /^kho-/.test(phong.khung[kv.j].tu_id || '')) { delete phong.khung[kv.j].tu_id; phongStore.save(); paintPhong(); } return; } noi = null; const rd = $('[data-act="redraw"]'); if (rd) rd.disabled = true; capNoi(); } else setStatus(r.reason); }); } }
+      else if (act === 'undo') { if (Drv && lastRep && !busy) { const laKho = !!lastRep.kho, kv = lastRep.khung_ve, kt = lastRep.khung_tu, idTu = lastRep.id; setStatus('Đang hoàn tác…'); return Drv.undoLast().then(r => { if (r.ok) { setStatus('Đã hoàn tác lần vẽ vừa rồi.'); $('.report').innerHTML = '<p class="hint">Đã hoàn tác lần vẽ vừa rồi.</p>'; lastRep = null;
+        // tủ vừa hoàn tác đứng trong một khung của phòng: khung thôi ghi "đã vẽ"; khung do "Đặt tủ theo tường" tự tạo cho lần đó thì bỏ hẳn (tường trống lại)
+        if (kt && phong && phong.khung[kt.j] && phong.khung[kt.j].ten === kt.ten && phong.khung[kt.j].tu_id === idTu) { if (kt.tam) { phong.khung.splice(kt.j, 1); selKhung = -1; } else delete phong.khung[kt.j].tu_id; phongStore.save(); renderPhong(); }
+        if (laKho) { if (kv && phong && phong.khung[kv.j] && phong.khung[kv.j].ten === kv.ten && /^kho-/.test(phong.khung[kv.j].tu_id || '')) { delete phong.khung[kv.j].tu_id; phongStore.save(); paintPhong(); } return; } noi = null; const rd = $('[data-act="redraw"]'); if (rd) rd.disabled = true; capNoi(); } else setStatus(r.reason); }); } }
       else if (act === 'zoom') { if (Drv) Drv.zoom(); }
       else if (act === 'doloi') return doLoi();
       else if (act === 'xuatvan') return xuatVan('');
