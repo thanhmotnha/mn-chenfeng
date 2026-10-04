@@ -2144,7 +2144,7 @@
     const tuong = v.tuong.filter(r => Array.isArray(r) && r.length === 7 && r.every(x => typeof x === 'number' && isFinite(x))).map(r => r.slice());
     const muc = ds => (Array.isArray(ds) ? ds : []).filter(r => r && so6(r.m)).map(r => (so6(r.t) ? { m: r.m.slice(), t: r.t.slice() } : { m: r.m.slice() }));
     const o = { tuong, mo: muc(v.mo), cot: muc(v.cot), dam: muc(v.dam) };
-    if (so6(v.dn)) { o.dn = v.dn.slice(); if (typeof v.dn_ma === 'string' && v.dn_ma) o.dn_ma = v.dn_ma.slice(0, 24); }
+    if (so6(v.dn)) { o.dn = v.dn.slice(); if (typeof v.dn_ma === 'string' && v.dn_ma) o.dn_ma = v.dn_ma.slice(0, 24); if (Number.isInteger(v.dn_so) && v.dn_so > 0) o.dn_so = v.dn_so; }
     return tuong.length || o.mo.length || o.cot.length || o.dam.length || o.dn ? o : undefined;
   }
 
@@ -2828,14 +2828,14 @@
   }
   /**
    * BẢN GHI một lần vẽ phòng (đi theo phòng, lưu cùng phòng): những gì lần vẽ đó đã đặt lên bản vẽ — để lần sau biết đối tượng nào trên bản vẽ là của chính phòng này.
-   * moi = phanPhong lúc vẽ; that = { mo, cot, dam: [hộp thật của từng mục theo đúng thứ tự | false = không vẽ được], dn: hộp bao các dấu điện – nước }.
+   * moi = phanPhong lúc vẽ; that = { mo, cot, dam: [hộp thật của từng mục theo đúng thứ tự | false = không vẽ được], dn: hộp bao các dấu điện – nước, dn_ma, dn_so }.
    * Mục nào Chenfeng đặt khác số muốn (dầm bị hạ cho khỏi vượt trần, cột trên tường xiên) thì ghi cả hộp muốn `m` lẫn hộp thật `t`.
    */
   function banGhiPhong(moi, that) {
     that = that || {};
     const muc = (ds, tt) => { const o = []; ds.forEach((x, i) => { const t = tt && tt[i]; if (t === false) return; const r = { m: x.hop.slice() }; if (so6(t) && t.some((v, q) => Math.abs(v - x.hop[q]) > TOL_BV)) r.t = t.map(v => rn(v, 2)); o.push(r); }); return o; };
     const r = { tuong: moi.tuong.map(w => [w.a[0], w.a[1], w.b[0], w.b[1], w.z, w.cao, w.day]), mo: muc(moi.mo, that.mo), cot: muc(moi.cot, that.cot), dam: muc(moi.dam, that.dam) };
-    if (so6(that.dn)) { r.dn = that.dn.map(v => rn(v, 2)); if (that.dn_ma) r.dn_ma = String(that.dn_ma).slice(0, 24); }      // dn = hộp bao các dấu điện – nước đã thả vào bản vẽ, dn_ma = mã của nội dung (đổi điểm nào thì mã đổi)
+    if (so6(that.dn)) { r.dn = that.dn.map(v => rn(v, 2)); if (that.dn_ma) r.dn_ma = String(that.dn_ma).slice(0, 24); if (Number.isInteger(that.dn_so) && that.dn_so > 0) r.dn_so = that.dn_so; }      // dn = hộp bao các dấu điện – nước đã thả vào bản vẽ, dn_ma = mã của nội dung (đổi điểm nào thì mã đổi), dn_so = số nét + chữ Chenfeng đã dựng
     return r;
   }
   /**
@@ -2847,6 +2847,7 @@
    *   ve_tuong: [{ diem: [[x, y, z], …], khep, tuong: [vị trí trong moi.tuong] }]   các chuỗi điểm cho lệnh vẽ tường (đi theo chiều kim đồng hồ; khep = cả vòng, kết thúc bằng lệnh khép),
    *   mo, cot, dam: [{ co }]      như trên cho từng lỗ cửa / cột / dầm,
    *   bo: { tuong, lo, cot, dam: [chỉ số trong co.…] }   đối tượng của LẦN VẼ TRƯỚC nay không còn đúng → phải bỏ trước khi vẽ,
+   *   trung: { lo, cot, dam: [chỉ số] }   lỗ cửa / cột / dầm thừa nằm chồng khít lên một cái đang giữ (vẽ trùng) → dọn,
    *   chong: [chỉ số trong co.tuong]   tường cũ KHÔNG phải của lần vẽ trước mà nằm chồng một phần lên tường mới / nằm trong lòng phòng mới — bảng không tự xoá,
    *   trong: [chỉ số trong co.tuong]   phần của `chong` nằm hẳn TRONG lòng phòng mới (tường cắt ngang phòng) — máy vẽ dừng lại hỏi người dùng trước khi vẽ,
    *   thua: { cot, dam: [chỉ số] }     cột / dầm cũ không khớp mục nào, nằm trong lòng phòng mới — chỉ bỏ khi người dùng đồng ý bỏ phòng cũ,
@@ -2903,8 +2904,10 @@
         if (k >= 0) giu.add(k);
         return { co: k };
       });
-      const bo = []; if (dsCu) dsCo.forEach((e, q) => { if (!giu.has(q) && dsCu.some(r => hopGan(e.hop, r.t || r.m))) bo.push(q); });
-      return { kq, bo };
+      // vẽ TRÙNG: đối tượng thừa chồng khít lên một cái đang giữ (bản trước bấm "Vẽ phòng" hai lần là lỗ cửa / cột / dầm thành hai cái chồng nhau) → dọn, có bản ghi hay không cũng vậy
+      const trung = []; dsCo.forEach((e, q) => { if (!giu.has(q) && e.hop && [...giu].some(k => hopGan(e.hop, dsCo[k].hop))) trung.push(q); });
+      const bo = []; if (dsCu) dsCo.forEach((e, q) => { if (!giu.has(q) && trung.indexOf(q) < 0 && dsCu.some(r => hopGan(e.hop, r.t || r.m))) bo.push(q); });
+      return { kq, bo, trung };
     };
     const M = doi(moi.mo, co.lo, cu && cu.mo), C = doi(moi.cot, co.cot, cu && cu.cot), D = doi(moi.dam, co.dam, cu && cu.dam);
     // --- tường cũ không phải của lần vẽ trước mà vướng phòng mới: chồng một phần lên tường mới (cùng đường, có đoạn chung) hoặc nằm trong lòng phòng mới ---
@@ -2926,8 +2929,40 @@
     });
     // cột / dầm đang có mà không khớp mục nào của phòng mới, không phải của lần vẽ trước, lại nằm trong lòng phòng mới (tâm hộp nằm trong đa giác lòng phòng)
     const trongDG = q => { if (!moi.kin) return false; let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const a1 = moi.tuong[i].a, b1 = moi.tuong[j].a; if ((a1[1] > q[1]) !== (b1[1] > q[1]) && q[0] < (b1[0] - a1[0]) * (q[1] - a1[1]) / (b1[1] - a1[1]) + a1[0]) c = !c; } return c; };
-    const lac = (ds, R) => { const o = []; (ds || []).forEach((e, q) => { if (!e.hop || R.kq.some(x => x.co === q) || R.bo.indexOf(q) >= 0) return; if (trongDG([(e.hop[0] + e.hop[1]) / 2, (e.hop[2] + e.hop[3]) / 2])) o.push(q); }); return o; };
-    return { tuong, ve_tuong, mo: M.kq, cot: C.kq, dam: D.kq, bo: { tuong: boT, lo: M.bo, cot: C.bo, dam: D.bo }, chong, trong, thua: { cot: lac(co.cot, C), dam: lac(co.dam, D) }, co_ban_ghi: !!cu };
+    const lac = (ds, R) => { const o = []; (ds || []).forEach((e, q) => { if (!e.hop || R.kq.some(x => x.co === q) || R.bo.indexOf(q) >= 0 || R.trung.indexOf(q) >= 0) return; if (trongDG([(e.hop[0] + e.hop[1]) / 2, (e.hop[2] + e.hop[3]) / 2])) o.push(q); }); return o; };
+    return { tuong, ve_tuong, mo: M.kq, cot: C.kq, dam: D.kq, bo: { tuong: boT, lo: M.bo, cot: C.bo, dam: D.bo }, trung: { lo: M.trung, cot: C.trung, dam: D.trung }, chong, trong, thua: { cot: lac(co.cot, C), dam: lac(co.dam, D) }, co_ban_ghi: !!cu };
+  }
+  /**
+   * VÙNG của lần vẽ trước dựng lại từ bản ghi (cùng dạng với phanPhong, chỉ có `kin` + `tuong`) — cho trongLongPhong, để tìm dấu điện – nước cũ khi phòng đã đổi cỡ / dời chỗ.
+   * Bản ghi đủ một vòng tường nối đuôi nhau → đa giác kín; thiếu tường (tường chung với phòng bên không ghi) → kin = false (tính theo hộp bao).
+   */
+  function vungBanGhi(cu) {
+    const T = (cu && Array.isArray(cu.tuong) ? cu.tuong : []).filter(r => Array.isArray(r) && r.length >= 7).map(r => ({ a: [r[0], r[1]], b: [r[2], r[3]], z: r[4], cao: r[5], day: r[6] }));
+    if (!T.length) return null;
+    const gan = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) <= TOL_BV;
+    return { kin: T.length >= 3 && T.every((w, i) => gan(w.b, T[(i + 1) % T.length].a)), tuong: T };
+  }
+  /**
+   * Hộp `hop` ([x0, x1, y0, y1, z0, z1], toạ độ bản vẽ) có nằm TRONG LÒNG phòng `moi` (phanPhong) không: tâm hộp nằm trong đa giác lòng phòng hoặc cách mép tường không quá `du` (mặc định 5 mm),
+   * cao độ tâm từ sàn tới trần. Phòng chưa khép kín thì tính theo hộp bao các tường. Dùng để nhận ra dấu điện – nước cũ của chính phòng này khi không có bản ghi lần vẽ trước
+   * (dấu trên mặt tường nhô vào phòng 2 mm; dấu của phòng bên kia tường chung cách ít nhất một bề dày tường nên không dính).
+   */
+  function trongLongPhong(moi, hop, du) {
+    du = du > 0 ? du : 5;
+    const W = (moi && moi.tuong) || [];
+    if (!W.length || !so6(hop)) return false;
+    const q = [(hop[0] + hop[1]) / 2, (hop[2] + hop[3]) / 2], z = (hop[4] + hop[5]) / 2;
+    const z0 = Math.min(...W.map(w => w.z)), z1 = Math.max(...W.map(w => w.z + w.cao));
+    if (z < z0 - du || z > z1 + du) return false;
+    if (!moi.kin) {
+      const xs = W.flatMap(w => [w.a[0], w.b[0]]), ys = W.flatMap(w => [w.a[1], w.b[1]]);
+      return q[0] >= Math.min(...xs) - du && q[0] <= Math.max(...xs) + du && q[1] >= Math.min(...ys) - du && q[1] <= Math.max(...ys) + du;
+    }
+    const kc = w => { const dx = w.b[0] - w.a[0], dy = w.b[1] - w.a[1], L2 = dx * dx + dy * dy, t = L2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((q[0] - w.a[0]) * dx + (q[1] - w.a[1]) * dy) / L2)); return Math.hypot(q[0] - w.a[0] - t * dx, q[1] - w.a[1] - t * dy); };
+    if (W.some(w => kc(w) <= du)) return true;
+    let c = false;
+    for (let i = 0, j = W.length - 1; i < W.length; j = i++) { const a = W[i].a, b = W[j].a; if ((a[1] > q[1]) !== (b[1] > q[1]) && q[0] < (b[0] - a[0]) * (q[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; }
+    return c;
   }
   /**
    * Kiểm SAU KHI VẼ: đoạn tường `w` ({ a, b, day } — mặt trong, toạ độ bản vẽ) đã có trên bản vẽ chưa = các mặt tường đang có (co.tuong[].mat) nằm trên đường đó phủ kín đoạn a → b.
@@ -3174,7 +3209,7 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, doiChieuPhong, tuongPhuKin, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
 });
 
 /*!
@@ -4561,17 +4596,17 @@
     Object.defineProperty(kq, 'ent', { value: ent, enumerable: false });
     return kq;
   };
-  // Dấu điện – nước của một lần vẽ trước: nét / chữ do file DXF của bảng dựng — màu theo nhóm (30 điện, 140 cấp, 34 thoát, 200 khác), nét nằm trong hộp bao đã ghi;
-  // chữ là nhãn của bảng ("O1 +300", "CN2", "TS1"…) nằm quanh hộp đó. Nét / chữ khác của người dùng không khớp màu + chỗ + mẫu chữ thì không đụng tới.
+  // Dấu điện – nước cũ của một phòng: nét / chữ do file DXF của bảng dựng — màu theo nhóm (30 điện, 140 cấp, 34 thoát, 200 khác), nằm trong lòng phòng (`trong(hộp)` — phòng sắp vẽ
+  // hoặc vùng của lần vẽ trước); chữ phải đúng mẫu nhãn của bảng ("O1 +300", "CN2", "TS1"…). Nét / chữ khác của người dùng (màu khác, chữ khác, nằm ngoài phòng) thì không đụng tới.
   const MAU_DAU_DN = [30, 140, 34, 200];
-  const dauDienNuoc = hop => {
-    const out = [], nam = (b, du) => b[0] >= hop[0] - du && b[1] <= hop[1] + du && b[2] >= hop[2] - du && b[3] <= hop[3] + du && b[4] >= hop[4] - du && b[5] <= hop[5] + du;
+  const dauDienNuoc = trong => {
+    const out = [];
     for (const e of D.all()) {
       const lop = tenLop(e); if (!/^(Line|Circle|Polyline|Text)$/.test(lop)) continue;
       let mau = null, b = null; try { mau = e.ColorIndex; b = D.boxOf(e); } catch (er) { continue; }
-      if (MAU_DAU_DN.indexOf(mau) < 0 || !b || !b.every(isFinite)) continue;
-      if (lop === 'Text') { let t = ''; try { t = String(e.TextString || ''); } catch (er) { t = ''; } if (/^(O|CT|CN|TN|D|TS|OS)\d+( \+\d+([.,]\d+)?)?$/.test(t) && nam(b, 600)) out.push(e); }
-      else if (nam(b, 1.5)) out.push(e);
+      if (MAU_DAU_DN.indexOf(mau) < 0 || !b || !b.every(isFinite) || !trong(b)) continue;
+      if (lop === 'Text') { let t = ''; try { t = String(e.TextString || ''); } catch (er) { t = ''; } if (!/^(O|CT|CN|TN|D|TS|OS)\d+( \+\d+([.,]\d+)?)?$/.test(t)) continue; }
+      out.push(e);
     }
     return out;
   };
@@ -4586,15 +4621,16 @@
    * (một lệnh ERASE), chỉ vẽ cái còn thiếu; số tường đếm theo tường CÓ trên bản vẽ sau khi vẽ chứ không theo số đối tượng mới sinh
    * (Chenfeng không dựng đoạn tường trùng tường cũ — bảng cũ vì thế báo nhầm "chỉ vẽ được 0/4 tường").
    * @returns { ok, giai_doan?: 'chan' (dừng lại hỏi, chưa đụng bản vẽ), can_hoi?, errors, warnings, dem: {tuong, mo, cot, dam, dn} = số mục của phòng đang CÓ trên bản vẽ,
-   *            them / giu / bo: {tuong, mo, cot, dam} số mục vừa vẽ thêm / giữ nguyên / đã bỏ, khong_doi, da_ve: bản ghi mới, so_buoc_hoan_tac }
+   *            them / giu / bo: {tuong, mo, cot, dam, dn} số mục vừa vẽ thêm / giữ nguyên / đã bỏ (bo.dn = số NÉT dấu điện – nước cũ đã bỏ), trung: {mo, cot, dam} số lỗ cửa / cột / dầm vẽ trùng đã dọn,
+   *            khong_doi, da_ve: bản ghi mới, so_buoc_hoan_tac }
    */
   D.drawRoom = async (H, opt) => {
     D.boManChe();
     opt = Object.assign({ day_tuong: 110, onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
     const errors = [], warnings = [], dem = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 };
-    const them = { tuong: 0, mo: 0, cot: 0, dam: 0 }, giu = { tuong: 0, mo: 0, cot: 0, dam: 0 }, bo = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 };
-    const tra = o => Object.assign({ ok: false, errors, warnings, dem, them, giu, bo }, o);
+    const them = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 }, giu = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 }, bo = { tuong: 0, mo: 0, cot: 0, dam: 0, dn: 0 }, trung = { mo: 0, cot: 0, dam: 0 };
+    const tra = o => Object.assign({ ok: false, errors, warnings, dem, them, giu, bo, trung }, o);
     if (!D.available()) return tra({ errors: ['Không thấy bản vẽ Chenfeng trong trang này.'] });
     if (!H || !H.tuong || !H.tuong.length || (H.loi && H.loi.length)) return tra({ errors: (H && H.loi && H.loi.length ? H.loi : ['Phòng chưa có tường.']) });
     if (!D.editing()) return tra({ errors: ['Chenfeng đang ở trang chủ / màn chào — mở một bản vẽ rồi vẽ phòng.'] });
@@ -4617,19 +4653,23 @@
     try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
     const that = { mo: moi.mo.map(() => false), cot: moi.cot.map(() => false), dam: moi.dam.map(() => false) };
     const dn = opt.dien_nuoc, coDn = !!(dn && dn.so > 0 && dn.dxf), maDn = coDn ? maChuoi(dn.dxf) : '';
-    let coTuong = W.map(() => false), giuDau = false;
+    let coTuong = W.map(() => false), giuDau = false, soNetDn = 0;
     try {
-      // 0. bỏ phần của lần vẽ trước nay không còn đúng (+ tường / cột / dầm cũ vướng khi người dùng đã đồng ý) + dấu điện – nước cũ đã đổi
-      const E = co.ent, dauCu = cu && cu.dn ? dauDienNuoc(cu.dn) : [];
-      giuDau = dauCu.length > 0 && coDn && cu.dn_ma === maDn;      // dấu cũ còn đó, nội dung không đổi → giữ
-      const boE = [].concat(K.bo.tuong.map(i => E.tuong[i]), K.bo.lo.map(i => E.lo[i]), K.bo.cot.map(i => E.cot[i]), K.bo.dam.map(i => E.dam[i]));
+      // dấu điện – nước cũ của phòng này: nằm trong lòng phòng sắp vẽ hoặc trong vùng của lần vẽ trước (phòng đã đổi cỡ / dời chỗ). Không cần bản ghi cũng nhận ra
+      // (phòng vẽ từ bản trước) — nhờ thế bấm lại không đánh chồng một bộ dấu nữa. Giữ nguyên khi: có bản ghi, nội dung không đổi, trên bản vẽ còn ĐÚNG số nét đã dựng.
+      const vungCu = cu ? Ph.vungBanGhi(cu) : null;
+      const dauCu = dauDienNuoc(b => Ph.trongLongPhong(moi, b) || (!!vungCu && Ph.trongLongPhong(vungCu, b)));
+      giuDau = coDn && !!(cu && cu.dn) && cu.dn_ma === maDn && dauCu.length > 0 && dauCu.length === cu.dn_so;
+      // 0. bỏ phần của lần vẽ trước nay không còn đúng (+ tường / cột / dầm cũ vướng khi người dùng đã đồng ý) + lỗ cửa / cột / dầm vẽ trùng (chồng khít lên cái đang giữ)
+      const E = co.ent;
+      const boE = [].concat(K.bo.tuong.map(i => E.tuong[i]), K.bo.lo.map(i => E.lo[i]), K.bo.cot.map(i => E.cot[i]), K.bo.dam.map(i => E.dam[i]), K.trung.lo.map(i => E.lo[i]), K.trung.cot.map(i => E.cot[i]), K.trung.dam.map(i => E.dam[i]));
       bo.tuong = K.bo.tuong.length; bo.mo = K.bo.lo.length; bo.cot = K.bo.cot.length; bo.dam = K.bo.dam.length;
+      trung.mo = K.trung.lo.length; trung.cot = K.trung.cot.length; trung.dam = K.trung.dam.length;
       if (opt.bo_chong) {
         for (const i of K.chong) if (boE.indexOf(E.tuong[i]) < 0) { boE.push(E.tuong[i]); bo.tuong++; }
         for (const i of K.thua.cot) { boE.push(E.cot[i]); bo.cot++; }
         for (const i of K.thua.dam) { boE.push(E.dam[i]); bo.dam++; }
       }
-      if (!giuDau && dauCu.length) { boE.push(...dauCu); bo.dn = dauCu.length; }
       if (boE.length) {
         opt.onStatus('Đang bỏ phần phòng cũ không còn đúng…');
         const er = await D.erase(boE);
@@ -4699,14 +4739,21 @@
         const b = D.boxOf(dam); that.dam[q] = b;
         if (Math.abs(b[4] - (c.z0 + o[2])) > 1 || Math.abs(b[5] - (c.z1 + o[2])) > 1) warnings.push(`${c.ten}: Chenfeng đặt dầm ở cao độ +${r2(b[4] - o[2])} → +${r2(b[5] - o[2])} (muốn +${c.z0} → +${c.z1}) — kéo lại cao độ dầm trong Chenfeng.`);
       }
-      // 5. điện – nước (bản 1.18): dấu trên mặt tường / trên sàn, dựng từ một file DXF nhỏ thả vào bản vẽ. Dấu của lần vẽ trước còn nguyên và không đổi thì giữ.
-      if (coDn && dem.tuong > 0) {
-        if (giuDau) dem.dn = dn.so;
-        else {
+      // 5. điện – nước (bản 1.18): dấu trên mặt tường / trên sàn, dựng từ một file DXF nhỏ thả vào bản vẽ. Dấu cũ còn nguyên và không đổi thì giữ; không thì bỏ dấu cũ rồi đánh lại
+      //    (tường không dựng được thì để yên dấu cũ — không bỏ mà không đánh lại được).
+      if (giuDau) { dem.dn = dn.so; giu.dn = dn.so; soNetDn = cu.dn_so; }
+      else if (dem.tuong > 0 || !coDn) {
+        const con = dauCu.filter(e => e && !e.IsErase);
+        if (con.length) {
+          opt.onStatus('Đang bỏ dấu điện – nước cũ…');
+          const er = await D.erase(con);
+          if (er.ok) bo.dn = con.length; else warnings.push(`Chưa bỏ hết dấu điện – nước cũ (còn ${er.con} nét) — xoá tay trong Chenfeng.`);
+        }
+        if (coDn) {
           opt.onStatus(`Đang đánh dấu ${dn.so} điểm điện – nước…`);
           await D.settle(300, 8000);
           const r = await D.importDXF(dn.dxf, { hop: dn.hop, ten: 'dien-nuoc.dxf' });
-          if (r.ok) dem.dn = dn.so; else warnings.push(`Chưa đánh dấu được ${dn.so} điểm điện – nước lên bản vẽ: ${r.reason} Phòng vẫn vẽ đủ; vị trí các điểm xem ở mặt bằng / mặt đứng trong bảng.`);
+          if (r.ok) { dem.dn = dn.so; them.dn = dn.so; soNetDn = r.ents.length; } else warnings.push(`Chưa đánh dấu được ${dn.so} điểm điện – nước lên bản vẽ: ${r.reason} Phòng vẫn vẽ đủ; vị trí các điểm xem ở mặt bằng / mặt đứng trong bảng.`);
         }
       }
     } catch (e) { errors.push('Lỗi khi vẽ phòng: ' + String(e && e.message || e)); await dongHopThoai(); if (D.busy()) await D.cancel(); }
@@ -4732,11 +4779,11 @@
     let daVe = null;
     try {
       const cua = W.filter((w, i) => coTuong[i] && !(K.tuong[i] && K.tuong[i].nam_tren));
-      daVe = Ph.banGhiPhong(Object.assign({}, moi, { tuong: cua }), { mo: that.mo, cot: that.cot, dam: that.dam, dn: dem.dn > 0 && dn && dn.hop ? [dn.hop.x0, dn.hop.x1, dn.hop.y0, dn.hop.y1, dn.hop.z0, dn.hop.z1] : null, dn_ma: maDn });
+      daVe = Ph.banGhiPhong(Object.assign({}, moi, { tuong: cua }), { mo: that.mo, cot: that.cot, dam: that.dam, dn: dem.dn > 0 && dn && dn.hop ? [dn.hop.x0, dn.hop.x1, dn.hop.y0, dn.hop.y1, dn.hop.z0, dn.hop.z1] : null, dn_ma: maDn, dn_so: soNetDn });
     } catch (e) { daVe = null; }
     if (steps > 0) D.lastRoom = { added, steps, mark: h1, da_ve: daVe };      // lần bấm thừa (bản vẽ không đổi) không ghi đè lần vẽ thật → "Hoàn tác phòng" vẫn lùi được lần vẽ trước
     opt.onStatus('Xong.');
-    return { ok: errors.length === 0 && dem.tuong > 0, errors, warnings, dem, them, giu, bo, khong_doi: steps === 0, da_ve: daVe, ten_phong: tenPhong, so_buoc_hoan_tac: steps, so_doi_tuong: added.length };
+    return { ok: errors.length === 0 && dem.tuong > 0, errors, warnings, dem, them, giu, bo, trung, khong_doi: steps === 0, da_ve: daVe, ten_phong: tenPhong, so_buoc_hoan_tac: steps, so_doi_tuong: added.length };
   };
   /** Hoàn tác lần vẽ phòng gần nhất (từ chối nếu sau đó bản vẽ đã có thao tác khác). */
   D.undoRoom = async () => {
@@ -7983,14 +8030,17 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       busy = false;
       const chan = r.giai_doan === 'chan';
       if (r.da_ve && !chan && (!r.khong_doi || (r.ok && !phong.da_ve))) {      // phòng đã có sẵn đúng chỗ mà chưa có bản ghi (vẽ từ bản trước): cũng ghi nhận để lần sau cập nhật được
-        if (!r.khong_doi) { daVeTruoc = phong.da_ve ? clone(phong.da_ve) : null; veLaCapNhat = !!(tongPhong(r.giu) || tongPhong(r.bo)); }
+        if (!r.khong_doi) { daVeTruoc = phong.da_ve ? clone(phong.da_ve) : null; veLaCapNhat = !!(tongPhong(r.giu) || tongPhong(r.bo) || tongPhong(r.trung) || (r.bo && r.bo.dn)); }
         phong.da_ve = r.da_ve; phongStore.save();
       }
       const d = r.dem || {}, h = [];
       if (chan) h.push(`<div class="msg err">${esc((r.errors || [])[0] || '')}</div><div class="frow" style="margin:0 0 8px"><button class="sec" data-act="p-ve-bo" title="Bỏ các tường cũ nằm trong lòng / nằm chồng lên phòng sắp vẽ (cùng cột, dầm cũ không khớp), rồi vẽ phòng theo số đang điền. Một lần Hoàn tác phòng trả lại tất cả.">Bỏ ${r.can_hoi ? r.can_hoi.trong + r.can_hoi.chong : ''} tường cũ nằm vướng rồi vẽ phòng</button></div>`);
       else if (r.ok && r.khong_doi) h.push(`<div class="msg ok">Phòng này đã có đủ trên bản vẽ (${kePhong(d)}${d.dn ? `, ${d.dn} dấu điện – nước` : ''}) — không vẽ chồng. Sửa số đo rồi bấm lại thì bảng chỉ vẽ phần thay đổi.</div>`);
-      else if (r.ok && (tongPhong(r.giu) || tongPhong(r.bo) || (r.bo && r.bo.dn))) {
-        const ph = [tongPhong(r.them) ? 'vẽ thêm ' + kePhong(r.them) : '', tongPhong(r.bo) ? `bỏ ${kePhong(r.bo)} ${boChong ? 'cũ nằm vướng' : 'của lần vẽ trước'}` : '', tongPhong(r.giu) ? 'giữ nguyên ' + kePhong(r.giu) : '', d.dn && r.bo && r.bo.dn ? `đánh lại ${d.dn} dấu điện – nước` : ''].filter(Boolean);
+      else if (r.ok && (tongPhong(r.giu) || tongPhong(r.bo) || tongPhong(r.trung) || (r.bo && r.bo.dn))) {
+        const boDn = !!(r.bo && r.bo.dn), themDn = (r.them && r.them.dn) || 0;
+        const ph = [tongPhong(r.them) ? 'vẽ thêm ' + kePhong(r.them) : '', tongPhong(r.bo) ? `bỏ ${kePhong(r.bo)} ${boChong ? 'cũ nằm vướng' : 'của lần vẽ trước'}` : '',
+          tongPhong(r.trung) ? `dọn ${kePhong(r.trung)} vẽ trùng (chồng khít lên cái đã có)` : '', tongPhong(r.giu) ? 'giữ nguyên ' + kePhong(r.giu) : '',
+          themDn ? `${boDn ? 'đánh lại' : 'đánh'} ${themDn} dấu điện – nước` : (boDn ? 'bỏ dấu điện – nước cũ' : '')].filter(Boolean);
         h.push(`<div class="msg ok">Đã cập nhật phòng: ${ph.join('; ')}. Bấm “Hoàn tác phòng” để về như trước lần cập nhật này.</div>`);
       }
       else if (r.ok) h.push(`<div class="msg ok">Đã vẽ phòng: ${d.tuong} tường${d.mo ? `, ${d.mo} cửa / ô trống` : ''}${d.cot ? `, ${d.cot} cột / hộp` : ''}${d.dam ? `, ${d.dam} dầm` : ''}${d.dn ? `, ${d.dn} dấu điện – nước (nét + nhãn trên mặt tường / trên sàn)` : ''}. Sửa tiếp bằng các lệnh ở thẻ House Design của Chenfeng.</div>`);

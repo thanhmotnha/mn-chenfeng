@@ -336,6 +336,34 @@ T('Vẽ lại phòng không vẽ chồng (bản 1.23 — anh Jason 04/10/2026 23
   const w12 = { a: [0, 0], b: [3000, 0], z: 0, cao: 2700, day: 110 };
   eq([P.tuongPhuKin(w12, { tuong: [tuongThat([0, 0], [3000, 0], 110)] }), P.tuongPhuKin(w12, { tuong: [tuongThat([0, 0], [1800, 0], 110), tuongThat([1910, 0], [3000, 0], 110)] }), P.tuongPhuKin(w12, { tuong: [tuongThat([0, 0], [1800, 0], 110)] }), P.tuongPhuKin(w12, { tuong: [] }), P.tuongPhuKin(w12, { tuong: [tuongThat([0, 0], [3000, 0], 110), tuongThat([0, -500], [3000, -500], 110)].slice(1) })],
     [true, true, false, false, false], 'tuongPhuKin: một mặt trùm kín → có; hai mảnh cách nhau một bề dày tường (tường khác cắt ngang) → có; thiếu một đoạn / không có tường / tường nằm đường khác → chưa có');
+  // 13. lỗ cửa / cột / dầm vẽ TRÙNG (bản trước bấm "Vẽ phòng" hai lần: tường không chồng nhưng lỗ cửa, cột, dầm thành hai cái chồng khít nhau): cái thừa ghi vào `trung` để máy vẽ dọn — kể cả khi không có bản ghi
+  const co13 = banVe(moi); co13.lo.push({ hop: co13.lo[0].hop.slice() }); co13.cot.push({ hop: co13.cot[0].hop.slice() }, { hop: co13.cot[0].hop.slice() }); co13.dam.push({ hop: co13.dam[0].hop.slice() });
+  k = P.doiChieuPhong(moi, co13, null);
+  eq([k.mo.map(t => t.co), k.cot.map(t => t.co), k.dam.map(t => t.co), k.trung, k.thua, k.bo], [[0, 1], [0], [0], { lo: [2], cot: [1, 2], dam: [1] }, { cot: [], dam: [] }, { tuong: [], lo: [], cot: [], dam: [] }],
+    'lỗ cửa / cột / dầm chồng khít lên cái đang giữ: ghi vào `trung` (không phải cột "lạc trong phòng", không phải "của lần vẽ trước")');
+  k = P.doiChieuPhong(moi, co13, ghi(moi, co1));
+  eq([k.trung, k.bo], [{ lo: [2], cot: [1, 2], dam: [1] }, { tuong: [], lo: [], cot: [], dam: [] }], 'có bản ghi: cái chồng khít vẫn là "vẽ trùng" — không báo thành "bỏ … của lần vẽ trước"');
+  eq(P.doiChieuPhong(moi, co1, null).trung, { lo: [], cot: [], dam: [] }, 'không có cái nào trùng: rỗng');
+  const co13b = banVe(moi); co13b.cot.push({ hop: [1250, 1550, -200, 0, 0, 2700] });
+  eq([P.doiChieuPhong(moi, co13b, null).trung.cot, P.doiChieuPhong(moi, co13b, null).thua.cot], [[], [1]], 'cột lệch 50 so với cột đang giữ: không phải vẽ trùng (vẫn là cột lạc trong phòng — chỉ bỏ khi người dùng đồng ý)');
+  // 14. dấu điện – nước cũ khi KHÔNG có bản ghi: nhận ra theo chỗ — tâm hộp của nét / chữ nằm trong lòng phòng sắp vẽ (dấu trên mặt tường nhô vào phòng 2 mm), cao độ từ sàn tới trần
+  const tl = (h, m) => P.trongLongPhong(m || moi, h);
+  eq([tl([890, 1010, -2, -2, 260, 340]), tl([1400, 1510, -310, -200, 1, 1]), tl([890, 1010, 0, 0, 260, 340]), tl([890, 1010, 110, 112, 260, 340]), tl([3112, 3112, -900, -700, 260, 340]), tl([890, 1010, -2, -2, 2800, 2900])], [true, true, true, false, false, false],
+    'trongLongPhong: dấu trên mặt tường A (nhô 2 mm) / trên sàn / nằm đúng mép tường → trong; dấu sau lưng tường, dấu của phòng bên kia tường chung (cách 112), dấu cao hơn trần → ngoài');
+  const pL = { ten: 'L', cao: 2700, day: 110, tuong: [{ dai: 4000, re: 90 }, { dai: 2000, re: 90 }, { dai: 1500, re: -90 }, { dai: 1500, re: 90 }, { dai: 2500, re: 90 }, { dai: 'auto', re: 90 }], goc: [0, 0, 0] }, moiL = P.phanPhong(P.hinhHoc(pL), 110);
+  eq([moiL.kin, tl([3000, 3100, -3002, -3002, 300, 380], moiL), tl([1000, 1100, -3498, -3498, 300, 380], moiL), tl([2498, 2498, -2500, -2400, 300, 380], moiL)], [true, false, true, true], 'phòng chữ L: dấu nằm ở phần khuyết (trong hộp bao nhưng ngoài lòng phòng) không tính; dấu trên tường đáy và trên tường của phần khuyết thì tính');
+  const moiHo = P.phanPhong(P.hinhHoc({ ten: 'Ho', cao: 2700, tuong: [{ dai: 3000, re: 90 }, { dai: 2400, re: 90 }], goc: [0, 0, 0] }), 110);
+  eq([moiHo.kin, tl([890, 1010, -2, -2, 260, 340], moiHo), tl([2998, 2998, -1300, -1200, 260, 340], moiHo), tl([5000, 5100, -2, -2, 260, 340], moiHo)], [false, true, true, false], 'phòng chưa khép kín: tính theo hộp bao các tường');
+  eq(P.trongLongPhong(P.phanPhong(P.hinhHoc(Object.assign({}, p, { goc: [1000, 500, 50] })), 110), [1890, 2010, 498, 498, 310, 390]), true, 'điểm đặt phòng dời thì vùng dời theo');
+  // 15. vùng của LẦN VẼ TRƯỚC dựng lại từ bản ghi (để tìm dấu điện – nước cũ khi phòng đã đổi cỡ / dời chỗ): đủ vòng tường thì là đa giác kín, thiếu tường (tường chung không ghi) thì tính theo hộp bao
+  const vung = P.vungBanGhi(cu);
+  eq([vung.kin, vung.tuong.length, vung.tuong[1], P.trongLongPhong(vung, [890, 1010, -2, -2, 260, 340]), P.trongLongPhong(vung, [890, 1010, 110, 112, 260, 340])], [true, 4, { a: [3000, 0], b: [3000, -2400], z: 0, cao: 2700, day: 110 }, true, false], 'vungBanGhi: bản ghi đủ 4 tường → đa giác kín đúng lòng phòng cũ');
+  const vung3 = P.vungBanGhi(Object.assign({}, cu, { tuong: cu.tuong.slice(0, 3) }));
+  eq([vung3.kin, P.trongLongPhong(vung3, [1400, 1510, -310, -200, 1, 1]), P.vungBanGhi(null), P.vungBanGhi({ tuong: [] })], [false, true, null, null], 'bản ghi thiếu tường: vùng = hộp bao các tường đã ghi; không có bản ghi / không có tường → null');
+  // số nét dấu điện – nước đã dựng đi theo bản ghi (dn_so) → lần sau thấy trên bản vẽ đúng ngần ấy nét, nội dung không đổi thì giữ; khác số (bị vẽ chồng / bị xoá bớt) thì đánh lại
+  const cuDn = P.banGhiPhong(moi, { mo: co1.lo.map(x => x.hop), cot: co1.cot.map(x => x.hop), dam: co1.dam.map(x => x.hop), dn: [2, 2998, -2398, -2, 1, 1600], dn_ma: 'abc.1f', dn_so: 20 });
+  eq([cuDn.dn, cuDn.dn_ma, cuDn.dn_so, P.chuanHoa(Object.assign({}, p, { da_ve: cuDn })).da_ve.dn_so], [[2, 2998, -2398, -2, 1, 1600], 'abc.1f', 20, 20], 'bản ghi nhớ hộp bao, mã nội dung và SỐ NÉT của dấu điện – nước; chuanHoa giữ');
+  ok(P.chuanHoa(Object.assign({}, p, { da_ve: Object.assign({}, cuDn, { dn_so: -3 }) })).da_ve.dn_so === undefined && P.banGhiPhong(moi, { dn: [0, 1, 0, 1, 0, 1], dn_so: 'x' }).dn_so === undefined && P.banGhiPhong(moi, { dn_so: 5 }).dn_so === undefined, 'số nét hỏng / không có hộp dấu: không ghi');
   // bản ghi đi theo phòng qua chuẩn hoá (lưu trong máy cùng phòng), số liệu hỏng thì bỏ
   const pg = P.chuanHoa(Object.assign({}, p, { da_ve: cu }));
   eq(pg.da_ve, cu, 'chuanHoa giữ bản ghi lần vẽ');

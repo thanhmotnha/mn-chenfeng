@@ -378,6 +378,49 @@ async function tienIch() {
       kq2 = await vePh();
       ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng chỉ dựng được 0\/4 tường/.test(kq2), 'Chenfeng không dựng tường: báo lỗi thật', kq2);
       await page.evaluate(() => { window.__MOCK_TUONG_HONG__ = false; });
+      // 8. phòng vẽ từ BẢN TRƯỚC (không có bản ghi) mà đã bấm "Vẽ phòng" hai lần: lỗ cửa / cột / dầm đang chồng đôi, dấu điện – nước có sẵn → bấm lại: dọn cái trùng, không vẽ chồng dấu
+      const dauO = () => page.evaluate(() => { const M = window.__MOCK__, ds = M.ents.filter(e => !e.IsErase && (e instanceof M.Line || e instanceof M.Circle || e instanceof M.Polyline || e instanceof M.Text) && e.box[0] > 99000 && e.box[0] < 110000);
+        return { so: ds.length, tx: ds.filter(e => e instanceof M.Text).map(e => e.TextString).sort(), pl: ds.filter(e => e instanceof M.Polyline).map(e => e.box.map(v => Math.round(v))) }; });
+      const P3 = Object.assign({}, PHONG, { goc: [100000, 0, 0], day: 220, khung: [], mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200 }],
+        can: [{ tuong: 0, loai: 'cot', cach: 0, rong: 220, nho: 300, z0: 0, z1: 2700 }, { tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }],
+        dn: [{ tuong: 0, loai: 'o_dien', cach: 950, cao: 300 }, { tuong: 1, loai: 'cap_nuoc', cach: 1340, cao: 650 }, { tuong: 0, loai: 'thoat_san', cach: 1500, ra: 300 }] });
+      const nen8 = await demPh(), cong8 = d => nen8.map((v, i) => v + d[i]);
+      await page.evaluate(p => { window.MNCFDriver.lastRoom = null; window.MNCF.phong.dat(p); }, P3);
+      kq2 = await vePh();
+      ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm, 3 dấu điện – nước/.test(kq2) && (await dauO()).so === 20, '(chuẩn bị) phòng có 3 điểm điện – nước: 20 nét + chữ trên bản vẽ', [kq2, await dauO()]);
+      await page.evaluate(() => { const M = window.__MOCK__, nhan = (e, C) => { const c = new C(); Object.assign(c, { box: e.box.slice(), tuong: e.tuong, tam: e.tam, cfg: e.cfg }); M.ents.push(c); };
+        for (const C of [M.RoomHolePolyline, M.RoomPillar, M.RoomGirder]) for (const e of M.ents.filter(x => x instanceof C && !x.IsErase && x.box[0] > 99000 && x.box[0] < 110000)) nhan(e, C);
+        window.MNCFDriver.lastRoom = null; });
+      await doiPh('delete p.da_ve;');
+      eq1(await demPh(), cong8([4, 2, 2, 2, 1]), '(chuẩn bị) như bản trước bấm hai lần: lỗ cửa, cột, dầm chồng đôi');
+      kq2 = await vePh();
+      ok(/Đã cập nhật phòng: dọn 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm vẽ trùng \(chồng khít lên cái đã có\); giữ nguyên 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm; đánh lại 3 dấu điện – nước/.test(kq2) && !/Chưa vẽ xong|chỉ vẽ được|chỉ dựng được/.test(kq2), 'phòng cũ không có bản ghi: dọn lỗ cửa / cột / dầm vẽ trùng, giữ phần đúng, đánh lại dấu — không báo lỗi tường', kq2);
+      eq1([await demPh(), (await dauO()).so], [cong8([4, 1, 1, 1, 1]), 20], '… bản vẽ còn đúng 1 lỗ cửa, 1 cột, 1 dầm; dấu điện – nước vẫn 20 nét (không thành 40)');
+      kq2 = await vePh();
+      ok(/Phòng này đã có đủ trên bản vẽ \(4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm, 3 dấu điện – nước\) — không vẽ chồng/.test(kq2) && (await dauO()).so === 20, 'bấm lần nữa (đã có bản ghi): báo đã có đủ, dấu giữ nguyên', [kq2, await dauO()]);
+      // 9. dấu điện – nước bị chồng đôi từ trước (có bản ghi, nội dung không đổi nhưng trên bản vẽ đang có gấp đôi số nét) → đánh lại cho sạch
+      await page.evaluate(() => { const M = window.__MOCK__; for (const e of M.ents.filter(x => !x.IsErase && (x instanceof M.Line || x instanceof M.Circle || x instanceof M.Polyline || x instanceof M.Text) && x.box[0] > 99000 && x.box[0] < 110000)) { const c = new e.constructor(); Object.assign(c, e, { box: e.box.slice() }); M.ents.push(c); } });
+      eq1((await dauO()).so, 40, '(chuẩn bị) dấu chồng đôi: 40 nét');
+      kq2 = await vePh();
+      ok(/Đã cập nhật phòng: giữ nguyên 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm; đánh lại 3 dấu điện – nước/.test(kq2) && (await dauO()).so === 20, 'dấu chồng đôi: bỏ hết dấu cũ, đánh lại đúng một bộ', [kq2, await dauO()]);
+      // 10. không có bản ghi + bỏ bớt một điểm ở xa (cấp nước tường B): dấu cũ của điểm đó cũng đi, không sót lại; nét / chữ của người dùng (màu khác, chữ không phải nhãn của bảng) không bị đụng
+      await page.evaluate(() => { const M = window.__MOCK__, l = new M.Line(), t = new M.Text(), l2 = new M.Line(); l.box = [100500, 101500, -1500, -1500, 0, 0]; l.ColorIndex = 7; t.box = [100500, 100500, -1600, -1600, 0, 0]; t.ColorIndex = 30; t.TextString = 'Ghi chu cua toi';
+        l2.box = [100500, 100600, 500, 500, 300, 300]; l2.ColorIndex = 30;      // nét cùng màu dấu điện nhưng nằm NGOÀI phòng (sau lưng tường A — dấu của phòng bên)
+        M.ents.push(l, t, l2); window.MNCFDriver.lastRoom = null; });
+      await doiPh('delete p.da_ve; p.dn.splice(1, 1);');
+      kq2 = await vePh();
+      const d10 = await dauO();
+      ok(/Đã cập nhật phòng: giữ nguyên 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm; đánh lại 2 dấu điện – nước/.test(kq2) && d10.so === 15 && JSON.stringify(d10.tx) === '["Ghi chu cua toi","O1","O1 +300","TS1"]', 'bỏ một điểm rồi vẽ lại (không có bản ghi): dấu cũ đi hết, còn đúng 12 nét của 2 điểm + nét, chữ riêng của người dùng + nét cùng màu nằm ngoài phòng', [kq2, d10]);
+      // 11. phòng không còn điểm điện – nước nào: dấu cũ trong phòng được bỏ
+      await doiPh('p.dn = [];');
+      kq2 = await vePh();
+      const d11 = await dauO();
+      ok(/Đã cập nhật phòng: giữ nguyên 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm; bỏ dấu điện – nước cũ/.test(kq2) && d11.so === 3 && JSON.stringify(d11.tx) === '["Ghi chu cua toi"]', 'phòng hết điểm điện – nước: bỏ dấu cũ; nét / chữ của người dùng và nét ngoài phòng còn nguyên', [kq2, d11]);
+      await H.locator('[data-act="p-hoantac"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác lần cập nhật phòng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+      eq1((await dauO()).so, 15, 'Hoàn tác phòng: dấu vừa bỏ trở lại');
+      // dọn nét / chữ của khối thử này (các phép thử điện – nước phía sau đếm trên cả bản vẽ)
+      await page.evaluate(() => { const M = window.__MOCK__; for (const e of M.ents) if (!e.IsErase && (e instanceof M.Line || e instanceof M.Circle || e instanceof M.Polyline || e instanceof M.Text) && e.box[0] > 99000 && e.box[0] < 110000) e.IsErase = true; window.MNCFDriver.lastRoom = null; });
     }
     // dầm bị Chenfeng ép cao độ (đỉnh dầm không vượt trần của Chenfeng) → báo rõ
     await page.evaluate(p => { window.__MOCK_TRAN__ = 2600; window.MNCF.phong.dat(Object.assign({}, p, { khung: [], mo: [], can: [{ tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }] })); }, PHONG);
