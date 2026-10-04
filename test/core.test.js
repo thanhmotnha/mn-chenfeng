@@ -393,6 +393,12 @@ T('Xuất cho Chenfeng (晨丰导入)', () => {
   const M0 = C.build(Object.assign({}, TU_2000, { ngan_keo: { mau_id: 0 } }));
   ok(M0.warnings.some(w => /Chưa khai mã mẫu ngăn kéo/.test(w)) && C.toChenfeng(M0).so_mau === 2, 'chưa khai mã mẫu → cảnh báo, không xuất mẫu ngăn kéo');
   eq(C.mauCF(M0).map(x => x.tp.loai), ['SUOT', 'SUOT'], 'mẫu chưa khai mã thì không có trong danh sách');
+  // ngăn kéo âm ở khoang 1 + ngăn kéo TRÙM NGOÀI ở khoang 2: mỗi hộp đi với đúng mặt ngăn kéo của nó (cùng khoang, cùng cao độ), không lấy nhầm mặt của hộp khác
+  const Mt = C.build({ ma: 'NT', rong: 1600, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 0, dot: [600], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] }] });
+  const dsT = C.mauCF(Mt).filter(x => x.tp.loai === 'NGAN_KEO');
+  eq([Mt.errors, dsT.map(x => [x.tp.kieu, x.tp.khoang, !!x.mat, x.mat && x.mat.khoang, x.mat && !!x.mat.trum, x.mat && Mt.mat_ngan_keo.indexOf(x.mat)])],
+    [[], [['nk_am', 0, true, 0, false, 0], ['nk_am', 0, true, 0, false, 1], ['nk_trum', 1, true, 1, true, 2], ['nk_trum', 1, true, 1, true, 3]]], 'mauCF: 2 hộp ngăn kéo âm + 2 hộp trùm ngoài — hộp thứ k đi với mặt ngăn kéo thứ k');
+  ok(dsT.every(x => x.mat.z >= x.tp.pos[2] - 40 && x.mat.z + x.mat.h <= x.tp.pos[2] + x.tp.box[2] + 40), '… mặt nằm ngang tầm với hộp của nó', dsT.map(x => [x.tp.pos[2], x.tp.box[2], x.mat.z, x.mat.h]));
 });
 
 T('Bảng kê, CSV, tóm tắt', () => {
@@ -997,6 +1003,33 @@ T('Khoảng trống mỗi lệnh gốc phải dò ra (khoangMong) khớp với c
   // tấm trùm lên điểm trên hình chiếu (hậu) không tính là tấm chắn; chưa có tấm phía nào thì phía đó để trống
   eq(C0.khoangMong([{ x0: 0, x1: 18, z0: 0, z1: 2200 }, { x0: 982, x1: 1000, z0: 0, z1: 2200 }, { x0: 0, x1: 1000, z0: 100, z1: 2100 }], [500, 300, 1100]), { x0: 18, x1: 982, z0: null, z1: null }, 'chỉ có 2 hồi + hậu: trái / phải là 2 hồi, trên / dưới để trống');
   eq(C0.khoangMong([], [0, 0, 0]), { x0: null, x1: null, z0: null, z1: null }, 'chưa vẽ tấm nào: không có khoảng mong đợi');
+});
+
+// Bản 1.23 — anh Jason 04/10/2026 23:02: "khấu cột giữa thì phải cân đối khoang tủ … thường khấu sẽ nằm trong khoang tủ". Cột nằm trong khoang thì hộp che cột chỉ chiếm phần SAU của một đoạn khoang;
+// trước bản này suốt treo của khoang đó bị dồn ra phần nông trước cột (tâm suốt cách mặt trước 175) → móc áo chạm cánh, bảng báo "khoang treo chỉ sâu 350" cho cả hai khoang cạnh cột.
+T('Khấu cột: suốt treo của khoang dính cột vẫn nằm giữa chiều sâu thật của khoang khi thanh suốt đi lọt trước hộp che cột (bản 1.23)', () => {
+  const C = require('../src/mncf-core.js');
+  const TA4 = { ma: 'TA4', rong: 3000, cao: 2700, sau_thung: 582.5, than: { cao_duoi: 2200 }, chan: { cao: 100 }, phao: { trai: 50, phai: 50, tren: 50, phu_tro: 80, noi: 'moi_vach' },
+    khoang: [{ rong: 'auto', canh: 2, dot: [1900], o: [{ tu: 100, kieu: 'suot' }] }, { rong: 'auto', canh: 2, dot: [570], o: [{ tu: 100, kieu: 'nk_am', so: 2 }, { tu: 570, kieu: 'suot' }] }, { rong: 'auto', canh: 2, dot: [450, 790, 1130, 1470, 1810], o: [] }] };
+  const suot = M => M.templates.filter(t => t.loai === 'SUOT').map(t => [t.khoang, t.pos, t.box]);
+  const M0 = C.build(TA4);
+  eq([M0.errors, suot(M0)], [[], [[0, [67.5, 0, 117.5], [941, 576.5, 1782.5]], [1, [1026, 0, 587.5], [940, 576.5, 1595]]]], '(không cột) hai suốt treo sâu trọn khoang 576,5 — tâm suốt cách mặt trước 288');
+  // cột giữa 300 × 200 đứng sau vách giữa khoang 1 và 2: mặt trước hộp che cột ở +350, thanh suốt ở +288 đi lọt phía trước
+  const M1 = C.build(Object.assign({}, TA4, { khau: { giua: [{ cach: 1000, rong: 300, sau: 200 }], ho: 15 } }));
+  eq([M1.errors, M1.info.khau.map(k => k.sau_thung), suot(M1)], [[], [350], suot(M0)], 'cột giữa 300 × 200: suốt treo hai khoang dính cột y như tủ không cột (không bị dồn ra phần nông trước cột)');
+  ok(!M1.warnings.some(w => /khoang treo chỉ sâu/.test(w)), '… không còn cảnh báo "khoang treo chỉ sâu 350"', M1.warnings);
+  const che = M1.warnings.filter(w => /hộp che cột/.test(w));
+  ok(che.length === 1 && /^Khoang 2: hộp che cột chiếm 306,5 trong 940 bề ngang/.test(che[0]) && /còn 633,5/.test(che[0]), '… chỉ nhắc khoang bị hộp che cột chiếm đáng kể (khoang 2: 306,5 / 940, còn treo được 633,5); khoang 1 chỉ mất 47,5 thì không nhắc', che);
+  eq(M1.templates.filter(t => t.loai === 'NGAN_KEO').map(t => t.box[1]), [300, 300], '… hộp ngăn kéo (chạy hết bề ngang khoang) thì vẫn nông theo phần trước cột');
+  // cột sâu 260: mặt trước hộp che cột ở +290, thanh suốt ở +288 không còn lọt → suốt dồn ra phần nông như cũ, có cảnh báo
+  const k2 = TA4.khoang.map((k, i) => (i === 1 ? Object.assign({}, k, { o: [{ tu: 570, kieu: 'suot' }] }) : k));
+  const M2 = C.build(Object.assign({}, TA4, { khoang: k2, khau: { giua: [{ cach: 1000, rong: 300, sau: 260 }], ho: 15 } }));
+  eq([M2.errors, M2.info.khau.map(k => k.sau_thung), suot(M2).map(x => x[2][1])], [[], [290], [290, 290]], 'cột sâu 260: thanh suốt không lọt trước hộp che cột → suốt treo nằm trong phần nông 290');
+  eq(M2.warnings.filter(w => /khoang treo chỉ sâu 290/.test(w)).length, 2, '… và cảnh báo khoang treo nông cho cả hai khoang');
+  // cột góc trái 300 × 200: như cột giữa — suốt khoang 1 sâu trọn khoang, nhắc phần bị che
+  const M3 = C.build(Object.assign({}, TA4, { khau: { trai: { rong: 300, sau: 200 }, ho: 15 } }));
+  eq([M3.errors, suot(M3)], [[], suot(M0)], 'cột góc trái 300 × 200: suốt treo khoang 1 vẫn sâu trọn khoang');
+  ok(M3.warnings.some(w => /^Khoang 1: hộp che cột chiếm 265 trong 941 bề ngang/.test(w) && /còn 676/.test(w)) && !M3.warnings.some(w => /khoang treo chỉ sâu/.test(w)), '… nhắc khoang 1 mất 265 bề ngang treo, còn 676', M3.warnings);
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

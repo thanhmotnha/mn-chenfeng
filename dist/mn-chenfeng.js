@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.22.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.23.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.22.0';
+  const VERSION = '1.23.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -796,6 +796,11 @@
     // hộp ngăn kéo (không kể mặt) cao bao nhiêu với mặt cao `mat`: mẫu để hộp thấp hơn mép trên mặt SLK, cao hơn mép dưới mặt XLK
     const hopCao = (lo, mat) => ('CMG' in lo.ts ? Infinity : mat - (typeof lo.ts.SLK === 'number' ? lo.ts.SLK : 0) - (typeof lo.ts.XLK === 'number' ? lo.ts.XLK : 0));
     if (cells.some(c => c.kieu === 'suot') && !s.suot.mau_id) warn('Chưa khai mã mẫu suốt treo (Chuẩn xưởng → Suốt treo): suốt treo sẽ không được vẽ.', 'mau');
+    // Suốt treo ở khoang dính vùng khấu cột (bản 1.23 — cột nằm TRONG khoang): hộp che cột chỉ chiếm phần SAU của một đoạn khoang. Thanh suốt nằm giữa chiều sâu khoang; nếu nó
+    // (kể cả bas đỡ, hở SUOT_HO) đi lọt TRƯỚC mặt hộp che cột thì suốt vẫn đặt như khoang thường — hai đầu bắt vào tấm đứng hai bên khoang (tấm bị khấu vẫn sâu tới mặt hộp).
+    // Không lọt thì suốt lùi ra phần nông trước cột như trước (kiemSX cảnh báo khoang treo nông).
+    const SUOT_HO = 30, sauDay = shelfDepth, daNhacCot = new Set();
+    const cotChe = i => { const a = bayX(i), b2 = a + widths[i]; let che = 0; for (const K of KH) if (!kNgoai(K, a, b2)) che += Math.max(0, Math.min(b2, K.xb + K.eB) - Math.max(a, K.xa - K.eA)); return rn(che); };
     for (const c of cells) {
       if (!c.kieu) continue;
       const i = c.khoang, k = s.khoang[i], za = c.z0, zb = c.z1, cao = zb - za, m = c.so;
@@ -808,8 +813,10 @@
       }
       if (c.kieu === 'suot') {
         if (cao < s.suot.cach_dot + 60) { err(`${viTri}: khoảng treo chỉ cao ${g(cao)} — không đủ chỗ treo suốt.`, 'suot'); continue; }
+        const lot = shelfDepth < sauDay - TOL && sauDay / 2 + SUOT_HO <= shelfDepth + TOL;      // khoang dính cột mà thanh suốt đi lọt trước hộp che cột
         M.templates.push({ loai: 'SUOT', id: s.suot.mau_id, ten: s.suot.ten_mau, tu: c.b.tu, khoang: i,
-          box: [rn(widths[i]), rn(shelfDepth), rn(cao)], pos: [bayX(i), 0, rn(za)], params: { BH: t, JS: s.suot.cach_dot, YGKC: 0 } });
+          box: [rn(widths[i]), rn(lot ? sauDay : shelfDepth), rn(cao)], pos: [bayX(i), 0, rn(za)], params: { BH: t, JS: s.suot.cach_dot, YGKC: 0 } });
+        if (lot && !daNhacCot.has(i)) { daNhacCot.add(i); const che = cotChe(i); if (che >= 100) warn(`Khoang ${i + 1}: hộp che cột chiếm ${g(che)} trong ${g(widths[i])} bề ngang ở phía sau — đoạn suốt treo nằm trước cột không treo được móc áo ngang (còn ${g(rn(widths[i] - che))} treo được).`, 'suot'); }
         continue;
       }
       if (c.kieu === 'nk_am') {
@@ -2492,8 +2499,11 @@
     const tranThan = (s.than.cao_duoi || q.cao) - 250;
     let bo = 0;
     s.khoang = s.khoang.map(k => {
-      const dot = (Array.isArray(k.dot) ? k.dot : []).filter(z => z < tranThan), o = (k.o || []).filter(c => c.tu === 0 || dot.some(z => Math.abs(z - c.tu) < 0.6));
-      bo += (Array.isArray(k.dot) ? k.dot.length : 0) - dot.length;
+      const tat = Array.isArray(k.dot) ? k.dot : [], dot = tat.filter(z => z < tranThan), boDot = tat.filter(z => !(z < tranThan));
+      // nội dung ô chỉ bỏ khi chính đợt ĐỠ nó bị bỏ. Ô sát đáy thì giữ: bảng ghi cao độ ô = mặt dưới tấm đáy (tủ có chân 100 → tu = 100, không phải 0) —
+      // trước bản 1.23 phép lọc chỉ nhận tu = 0 nên suốt treo / ngăn kéo ở ô sát đáy của tủ có chân bị bỏ mất mỗi lần đổi khung.
+      const o = (k.o || []).filter(c => !boDot.some(z => Math.abs(z - c.tu) < 0.6));
+      bo += tat.length - dot.length;
       return Object.assign({}, k, { rong: 'auto', dot, o });
     });
     if (bo) ghi.push(`Khung thấp: đã bỏ ${bo} đợt của mẫu nằm quá cao.`);
@@ -4115,7 +4125,7 @@
    */
   /**
    * Danh sách đối tượng của một tủ SAU một lệnh của Chenfeng = cái còn sống trong danh sách cũ + cái mới sinh ra từ mốc `truoc` (tập đối tượng của bản vẽ lúc trước lệnh).
-   * Đo trên Chenfeng thật 04/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là đối tượng khác:
+   * Đo trên Chenfeng thật 05/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là đối tượng khác:
    * DRAWHOLE (mọi lỗ của tấm được chọn), MODELING (558 lỗ của các tấm được gom; 48 lỗ trong lòng hộp ngăn kéo giữ nguyên), ROTATE (cả 606 lỗ, kể cả lỗ không nằm trong tập chọn);
    * UpdateTemplateTree giữ nguyên đối tượng lỗ. Giữ danh sách cũ thì phép dò lỗi chỉ còn thấy lỗ của hộp ngăn kéo → báo oan "N tấm có kiểu khoan mà không có lỗ nào".
    */
@@ -4203,7 +4213,7 @@
             r = await nhap([x]);
             if (r.ok) break;
             x.ly_do = r.ly_do; x.bao = r.bao || '';
-            if (r.ly_do === 'huy' || r.treo) break;
+            if (r.ly_do === 'huy' || r.treo || r.ly_do === 'lech') break;      // đặt lệch là chuyện của cách Chenfeng đặt mẫu — thử lại cũng lệch như thế
             if (r.ly_do === 'khong_thuoc_tk') {
               const id0 = x.tp.id;
               if (mauLoi.khong_thuoc.has(id0)) break;      // mẫu thay cũng không dùng được
@@ -4217,6 +4227,7 @@
           if (x.xong) { hongLien = 0; continue; }
           if (r.treo) { thoiVi(r, thu.slice(i)); break; }
           if (x.ly_do === 'huy') { for (const y of thu.slice(i + 1)) if (!y.xong) y.ly_do = 'huy'; break; }
+          if (x.ly_do === 'lech') { for (const y of thu.slice(i + 1)) if (!y.xong) { y.ly_do = 'lech'; y.bao = x.bao; } break; }      // một mẫu thêm riêng mà vẫn lệch → các mẫu còn lại cũng sẽ lệch: thôi
           if (x.ly_do === 'may_chu') { hongLien++; maHong.add(x.tp.id); }
         }
       }
@@ -4234,7 +4245,9 @@
     const out = [];
     for (const d of tm.doi_ma) out.push(`Ngăn kéo / suốt treo: mã mẫu ${d.tu} (${d.ten}) ghi ở thẻ Chuẩn xưởng không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập — đã dùng mẫu cùng tên của tài khoản này (mã ${d.sang}). Bấm “Dò mã mẫu từ kho Chenfeng” ở thẻ Chuẩn xưởng để lưu mã đúng.`);
     const theo = ly => tm.thieu.filter(x => x.ly_do === ly);
-    const mc = theo('may_chu').concat(theo('lech'));
+    const lech = theo('lech');
+    if (lech.length) out.push(`Chưa thêm được ${keMau(lech)}: Chenfeng đặt mẫu lệch chỗ thiết kế nên bảng đã bỏ các mẫu đó (không để ngăn kéo / suốt treo nằm sai trong tủ). Phần tấm của tủ đã vẽ đủ. Có thể bản Chenfeng vừa đổi cách đặt mẫu — báo lại để sửa bảng; trong lúc chờ, chèn ngăn kéo / suốt treo bằng lệnh của Chenfeng.`);
+    const mc = theo('may_chu');
     if (mc.length) {
       const b = mc.map(x => x.bao).find(Boolean), treo = mc.some(x => x.treo);
       out.push(`Chưa thêm được ${keMau(mc)}: ${treo ? 'máy chủ Chenfeng không trả lời (mạng tới máy chủ Chenfeng đang chậm hoặc rớt)' : 'máy chủ Chenfeng không trả mẫu (mạng tới máy chủ Chenfeng đang chậm hoặc rớt — bảng đã thử lại)'}. Phần tấm của tủ đã vẽ đủ; lúc mạng ổn bấm “Cập nhật tủ này” để bảng vẽ lại tủ kèm ngăn kéo / suốt treo.${b ? ` (Chenfeng báo: “${String(b).slice(0, 110)}”)` : ''}`);
@@ -7219,7 +7232,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
         <fieldset><legend>Phào, chân, chia thân</legend><div class="g g3">${numField('phao.trai', 'Phào trái')}${numField('phao.phai', 'Phào phải')}${numField('phao.tren', 'Phào trên')}${numField('chan.cao', 'Chân (xà trước)')}${numField('than.cao_duoi', 'Cao thân dưới', 'title="Tủ cao hơn khổ ván thì chia thân dưới + thân kịch trần tại cao độ này. 0 = một thân."')}</div></fieldset>
         <fieldset><legend>Khấu cột (cột sát tường sau: ở góc hoặc giữa tủ)</legend><div class="g g3">${numField('khau.trai.rong', 'Cột TRÁI: lấn ngang', 'placeholder="0 = không" title="Cột lấn vào tủ bao nhiêu theo chiều ngang, đo từ mép ngoài phủ bì bên trái (kể cả phào)"')}${numField('khau.trai.sau', 'Cột TRÁI: lấn sâu', 'title="Cột lấn vào tủ bao nhiêu theo chiều sâu, đo từ lưng tủ"')}${numField('khau.ho', 'Khe hở quanh cột', 'title="Khe chừa giữa cột và tủ, cả mặt bên lẫn mặt trước cột. Mặc định 15; thường để 10–20 để lúc lắp còn chỗ xử lý (cột, tường không phẳng) rồi bắn nẹp / bơm keo che khe"')}${numField('khau.phai.rong', 'Cột PHẢI: lấn ngang', 'placeholder="0 = không" title="Đo từ mép ngoài phủ bì bên phải"')}${numField('khau.phai.sau', 'Cột PHẢI: lấn sâu')}${numField('khau.giua.0.cach', 'Cột GIỮA 1: cách mép trái', 'title="Khoảng cách từ mép ngoài phủ bì bên trái của tủ tới mặt trái của cột"')}${numField('khau.giua.0.rong', 'Cột GIỮA 1: rộng', 'placeholder="0 = không"')}${numField('khau.giua.0.sau', 'Cột GIỮA 1: sâu', 'title="Cột lấn vào tủ bao nhiêu theo chiều sâu, đo từ lưng tủ"')}${numField('khau.giua.1.cach', 'Cột GIỮA 2: cách mép trái')}${numField('khau.giua.1.rong', 'Cột GIỮA 2: rộng', 'placeholder="0 = không"')}${numField('khau.giua.1.sau', 'Cột GIỮA 2: sâu')}</div>
           <div class="frow" style="margin-top:6px"><button class="sec" data-act="vach-cot" title="KHÔNG bắt buộc. Mặc định cột nằm trong khoang và các khoang giữ nguyên. Bấm nút này nếu muốn dời / thêm vách cho trùng hai mép của cột giữa: khoang trước cột thành khoang nông riêng, mọi tấm cắt thẳng, không phải khoét chữ U — bề rộng các khoang sẽ đổi.">Đặt vách theo mép cột giữa (tuỳ chọn)</button></div>
-          <p class="hint" style="margin:6px 0 0">Gõ kích thước cột (ngang × sâu), 0 = không khấu. Hồi phía cột nông lại, nóc / đáy / đợt khoét góc chữ L, thêm <b>vách khấu</b> dọc mặt bên cột và <b>hậu khấu</b> trước mặt cột — cả hai đều là <b>ván thùng</b> (không dùng hậu 6 li cho phần khấu) — xem hình "nhìn từ trên xuống" dưới hình đứng. Vách nào có mặt trùng mép cột thì chính vách đó làm vách khấu. <b>Cột giữa tủ</b>: cột nằm <b>trong khoang</b> — bảng <b>không dời, không thêm vách hay đợt nào</b>, các khoang giữ nguyên bề rộng đã chia; đáy / nóc / đợt của khoang đó khoét <b>chữ U</b> quanh cột, hộp che cột là 2 vách khấu + hậu khấu. Cột sát một vách thì chính vách đó làm vách khấu (vùng khấu nới ra tới vách). Chỉ khi muốn tách khoang trước cột thành một khoang nông riêng (mọi tấm cắt thẳng) mới bấm <b>Đặt vách theo mép cột giữa</b>.</p></fieldset>
+          <p class="hint" style="margin:6px 0 0">Gõ kích thước cột (ngang × sâu), 0 = không khấu. Hồi phía cột nông lại, nóc / đáy / đợt khoét góc chữ L, thêm <b>vách khấu</b> dọc mặt bên cột và <b>hậu khấu</b> trước mặt cột — cả hai đều là <b>ván thùng</b> (không dùng hậu 6 li cho phần khấu) — xem hình "nhìn từ trên xuống" dưới hình đứng. Vách nào có mặt trùng mép cột thì chính vách đó làm vách khấu. <b>Cột giữa tủ</b>: cột nằm <b>trong khoang</b> — bảng <b>không dời, không thêm vách hay đợt nào</b>, các khoang giữ nguyên bề rộng đã chia; đáy / nóc / đợt của khoang đó khoét <b>chữ U</b> quanh cột, hộp che cột là 2 vách khấu + hậu khấu. Cột sát một vách thì chính vách đó làm vách khấu (vùng khấu nới ra tới vách). <b>Suốt treo</b> của khoang có cột vẫn nằm giữa chiều sâu khoang (thanh suốt đi trước hộp che cột — bảng chỉ nhắc đoạn bị cột che); <b>hộp ngăn kéo</b> ở khoang đó thì nông theo phần trước cột. Chỉ khi muốn tách khoang trước cột thành một khoang nông riêng (mọi tấm cắt thẳng) mới bấm <b>Đặt vách theo mép cột giữa</b>.</p></fieldset>
         <fieldset><legend>Khoang, từ trái sang phải</legend><div class="bays"></div>
           <div class="frow"><button class="sec" data-act="add">+ Thêm khoang</button><button class="sec" data-act="reset">Về tủ mẫu</button></div></fieldset>
       </div>

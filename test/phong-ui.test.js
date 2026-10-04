@@ -373,10 +373,11 @@ async function tienIch() {
       ok(/Đã cập nhật phòng/.test(kq2) && JSON.stringify(await hopTuong()) === JSON.stringify([[59780, 60000, -3500, 0, 0, 2700], [60000, 63600, -3720, -3500, 0, 2700], [60000, 63600, 0, 220, 0, 2700], [63600, 63820, -3500, 0, 0, 2700]]), 'bấm "bỏ tường cũ rồi vẽ": tường cũ vướng được bỏ, phòng mới đủ 4 tường', [kq2, await hopTuong()]);
       eq1(await demPh(), cong([4, 2, 2, 1, 1]), '… cột cũ nằm lạc trong phòng (theo tường C cũ) cũng được bỏ, không thành cột thừa');
       // 7. Chenfeng không dựng được tường (lệnh bị từ chối): vẫn báo lỗi thật, đếm theo tường CÓ trên bản vẽ
-      await doiPh("p.goc = [80000, 0, 0]; delete p.da_ve;");
+      await doiPh("p.goc = [80000, 0, 0]; delete p.da_ve; p.dn = [{ tuong: 0, loai: 'o_dien', cach: 950, cao: 300 }];");
       await page.evaluate(() => { window.MNCFDriver.lastRoom = null; window.__MOCK_TUONG_HONG__ = true; });
       kq2 = await vePh();
       ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng chỉ dựng được 0\/4 tường/.test(kq2), 'Chenfeng không dựng tường: báo lỗi thật', kq2);
+      eq1(await page.evaluate(() => { const M = window.__MOCK__; return M.ents.filter(e => !e.IsErase && (e instanceof M.Line || e instanceof M.Circle || e instanceof M.Polyline || e instanceof M.Text) && e.box[0] > 79000 && e.box[0] < 90000).length; }), 0, '… tường không dựng được thì không đánh dấu điện – nước vào chỗ không có tường');
       await page.evaluate(() => { window.__MOCK_TUONG_HONG__ = false; });
       // 8. phòng vẽ từ BẢN TRƯỚC (không có bản ghi) mà đã bấm "Vẽ phòng" hai lần: lỗ cửa / cột / dầm đang chồng đôi, dấu điện – nước có sẵn → bấm lại: dọn cái trùng, không vẽ chồng dấu
       const dauO = () => page.evaluate(() => { const M = window.__MOCK__, ds = M.ents.filter(e => !e.IsErase && (e instanceof M.Line || e instanceof M.Circle || e instanceof M.Polyline || e instanceof M.Text) && e.box[0] > 99000 && e.box[0] < 110000);
@@ -399,6 +400,21 @@ async function tienIch() {
       eq1([await demPh(), (await dauO()).so], [cong8([4, 1, 1, 1, 1]), 20], '… bản vẽ còn đúng 1 lỗ cửa, 1 cột, 1 dầm; dấu điện – nước vẫn 20 nét (không thành 40)');
       kq2 = await vePh();
       ok(/Phòng này đã có đủ trên bản vẽ \(4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm, 3 dấu điện – nước\) — không vẽ chồng/.test(kq2) && (await dauO()).so === 20, 'bấm lần nữa (đã có bản ghi): báo đã có đủ, dấu giữ nguyên', [kq2, await dauO()]);
+      // 8b. có bản ghi, số nét không đổi nhưng NỘI DUNG đổi (dời ổ điện 950 → 1300): phải đánh lại — dấu cũ không được nằm lại ở chỗ cũ
+      eq1((await dauO()).pl, [[100890, 101010, -2, -2, 260, 340]], '(chuẩn bị) dấu ổ điện đang ở cách 950');
+      await doiPh('p.dn[0].cach = 1300;');
+      kq2 = await vePh();
+      const d8b = await dauO();
+      ok(/Đã cập nhật phòng: giữ nguyên 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm; đánh lại 3 dấu điện – nước/.test(kq2) && d8b.so === 20 && JSON.stringify(d8b.pl) === '[[101240,101360,-2,-2,260,340]]', 'dời một ổ điện rồi vẽ lại: dấu được đánh lại ở chỗ mới, không sót dấu ở chỗ cũ', [kq2, d8b.so, d8b.pl]);
+      // 8c. có bản ghi, phòng DỜI chỗ (điểm đặt lùi 1000 sang trái, vẫn chồng lên chỗ cũ): dấu cũ nằm NGOÀI phòng mới (cấp nước trên tường B cũ, x ≈ 103 598) vẫn phải được nhận ra
+      //     theo vùng của lần vẽ trước và bỏ đi — không để sót một bộ dấu lẻ bên ngoài tường mới
+      await doiPh('p.goc = [99000, 0, 0];');
+      kq2 = await vePh();
+      const d8c = await dauO();
+      ok(/Đã cập nhật phòng/.test(kq2) && /đánh lại 3 dấu điện – nước/.test(kq2) && d8c.so === 20 && JSON.stringify(d8c.pl) === '[[100240,100360,-2,-2,260,340]]', 'dời phòng 1000 sang trái rồi vẽ lại: dấu cũ nằm ngoài phòng mới cũng được bỏ, bản vẽ còn đúng một bộ dấu ở chỗ mới', [kq2, d8c.so, d8c.pl, d8c.tx]);
+      await doiPh('p.goc = [100000, 0, 0];');
+      kq2 = await vePh();
+      eq1([(await dauO()).so, await demPh()], [20, cong8([4, 1, 1, 1, 1])], '(trả phòng về chỗ cũ) vẫn một bộ dấu, đủ 4 tường, 1 lỗ cửa, 1 cột, 1 dầm');
       // 9. dấu điện – nước bị chồng đôi từ trước (có bản ghi, nội dung không đổi nhưng trên bản vẽ đang có gấp đôi số nét) → đánh lại cho sạch
       await page.evaluate(() => { const M = window.__MOCK__; for (const e of M.ents.filter(x => !x.IsErase && (x instanceof M.Line || x instanceof M.Circle || x instanceof M.Polyline || x instanceof M.Text) && x.box[0] > 99000 && x.box[0] < 110000)) { const c = new e.constructor(); Object.assign(c, e, { box: e.box.slice() }); M.ents.push(c); } });
       eq1((await dauO()).so, 40, '(chuẩn bị) dấu chồng đôi: 40 nét');
@@ -515,6 +531,8 @@ async function tienIch() {
     await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
     await page.evaluate(() => window.__MOCK__.clickPoint(500, 0, 0)); await choHoi(h0 + 2);
     await page.evaluate(() => { window.__MOCK__.reChuot(1300, -80, 0); window.app.Editor.InputEvent('1800'); }); await datXong('Đã đặt: rộng 1800');
+    await page.keyboard.press('Alt+KeyM');
+    ok((await hop()).dlg === 'tu' && await H.locator('.panel').isVisible(), 'Alt + M lúc hộp chỉnh tủ đang mở: bảng không ẩn đi (phải bấm Vẽ / Đóng trước)', await hop());
     await page.keyboard.press('Escape');
     ok((await hop()).dlg === '' && (await soDoiTuong()) === nDat0, 'Esc trong hộp chỉnh tủ = đóng hộp (vẽ sau), không vẽ gì');
     d = await oDat();
@@ -627,6 +645,7 @@ async function tienIch() {
       const tuK = await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.rong, s.cao, s.ma]; });
       ok(hp.dlg === 'tu' && /Tường B/.test(hp.tieu) && /rộng 1800 × cao 2400 × sâu 600/.test(hp.tieu) && JSON.stringify(tuK.slice(0, 2)) === '[1800,2400]' && (await soDoiTuong()) === n0, 'Tiếp: hiện hộp chỉnh tủ với tủ vừa đúng chỗ đã chọn (1800 × 2400 × 600) — chưa vẽ', [hp.tieu, tuK]);
       eq1(await soKhung(), [[tuK[2], 1, 500, 1800, 0, 2400, 600, 0]], '… chỗ đã chọn được ghi thành một khung của phòng (mặt đứng ở thẻ Phòng thấy chỗ đó đã có tủ)');
+      eq1(await page.evaluate(() => window.MNCF.app.getSpec().khoang.map(k => [k.canh, k.dot])), [[2, [400, 1200]], [2, [800]]], '… tủ giữ cách chia khoang / đợt đang mở trong bảng (4 cánh × 450 vẫn hợp lệ) — không bị thay bằng ruột tự chọn theo bề rộng');
       // Chọn lại chỗ: về hộp chọn chỗ, giữ số vừa chọn, khung vừa tạo được bỏ
       await H.locator('[data-act="hop-lai"]').click();
       hp = await hop(); c = await chon();
@@ -650,11 +669,50 @@ async function tienIch() {
       q = await diemMD(2800, 1000); await page.mouse.click(q[0], q[1]);
       c = await chon();
       ok(JSON.stringify(c.so) === '["2500","500","0","2700","600"]' && c.vung, 'chạm chỗ trống bên phải: lấy đúng phần còn lại 2500 → 3000', c.so);
+      // KÉO một ô chồng lên chỗ tủ vừa vẽ (kéo thì không bị chặn ngay lúc kéo) → bấm Tiếp: báo hai khung chồng nhau, ở lại hộp chọn chỗ, không thêm khung
+      const ka = await diemMD(2000, 5), kb = await diemMD(2900, 2400);
+      await page.mouse.move(ka[0], ka[1]); await page.mouse.down(); await page.mouse.move((ka[0] + kb[0]) / 2, (ka[1] + kb[1]) / 2); await page.mouse.move(kb[0], kb[1]); await page.mouse.up();
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["2000","900","0","2400","600"]' && c.vung && !c.tiepKhoa, '(chuẩn bị) kéo một ô 2000 → 2900 chồng lên tủ vừa vẽ (500 → 2500)', c.so);
+      await H.locator('[data-act="chon-tiep"]').click();
+      hp = await hop(); c = await chon();
+      ok(hp.dlg === 'chon' && (await soKhung()).length === 1 && /trên tường B chồng lên nhau/.test(c.msg), 'ô kéo chồng lên khung đã có: bấm Tiếp thì báo chồng khung, ở lại hộp chọn chỗ, không thêm khung', [hp.dlg, c.msg, await soKhung()]);
+      // chỗ trống bên phải (2500 → 3000) cho cùng mã tủ: khung mới KHÔNG trùng tên khung đã vẽ (thêm đuôi -2); "Chọn lại chỗ" thì khung tạm đó lại được bỏ
+      q = await diemMD(2800, 1000); await page.mouse.click(q[0], q[1]);
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["2500","500","0","2700","600"]' && !/chồng lên nhau/.test(c.msg), '(chuẩn bị) chạm lại chỗ trống 2500 → 3000: lời báo chồng khung đã hết', [c.so, c.msg]);
+      // gõ số vượt ra ngoài tường: bảng chặn lại trong phạm vi tường (rộng không quá phần tường còn lại; cách đầu tường chừa ít nhất 100)
+      await H.locator('[data-cs="rong"]').fill('9999'); await H.locator('[data-cs="rong"]').blur();
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["2500","500","0","2700","600"]', 'gõ bề rộng 9999: chặn lại ở phần tường còn lại (500)', c.so);
+      await H.locator('[data-cs="cach"]').fill('2980'); await H.locator('[data-cs="cach"]').blur();
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["2900","100","0","2700","600"]', 'gõ cách đầu tường 2980 (tường dài 3000): lùi về 2900, rộng còn 100', c.so);
+      q = await diemMD(2800, 1000); await page.mouse.click(q[0], q[1]);
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["2500","500","0","2700","600"]', '(trả lại) chạm chỗ trống: 2500 → 3000', c.so);
+      // kéo một ô quá nhỏ (50 × 50): không nhận, chỗ đang chọn giữ nguyên
+      const na = await diemMD(2600, 100), nb = await diemMD(2650, 150);
+      await page.mouse.move(na[0], na[1]); await page.mouse.down(); await page.mouse.move((na[0] + nb[0]) / 2, (na[1] + nb[1]) / 2); await page.mouse.move(nb[0], nb[1]); await page.mouse.up();
+      c = await chon();
+      ok(/Ô kéo quá nhỏ/.test(c.msg) && JSON.stringify(c.so) === '["2500","500","0","2700","600"]', 'kéo một ô 50 × 50: báo ô quá nhỏ, chỗ đã chọn trước đó giữ nguyên', [c.msg, c.so]);
+      await H.locator('[data-act="chon-tiep"]').click();
+      hp = await hop();
+      const kh2 = await soKhung();
+      ok(hp.dlg === 'tu' && kh2.length === 2 && kh2[1][0] === kh2[0][0] + '-2' && kh2[1][7] === 0, 'đặt thêm cùng mã tủ ở chỗ khác: khung mới mang tên có đuôi -2 (không trùng khung đã vẽ)', [hp.dlg, kh2.map(k => k[0])]);
+      await H.locator('[data-act="hop-lai"]').click();
+      ok((await hop()).dlg === 'chon' && (await soKhung()).length === 1, '… Chọn lại chỗ: khung tạm -2 được bỏ, khung đã vẽ còn nguyên', await soKhung());
       // chọn tường A: cột 1200 … 1500 không chắn — chạm là lấy cả tường; ghi chú có cột (tủ sẽ khấu cột)
       await H.locator('.chontuong [data-ct="0"]').click();
       q = await diemMD(300, 1000); await page.mouse.click(q[0], q[1]);
       c = await chon();
       ok(JSON.stringify(c.so) === '["0","3000","0","2700","600"]' && /cột/i.test(c.msg), 'tường A: tủ ở tường B (sâu 600) lấn góc nên tường A trống 0 → 3000; cột nằm trong đoạn đó → nhắc tủ sẽ khấu cột', c);
+      // chiều sâu đang gõ quyết định cái gì "lấn góc": tủ nông 350 thì tủ ở tường B (cách góc 500) không còn vướng dải sát tường A → chạm tường A lấy cả 3600
+      await H.locator('[data-cs="sau"]').fill('350'); await H.locator('[data-cs="sau"]').blur();
+      q = await diemMD(300, 1000); await page.mouse.click(q[0], q[1]);
+      c = await chon();
+      ok(JSON.stringify(c.so) === '["0","3600","0","2700","350"]', 'gõ Sâu 350 rồi chạm lại tường A: tủ nông không vướng tủ ở tường B → tường A trống cả 3600', c.so);
+      await H.locator('[data-cs="sau"]').fill('600'); await H.locator('[data-cs="sau"]').blur();
       // Thôi: đóng hộp, không thêm khung, không vẽ
       const nSau = await soDoiTuong();
       await H.locator('[data-act="chon-thoi"]').click();

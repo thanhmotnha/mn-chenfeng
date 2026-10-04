@@ -12,6 +12,14 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Đặt tủ theo tường, hộp chỉnh tủ, vẽ lại phòng (bản 1.23)
+
+- **Đặt tủ theo tường** — thẻ Tủ → nút **Đặt tủ theo tường**: chọn tường → trên mặt đứng của tường đó *chạm* vào đoạn tường trống (lấy cả đoạn, sàn → trần hoặc tới đáy dầm) hoặc *kéo* một ô → **Tiếp**. Chỗ đặt tính từ phòng khai ở thẻ Phòng nên không phải bấm điểm nào trong bản vẽ. Khung đã có, cửa đi, cửa sổ thì chắn; cột / hộp kỹ thuật không chắn — tủ phủ qua và được khấu cột.
+- **Hộp chỉnh tủ** — đặt xong (bằng chuột hay theo tường) bảng hiện hộp chỉnh tủ: xem lại khoang, đợt, ngăn kéo; bấm **Vẽ vào Chenfeng** thì tủ mới được vẽ. *Chọn lại chỗ* quay về bước đặt; *Đóng* giữ tủ và chỗ đặt ở thẻ Tủ, chưa vẽ gì.
+- **Khấu cột giữa** — cột nằm trong khoang: khoang giữ cân đối như tủ không có cột, đáy / nóc / đợt khoét quanh cột; bảng không tự thêm hay dời vách, đợt. Muốn vách đứng theo mép cột thì bấm *Đặt vách theo mép cột giữa (tuỳ chọn)*. Suốt treo của khoang có cột vẫn nằm giữa chiều sâu khoang (thanh suốt đi trước hộp che cột) — bảng chỉ nhắc đoạn suốt bị cột che; cột quá sâu, thanh suốt không lọt thì suốt mới lùi ra phần nông trước cột và có cảnh báo. Đổi khung không còn làm mất ngăn kéo / suốt treo ở ô sát đáy.
+- **Vẽ lại phòng không vẽ chồng** — bấm *Vẽ phòng vào Chenfeng* lần nữa: bảng đối chiếu với phòng đang có trên bản vẽ, cái đã có đúng chỗ thì giữ, chỉ vẽ phần thay đổi; lỗ cửa / cột / dầm vẽ trùng từ bản trước được dọn; dấu điện – nước không đánh chồng. Tường lạ nằm trong lòng phòng sắp vẽ thì bảng dừng lại hỏi, không tự xoá.
+- **Tấm trước, mẫu sau** — phần tấm của tủ không cần máy chủ Chenfeng nên được vẽ trước; hộp ngăn kéo / suốt treo (mẫu Chenfeng tải từ máy chủ) thêm sau. Máy chủ chậm hay rớt thì tủ vẫn đủ tấm, thẻ Kết quả nói rõ còn thiếu gì và có nút *Vẽ lại tủ này kèm ngăn kéo / suốt treo*. Mã mẫu ở thẻ Chuẩn xưởng không thuộc tài khoản đang đăng nhập → bảng dùng mẫu cùng tên trong kho của tài khoản đó và nhắc sửa mã.
+
 ## Xuất ván (bản 1.22)
 
 Thẻ **Kết quả** → nút **Xuất ván (tách đơn CD)**:

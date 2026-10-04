@@ -121,7 +121,7 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
 
     // (Tủ vẽ bằng lệnh gốc Chenfeng — D.veGoc — cũng gọi phép dò này sau khi vẽ; trang giả lập không có lệnh gốc nên phần đó thử trên Chenfeng thật.)
 
-    /* Bản 1.23 — đo trên Chenfeng thật 04/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo, vẽ theo cách nhập tấm rồi xoay theo tường): lệnh MODELING khoan lại các tấm được gom
+    /* Bản 1.23 — đo trên Chenfeng thật 05/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo, vẽ theo cách nhập tấm rồi xoay theo tường): lệnh MODELING khoan lại các tấm được gom
      * (558 lỗ đổi thành đối tượng khác, 48 lỗ trong lòng hộp ngăn kéo giữ nguyên), lệnh ROTATE khoan lại mọi tấm được xoay. Bảng giữ danh sách lỗ cũ nên phiếu sau khi vẽ
      * báo oan "56 tấm có kiểu khoan mà không có lỗ nào" trong khi tủ đủ 606 lỗ. Danh sách đối tượng của tủ phải đọc lại sau các lệnh đó. */
     console.log('— Tủ có ngăn kéo gom thành module: lệnh MODELING khoan lại tấm (lỗ cũ bị bỏ) — phiếu sau khi vẽ dò trên lỗ đang có, không báo oan "không có lỗ"');

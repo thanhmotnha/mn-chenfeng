@@ -435,8 +435,11 @@
     const tranThan = (s.than.cao_duoi || q.cao) - 250;
     let bo = 0;
     s.khoang = s.khoang.map(k => {
-      const dot = (Array.isArray(k.dot) ? k.dot : []).filter(z => z < tranThan), o = (k.o || []).filter(c => c.tu === 0 || dot.some(z => Math.abs(z - c.tu) < 0.6));
-      bo += (Array.isArray(k.dot) ? k.dot.length : 0) - dot.length;
+      const tat = Array.isArray(k.dot) ? k.dot : [], dot = tat.filter(z => z < tranThan), boDot = tat.filter(z => !(z < tranThan));
+      // nội dung ô chỉ bỏ khi chính đợt ĐỠ nó bị bỏ. Ô sát đáy thì giữ: bảng ghi cao độ ô = mặt dưới tấm đáy (tủ có chân 100 → tu = 100, không phải 0) —
+      // trước bản 1.23 phép lọc chỉ nhận tu = 0 nên suốt treo / ngăn kéo ở ô sát đáy của tủ có chân bị bỏ mất mỗi lần đổi khung.
+      const o = (k.o || []).filter(c => !boDot.some(z => Math.abs(z - c.tu) < 0.6));
+      bo += tat.length - dot.length;
       return Object.assign({}, k, { rong: 'auto', dot, o });
     });
     if (bo) ghi.push(`Khung thấp: đã bỏ ${bo} đợt của mẫu nằm quá cao.`);

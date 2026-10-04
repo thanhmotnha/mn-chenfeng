@@ -167,7 +167,7 @@
     }
     return ra;
   }
-  // Bản thật (đo 04/10/2026, tủ 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là ĐỐI TƯỢNG KHÁC ở đúng chỗ đó:
+  // Bản thật (đo 05/10/2026, tủ 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là ĐỐI TƯỢNG KHÁC ở đúng chỗ đó:
   //   DRAWHOLE: mọi lỗ của các tấm được chọn · MODELING: mọi lỗ của các tấm được gom (558 lỗ đổi đối tượng; 48 lỗ trong lòng 2 hộp ngăn kéo — mẫu riêng, không nằm trong tập gom — giữ nguyên)
   //   · ROTATE: mọi lỗ của các tấm được xoay, kể cả lỗ không nằm trong tập chọn (606 lỗ đổi đối tượng) · UpdateTemplateTree: giữ nguyên đối tượng lỗ.
   const saoLo = h => { const c = new CylinderHole(h.FId.Object); c.MId = { Object: h.MId.Object }; c.box = h.box.slice();
@@ -248,11 +248,12 @@
     (window.__MOCK_NHAP__ = window.__MOCK_NHAP__ || []).push(nk);
     // Bản thật (đo 05/10/2026): MỖI mẫu trong lệnh nhập là một lần gọi CAD-moduleDetail tới máy chủ — không lưu đệm, hai mẫu cùng mã vẫn gọi hai lần; một lần hỏng là cả lệnh bị huỷ.
     //   window.__MOCK_MAU_LOI__ = { [mã mẫu]: { lan: số lần hỏng còn lại, kieu: 'may_chu' (mạng / máy chủ) | 'tk' (mã mẫu không thuộc cửa hàng đang đăng nhập — 鉴权失败) } }
+    //   (kieu có thể là mảng: kiểu hỏng của từng lần tải, theo thứ tự — vd ['may_chu', 'tk'])
     const taiMau = async o => {
       (window.__MOCK_MAU_TAI__ = window.__MOCK_MAU_TAI__ || []).push(o.TempalteId);
       if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__));
       const L = (window.__MOCK_MAU_LOI__ || {})[o.TempalteId];
-      if (L && L.lan > 0) { L.lan--; const e = new Error('tai mau'); e.kieu = L.kieu || 'may_chu'; throw e; }
+      if (L && L.lan > 0) { L.lan--; const e = new Error('tai mau'); e.kieu = (Array.isArray(L.kieu) ? L.kieu.shift() : L.kieu) || 'may_chu'; throw e; }      // kieu là mảng = kiểu hỏng của từng lần, theo thứ tự
     };
     if (window.__MOCK_FAIL_IMPORT__) {      // bản thật: tải mẫu hỏng giữa chừng → Chenfeng báo lỗi rồi tự huỷ lệnh
       await new Promise(r => setTimeout(r, 200)); toast('抱歉!命令<晨丰导入>执行过程中发生错误,已自动取消命令'); nk.ket = 'loi'; fireEnd('晨丰导入', [], []); return;
@@ -289,7 +290,9 @@
   }
   function placeAt(pt) {
     const st = state; state = null; svc.IsReady = false;
-    const d = [pt[0] - st.base[0], pt[1] - st.base[1], pt[2] - st.base[2]];
+    // giả định xấu (KHÔNG phải điều đã đo): bản Chenfeng mới đặt cụm chỉ có mẫu lệch khỏi điểm trả lời — window.__MOCK_MAU_LECH__ = [dx, dy, dz]
+    const lech = window.__MOCK_MAU_LECH__ && st.created.length && st.created.every(e => e.Template) ? window.__MOCK_MAU_LECH__ : [0, 0, 0];
+    const d = [pt[0] - st.base[0] + lech[0], pt[1] - st.base[1] + lech[1], pt[2] - st.base[2] + lech[2]];
     for (const e of st.created) e.move(d);
     if (st.nk) st.nk.ket = 'ok';
     const holes = drill(st.created.filter(e => e instanceof Board));
@@ -348,7 +351,7 @@
     if (!f || !/json$/i.test(f.name)) return;
     e.preventDefault();
     if (window.__MOCK_HOME__) { window.__MOCK_UPLOADED__ = (window.__MOCK_UPLOADED__ || 0) + 1; return; }      // ở trang chủ thật: file bị tải lên kho — bảng phải chặn trước
-    if (state || window.__MOCK_BUSY__ || dangTai) { prompt('WARNING', '>命令:"X"正忙! 如果是程序错误,请按下Ctrl+Alt+E结束命令!'); return; }      // lệnh trước chưa xong → Chenfeng từ chối
+    if (state || window.__MOCK_BUSY__ || dangTai) { window.__MOCK_TU_CHOI__ = (window.__MOCK_TU_CHOI__ || 0) + 1; prompt('WARNING', '>命令:"X"正忙! 如果是程序错误,请按下Ctrl+Alt+E结束命令!'); return; }      // lệnh trước chưa xong → Chenfeng từ chối (đếm số lần từ chối cho phép thử)
     importFile(f);
   });
 

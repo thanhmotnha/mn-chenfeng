@@ -469,7 +469,7 @@
    */
   /**
    * Danh sách đối tượng của một tủ SAU một lệnh của Chenfeng = cái còn sống trong danh sách cũ + cái mới sinh ra từ mốc `truoc` (tập đối tượng của bản vẽ lúc trước lệnh).
-   * Đo trên Chenfeng thật 04/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là đối tượng khác:
+   * Đo trên Chenfeng thật 05/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là đối tượng khác:
    * DRAWHOLE (mọi lỗ của tấm được chọn), MODELING (558 lỗ của các tấm được gom; 48 lỗ trong lòng hộp ngăn kéo giữ nguyên), ROTATE (cả 606 lỗ, kể cả lỗ không nằm trong tập chọn);
    * UpdateTemplateTree giữ nguyên đối tượng lỗ. Giữ danh sách cũ thì phép dò lỗi chỉ còn thấy lỗ của hộp ngăn kéo → báo oan "N tấm có kiểu khoan mà không có lỗ nào".
    */
@@ -557,7 +557,7 @@
             r = await nhap([x]);
             if (r.ok) break;
             x.ly_do = r.ly_do; x.bao = r.bao || '';
-            if (r.ly_do === 'huy' || r.treo) break;
+            if (r.ly_do === 'huy' || r.treo || r.ly_do === 'lech') break;      // đặt lệch là chuyện của cách Chenfeng đặt mẫu — thử lại cũng lệch như thế
             if (r.ly_do === 'khong_thuoc_tk') {
               const id0 = x.tp.id;
               if (mauLoi.khong_thuoc.has(id0)) break;      // mẫu thay cũng không dùng được
@@ -571,6 +571,7 @@
           if (x.xong) { hongLien = 0; continue; }
           if (r.treo) { thoiVi(r, thu.slice(i)); break; }
           if (x.ly_do === 'huy') { for (const y of thu.slice(i + 1)) if (!y.xong) y.ly_do = 'huy'; break; }
+          if (x.ly_do === 'lech') { for (const y of thu.slice(i + 1)) if (!y.xong) { y.ly_do = 'lech'; y.bao = x.bao; } break; }      // một mẫu thêm riêng mà vẫn lệch → các mẫu còn lại cũng sẽ lệch: thôi
           if (x.ly_do === 'may_chu') { hongLien++; maHong.add(x.tp.id); }
         }
       }
@@ -588,7 +589,9 @@
     const out = [];
     for (const d of tm.doi_ma) out.push(`Ngăn kéo / suốt treo: mã mẫu ${d.tu} (${d.ten}) ghi ở thẻ Chuẩn xưởng không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập — đã dùng mẫu cùng tên của tài khoản này (mã ${d.sang}). Bấm “Dò mã mẫu từ kho Chenfeng” ở thẻ Chuẩn xưởng để lưu mã đúng.`);
     const theo = ly => tm.thieu.filter(x => x.ly_do === ly);
-    const mc = theo('may_chu').concat(theo('lech'));
+    const lech = theo('lech');
+    if (lech.length) out.push(`Chưa thêm được ${keMau(lech)}: Chenfeng đặt mẫu lệch chỗ thiết kế nên bảng đã bỏ các mẫu đó (không để ngăn kéo / suốt treo nằm sai trong tủ). Phần tấm của tủ đã vẽ đủ. Có thể bản Chenfeng vừa đổi cách đặt mẫu — báo lại để sửa bảng; trong lúc chờ, chèn ngăn kéo / suốt treo bằng lệnh của Chenfeng.`);
+    const mc = theo('may_chu');
     if (mc.length) {
       const b = mc.map(x => x.bao).find(Boolean), treo = mc.some(x => x.treo);
       out.push(`Chưa thêm được ${keMau(mc)}: ${treo ? 'máy chủ Chenfeng không trả lời (mạng tới máy chủ Chenfeng đang chậm hoặc rớt)' : 'máy chủ Chenfeng không trả mẫu (mạng tới máy chủ Chenfeng đang chậm hoặc rớt — bảng đã thử lại)'}. Phần tấm của tủ đã vẽ đủ; lúc mạng ổn bấm “Cập nhật tủ này” để bảng vẽ lại tủ kèm ngăn kéo / suốt treo.${b ? ` (Chenfeng báo: “${String(b).slice(0, 110)}”)` : ''}`);
