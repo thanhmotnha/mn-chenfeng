@@ -15,13 +15,13 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
 
 (async () => {
   const br = await chromium.launch({ channel: 'chromium', headless: true });
-  const may = { tre_pl: 300, loi_pl: false };                  // máy chủ giả: GetPlanOrder trả sau tre_pl ms; loi_pl = trả 500
+  const may = { tre_pl: 300, loi_pl: false, tre_cb: 0 };       // máy chủ giả: GetPlanOrder trả sau tre_pl ms; loi_pl = trả 500; tre_cb = khung cut-block tải chậm ngần ấy ms
   const errs = [], moiBam = [];
   const moCtx = async () => {
     const ctx = await br.newContext({ viewport: { width: 1200, height: 1000 } });
     await ctx.route('https://sc.leye.site/**', async r => {
       const u = new URL(r.request().url());
-      if (u.pathname === '/modules/cut-block/index.html') return r.fulfill({ contentType: 'text/html; charset=utf-8', body: CB });
+      if (u.pathname === '/modules/cut-block/index.html') { if (may.tre_cb) await ngu(may.tre_cb); return r.fulfill({ contentType: 'text/html; charset=utf-8', body: CB }).catch(() => {}); }
       if (u.pathname.startsWith('/api/v1/')) {
         if (u.pathname.endsWith('/GetPlanOrder')) { const m = Object.assign({}, may); await ngu(m.tre_pl); return r.fulfill({ status: m.loi_pl ? 500 : 200, contentType: 'application/json', body: '{}' }).catch(() => {}); }
         return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }).catch(() => {});
@@ -114,6 +114,7 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     await T.choChu(/không mở được bảng tối ưu/, 12000);
     chu = await T.B.locator('.chu').innerText();
     ok(/Đóng tab này/.test(chu) && /Xuất ván lại/.test(chu) && /F5/.test(chu) && (await T.B.locator('.chu.err').count()) === 1, 'dòng đỏ: đóng tab, bấm Xuất ván lại, đừng F5', chu);
+    ok(/máy chủ báo lỗi/.test(chu), 'máy chủ trả mã lỗi (HTTP 500): nói rõ là máy chủ báo lỗi', chu);
     eq((await T.so()).bam, [], 'không bấm gì');
     await T.dong();
     may.loi_pl = false;
@@ -123,6 +124,24 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     await ngu(1800);                                                         // thông báo đỏ của trang đã tự mất
     chu = await T.B.locator('.chu').innerText();
     ok((await T.page.locator('.el-notification').count()) === 0 && /拆单数据异常,请联系管理员/.test(chu) && /Trang báo/.test(chu), 'bảng báo giữ lại nguyên văn dòng lỗi của trang (dòng đó chỉ hiện vài giây)', chu);
+    await T.dong();
+
+    console.log('— Trợ lý nạp trễ (sau khi trang đã nhận dữ liệu tấm): vẫn biết số tấm, vẫn làm trọn việc');
+    may.tre_pl = 2500;
+    T = await mo({ tam: 74 }, { tro_ly: false });
+    await T.page.waitForFunction(() => window.__MOCK_SX__.moc.some(m => m[1] === 'nhận webCadData'), null, { timeout: 5000 });
+    await T.page.addScriptTag({ path: SX });                                 // như khi bộ nạp tới sau tin nhắn của khung nhỏ
+    await T.choChu(/đang tính 74 tấm/, 3000);
+    ok(true, 'lỡ tin nhắn dữ liệu: đọc số tấm ở thành phần của trang');
+    await T.choXong();
+    eq((await T.so()).bam.map(b => b.ten), DUOC_BAM, 'nạp trễ vẫn tối ưu trọn lượt');
+    await T.dong();
+    may.tre_pl = 300;
+    T = await mo({ tam: 74 }, { tro_ly: false });                            // nạp khi hộp tối ưu đã hiện sẵn (như lúc thử trên trang thật)
+    await T.hop().waitFor({ state: 'visible', timeout: 10000 });
+    await T.page.addScriptTag({ path: SX });
+    await T.choXong();
+    eq((await T.so()).bam.map(b => b.ten), DUOC_BAM, 'nạp khi hộp tối ưu đã hiện: làm ngay');
     await T.dong();
 
     console.log('— Tab bị tải lại (F5): không còn dữ liệu tấm');
@@ -162,6 +181,18 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     s = await T.so(); tt = await T.tt();
     ok(s.bam.length === 0 && tt.tu === 'thoi' && /tự làm/.test(tt.chu), 'người dùng đụng vào hộp: trợ lý không bấm gì nữa', [s.bam, tt.tu, tt.chu]);
     await T.dong();
+    T = await mo({ tre_day: 3000 }, { dat: { dem: 2000, cho_cuu: 60000 } });  // người dùng bấm vào hộp TRƯỚC khi trợ lý kịp thấy hộp (nhịp dò thưa, như lúc tab bị trình duyệt hãm): vẫn phải nhường
+    await T.page.waitForFunction(() => window.__MOCK_SX__.moc.some(m => m[1] === 'initFinish'), null, { timeout: 10000 });
+    await ngu(700);                                                          // trợ lý đã dò qua khung cut-block; hộp tối ưu còn 2 giây nữa mới hiện
+    await T.page.evaluate(() => window.MNCF_SX.dat({ nhip: 4000 }));
+    await T.hop().waitFor({ state: 'visible', timeout: 10000 });
+    await T.page.frameLocator('iframe').locator('.el-checkbox', { hasText: '使用王者优化' }).click();
+    tt = await T.tt();
+    ok(tt.tu === 'cho', 'lúc người dùng bấm, trợ lý còn chưa thấy hộp tối ưu', tt.tu);
+    await ngu(9000);
+    s = await T.so(); tt = await T.tt();
+    ok(s.bam.length === 0 && tt.tu === 'thoi' && /tự làm/.test(tt.chu), 'bấm vào hộp trước khi trợ lý kịp thấy hộp: trợ lý vẫn nhường', [s.bam, tt.tu, tt.chu]);
+    await T.dong();
     T = await mo({}, { dat: { dem: 2500 } });
     await T.B.locator('[data-act="tu-lam"]').click({ timeout: 10000 });
     await ngu(3500);
@@ -178,6 +209,17 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     eq(s.bam.map(b => [b.ten, b.tin]), [['开始优化', false], ['停止优化', true]], 'người dùng tự bấm 停止优化: trợ lý không bấm 确认 hộ');
     await T.dong();
 
+    T = await mo({}, { tro_ly: false });                                     // trợ lý tới sau khi người dùng đã tự bấm 开始优化 (tối ưu đang chạy): không đếm, không bấm chồng lên
+    await T.hop().waitFor({ state: 'visible', timeout: 10000 });
+    await T.page.frameLocator('iframe').locator('.el-dialog button', { hasText: '开始优化' }).click();
+    await T.page.addScriptTag({ path: SX });
+    await ngu(1000);
+    tt = await T.tt();
+    ok(tt.tu === 'thoi' && /tự làm/.test(tt.chu), 'thấy hộp tối ưu đang chạy sẵn: coi như người dùng đang tự làm', [tt.tu, tt.chu]);
+    await ngu(4000);
+    eq((await T.so()).bam.map(b => [b.ten, b.tin]), [['开始优化', true]], 'không dừng hộ, không bấm gì');
+    await T.dong();
+
     console.log('— Đơn lớn, kết quả về dần: chỉ dừng khi MỌI vật liệu có kết quả và số tờ đứng yên');
     T = await mo({ tam: 800, toi_uu: 'cham' }, { dat: { on_dinh_goc: 900, on_dinh_moi_tam: 0 } });
     await T.choXong();
@@ -187,7 +229,7 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     await T.dong();
 
     console.log('— Có vật liệu không ra kết quả: không dừng hộ, không xác nhận hộ, báo cho người dùng');
-    T = await mo({ toi_uu: 'khong_ra' }, { dat: { han_chay: 2500 } });
+    T = await mo({ toi_uu: 'khong_ra' }, { dat: { han_chay: 2500, on_dinh_goc: 600, on_dinh_moi_tam: 0 } });      // số tờ đứng yên từ 0,1 giây, ngưỡng đứng yên 0,6 giây: vẫn KHÔNG được dừng vì còn một vật liệu 0 tờ
     await T.choChu(/chưa ra kết quả/, 12000);
     s = await T.so(); tt = await T.tt();
     eq([s.bam.map(b => b.ten), s.xn, tt.tu], [['开始优化'], null, 'thoi'], 'chỉ có lần bấm 开始优化; tối ưu vẫn đang chạy cho người dùng tự xử lý');
@@ -209,6 +251,90 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     await T.choXong();
     eq((await T.so()).bam.map(b => b.ten), DUOC_BAM, 'vẫn tối ưu xong');
     ok(!(await T.B.locator('.sx').isVisible()), 'bảng báo không tự hiện lại');
+    await T.dong();
+
+    console.log('— Thu gọn bảng báo: nút "–" thành viên nhỏ; xong một lúc thì tự thu, bấm viên thì mở lại và ở yên');
+    may.tre_pl = 300;
+    T = await mo({}, { dat: { thu_gon: 1500 } });
+    await T.B.locator('[data-act="gon"]').click({ timeout: 5000 });
+    ok(!(await T.B.locator('.sx').isVisible()) && await T.B.locator('.vien').isVisible(), 'nút "–": bảng báo thu thành viên nhỏ');
+    await T.B.locator('.vien').click();
+    ok(await T.B.locator('.sx').isVisible() && !(await T.B.locator('.vien').isVisible()), 'bấm viên: bảng báo mở lại');
+    await T.choChu(/Xong/, 20000);
+    ok(await T.B.locator('.sx').isVisible(), 'vừa xong: bảng báo còn hiện kết quả');
+    await T.B.locator('.vien').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    ok(!(await T.B.locator('.sx').isVisible()) && /✓ 31 tờ/.test(await T.B.locator('.vien').innerText().catch(() => '')), 'xong được một lúc: tự thu thành viên ghi số tờ, khỏi che sơ đồ');
+    await T.B.locator('.vien').click().catch(() => {});
+    await ngu(2500);
+    ok(await T.B.locator('.sx').isVisible(), 'người dùng mở lại thì bảng báo ở yên, không tự thu lần nữa');
+    await T.dong();
+
+    console.log('— Hộp tối ưu bị đóng giữa chừng (không phải do bấm trong hộp): trợ lý thôi, hộp mở lại cũng không bấm tiếp');
+    const anHop = (X, an) => X.page.frames()[1].evaluate(a => { document.querySelector('.el-dialog__wrapper').style.display = a ? 'none' : ''; }, an);
+    T = await mo({}, { dat: { dem: 2500 } });
+    await T.choChu(/trợ lý bấm 开始优化 sau/, 10000);
+    await anHop(T, true); await ngu(700);
+    tt = await T.tt();
+    ok(tt.tu === 'thoi' && tt.ly === 'hop_dong', 'hộp đóng lúc trợ lý đang đếm: trợ lý thôi', [tt.tu, tt.ly]);
+    await anHop(T, false); await ngu(3500);
+    eq((await T.so()).bam, [], 'hộp mở lại: trợ lý không bấm gì');
+    ok(/bằng tay/.test((await T.tt()).chu), 'bảng báo nhắc làm tiếp bằng tay', (await T.tt()).chu);
+    await T.dong();
+    T = await mo({});
+    await T.page.waitForFunction(() => window.__MOCK_SX__.bam.length === 1, null, { timeout: 10000 });
+    await anHop(T, true); await ngu(700);
+    tt = await T.tt();
+    ok(tt.tu === 'thoi' && tt.ly === 'hop_dong', 'hộp đóng lúc tối ưu đang chạy: trợ lý thôi', [tt.tu, tt.ly]);
+    await anHop(T, false); await ngu(4500);
+    eq((await T.so()).bam.map(b => b.ten), ['开始优化'], 'hộp mở lại: không dừng hộ, không xác nhận hộ');
+    await T.dong();
+
+    console.log('— Bỏ chọn "Tự tối ưu" lúc trợ lý đang đếm: không bấm nữa');
+    T = await mo({}, { dat: { dem: 2500 } });
+    await T.choChu(/trợ lý bấm 开始优化 sau/, 10000);
+    await T.B.locator('[data-ui="tu-dong"]').uncheck();
+    await ngu(3500);
+    s = await T.so(); tt = await T.tt();
+    ok(s.bam.length === 0 && tt.tu === 'tay' && /đang tắt/.test(tt.chu), 'tắt giữa lúc đếm: trợ lý dừng đếm, nhắc bấm tay', [s.bam, tt.tu, tt.chu]);
+    await T.dong();
+
+    console.log('— Bấm 开始优化 mãi mà trang không chạy: thôi sau 3 lần, nhờ người dùng bấm tay');
+    T = await mo({ nuot_bam_dau: 99 });
+    await T.choChu(/trang không chạy/, 15000);
+    await ngu(3000);
+    s = await T.so(); tt = await T.tt();
+    eq([s.bam.map(b => b.ten), tt.tu, tt.ly], [['开始优化', '开始优化', '开始优化'], 'thoi', 'khong_chay'], 'bấm đúng 3 lần rồi thôi');
+    ok((await T.B.locator('.chu.warn').count()) === 1 && /bấm tay/.test(tt.chu), 'bảng báo vàng: nhờ bấm tay', tt.chu);
+    await T.dong();
+
+    console.log('— Khung kẹt trắng hẳn (gọi lại cũng không dựng): gọi lại có giới hạn rồi báo, không gọi mãi');
+    T = await mo({ kieu: 'trang_mai' }, { dat: { han_bang: 2500, cuu_cach: 300 } });
+    await T.choChu(/không mở được bảng tối ưu/, 12000);
+    await ngu(3000);
+    s = await T.so(); tt = await T.tt();
+    ok(tt.cuu === 5 && s.goi.invokeUpdate === 2 + 5, 'gọi lại đúng 5 lần rồi thôi', [tt.cuu, s.goi]);
+    ok(/Đóng tab này/.test(tt.chu) && (await T.B.locator('.chu.err').count()) === 1 && s.bam.length === 0, 'dòng đỏ: đóng tab, xuất lại; không bấm gì', tt.chu);
+    await T.dong();
+
+    console.log('— Trang hỏi một câu trước khi mở hộp tối ưu: không báo lỗi, không gọi lại khung đã dựng; trả lời xong thì trợ lý vẫn tự làm');
+    T = await mo({ hop_hoi: true }, { dat: { han_bang: 1500 } });
+    await T.page.frameLocator('iframe').locator('.el-dialog__wrapper.hoi .el-dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await ngu(3500);                                                         // quá hạn "bảng tối ưu chưa hiện" từ lâu
+    s = await T.so(); tt = await T.tt();
+    ok(tt.khoa === 'cho_hop' && tt.loai === 'note' && /优化进度/.test(tt.chu) && !/không mở được/.test(tt.chu), 'khung đã dựng mà hộp tối ưu chưa hiện: trợ lý chờ, không báo lỗi', [tt.khoa, tt.chu]);
+    ok(tt.cuu === 0 && s.goi.invokeUpdate === 2 && s.bam.length === 0, 'không gọi lại invokeUpdate trên khung đã dựng, không bấm gì', [tt.cuu, s.goi, s.bam]);
+    await T.page.frameLocator('iframe').locator('.el-dialog__wrapper.hoi button', { hasText: '确定' }).click();      // người dùng trả lời câu hỏi của trang (hộp khác, không phải hộp tối ưu)
+    await T.choXong();
+    eq((await T.so()).bam.map(b => [b.ten, b.tin]), [['确定', true], ['开始优化', false], ['停止优化', false], ['确认新优化', false]], 'trả lời xong: hộp tối ưu hiện, trợ lý tự làm trọn lượt (bấm ở hộp khác không tính là "tự làm")');
+    await T.dong();
+
+    console.log('— Khung cut-block tải chậm (đường truyền chậm): chưa có modContext thì chưa gọi lại');
+    may.tre_cb = 2500;
+    T = await mo({ kieu: 'trang' });
+    await T.choXong(25000);
+    s = await T.so(); tt = await T.tt();
+    ok(tt.cuu === 1 && s.goi.invokeUpdate === 2, 'chỉ gọi lại MỘT lần, sau khi khung đã báo initFinish', [tt.cuu, s.goi, s.moc]);
+    may.tre_cb = 0;
     await T.dong();
 
     const la = moiBam.filter(b => !b.tin && DUOC_BAM.indexOf(b.ten) < 0);

@@ -19,7 +19,8 @@ canvas{display:block;margin:10px;background:#e8ece8}
  *       已排 名称 材质 颜色 纹路 板厚 小板 大板 前N 最后 余料板 新优化 开料刀 操作;  nút 开始优化 (đang chạy thì thành 停止优化) / 取消优化 / 确认新优化;
  *   - 开始优化: tối ưu chạy tại máy, kết quả đủ sau ≤ 1 giây (228 tấm: 20 → 19 tờ ở 0,7 giây), sau đó chỉ nhích diện tích tờ cuối; thanh tiến độ quay MÃI, không tự dừng;
  *     停止优化 giữ nguyên kết quả; 确认新优化 đóng hộp, hiện sơ đồ + thanh công cụ đủ nút (保存优化, 导出NC, 一键NC, 打印标签…).
- * Cấu hình lấy ở trang cha: __MOCK_SX__.cfg = { tam, kieu: 'tot' | 'trang', toi_uu: 'nhanh' | 'cham' | 'khong_ra', nuot_bam_dau }. Mọi lần bấm nút ghi vào __MOCK_SX__.bam. */
+ * Cấu hình lấy ở trang cha: __MOCK_SX__.cfg = { tam, kieu: 'tot' | 'trang', toi_uu: 'nhanh' | 'cham' | 'khong_ra', nuot_bam_dau, hop_hoi (trang hỏi một câu trước khi mở hộp 优化进度) }.
+ * Mọi lần bấm nút ghi vào __MOCK_SX__.bam. */
 (function () {
   'use strict';
   const P = window.parent, SO = P.__MOCK_SX__, C = SO.cfg, iv = SO.iv;
@@ -49,6 +50,13 @@ canvas{display:block;margin:10px;background:#e8ece8}
     const dong = [...hop.querySelectorAll('.el-table')[0].querySelectorAll('tbody tr')], nut = n => hop.querySelector(`[data-n="${n}"]`), tien = hop.querySelector('.tien');
     const veThanh = ds => { thanh.innerHTML = ds.map(t => `<button class="el-button"><span>${t}</span></button>`).join(''); [...thanh.querySelectorAll('button')].forEach(b => b.addEventListener('click', e => { const t = b.innerText.trim(); ghiBam(t, 'thanh', e); if (t === '开始优化' || t === '继续优化') wrap.style.display = ''; })); };
     veThanh(NUT_DAU);
+    if (C.hop_hoi) {      // trang hỏi trước (vd tấm vượt cỡ, chưa chọn máy…): một hộp Element UI KHÁC; trả lời xong hộp 优化进度 mới hiện
+      wrap.style.display = 'none';
+      const hoi = document.createElement('div'); hoi.className = 'el-dialog__wrapper hoi';
+      hoi.innerHTML = '<div class="el-dialog" role="dialog" style="width:420px"><div class="el-dialog__header"><span class="el-dialog__title">提示</span></div><div class="el-dialog__body">' + (C.hop_hoi === true ? '有板件超出大板尺寸, 是否继续?' : C.hop_hoi) + '</div><div class="el-dialog__footer"><button class="el-button el-button--primary"><span>确定</span></button></div></div>';
+      hoi.querySelector('button').addEventListener('click', e => { ghiBam('确定', 'hoi', e); hoi.remove(); wrap.style.display = ''; });
+      goc.appendChild(hoi);
+    }
     let chay = false, hen = [], vong = 0, lanBam = 0;
     const dat = (to, cuoi) => dong.forEach((r, i) => { const td = r.querySelectorAll('td'); td[7].firstChild.textContent = to[i]; td[8].firstChild.textContent = to[i] ? '2.5' + i + '0' : '0.000'; td[9].firstChild.textContent = Number(cuoi[i]).toFixed(3); td[11].firstChild.textContent = to[i] ? '有' : '-'; });
     const khoa = k => { for (const n of ['huy', 'xac']) { nut(n).disabled = k; nut(n).classList.toggle('is-disabled', k); } };
@@ -56,7 +64,7 @@ canvas{display:block;margin:10px;background:#e8ece8}
     nut('chay').addEventListener('click', e => {
       ghiBam(nut('chay').innerText.trim(), 'hop', e);
       if (chay) return dung();
-      if (C.nuot_bam_dau && lanBam++ === 0) return;                         // lần bấm đầu trong tab vừa mở có khi bị nuốt (đo thật 04/10/2026)
+      if (C.nuot_bam_dau && lanBam++ < (C.nuot_bam_dau === true ? 1 : +C.nuot_bam_dau)) return;      // lần bấm đầu trong tab vừa mở có khi bị nuốt (đo thật 04/10/2026); số = nuốt ngần ấy lần
       chay = true; nut('chay').firstChild.textContent = '停止优化'; khoa(true); tien.hidden = false; SO.t_chay = Math.round(P.performance.now() - SO.t0);
       let pt = 0; vong = setInterval(() => { pt = (pt + 7) % 100; tien.querySelector('.el-progress').setAttribute('aria-valuenow', pt); }, 100);      // thanh tiến độ quay mãi
       hen = LICH.map(([ms, to, cuoi]) => setTimeout(() => { dat(to, cuoi); SO.doi_cuoi = Math.round(P.performance.now() - SO.t0); }, ms));

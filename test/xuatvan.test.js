@@ -139,6 +139,13 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     ok(r.ok === false && r.gd === 'lenh' && /CD/.test(r.reason) && r.lan === lanTruoc && (await soHop()) === 0, 'báo không chạy được lệnh, không treo', r);
     await page.evaluate(() => { window.__MOCK_CD_KHONG_QUYEN__ = false; });
 
+    console.log('— Chenfeng không mở khung (lệnh CD đứng ở bước chọn): hết hạn thì báo, không để lệnh dở lại');
+    await page.evaluate(() => { window.__MOCK_CD_TREO__ = true; });
+    r = await xuat({ cho_hop: 1200 });
+    ok(r.ok === false && r.gd === 'lenh' && /không mở khung/.test(r.reason) && (await soHop()) === 0, 'báo Chenfeng không mở khung xuất ván', r);
+    ok(await page.evaluate(() => !window.MNCFDriver.busy() && window.MNCFDriver.selected().length === 0), 'lệnh CD dở đã được huỷ, tập chọn đã bỏ');
+    await page.evaluate(() => { window.__MOCK_CD_TREO__ = false; });
+
     console.log('— Đang dở lệnh khác: huỷ lệnh đó rồi mới chạy CD');
     await page.evaluate(() => window.MNCFDriver.cmd('DRAWHOLE'));
     r = await xuat();
@@ -155,6 +162,8 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     let chu = await H.locator('[data-ui="xuatvan"]').innerText();
     ok(new RegExp(`${D0.tam} tấm`).test(chu) && /cả bản vẽ/.test(chu) && /打开/.test(chu), 'xuất cả bản vẽ: ghi số tấm, phạm vi, nhắc bấm 打开', chu);
     ok(/trợ lý/i.test(chu) && !/停止优化/.test(chu), 'tiện ích bản mới (bộ nạp ≥ 2): nói trợ lý trang sản xuất tự tối ưu, không bắt nhớ các nút tiếng Trung', chu);
+    const giay = Math.max(5, Math.round((4 + 0.05 * D0.tam) / 5) * 5);        // máy chủ Chenfeng: ≈ 4 giây + 0,05 giây / tấm (đo thật), làm tròn 5 giây
+    ok(new RegExp(`khoảng ${giay} giây cho ${D0.tam} tấm`).test(chu), 'ước thời gian máy chủ tính theo số tấm', [giay, chu]);
     ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc + 1 && (await soHop()) === 1, 'đã chạy CD một lần, khung đang mở');
     ok(/打开/.test(await H.locator('.status').innerText()), 'dòng trạng thái cũng nhắc bấm 打开', await H.locator('.status').innerText());
     ok(await H.locator('.panel').isVisible() && !(await H.locator('.chip').isVisible()), 'khung nhỏ không bị bảng che: bảng giữ nguyên, không hiện lời nhắc nổi');
@@ -205,6 +214,18 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     eq(await page.evaluate(() => window.__MOCK_CD__.slice(-1)[0].tu), ['XB'], 'CD chỉ nhận tủ XB');
     await page.evaluate(() => { window.__MNCF_NAP__.ban_nap = window.__nap_cu; return window.MNCFDriver.dongKhungXuat(); });
 
+    console.log('— Chọn tấm của 2 tủ: ghi rõ 2 tủ; bấm hai lần liền chỉ chạy một lệnh CD');
+    await page.evaluate(() => { const D = window.MNCFDriver, t = n => D.all().find(e => D.isBoard(e) && e.BoardProcessOption.cabinetName === n); window.__MOCK__.userSelect([t('XA'), t('XB')]); });
+    lanTruoc = await page.evaluate(() => window.__MOCK_CD__.length);
+    await page.evaluate(() => { const b = document.getElementById('mncf-host').shadowRoot.querySelector('[data-act="xuatvan"]'); b.click(); b.click(); });
+    await H.locator('[data-ui="xuatvan"] .msg.ok').waitFor({ timeout: 15000 });
+    await page.waitForTimeout(1500);
+    chu = await H.locator('[data-ui="xuatvan"]').innerText();
+    ok(new RegExp(`${D0.tam} tấm của 2 tủ đang chọn \\(XA, XB\\)`).test(chu), 'chọn tấm của XA và XB: ghi "2 tủ đang chọn (XA, XB)"', chu);
+    ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc + 1 && (await soHop()) === 1, 'hai lần bấm liền nhau: một lệnh CD, một khung');
+    eq(await page.evaluate(() => window.__MOCK_CD__.slice(-1)[0].tu), ['XA', 'XB'], 'CD nhận đủ 2 tủ');
+    await page.evaluate(() => window.MNCFDriver.dongKhungXuat());
+
     console.log('— Có lỗi sản xuất: chưa chạy CD, nêu lỗi, hỏi "Vẫn xuất"');
     await page.evaluate(() => { window.__MOCK_LO_GIAO__ = true; });
     r = await ve(Object.assign({ ma: 'XC' }, TU), 6000);
@@ -246,6 +267,59 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc + 1 && (await soHop()) === 1, '"Thử lại": đóng khung hỏng, chạy lại CD, lần này được');
     eq(await page.evaluate(() => window.__MOCK_CD__.slice(-1)[0].tu), ['XA'], '"Thử lại" giữ đúng phạm vi của lần trước (tủ XA) dù tập chọn đã mất');
     await page.evaluate(() => window.MNCFDriver.dongKhungXuat());
+
+    console.log('— Khung tải lâu bất thường: sau 9 giây báo + cho "Thử lại" ngay trong lúc chờ');
+    khung = 'treo';
+    await chonTu('XA');
+    await H.locator('[data-act="xuatvan"]').click();
+    await H.locator('[data-ui="xuatvan"] .msg.warn').waitFor({ timeout: 20000 });
+    chu = await H.locator('[data-ui="xuatvan"]').innerText();
+    ok(/lâu bất thường/.test(chu) && await H.locator('[data-act="xuatvan-lai"]').isVisible(), 'khung chưa lên tiếng sau 9 giây: báo đường truyền chậm + nút Thử lại', chu);
+    khung = 'tot';
+    lanTruoc = await page.evaluate(() => window.__MOCK_CD__.length);
+    await chonTu('XB');                                                      // lúc này người dùng đang chọn tủ khác: "Thử lại" vẫn phải xuất đúng tủ XA của lần trước
+    await H.locator('[data-act="xuatvan-lai"]').click();
+    await H.locator('[data-ui="xuatvan"] .msg.ok').waitFor({ timeout: 15000 });
+    ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc + 1 && (await soHop()) === 1, '"Thử lại" lúc khung còn treo: đóng khung treo, chạy lại CD');
+    eq(await page.evaluate(() => window.__MOCK_CD__.slice(-1)[0].tu), ['XA'], '"Thử lại" xuất đúng tủ của lần trước dù người dùng đang chọn tủ khác');
+    await page.evaluate(() => window.MNCFDriver.dongKhungXuat());
+
+    console.log('— Người dùng đóng khung khi khung chưa sẵn sàng: bảng báo chưa gửi gì, không coi là lỗi');
+    khung = 'treo';
+    await chonTu('XA');
+    await H.locator('[data-act="xuatvan"]').click();
+    await page.waitForFunction(() => document.querySelector('.bp3-dialog.board-config iframe'), null, { timeout: 10000 });
+    await page.waitForTimeout(500);
+    await page.locator('.bp3-dialog.board-config .bp3-dialog-close-button').click();
+    await page.waitForFunction(() => /đã bị đóng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="xuatvan"]').textContent), null, { timeout: 8000 }).catch(() => {});
+    chu = await H.locator('[data-ui="xuatvan"]').innerText();
+    ok(/đã bị đóng trước khi sẵn sàng/.test(chu) && /chưa có gì/i.test(chu) && (await H.locator('[data-ui="xuatvan"] .msg.err').count()) === 0 && (await H.locator('[data-act="xuatvan-lai"]').count()) === 0, 'đóng khung lúc khung chưa tải xong: dòng ghi chú, không báo đỏ, không mời Thử lại', chu);
+    khung = 'tot';
+
+    console.log('— Lệnh CD không chạy được: bảng nêu lý do + nút "Thử lại"');
+    await page.evaluate(() => { window.__MOCK_CD_KHONG_QUYEN__ = true; });
+    await chonTu('XA');
+    lanTruoc = await page.evaluate(() => window.__MOCK_CD__.length);
+    await H.locator('[data-act="xuatvan"]').click();
+    await H.locator('[data-ui="xuatvan"] .msg.err').waitFor({ timeout: 15000 });
+    chu = await H.locator('[data-ui="xuatvan"]').innerText();
+    ok(/Chưa xuất được/.test(chu) && /CD/.test(chu) && await H.locator('[data-act="xuatvan-lai"]').isVisible(), 'nêu lý do lệnh CD không chạy + có nút Thử lại', chu);
+    await page.evaluate(() => { window.__MOCK_CD_KHONG_QUYEN__ = false; });
+    await H.locator('[data-act="xuatvan-lai"]').click();
+    await H.locator('[data-ui="xuatvan"] .msg.ok').waitFor({ timeout: 15000 });
+    ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc + 1 && (await soHop()) === 1, '"Thử lại" sau khi lệnh chạy được: mở khung');
+    eq(await page.evaluate(() => window.__MOCK_CD__.slice(-1)[0].tu), ['XA'], 'vẫn đúng tủ XA');
+    await page.evaluate(() => window.MNCFDriver.dongKhungXuat());
+
+    console.log('— Bảng đang vẽ dở: chưa cho xuất (lệnh CD sẽ huỷ ngang lệnh đang vẽ)');
+    await H.locator('.tab[data-tab="tu"]').click();
+    await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({ ma: 'XD' }, TU));
+    await H.locator('#mncf-ui-useat').check(); await H.locator('#mncf-ui-ax').fill('20000');
+    lanTruoc = await page.evaluate(() => window.__MOCK_CD__.length);
+    const lucVe = await page.evaluate(() => { const sh = document.getElementById('mncf-host').shadowRoot; sh.querySelector('[data-act="draw"]').click(); sh.querySelector('.tab[data-tab="kq"]').click(); sh.querySelector('[data-act="xuatvan"]').click(); return sh.querySelector('.status').textContent; });
+    ok(/đang vẽ/i.test(lucVe), 'bấm Xuất ván giữa lúc bảng đang vẽ: bảng bảo chờ vẽ xong', lucVe);
+    await page.waitForFunction(() => /Đã vẽ xong|Có lỗi/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
+    ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc && (await soHop()) === 0 && (await page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => D.isBoard(e) && e.BoardProcessOption.cabinetName === 'XD').length; })) > 5, 'không có lệnh CD nào chen vào; tủ XD vẫn vẽ trọn');
 
     console.log('— Thẻ Hướng dẫn: mục Xuất ván + khung "Cập nhật tự động" nói về trợ lý trang sản xuất');
     await H.locator('.tab[data-tab="hd"]').click();

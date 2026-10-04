@@ -415,6 +415,7 @@
       }
       if (state.kind === 'cd') {
         if (text !== '') return;
+        if (window.__MOCK_CD_TREO__) return;      // lệnh đứng ở bước chọn (Enter không ăn) — để thử việc bảng tự dọn lệnh dở
         state = null; gesvc.IsReady = false;
         const list = selection.filter(e => !e.IsErase); selection = [];
         if (!list.length) { setTimeout(() => fireEnd('CHAIDAN', [], []), 10); return; }

@@ -10,12 +10,13 @@
  *   - Invoker (Vue 2): { loaded, modContext, needUpdate, items, $el (khung), initFinish(ctx), invokeUpdate() }. Khung vừa gắn vào trang là có sự kiện load của about:blank
  *     → loaded = true → đẩy nội dung một lần (invokeUpdate) — lúc này modContext chưa có nên lần đẩy bị nuốt; rồi địa chỉ khung mới được đặt, Receiver trong khung gọi initFinish.
  *     Lần chạy tốt: ngay sau initFinish trang cha vẽ lại và đẩy lần nữa → bảng tối ưu hiện. Lần hỏng (lỗi tranh nhau, kieu: 'trang'): không có lần đẩy thứ hai
- *     → TRANG TRẮNG mãi cho tới khi có ai gọi invokeUpdate();
+ *     → TRANG TRẮNG mãi cho tới khi có ai gọi invokeUpdate(); kieu: 'trang_mai' = gọi lại cũng không dựng (khung hỏng hẳn);
  *   - máy chủ lỗi: sau GetPlanOrder trang gọi /api/v1/Account/Reporting rồi trắng mãi, không tạo khung (kieu: 'loi_may_chu').
- * Cấu hình: window.__MOCK_SX_CFG__ = { tam, tre_dl, co_dl, kieu, toi_uu, nuot_bam_dau }.  Sổ ghi cho phép thử: window.__MOCK_SX__. */
+ * Cấu hình: window.__MOCK_SX_CFG__ = { tam, tre_dl, co_dl, kieu, toi_uu, nuot_bam_dau (true = nuốt lần bấm đầu; số = nuốt ngần ấy lần), tre_day (ms từ initFinish tới lần đẩy của lần chạy tốt) }.
+ * Sổ ghi cho phép thử: window.__MOCK_SX__. */
 (function () {
   'use strict';
-  const C = Object.assign({ tam: 38, tre_dl: 150, co_dl: true, kieu: 'tot', toi_uu: 'nhanh', nuot_bam_dau: false }, window.__MOCK_SX_CFG__ || {});
+  const C = Object.assign({ tam: 38, tre_dl: 150, co_dl: true, kieu: 'tot', toi_uu: 'nhanh', nuot_bam_dau: false, tre_day: 300 }, window.__MOCK_SX_CFG__ || {});
   const SO = window.__MOCK_SX__ = { cfg: C, iv: null, bam: [], goi: { invokeUpdate: 0, initFinish: 0 }, moc: [], t0: performance.now() };
   const moc = t => SO.moc.push([Math.round(performance.now() - SO.t0), t]);
   const vm = (name, data) => Object.assign({ $options: { name }, $children: [], $refs: {} }, data || {});
@@ -31,8 +32,8 @@
     scb.isShow = true; scb.percentage = 100; moc('hien single-cut-block');
     const fr = document.createElement('iframe');
     const iv = vm('Invoker', { id: 1, loaded: false, modContext: null, needUpdate: true, isTemplate: false, items: [{ tag: 'CutBlockWithConfig', attrs: { order: { BlockList: new Array(C.tam).fill(0) } } }, { tag: 'CncExport', attrs: {} }], $el: fr,
-      initFinish(ctx) { SO.goi.initFinish++; this.modContext = ctx; moc('initFinish'); if (C.kieu !== 'trang' && this.loaded) this.invokeUpdate(); },
-      invokeUpdate() { SO.goi.invokeUpdate++; if (this.modContext) { this.modContext.renderVersion = true; moc('invokeUpdate → dựng'); } else moc('invokeUpdate bị nuốt (chưa có modContext)'); },
+      initFinish(ctx) { SO.goi.initFinish++; this.modContext = ctx; moc('initFinish'); if (C.kieu !== 'trang' && this.loaded) setTimeout(() => this.invokeUpdate(), C.tre_day); },      // trang thật: trang cha vẽ lại ở nhịp sau rồi mới đẩy — khung rỗng thêm một lúc dù không kẹt
+      invokeUpdate() { SO.goi.invokeUpdate++; if (!this.modContext) moc('invokeUpdate bị nuốt (chưa có modContext)'); else if (C.kieu === 'trang_mai') moc('invokeUpdate — khung vẫn không dựng'); else { this.modContext.renderVersion = true; moc('invokeUpdate → dựng'); } },
       iframeLoad() { this.loaded = true; moc('khung load'); if (this.needUpdate) { this.invokeUpdate(); this.needUpdate = false; } } });
     SO.iv = iv; scb.$refs.invoker = iv; scb.$children.push(iv);
     fr.addEventListener('load', () => iv.iframeLoad());

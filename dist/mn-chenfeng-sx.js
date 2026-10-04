@@ -23,8 +23,9 @@ var __MNCF_SX_PB__ = "1.22.0";
   var VERSION = typeof __MNCF_SX_PB__ === 'string' ? __MNCF_SX_PB__ : 'thử';      // build.js chèn số phiên bản vào bản gộp
   var LS = 'mncf.sx.v1';
   // ngưỡng (ms). nhip: nhịp dò; han_dl: chờ dữ liệu tấm; han_bang: sau khi máy chủ trả sơ đồ mà bảng tối ưu vẫn chưa hiện; cho_cuu: khung rỗng bao lâu thì gọi lại;
-  // dem: đếm trước khi bấm 开始优化; on_dinh_*: số tờ đứng yên bao lâu thì dừng; han_chay: chạy bao lâu mà chưa đủ kết quả thì để người dùng tự xử lý; bam_lai: bấm mà trang chưa chạy thì bấm lại
-  var CH = { nhip: 200, han_dl: 15000, han_bang: 25000, cho_cuu: 700, cuu_toi_da: 5, dem: 1500, on_dinh_goc: 2500, on_dinh_moi_tam: 10, on_dinh_tran: 12000, han_chay: 120000, bam_lai: 1200 };
+  // cuu_cach: giãn cách giữa hai lần gọi lại (tối đa cuu_toi_da lần); dem: đếm trước khi bấm 开始优化; on_dinh_*: số tờ đứng yên bao lâu thì dừng;
+  // han_chay: chạy bao lâu mà chưa đủ kết quả thì để người dùng tự xử lý; bam_lai: bấm mà trang chưa chạy thì bấm lại; thu_gon: xong bao lâu thì bảng báo tự thu thành viên nhỏ
+  var CH = { nhip: 200, han_dl: 15000, han_bang: 25000, cho_cuu: 700, cuu_cach: 1500, cuu_toi_da: 5, dem: 1500, on_dinh_goc: 2500, on_dinh_moi_tam: 10, on_dinh_tran: 12000, han_chay: 120000, bam_lai: 1200, thu_gon: 20000 };
   var now = function () { return Date.now(); };
   var onDinh = function (soTam) { return Math.min(CH.on_dinh_tran, Math.max(CH.on_dinh_goc, CH.on_dinh_goc + CH.on_dinh_moi_tam * (soTam > 0 ? soTam : 0))); };
   var uocTinh = function (soTam) { return Math.round(4 + 0.05 * (soTam > 0 ? soTam : 0)); };      // giây máy chủ Chenfeng tính sơ đồ (GetPlanOrder), đo 38 tấm 4–8 giây, 228 tấm 11–15 giây
@@ -36,7 +37,7 @@ var __MNCF_SX_PB__ = "1.22.0";
   var luuCai = function () { try { root.localStorage.setItem(LS, JSON.stringify(cai)); } catch (e) { /* không lưu được thì thôi */ } };
 
   // S: trước khi bảng tối ưu hiện.  A: tự tối ưu — 'cho' (chưa thấy hộp) → 'tay' (đang tắt) | 'dem' → 'chay' → 'dung' → 'xac' → 'xong'; 'thoi' = nhường người dùng (A.ly: lý do)
-  var S = { t0: now(), dl: 0, so_tam: 0, pl: 0, pl_ms: 0, pl_loi: false, bao: 0, tb: '', cuu: 0, cuu_luc: 0, rong_tu: 0, an: false, gon: false, khoa: '', chu: '', loai: '', nhat_ky: [] };
+  var S = { t0: now(), dl: 0, so_tam: 0, pl: 0, pl_ms: 0, pl_loi: false, bao: 0, tb: '', cuu: 0, cuu_luc: 0, rong_tu: 0, dung_tu: 0, an: false, gon: false, khoa: '', chu: '', loai: '', nhat_ky: [] };
   var A = { giai: 'cho', t: 0, t_chay: 0, to: '', t_doi: 0, lan_bam: 0, nguoi: false, ly: '', bang: null, ket: null, t_xong: 0, nghe: null };
 
   /* ---- nghe trang (thụ động) ---- */
@@ -94,9 +95,11 @@ var __MNCF_SX_PB__ = "1.22.0";
   var thongBao = function () { try { var ds = doc.querySelectorAll('.el-notification, .el-message'), ra = []; for (var i = 0; i < ds.length; i++) { if (!hienThay(ds[i])) continue; var t = chuoi(ds[i]); if (t) ra.push(t.slice(0, 160)); } return ra.join(' · '); } catch (e) { return ''; } };
   var tong = function (a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; };
   var bam = function (el) { try { el.click(); return true; } catch (e) { return false; } };
-  var ngheNguoi = function (d) {      // người dùng tự bấm / gõ trong hộp tối ưu lúc trợ lý đang đếm hoặc đang chờ → nhường
+  // Người dùng tự bấm / gõ TRONG HỘP TỐI ƯU → nhường. Nghe từ lúc khung vừa có tài liệu, kể cả khi trợ lý CHƯA kịp thấy hộp (nhịp dò 200 ms):
+  // lần bấm rơi vào đúng khe đó mà bị lỡ thì trợ lý sẽ bấm chồng lên việc người dùng đang làm.
+  var ngheNguoi = function (d) {
     if (A.nghe === d) return; A.nghe = d;
-    var f = function (e) { try { if (!e.isTrusted || ['dem', 'chay', 'dung'].indexOf(A.giai) < 0) return; var t = e.target; if (t && t.closest && t.closest('.el-dialog')) A.nguoi = true; } catch (er) { /* bỏ qua */ } };
+    var f = function (e) { try { if (!e.isTrusted || ['cho', 'dem', 'chay', 'dung'].indexOf(A.giai) < 0) return; var h = hopToiUu(d); if (h && e.target && h.contains(e.target)) A.nguoi = true; } catch (er) { /* bỏ qua */ } };      // hộp hỏi khác của trang (tấm vượt cỡ, chọn máy…) không tính
     try { d.addEventListener('mousedown', f, true); d.addEventListener('keydown', f, true); } catch (e) { /* bỏ qua */ }
   };
   var thoi = function (ly) { A.giai = 'thoi'; A.ly = ly; };
@@ -106,13 +109,19 @@ var __MNCF_SX_PB__ = "1.22.0";
     if (!S.dl) { var vm = timVm(function (v) { return v.orderData && Array.isArray(v.orderData.blockList) && v.orderData.blockList.length > 0; }); if (vm) { S.dl = t; S.so_tam = vm.orderData.blockList.length; } }      // lỡ tin nhắn (trợ lý nạp trễ): đọc ở thành phần của trang
     var iv = timVm(laInvoker);
     if (iv && !S.pl) S.pl = t;                          // Invoker chỉ có sau khi máy chủ đã trả sơ đồ
-    if (iv && iv.loaded && iv.modContext && khungRong(iv.$el && iv.$el.tagName === 'IFRAME' ? iv.$el : (k && k.fr))) {
+    var fr = iv && iv.$el && iv.$el.tagName === 'IFRAME' ? iv.$el : (k && k.fr), rong = !fr || khungRong(fr);      // rong: chưa có khung cut-block, hoặc khung chưa dựng gì
+    if (iv && iv.loaded && iv.modContext && fr && rong) {
       if (!S.rong_tu) S.rong_tu = t;
-      if (t - S.rong_tu >= CH.cho_cuu && S.cuu < CH.cuu_toi_da && t - S.cuu_luc >= 1500) { S.cuu++; S.cuu_luc = t; try { iv.invokeUpdate(); } catch (e) { /* bỏ qua */ } }
+      if (t - S.rong_tu >= CH.cho_cuu && S.cuu < CH.cuu_toi_da && t - S.cuu_luc >= CH.cuu_cach) { S.cuu++; S.cuu_luc = t; try { iv.invokeUpdate(); } catch (e) { /* bỏ qua */ } }
     } else S.rong_tu = 0;
     var giay = Math.round((t - S.t0) / 1000), tb = thongBao();
     if (tb) S.tb = tb;
-    if (S.pl_loi || (S.bao && t - S.bao >= 3000) || (S.pl && t - S.pl >= CH.han_bang)) return dat('loi', 'err', 'Trang sản xuất của Chenfeng không mở được bảng tối ưu' + (S.pl_loi ? ' (máy chủ báo lỗi)' : '') + '.' + (S.tb ? ' Trang báo: “' + S.tb + '”.' : '') + ' Đóng tab này rồi bấm Xuất ván lại trong Chenfeng — đừng F5: tải lại là mất dữ liệu tấm.');
+    // "không mở được" chỉ khi khung còn rỗng: khung đã dựng mà chưa thấy hộp tối ưu là trang đang bận việc khác (hỏi người dùng một câu…), không phải hỏng
+    if (S.pl_loi || (rong && ((S.bao && t - S.bao >= 3000) || (S.pl && t - S.pl >= CH.han_bang)))) return dat('loi', 'err', 'Trang sản xuất của Chenfeng không mở được bảng tối ưu' + (S.pl_loi ? ' (máy chủ báo lỗi)' : '') + '.' + (S.tb ? ' Trang báo: “' + S.tb + '”.' : '') + ' Đóng tab này rồi bấm Xuất ván lại trong Chenfeng — đừng F5: tải lại là mất dữ liệu tấm.');
+    if (S.pl && !rong) {                                // khung đã dựng; hộp tối ưu thường hiện ngay sau đó — quá 1,5 giây chưa thấy mới đổi lời
+      if (!S.dung_tu) S.dung_tu = t;
+      if (t - S.dung_tu >= 1500) return dat('cho_hop', 'note', 'Trang sản xuất đã mở — chờ hộp 优化进度 hiện' + (cai.tu_dong ? ' thì trợ lý tự chạy tối ưu' : '') + '. Trang đang hỏi gì thì anh trả lời trước.');
+    }
     if (S.pl) return S.cuu ? dat('cuu', 'note', 'Trang bị kẹt trắng — trợ lý đã gọi lại, bảng tối ưu đang hiện…') : dat('mo_bang', 'note', 'Máy chủ đã trả sơ đồ' + (S.pl_ms ? ' (' + (S.pl_ms / 1000).toFixed(1).replace('.', ',') + ' giây)' : '') + ' — đang mở bảng tối ưu…');
     if (S.dl) { var u = uocTinh(S.so_tam), da = Math.round((t - S.dl) / 1000); return dat('tinh', 'note', 'Máy chủ Chenfeng đang tính ' + (S.so_tam ? S.so_tam + ' tấm' : 'sơ đồ') + '… ' + da + ' giây (thường khoảng ' + u + ' giây).' + (da > 3 * u + 20 ? ' Lâu bất thường — chờ thêm, hoặc đóng tab này rồi bấm Xuất ván lại.' : '')); }
     if (t - S.t0 >= CH.han_dl) return dat('mat_dl', 'warn', 'Trang này chưa nhận được dữ liệu tấm từ Chenfeng CAD. Nếu anh vừa F5 hoặc mở lại tab: đóng tab này rồi bấm Xuất ván lại trong Chenfeng (dữ liệu chỉ được trao một lần lúc bấm 打开).');
@@ -123,8 +132,13 @@ var __MNCF_SX_PB__ = "1.22.0";
   var NHAC_TAY = 'bấm 开始优化 → đếm 3–5 giây → 停止优化 → 确认新优化 (thanh tiến độ không bao giờ tự dừng).';
   function toiUu(k, hop, t) {
     var nChay = hop && nut(hop, '开始优化'), nDung = hop && nut(hop, '停止优化'), nXac = hop && nut(hop, '确认新优化');
-    if (A.giai === 'cho') { if (!hop) return; if (cai.tu_dong) { A.giai = 'dem'; A.t = t; A.nguoi = false; ngheNguoi(k.d); } else A.giai = 'tay'; }
-    else if (A.giai === 'tay') { if (cai.tu_dong && hop && nChay) { A.giai = 'dem'; A.t = t; A.nguoi = false; ngheNguoi(k.d); } }
+    if (A.giai === 'cho') {
+      if (!hop) return;
+      if (!cai.tu_dong) A.giai = 'tay';
+      else if (A.nguoi || !nChay) thoi('nguoi');      // người dùng đã đụng vào hộp, hoặc tối ưu đang chạy sẵn (trợ lý tới sau): không đếm, không bấm chồng lên
+      else { A.giai = 'dem'; A.t = t; }
+    }
+    else if (A.giai === 'tay') { if (cai.tu_dong && hop && nChay) { A.giai = 'dem'; A.t = t; A.nguoi = false; } }      // bật lại tại chỗ = bảo trợ lý làm: bỏ qua những lần bấm trước đó
     else if (A.giai === 'dem') {
       if (A.nguoi) thoi('nguoi'); else if (!hop) thoi('hop_dong'); else if (!cai.tu_dong) A.giai = 'tay';
       else if (t - A.t >= CH.dem && nChay && !nChay.disabled) { bam(nChay); A.lan_bam = 1; A.t = t; A.t_chay = t; A.to = ''; A.t_doi = t; A.bang = null; A.giai = 'chay'; }
@@ -152,7 +166,7 @@ var __MNCF_SX_PB__ = "1.22.0";
     if (A.giai === 'dung' || A.giai === 'xac') return dat('dung', 'note', 'Đã dừng tối ưu — đang mở sơ đồ cắt…');
     if (A.giai === 'xong') {
       var kq = A.ket || { to: [], ten: [] }, ct = kq.to.map(function (n, i) { return (kq.ten[i] || 'loại ' + (i + 1)) + ': ' + n + ' tờ'; }).join('; ');
-      if (!S.gon && A.t_xong && t - A.t_xong >= 20000) S.gon = true;      // xong lâu rồi: thu lại cho khỏi che sơ đồ
+      if (!S.gon && A.t_xong && t - A.t_xong >= CH.thu_gon) S.gon = true;      // xong lâu rồi: thu lại cho khỏi che sơ đồ
       return dat('xong', 'ok', 'Xong — ' + tong(kq.to) + ' tờ ván' + (ct ? ' (' + ct + ')' : '') + '. Sơ đồ cắt đã mở, CHƯA lưu gì: anh bấm 保存优化 / 一键NC / 打印标签 khi cần.');
     }
     if (A.ly === 'nguoi') return dat('thoi:nguoi', 'note', 'Anh đang tự làm — trợ lý không bấm gì nữa. Nhớ: ' + NHAC_TAY);
@@ -204,10 +218,12 @@ var __MNCF_SX_PB__ = "1.22.0";
     ui.vien.textContent = A.giai === 'xong' && A.ket ? 'Một Nhà ✓ ' + tong(A.ket.to) + ' tờ' : 'Một Nhà';
   }
 
+  var vong = 0;
   function nhip() {
     try {
       if (!/^#\/cadSingleAdd/.test(String(root.location.hash || ''))) { S.khoa = 'nghi'; ve(); return; }      // các trang khác của hệ sản xuất: nằm im
       var k = khung(), hop = k ? hopToiUu(k.d) : null, t = now();
+      if (k) ngheNguoi(k.d);
       if (hop || A.giai !== 'cho') toiUu(k, hop, t); else truocBang(k, t);
       ve();
     } catch (e) { /* không để lỗi lọt ra trang */ }
@@ -217,12 +233,20 @@ var __MNCF_SX_PB__ = "1.22.0";
     version: VERSION,
     /** Ảnh chụp trạng thái (cho phép thử và khi cần xem bằng tay ở bảng điều khiển). */
     trang_thai: function () { return { giai: S.khoa === 'nghi' ? 'nghi' : (A.giai === 'cho' ? 'truoc_bang' : 'bang'), khoa: S.khoa, tu: A.giai, ly: A.ly, chu: S.chu, loai: S.loai, so_tam: S.so_tam, cuu: S.cuu, tu_dong: cai.tu_dong, nhat_ky: S.nhat_ky.slice() }; },
-    /** Chỉnh ngưỡng (ms) — xem CH ở đầu file. */
-    dat: function (o) { try { for (var k in o) if (Object.prototype.hasOwnProperty.call(CH, k) && typeof o[k] === 'number' && o[k] >= 0) CH[k] = o[k]; } catch (e) { /* bỏ qua */ } return Object.assign({}, CH); },
+    /** Chỉnh ngưỡng (ms) — xem CH ở đầu file. Đổi nhip thì nhịp dò chạy lại theo số mới (không dưới 50 ms). */
+    dat: function (o) {
+      try {
+        var cu = CH.nhip;
+        for (var k in o) if (Object.prototype.hasOwnProperty.call(CH, k) && typeof o[k] === 'number' && o[k] >= 0) CH[k] = o[k];
+        if (CH.nhip < 50) CH.nhip = 50;
+        if (CH.nhip !== cu && vong) { root.clearInterval(vong); vong = root.setInterval(nhip, CH.nhip); }
+      } catch (e) { /* bỏ qua */ }
+      return Object.assign({}, CH);
+    },
     tinh: { onDinh: onDinh, uocTinh: uocTinh }
   };
   nhip();
-  root.setInterval(nhip, CH.nhip);
+  vong = root.setInterval(nhip, CH.nhip);
 })(typeof self !== 'undefined' ? self : this);
 
 }).call(typeof self !== 'undefined' ? self : this);
