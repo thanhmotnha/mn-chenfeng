@@ -59,6 +59,9 @@
   class TplHau extends Tpl { constructor(name, hau, kep, option) { super(name, [hau]); this.kep = kep; this._option = Object.assign({ version: 4, leftExt: 6, rightExt: 6, topExt: 6, bottomExt: 6, thickness: 5, boardRelative: 'back', spaceSize: 20, calcSpaceSize: '20', exprThickness: '5' }, option || {}); }
     dungHau() { const [tr, ph, no, da] = this.kep.map(b => b.box), o = this._option, h = this.Objects[0].Object, sau = Math.min(tr[3], ph[3]) - o.spaceSize;      // lưng khoảng kẹp = mép sau 2 tấm đứng
       h._t = o.thickness; h.box = [tr[1] - o.leftExt, ph[0] + o.rightExt, sau - o.thickness, sau, da[5] - o.bottomExt, no[4] + o.topExt]; } }
+  // MẪU NHẬP qua cổng 晨丰导入 (hộp ngăn kéo, suốt treo): đo trên bản thật 05/10/2026 — khung của mẫu (GetTemplateRealitySpaceCS) = GỐC HỘP mẫu (Pos trong file), có ngay từ lúc lệnh hỏi điểm đặt, đi theo mọi phép dời.
+  class TplNhap extends Tpl { constructor(name, objs, goc0) { super(name, objs); this.neo = objs[0]; this.goc0 = goc0.slice(); }
+    GetTemplateRealitySpaceCS() { return new M4().copy(this.neo.M).multiply(new M4().makeTranslation(this.goc0[0], this.goc0[1], this.goc0[2])); } }
   // MẪU KHO (bản 1.19): module dựng từ một mẫu của kho tài khoản. Khung module (GetTemplateRealitySpaceCS của bản thật) = gốc module lúc tạo, đi theo mọi phép dời / xoay áp lên các tấm.
   class TplKho extends Tpl { constructor(name, objs, goc0) { super(name, objs); this.coGian = true; this.neo = objs[0]; this.goc0 = goc0.slice(); }
     GetTemplateRealitySpaceCS() { return new M4().copy(this.neo.M).multiply(new M4().makeTranslation(this.goc0[0], this.goc0[1], this.goc0[2])); } }
@@ -230,27 +233,50 @@
     if (!data || !Array.isArray(data.ModelSpace)) return;
     window.__MOCK__.lastTemplates = data.ModelSpace.filter(o => o.Type === 'Template');
     prompt('COMMAND', '>晨丰导入');
+    // nhật ký từng lệnh nhập (để phép thử xem bảng nhập gì, mấy lần): số tấm, mã các mẫu, kết cục 'cho' (đang hỏi điểm) | 'ok' | 'loi' | 'huy'
+    const nk = { tam: data.ModelSpace.filter(o => o.Type === 'Board').length, mau: data.ModelSpace.filter(o => o.Type === 'Template').map(o => o.TempalteId), ket: '' };
+    (window.__MOCK_NHAP__ = window.__MOCK_NHAP__ || []).push(nk);
+    // Bản thật (đo 05/10/2026): MỖI mẫu trong lệnh nhập là một lần gọi CAD-moduleDetail tới máy chủ — không lưu đệm, hai mẫu cùng mã vẫn gọi hai lần; một lần hỏng là cả lệnh bị huỷ.
+    //   window.__MOCK_MAU_LOI__ = { [mã mẫu]: { lan: số lần hỏng còn lại, kieu: 'may_chu' (mạng / máy chủ) | 'tk' (mã mẫu không thuộc cửa hàng đang đăng nhập — 鉴权失败) } }
+    const taiMau = async o => {
+      (window.__MOCK_MAU_TAI__ = window.__MOCK_MAU_TAI__ || []).push(o.TempalteId);
+      if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__));
+      const L = (window.__MOCK_MAU_LOI__ || {})[o.TempalteId];
+      if (L && L.lan > 0) { L.lan--; const e = new Error('tai mau'); e.kieu = L.kieu || 'may_chu'; throw e; }
+    };
     if (window.__MOCK_FAIL_IMPORT__) {      // bản thật: tải mẫu hỏng giữa chừng → Chenfeng báo lỗi rồi tự huỷ lệnh
-      await new Promise(r => setTimeout(r, 200)); toast('抱歉!命令<晨丰导入>执行过程中发生错误,已自动取消命令'); fireEnd('晨丰导入', [], []); return;
+      await new Promise(r => setTimeout(r, 200)); toast('抱歉!命令<晨丰导入>执行过程中发生错误,已自动取消命令'); nk.ket = 'loi'; fireEnd('晨丰导入', [], []); return;
     }
     let created = [];
     try {
       for (const o of data.ModelSpace) {
         if (o.Type === 'Board') created.push(boardFromJSON(o));
         else if (o.Type === 'Template' && (window.__MOCK_KHO__ || {})[o.TempalteId]) { if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__)); created = created.concat(khoFromJSON(o, window.__MOCK_KHO__[o.TempalteId])); }
-        else if (o.Type === 'Template') { if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__)); const es = templateFromJSON(o); const rec = new Tpl(o.Name, es).Id; rec.Object.LParam.value = o.BoxSize[0]; rec.Object.WParam.value = o.BoxSize[1]; rec.Object.HParam.value = o.BoxSize[2]; for (const e of es) e.Template = rec; created = created.concat(es); }
+        else if (o.Type === 'Template') { await taiMau(o); const es = templateFromJSON(o); const rec = new TplNhap(o.Name, es, o.Pos).Id; rec.Object.LParam.value = o.BoxSize[0]; rec.Object.WParam.value = o.BoxSize[1]; rec.Object.HParam.value = o.BoxSize[2]; for (const e of es) e.Template = rec; created = created.concat(es); }
         else throw new Error('type');
       }
-    } catch (e) { toast(file.name + '导入失败!'); fireEnd('晨丰导入', [], []); return; }
+    } catch (e) {
+      nk.ket = 'loi';
+      if (e && e.kieu) {      // tải mẫu hỏng: Chenfeng báo lỗi chung rồi tự huỷ lệnh; mã mẫu không thuộc cửa hàng thì có thêm dòng của máy chủ
+        toast('抱歉!命令<晨丰导入>执行过程中发生错误,已自动取消命令,请联系软件技术人员');
+        if (e.kieu === 'tk') toast('服务器返回错误 URL: https://api.cfcad.cn/CAD-moduleDetail [' + (data.ModelSpace.length) + ']不是您店铺的模板，鉴权失败');
+      } else toast(file.name + '导入失败!');
+      fireEnd('晨丰导入', [], []); return;
+    }
     for (const e of created) ents.push(e);
-    const base = [Math.min(...created.map(e => e.box[0])), Math.min(...created.map(e => e.box[2])), Math.min(...created.map(e => e.box[4]))];
-    state = { kind: 'point', created, base }; svc.IsReady = true;
+    // Bản thật (đo 05/10/2026): lúc hỏi điểm, cả cụm vừa tạo KHÔNG nằm ở toạ độ trong file mà nằm ở chỗ chờ (góc nhỏ nhất của cụm đặt tại một điểm cố định) — trả lời điểm nào thì góc nhỏ nhất về đúng điểm đó.
+    const CHO = [981.6, 500, 0], base0 = [Math.min(...created.map(e => e.box[0])), Math.min(...created.map(e => e.box[2])), Math.min(...created.map(e => e.box[4]))];
+    for (const e of created) e.move([CHO[0] - base0[0], CHO[1] - base0[1], CHO[2] - base0[2]]);
+    const base = CHO.slice();
+    nk.ket = 'cho';
+    state = { kind: 'point', created, base, nk }; svc.IsReady = true;
     prompt('INFO', '>点取位置');
   }
   function placeAt(pt) {
     const st = state; state = null; svc.IsReady = false;
     const d = [pt[0] - st.base[0], pt[1] - st.base[1], pt[2] - st.base[2]];
     for (const e of st.created) e.move(d);
+    if (st.nk) st.nk.ket = 'ok';
     const holes = drill(st.created.filter(e => e instanceof Board));
     pushHist({ CommandName: '晨丰导入', created: st.created.concat(holes) });
     setTimeout(() => fireEnd('晨丰导入', [], st.created.concat(holes)), 30);
@@ -506,7 +532,7 @@
       if (!state) return;
       if (state.kind === 'hoi') { const st = state; state = null; svc.IsReady = false; st.res({ Status: -1 }); return; }
       if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog', 'dxf', 'cd'].includes(state.kind)) { svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
-      if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
+      if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; if (state.nk) state.nk.ket = 'huy'; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
       else { const ten = state.kind === 'modeling' ? 'MODELING' : 'DRAWHOLE'; gesvc.IsReady = false; state = null; setTimeout(() => fireEnd(ten, [], []), 10); }
     },
     // bản thật (đo 04/10/2026): AddSelect CỘNG THÊM vào tập đang chọn (không thay tập cũ) — muốn chọn riêng thì Cancel() trước

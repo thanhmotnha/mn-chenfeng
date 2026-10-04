@@ -384,8 +384,15 @@ T('Xuất cho Chenfeng (晨丰导入)', () => {
     ParamMap: [['BH', '17.5'], ['GD', '13'], ['LC', '0'], ['SLK', '30'], ['XLK', '30'], ['SYS', '-11'], ['XYS', '-2'], ['ZYS', '-2'], ['YYS', '-2']].map(([name, value]) => ({ name, value })) }, 'mẫu ngăn kéo');
   ok(ms.filter(x => x.Type === 'Board' && x.OpenDir).length === 8, '8 cánh có hướng mở');
   ok(C.toChenfeng(M, { khong_mau: true }).json.ModelSpace.length === 46, 'tuỳ chọn không kèm mẫu');
+  // bản 1.23 — tấm trước, mẫu sau: từng mẫu (ngăn kéo / suốt treo) tách riêng để nhập sau phần tấm; kèm chỗ mẫu phải nằm và mặt ngăn kéo của nó
+  const dsMau = C.mauCF(M);
+  eq(dsMau.map(x => [x.tp.loai, x.tp.khoang, x.json.TempalteId, x.json.Pos, x.json.BoxSize, x.mat ? [x.mat.x, x.mat.z, x.mat.w, x.mat.h] : null]),
+    [['SUOT', 0, 20650931, [67.5, 0, 67.5], [924, 574, 1732.5], null], ['NGAN_KEO', 1, 20216239, [1059, 30, 67.5], [823.5, 500, 216], [1061, 69.5, 819.5, 203]], ['NGAN_KEO', 1, 20216239, [1059, 30, 283.5], [823.5, 500, 236.5], [1061, 294.5, 819.5, 203]], ['SUOT', 1, 20650931, [1009, 0, 537.5], [923.5, 574, 1262.5], null]],
+    'mauCF: 4 mẫu theo đúng thứ tự thiết kế, mỗi mẫu một mục nhập riêng; ngăn kéo kèm mặt ngăn kéo của chính nó');
+  eq(dsMau.map(x => x.json), ms.filter(x => x.Type === 'Template'), 'mục nhập của từng mẫu y hệt lúc xuất chung');
   const M0 = C.build(Object.assign({}, TU_2000, { ngan_keo: { mau_id: 0 } }));
   ok(M0.warnings.some(w => /Chưa khai mã mẫu ngăn kéo/.test(w)) && C.toChenfeng(M0).so_mau === 2, 'chưa khai mã mẫu → cảnh báo, không xuất mẫu ngăn kéo');
+  eq(C.mauCF(M0).map(x => x.tp.loai), ['SUOT', 'SUOT'], 'mẫu chưa khai mã thì không có trong danh sách');
 });
 
 T('Bảng kê, CSV, tóm tắt', () => {

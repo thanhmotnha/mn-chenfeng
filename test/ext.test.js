@@ -75,7 +75,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok(rep.boards === 46 + 12 && rep.hw === 6, '46 tấm thiết kế + 12 tấm hộp ngăn kéo + 6 phụ kiện', rep);
     ok(JSON.stringify(rep.off) === '[5000,17.5,0]', 'toạ độ gõ = góc trái–trước–dưới của tủ (mặt cánh) → thùng dời (5000; 17,5; 0)', rep.off);
     ok(rep.old === 0 && rep.wrongType === 0, 'đã đổi kiểu khoan cũ 三合一 → Cam3Tp và ghi lại drillType', rep);
-    ok(rep.steps === 3, '3 bước hoàn tác (nhập + khoan lại + gom module)', rep.steps);
+    ok(rep.steps === 4, '4 bước hoàn tác (nhập tấm + thêm mẫu ngăn kéo / suốt treo + khoan lại + gom module) — nút Hoàn tác lùi đủ cả 4', rep.steps);
     /* --- tủ vẽ xong là module tham số gốc của Chenfeng --- */
     const mod = await page.evaluate(() => { const D = window.MNCFDriver, bs = D.all().filter(D.isBoard), tag = bs.filter(D.tagOf), T = tag[0].Template && tag[0].Template.Object;
       const ex = n => T.GetParam(n).actions.map(a => a.Expr + ':m' + a.MoveEntitys.length + '/s' + a.EntityStretchPointMap.length).sort();
@@ -311,6 +311,76 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     await H.locator('[data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+
+    /* --- bản 1.23 — TẤM TRƯỚC, MẪU SAU (anh Jason 04/10/2026 22:57: "vẽ tủ vẫn trục trặc, làm sao phải liên kết máy chủ, vẽ bằng những cái có sẵn đi").
+     *     Phần tấm của tủ không cần máy chủ → nhập trước, lúc nào cũng vẽ được. Hộp ngăn kéo / suốt treo là mẫu trong kho (Chenfeng tải TỪNG mẫu từ máy chủ, hỏng một mẫu là huỷ cả lệnh)
+     *     → thêm sau bằng lệnh riêng; hỏng thì thêm từng mẫu, thử lại; mẫu nào vẫn hỏng thì chỉ thiếu đúng mẫu đó và báo rõ vì sao. --- */
+    {
+      const ve = (spec, at, opt) => page.evaluate(async ([s, a, o]) => {
+        window.__MOCK_NHAP__ = []; window.__MOCK_MAU_TAI__ = [];
+        const r = await window.MNCF.draw(s, Object.assign({ at: a }, o || {})), D = window.MNCFDriver, k = r.kiem_tra || {};
+        const pk = D.last && r.giai_doan === 'xong' ? D.last.added.filter(D.isHardware).map(e => [e.HardwareOption.name].concat(D.boxOf(e).map(v => Math.round(v * 10) / 10))) : [];
+        // chỗ suốt treo PHẢI nằm theo thiết kế (công thức của mẫu trong trang giả lập: thanh suốt chạy hết bề rộng hộp mẫu, giữa chiều sâu, dưới mặt trên hộp JS + 15)
+        const M = window.MNCFCore.build(s), muon = M.templates.filter(t => t.id && t.loai === 'SUOT').map(t => { const zc = t.pos[2] + t.box[2] - t.params.JS - 15; return ['衣杆', t.pos[0] + a[0], t.pos[0] + t.box[0] + a[0], t.pos[1] + t.box[1] / 2 - 7.5 + a[1], t.pos[1] + t.box[1] / 2 + 7.5 + a[1], zc - 15 + a[2], zc + 15 + a[2]].map(v => (typeof v === 'number' ? Math.round(v * 10) / 10 : v)); });
+        return { ok: r.ok, giai_doan: r.giai_doan, errors: r.errors, warnings: r.warnings, thieu: (r.mau_thieu || []).map(t => [t.loai, t.khoang, t.ly_do]), khop: k.so_tam_khop, tk: k.so_tam_thiet_ke, tam_mau: k.so_tam_mau, pk: k.phu_kien || {}, lech: k.mat_ngan_keo_lech || [],
+          module: !!(r.module && r.module.ok), goc_cf: !!r.goc_cf, nhap: window.__MOCK_NHAP__.map(x => [x.tam, x.mau.length, x.ket]), tai: window.__MOCK_MAU_TAI__.slice(), suot: pk.filter(x => x[0] === '衣杆'), muon_suot: muon, so_lo: k.so_lo };
+      }, [spec, at, opt || null]);
+      const TU_K = Object.assign({}, TU_KHAU, { ma: 'TK2' });      // tủ khấu cột → đi đường nhập tấm
+      const NK = 20216239, ST = 20650931;
+      // 1. mạng tốt: đúng 2 lệnh nhập — tấm (không kèm mẫu nào), rồi cả 4 mẫu trong một lệnh; mẫu nằm đúng chỗ thiết kế dù lệnh đó không có tấm nào để làm mốc
+      let r = await ve(TU_K, [90000, 0, 0]);
+      ok(r.ok && r.nhap.length === 2 && r.nhap[0][0] > 40 && r.nhap[0][1] === 0 && r.nhap[0][2] === 'ok' && JSON.stringify(r.nhap[1]) === '[0,4,"ok"]', 'vẽ tủ: lệnh 1 chỉ có tấm (không cần máy chủ), lệnh 2 thêm cả 4 mẫu ngăn kéo / suốt treo', r.nhap);
+      ok(r.khop === r.tk && r.thieu.length === 0 && r.lech.length === 0 && r.pk['三节轨'] === 2 && r.pk['衣杆'] === 2 && r.tam_mau === 12, 'đủ tấm, đủ 2 hộp ngăn kéo + 2 suốt treo; mặt ngăn kéo đúng chỗ thiết kế', [r.khop, r.tk, r.pk, r.lech, r.tam_mau]);
+      ok(r.suot.length === 2 && JSON.stringify(r.suot.slice().sort()) === JSON.stringify(r.muon_suot.slice().sort()), 'suốt treo nằm đúng chỗ thiết kế (lệnh chỉ có mẫu: bảng tính điểm đặt từ khung của mẫu)', [r.suot, r.muon_suot]);
+      ok(r.module && r.so_lo > 0, 'tủ vẫn gom thành module, vẫn khoan lỗ như trước', [r.module, r.so_lo]);
+      const lo1 = r.so_lo;
+      // 2. máy chủ rớt MỘT lần lúc tải mẫu ngăn kéo: lệnh thêm cả cụm bị Chenfeng huỷ → bảng thêm từng mẫu, mẫu nào cũng xong; người dùng không phải làm gì
+      await page.evaluate(id => { window.__MOCK_MAU_LOI__ = { [id]: { lan: 1, kieu: 'may_chu' } }; }, NK);
+      r = await ve(TU_K, [100000, 0, 0]);
+      ok(r.ok && r.thieu.length === 0 && r.pk['三节轨'] === 2 && r.pk['衣杆'] === 2 && r.lech.length === 0 && r.so_lo === lo1, 'máy chủ rớt một lần: tủ vẫn đủ ngăn kéo + suốt treo, số lỗ khoan như lần vẽ suôn sẻ', [r.thieu, r.pk, r.so_lo, lo1]);
+      ok(JSON.stringify(r.nhap.map(x => x[2])) === '["ok","loi","ok","ok","ok","ok"]' && r.nhap.slice(2).every(x => x[0] === 0 && x[1] === 1), '… lệnh cả cụm hỏng → 4 lệnh, mỗi lệnh một mẫu', r.nhap);
+      ok(JSON.stringify(r.suot.slice().sort()) === JSON.stringify(r.muon_suot.slice().sort()), '… từng mẫu thêm riêng vẫn nằm đúng chỗ', [r.suot, r.muon_suot]);
+      // 3. máy chủ KHÔNG trả mẫu suốt treo (thử mấy lần vẫn hỏng): tủ vẫn vẽ đủ tấm + ngăn kéo, chỉ thiếu suốt treo — báo rõ, không còn "Chưa vẽ được"
+      await page.evaluate(id => { window.__MOCK_MAU_LOI__ = { [id]: { lan: 99, kieu: 'may_chu' } }; }, ST);
+      r = await ve(TU_K, [110000, 0, 0]);
+      ok(r.giai_doan === 'xong' && r.ok && r.khop === r.tk && r.pk['三节轨'] === 2 && !r.pk['衣杆'] && r.lech.length === 0, 'máy chủ không trả mẫu suốt treo: tủ vẫn đủ tấm + ngăn kéo', [r.ok, r.errors, r.khop, r.tk, r.pk]);
+      ok(JSON.stringify(r.thieu) === '[["SUOT",0,"may_chu"],["SUOT",1,"may_chu"]]', '… ghi rõ thiếu 2 suốt treo vì máy chủ', r.thieu);
+      ok(r.warnings.some(w => /Chưa thêm được 2 suốt treo \(khoang 1, khoang 2\)/.test(w) && /máy chủ Chenfeng không trả mẫu/.test(w) && /Cập nhật tủ này/.test(w)) && !r.warnings.some(w => /Không thấy phụ kiện nào|đặt mặt khác thiết kế/.test(w)), '… một dòng báo nói rõ thiếu gì, vì sao, làm gì tiếp; không kèm cảnh báo lạc đề', r.warnings);
+      ok(r.tai.filter(id => id === ST).length === 4 && r.tai.filter(id => id === NK).length === 2, '… suốt treo: thử ở lệnh cả cụm + thử riêng từng cái 2 lần rồi thôi (không thử mãi); ngăn kéo tải đúng 2 lần', r.tai);
+      // 4. mã mẫu ngăn kéo KHÔNG thuộc tài khoản đang đăng nhập (Chenfeng báo 鉴权失败): không thử lại mã đó; dò theo TÊN mẫu trong kho của tài khoản → dùng mẫu cùng tên
+      const soApi = api.length;
+      await page.evaluate(() => { window.__MOCK_MAU_LOI__ = { 777001: { lan: 99, kieu: 'tk' } }; window.MNCFDriver.quenMauLoi && window.MNCFDriver.quenMauLoi(); });
+      r = await ve(Object.assign({}, TU_K, { ngan_keo: { mau_id: 777001 } }), [120000, 0, 0]);
+      ok(r.ok && r.thieu.length === 0 && r.pk['三节轨'] === 2 && r.pk['衣杆'] === 2 && r.lech.length === 0, 'mã mẫu không thuộc tài khoản: bảng tự tìm mẫu cùng tên trong kho của tài khoản và dùng nó — tủ vẫn đủ ngăn kéo', [r.thieu, r.pk, r.warnings]);
+      ok(r.warnings.some(w => /mã mẫu 777001/.test(w) && /không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập/.test(w) && /đã dùng mẫu cùng tên của tài khoản này \(mã 555001\)/.test(w) && /Dò mã mẫu từ kho Chenfeng/.test(w)), '… báo rõ đã đổi sang mã nào, nhắc bấm "Dò mã mẫu" để lưu lại', r.warnings);
+      ok(r.tai.filter(id => id === 777001).length === 2 && r.tai.filter(id => id === 555001).length === 2, '… mã lạ chỉ bị thử ở lệnh cả cụm + 1 lần riêng (không thử lại mã không phải của mình); 2 ngăn kéo tải bằng mã của tài khoản', r.tai);
+      ok(api.length === soApi + 2 && api[soApi][0] === '/CAD-dirQuery' && api[soApi + 1][0] === '/CAD-moduleList', '… chỉ ĐỌC kho mẫu (thư mục + danh sách) đúng một lượt', api.slice(soApi));
+      // 5. tài khoản không có mẫu nào cùng tên: thiếu ngăn kéo, nói rõ vì mã mẫu không phải của tài khoản này
+      await page.evaluate(() => { window.__MOCK_MAU_LOI__ = { 777002: { lan: 99, kieu: 'tk' } }; });
+      r = await ve(Object.assign({}, TU_K, { ngan_keo: { mau_id: 777002, ten_mau: '别人的抽屉' } }), [130000, 0, 0]);
+      ok(r.ok && r.khop === r.tk && JSON.stringify(r.thieu) === '[["NGAN_KEO",1,"khong_thuoc_tk"],["NGAN_KEO",1,"khong_thuoc_tk"]]' && r.pk['衣杆'] === 2, 'tài khoản không có mẫu cùng tên: tủ đủ tấm + suốt treo, thiếu 2 hộp ngăn kéo', [r.thieu, r.pk]);
+      ok(r.warnings.some(w => /Chưa thêm được 2 hộp ngăn kéo \(khoang 2\)/.test(w) && /mã mẫu 777002 \(别人的抽屉\)/.test(w) && /không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập/.test(w) && /Dò mã mẫu từ kho Chenfeng/.test(w)), '… báo rõ mã mẫu nào không phải của tài khoản, chỉ chỗ sửa', r.warnings);
+      ok(r.tai.filter(id => id === 777002).length === 2, '… mã không phải của mình: không thử đi thử lại', r.tai);
+      // (Tủ vẽ bằng lệnh gốc — D.veGoc — dùng chung đúng hàm thêm mẫu này cho phần tấm rời; trang giả lập không có lệnh gốc nên phần đó thử trên Chenfeng thật.)
+      // thẻ Kết quả: thiếu mẫu thì dòng đầu nói rõ + có nút vẽ lại kèm ngăn kéo / suốt treo
+      await page.evaluate(id => { window.__MOCK_MAU_LOI__ = { [id]: { lan: 99, kieu: 'may_chu' } }; }, ST);
+      await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({}, TU_KHAU, { ma: 'TK8' }));
+      await H.locator('.tab[data-tab="tu"]').click();
+      await H.locator('#mncf-ui-useat').check(); await H.locator('#mncf-ui-ax').fill('160000');
+      await H.locator('[data-act="draw"]').click();
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && L.offset[0] === 160000; }, null, { timeout: 60000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      const bc = await H.locator('.report').innerText();
+      ok(/Đã vẽ xong phần tấm — \d+\/\d+ tấm đúng vị trí, \d+ lỗ khoan; còn thiếu 2 suốt treo/.test(bc) && (await H.locator('.report [data-act="redraw"]').count()) === 1 && /Vẽ lại tủ này kèm ngăn kéo \/ suốt treo/.test(await H.locator('.report [data-act="redraw"]').innerText()), 'thẻ Kết quả: dòng đầu nói rõ còn thiếu gì, có nút vẽ lại kèm ngăn kéo / suốt treo', bc.slice(0, 500));
+      await page.evaluate(() => { window.__MOCK_MAU_LOI__ = null; });
+      await H.locator('.report [data-act="redraw"]').click();
+      await page.waitForFunction(() => /Đã cập nhật tủ tại chỗ/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 60000 });
+      const bc2 = await H.locator('.report').innerText(), pk2 = await page.evaluate(() => { const D = window.MNCFDriver; return D.last.added.filter(D.isHardware).map(e => e.HardwareOption.name).sort().join(); });
+      ok(/Đã cập nhật tủ tại chỗ — /.test(bc2) && !/còn thiếu/.test(bc2) && pk2 === '三节轨,三节轨,衣托,衣托,衣杆,衣杆', 'mạng ổn lại, bấm nút: tủ vẽ lại tại chỗ, đủ ngăn kéo + suốt treo', [bc2.slice(0, 200), pk2]);
+      await H.locator('[data-act="undo"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+      await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+    }
 
     /* --- thiết kế lỗi → nút vẽ khoá --- */
     await H.locator('.tab[data-tab="tu"]').click();
