@@ -167,6 +167,12 @@
     }
     return ra;
   }
+  // Bản thật (đo 04/10/2026, tủ 76 tấm + 2 hộp ngăn kéo): lệnh nào đụng tới tấm cũng KHOAN LẠI tấm đó — lỗ cũ bị bỏ (IsErase), lỗ mới là ĐỐI TƯỢNG KHÁC ở đúng chỗ đó:
+  //   DRAWHOLE: mọi lỗ của các tấm được chọn · MODELING: mọi lỗ của các tấm được gom (558 lỗ đổi đối tượng; 48 lỗ trong lòng 2 hộp ngăn kéo — mẫu riêng, không nằm trong tập gom — giữ nguyên)
+  //   · ROTATE: mọi lỗ của các tấm được xoay, kể cả lỗ không nằm trong tập chọn (606 lỗ đổi đối tượng) · UpdateTemplateTree: giữ nguyên đối tượng lỗ.
+  const saoLo = h => { const c = new CylinderHole(h.FId.Object); c.MId = { Object: h.MId.Object }; c.box = h.box.slice();
+    if (h._Matrix) { c._Matrix = new M4().copy(h._Matrix); c.Radius = h.Radius; c.Height = h.Height; c.GroupId = { Index: h.GroupId.Index }; c.Type = h.Type; } return c; };
+  const loCua = tam => ents.filter(e => e instanceof CylinderHole && !e.IsErase && (tam.includes(e.FId.Object) || tam.includes(e.MId.Object)));
   const sizeOf = (o) => { const xs = o.ContourCurve.map(c => c.pt[0]), ys = o.ContourCurve.map(c => c.pt[1]); return [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)]; };
   function boardFromJSON(o) {
     if (!Array.isArray(o.ContourCurve) || !(o.Thickness > 0) || !Array.isArray(o.Pos)) throw new Error('bad board');
@@ -471,9 +477,15 @@
         const p = so3(); if (!p) return;
         if (state.buoc === 1) { state.goc = p; state.buoc = 2; return; }
         const st = state; state = null; svc.IsReady = false;
-        const a = Math.atan2(p[1] - st.goc[1], p[0] - st.goc[0]), c = Math.round(Math.cos(a) * 1e6) / 1e6, sn = Math.round(Math.sin(a) * 1e6) / 1e6, cu = st.list.map(e => [e, e.box.slice()]);
-        for (const e of st.list) { const b = e.box, xs = [], ys = []; for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) { const dx = x - st.goc[0], dy = y - st.goc[1]; xs.push(st.goc[0] + dx * c - dy * sn); ys.push(st.goc[1] + dx * sn + dy * c); } e.box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), b[4], b[5]]; }
-        pushHist({ CommandName: 'ROTATE', created: [], undo() { for (const [e, b] of cu) e.box = b; } });
+        const a = Math.atan2(p[1] - st.goc[1], p[0] - st.goc[0]), c = Math.round(Math.cos(a) * 1e6) / 1e6, sn = Math.round(Math.sin(a) * 1e6) / 1e6;
+        // bản thật: các tấm được xoay bị khoan lại — lỗ cũ của chúng bị bỏ (dù có nằm trong tập chọn hay không), lỗ mới là đối tượng khác, nằm đúng chỗ sau khi xoay (xem saoLo)
+        const tamXoay = st.list.filter(e => e instanceof Board), loCu = loCua(tamXoay), xoayHop = b => { const xs = [], ys = []; for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) { const dx = x - st.goc[0], dy = y - st.goc[1]; xs.push(st.goc[0] + dx * c - dy * sn); ys.push(st.goc[1] + dx * sn + dy * c); } return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), b[4], b[5]]; };
+        const R = new M4(); R.elements = [c, sn, 0, 0, -sn, c, 0, 0, 0, 0, 1, 0, st.goc[0] - st.goc[0] * c + st.goc[1] * sn, st.goc[1] - st.goc[0] * sn - st.goc[1] * c, 0, 1];
+        const vat = st.list.filter(e => loCu.indexOf(e) < 0), cu = vat.map(e => [e, e.box.slice()]);
+        for (const e of vat) e.box = xoayHop(e.box);
+        const loMoi = loCu.map(h => { const m = saoLo(h); if (m._Matrix) { m._Matrix = new M4().copy(R).multiply(m._Matrix); m._Matrix.elements = m._Matrix.elements.map(v => Math.round(v * 1e6) / 1e6); m.capHop(); } else m.box = xoayHop(m.box); return m; });
+        for (const h of loCu) h.IsErase = true; for (const m of loMoi) ents.push(m);
+        pushHist({ CommandName: 'ROTATE', created: loMoi, erased: loCu, undo() { for (const [e, b] of cu) e.box = b; } });
         window.__MOCK_ROTATE__ = (window.__MOCK_ROTATE__ || []).concat([{ goc: st.goc, do: Math.round(a * 180 / Math.PI * 100) / 100, n: st.list.length }]);
         setTimeout(() => fireEnd('ROTATE', st.list, []), 20); return;
       }
@@ -523,8 +535,11 @@
           (window.__MOCK__.templates = window.__MOCK__.templates || []).push(t);
         }
         const bs = all;
-        pushHist({ CommandName: 'MODELING', created: [], undo() { for (const [b, tp] of truoc) b.Template = tp; } });
-        setTimeout(() => fireEnd('MODELING', bs, []), 30);
+        // bản thật: các tấm vừa gom được khoan lại — lỗ cũ bị bỏ, lỗ mới là đối tượng khác (xem saoLo)
+        const loCu = loCua(all), loMoi = loCu.map(saoLo);
+        for (const h of loCu) h.IsErase = true; for (const c of loMoi) ents.push(c);
+        pushHist({ CommandName: 'MODELING', created: loMoi, erased: loCu, undo() { for (const [b, tp] of truoc) b.Template = tp; } });
+        setTimeout(() => fireEnd('MODELING', bs, loMoi), 30);
       }
       else if (state.kind === 'entity' && text === '') {
         state = null; gesvc.IsReady = false;

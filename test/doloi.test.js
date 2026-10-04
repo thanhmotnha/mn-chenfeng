@@ -121,6 +121,32 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
 
     // (Tủ vẽ bằng lệnh gốc Chenfeng — D.veGoc — cũng gọi phép dò này sau khi vẽ; trang giả lập không có lệnh gốc nên phần đó thử trên Chenfeng thật.)
 
+    /* Bản 1.23 — đo trên Chenfeng thật 04/10/2026 (tủ khấu cột 76 tấm + 2 hộp ngăn kéo, vẽ theo cách nhập tấm rồi xoay theo tường): lệnh MODELING khoan lại các tấm được gom
+     * (558 lỗ đổi thành đối tượng khác, 48 lỗ trong lòng hộp ngăn kéo giữ nguyên), lệnh ROTATE khoan lại mọi tấm được xoay. Bảng giữ danh sách lỗ cũ nên phiếu sau khi vẽ
+     * báo oan "56 tấm có kiểu khoan mà không có lỗ nào" trong khi tủ đủ 606 lỗ. Danh sách đối tượng của tủ phải đọc lại sau các lệnh đó. */
+    console.log('— Tủ có ngăn kéo gom thành module: lệnh MODELING khoan lại tấm (lỗ cũ bị bỏ) — phiếu sau khi vẽ dò trên lỗ đang có, không báo oan "không có lỗ"');
+    const TU_NK = { ma: 'MD', rong: 1000, cao: 1200, than: { cao_duoi: 0 }, ve_goc: false, khoang: [{ rong: 'auto', canh: 0, dot: [600], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 0, dot: [700] }] };
+    const veXem = (spec, opt) => page.evaluate(async ([s, o]) => {
+      const D = window.MNCFDriver, r = await window.MNCF.draw(s, o), L = D.last, cua = L ? L.added : [];
+      const tam = cua.filter(e => !e.IsErase && D.isBoard(e)), tamTu = tam.filter(e => D.tagOf(e));
+      const loSong = D.all().filter(e => D.isHole(e) && !e.IsErase && (tam.includes(e.FId.Object) || tam.includes(e.MId.Object)));
+      const lai = L ? D.doLoi(cua) : null;      // dò lại trên chính danh sách bảng giữ sau lần vẽ (kể cả sau khi xoay)
+      return { ok: r.ok, gd: r.giai_doan, errors: r.errors, module: !!(r.module && r.module.ok), xoay: r.xoay_kq || null, dl: r.do_loi, lai, tam: tam.length, tam_tu: tamTu.length, tam_mau: tam.length - tamTu.length,
+        da_bo: cua.filter(e => e.IsErase).length, lo_giu: cua.filter(e => D.isHole(e) && !e.IsErase).length, lo_song: loSong.length, lo_sot: loSong.filter(h => !cua.includes(h)).length, lo_hop: loSong.filter(h => !D.tagOf(h.FId.Object) && !D.tagOf(h.MId.Object)).length };
+    }, [spec, opt]);
+    r = await veXem(TU_NK, { at: [30000, 0, 0] });
+    ok(r.ok && r.gd === 'xong' && r.module && r.tam_mau === 12, 'tủ 2 khoang có 2 ngăn kéo: vẽ xong, đã gom module, có 12 tấm của 2 hộp ngăn kéo', [r.ok, r.errors, r.module, r.tam_mau]);
+    ok(r.lo_hop > 0 && r.lo_song > r.lo_hop, 'điều kiện của phép thử: hộp ngăn kéo có lỗ riêng (giữ nguyên qua MODELING), thùng tủ có lỗ của nó', [r.lo_hop, r.lo_song]);
+    eq([ket(r.dl, 'khong_lo'), tin(r.dl, 'khong_lo')], ['dat', []], 'phiếu sau khi vẽ: không báo oan “tấm có kiểu khoan mà không có lỗ nào”');
+    eq(['lo_lech', 'lo_giao', 'moi_noi'].map(m => ket(r.dl, m)), ['dat', 'dat', 'dat'], '… lỗ nằm đúng tấm, không giao nhau, mối nối đủ cam');
+    eq([r.da_bo, r.lo_sot, r.lo_giu], [0, 0, r.lo_song], 'danh sách đối tượng bảng giữ sau lần vẽ: không còn lỗ đã bị bỏ, đủ mọi lỗ đang có của tủ');
+
+    console.log('— Tủ đó xoay theo tường: lệnh ROTATE khoan lại mọi tấm — danh sách bảng giữ vẫn là lỗ đang có, dò lại vẫn đạt');
+    r = await veXem(Object.assign({}, TU_NK, { ma: 'MD2' }), { corner: [36000, 0, 0], xoay: 90 });
+    ok(r.ok && r.gd === 'xong' && r.module && r.xoay && r.xoay.ok, 'tủ vẽ xong, gom module, xoay 90° được', [r.ok, r.errors, r.module, r.xoay]);
+    eq([r.da_bo, r.lo_sot, r.lo_giu], [0, 0, r.lo_song], 'sau khi xoay: danh sách bảng giữ không còn lỗ đã bị bỏ, đủ mọi lỗ đang có của tủ');
+    eq(['khong_lo', 'lo_lech', 'lo_giao', 'moi_noi', 'vc_that'].map(m => ket(r.lai, m)), ['dat', 'dat', 'dat', 'dat', 'dat'], 'dò lại tủ đã xoay trên danh sách đó: 5 mục về tấm – lỗ đều đạt');
+
     ok(errs.length === 0, 'không lỗi JS lọt ra trang', errs);
   } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await ctx.close();
