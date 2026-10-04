@@ -14,6 +14,14 @@ for (const s of THAT) { const v = D.dich(s); ok(v !== s && !CJK.test(v) && v[0] 
 // mọi câu dịch sẵn: không còn chữ Trung, không rỗng, viết hoa chữ đầu, không dài quá (cột ghi chú hẹp)
 for (const [k, v] of Object.entries(D.CAU)) ok(typeof v === 'string' && v && !CJK.test(v) && v.length <= 36 && v[0] === v[0].toUpperCase(), 'câu dịch hợp lệ: ' + k, v);
 ok(Object.keys(D.CAU).length >= 320, 'bảng dịch sẵn đủ lớn', Object.keys(D.CAU).length);
+// ghi chú của các bộ tủ mẫu lấy từ cửa hàng (bổ sung 04/10/2026): có câu dịch sẵn, không phải ghép từ
+const BO_SUNG = { '灯槽宽': 'Rộng rãnh đèn', '踢脚高': 'Cao xà chân', '上1空间': 'Khoang trên 1', '抽底封边判断': 'Điều kiện dán cạnh đáy ngăn kéo', '检修口距右': 'Ô thăm cách phải',
+  '吊柜离台面高': 'Tủ treo cách mặt bàn', '左背板厚/含槽': 'Dày hậu trái / gồm rãnh', '要开孔请输240': 'Cần khoét lỗ thì nhập 240', '榻榻米高': 'Cao tatami', '电视柜宽': 'Rộng tủ tivi' };
+for (const [k, v] of Object.entries(BO_SUNG)) eq(D.dich(k), v, 'bộ tủ mẫu: ' + k);
+ok(Object.keys(D.CAU).length >= 1300, 'bảng dịch sẵn có cả ghi chú bộ tủ mẫu', Object.keys(D.CAU).length);
+// câu cũ của kho xưởng không bị câu bổ sung đè lên
+eq(D.dich('右上延伸'), 'Hồi phải kéo dài lên', 'câu cũ giữ nguyên: 右上延伸');
+eq(D.dich('左右移动'), 'Dịch trái–phải', 'câu cũ giữ nguyên: 左右移动');
 
 eq(D.dich('板厚'), 'Dày ván', '板厚');
 eq(D.dich('左前缩'), 'Hồi trái lùi trước', '左前缩');

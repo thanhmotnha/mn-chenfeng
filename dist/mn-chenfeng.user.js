@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Một Nhà · Vẽ tủ vào Chenfeng
 // @namespace    https://motnha.vn/
-// @version      1.19.0
+// @version      1.19.1
 // @description  Nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → tự vẽ thùng, hậu, phào, chân, cánh, ngăn kéo, suốt treo vào Chenfeng WebCAD. Chenfeng tự khoan lỗ.
 // @match        https://cfcad.cn/*
 // @match        https://www.cfcad.cn/*
@@ -13,7 +13,7 @@
 // @updateURL    https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // @downloadURL  https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // ==/UserScript==
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.19.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.19.1 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -29,7 +29,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.19.0';
+  const VERSION = '1.19.1';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -2531,7 +2531,7 @@
   const LS = 'mncf.dich';
   const CJK = /[㐀-鿿]/;
 
-  /* ---- 1. Câu dịch sẵn: ghi chú lấy từ 749 mẫu trong kho của xưởng + các mẫu Chenfeng tự sinh (bản 2026-09-29) ---- */
+  /* ---- 1. Câu dịch sẵn: ghi chú lấy từ 749 mẫu trong kho của xưởng + các mẫu Chenfeng tự sinh (bản 2026-09-29) + mẫu của cửa hàng Chenfeng (10/2026) ---- */
   const CAU = {
     '宽': 'Rộng', '高': 'Cao', '深': 'Sâu', '长': 'Dài', '板厚': 'Dày ván', '深度': 'Sâu', '半径': 'Bán kính', '圆弧': 'Cung tròn',
     // thùng
@@ -2703,6 +2703,81 @@
     '右侧左移': 'Bên phải dời sang trái', '灯带深': 'Sâu rãnh đèn', '灯带高': 'Cao rãnh đèn', '左右移': 'Dời trái–phải', '调节高': 'Cao điều chỉnh', '调节脚高': 'Cao chân tăng chỉnh',
     '反弹器相距': 'Khoảng cách nhấn mở', '左前移': 'Trái dời ra trước', '右前移': 'Phải dời ra trước', '架深': 'Sâu giá', '托架深': 'Sâu giá đỡ', '镜高': 'Cao gương', '镜宽': 'Rộng gương',
     '孔间距': 'Khoảng cách giữa các lỗ',
+    // bổ sung 04/10/2026: ghi chú của các bộ tủ mẫu lấy từ cửa hàng (tủ áo, tủ tivi, bếp, bàn học, giường tầng, tatami…)
+    '灯槽宽': 'Rộng rãnh đèn', '灯槽深': 'Sâu rãnh đèn', '上1空间': 'Khoang trên 1', '上2空间': 'Khoang trên 2', '轨道孔': 'Lỗ ray', '抽侧高': 'Cao thành ngăn kéo', '槽下距': 'Rãnh cách mép dưới',
+    '抽底判断1': 'Điều kiện đáy ngăn kéo 1', '抽底判断2': 'Điều kiện đáy ngăn kéo 2', '抽底封边判断': 'Điều kiện dán cạnh đáy ngăn kéo', '顶底判断': 'Điều kiện nóc đáy',
+    '左右判断': 'Điều kiện trái phải', '上判断': 'Điều kiện trên', '下判断': 'Điều kiện dưới', '踢脚高': 'Cao xà chân', '上3空间': 'Khoang trên 3', '踢脚': 'Xà chân',
+    '拉手下留空': 'Hở dưới tay nắm', '上4空间': 'Khoang trên 4', '收口': 'Nẹp bù', '柜体前伸': 'Thùng tủ kéo dài ra trước', '上5空间': 'Khoang trên 5', '扣尺': 'Trừ kích thước',
+    '左柜宽': 'Rộng tủ trái', '居上': 'Cách trên', '收口高': 'Cao nẹp bù', '向右偏': 'Lệch sang phải', '上伸': 'Kéo dài lên', '背板下判断': 'Điều kiện hậu dưới', '判断底板': 'Điều kiện đáy',
+    '柜体高': 'Cao thùng tủ', '书桌高': 'Cao bàn', '榻榻米高': 'Cao tatami', '榻榻米宽': 'Rộng tatami', '中心距左': 'Tâm cách trái', '衣柜深': 'Sâu tủ áo', '左侧板后缩': 'Hồi trái lùi sau',
+    '左侧板前伸': 'Hồi trái kéo dài ra trước', '右侧板前伸': 'Hồi phải kéo dài ra trước', '造型长': 'Dài tạo hình', '造型宽': 'Rộng tạo hình', '柜体后缩': 'Thùng tủ lùi sau', '吊沿高': 'Cao diềm',
+    '左侧前延伸': 'Hồi trái kéo dài ra trước', '检修口大小': 'Cỡ ô thăm', '检修口距右': 'Ô thăm cách phải', '右侧前延伸': 'Hồi phải kéo dài ra trước', '鞋凳高': 'Cao ghế thay giày',
+    '左侧上延伸': 'Hồi trái kéo dài lên', '外飘': 'Nhô ra ngoài', '下床高': 'Cao giường dưới', '右侧上延伸': 'Hồi phải kéo dài lên', '电视柜高': 'Cao tủ tivi', '拉位上留空': 'Hở trên chỗ tay nắm',
+    '右墙板宽': 'Rộng tấm ốp tường phải', '台面宽': 'Rộng mặt bàn', '龙头距后': 'Vòi cách sau', '要开孔请输240': 'Cần khoét lỗ thì nhập 240', '龙头孔距前': 'Lỗ vòi cách trước', '上空': 'Hở trên',
+    '台面深': 'Sâu mặt bàn', '上墙板高': 'Cao tấm ốp tường trên', '地台高': 'Cao bục', '上1空': 'Khoảng trên 1', '上2空': 'Khoảng trên 2', '上3空': 'Khoảng trên 3', '上4空': 'Khoảng trên 4',
+    '上5空': 'Khoảng trên 5', '上6空': 'Khoảng trên 6', '床宽': 'Rộng giường', '左柜1宽': 'Rộng tủ trái 1', '左柜2宽': 'Rộng tủ trái 2', '左墙板宽': 'Rộng tấm ốp tường trái',
+    '检修口据后': 'Ô thăm cách sau', '检修口距后': 'Ô thăm cách sau', '左柜3宽': 'Rộng tủ trái 3', '开放格高': 'Cao ô hở', '门洞深': 'Sâu ô cửa', '桌面高': 'Cao mặt bàn',
+    '前封板高': 'Cao tấm bịt trước', '背板下伸': 'Hậu kéo dài xuống', '书柜深': 'Sâu tủ sách', '炉台柜宽': 'Rộng tủ bếp nấu', '右柜1宽': 'Rộng tủ phải 1', '背条上缩': 'Thanh giằng sau lùi trên',
+    '背条下缩': 'Thanh giằng sau lùi dưới', '柜子前缩': 'Tủ lùi trước', '顶前伸': 'Nóc kéo dài ra trước', '顶右延伸': 'Nóc kéo dài phải', '顶左延伸': 'Nóc kéo dài trái', '桌面宽': 'Rộng mặt bàn',
+    '书桌深': 'Sâu bàn', '顶板后伸': 'Nóc kéo dài ra sau', '左弧角': 'Góc bo trái', '右弧角': 'Góc bo phải', '书桌宽': 'Rộng bàn', '顶板加深': 'Nóc sâu thêm', '电脑桌高': 'Cao bàn máy tính',
+    '格栅宽': 'Rộng lam', '左柜4宽': 'Rộng tủ trái 4', '榻榻米收口': 'Nẹp bù tatami', '侧板前缩': 'Hồi lùi trước', '封边': 'Dán cạnh', '右开放格宽': 'Rộng ô hở phải', '中心距后': 'Tâm cách sau',
+    '左格宽': 'Rộng ô trái', '右格宽': 'Rộng ô phải', '侧柜深': 'Sâu tủ bên', '侧开柜深': 'Sâu tủ mở bên', '梯高': 'Cao thang', '床深': 'Sâu giường', '右柜2宽': 'Rộng tủ phải 2',
+    '顶柜高': 'Cao tủ nóc', '背板高': 'Cao hậu', '左格栅宽': 'Rộng lam trái', '电视格高': 'Cao ô tivi', '板深': 'Sâu tấm', '左开放柜宽': 'Rộng tủ hở trái', '右开放柜宽': 'Rộng tủ hở phải',
+    '地柜高': 'Cao tủ dưới', '鞋凳宽': 'Rộng ghế thay giày', '中下柜高': 'Cao tủ giữa dưới', '顶底左延伸': 'Nóc đáy kéo dài trái', '顶底右延伸': 'Nóc đáy kéo dài phải',
+    '背板后移判断': 'Điều kiện dời hậu ra sau', '距左内空': 'Cách lọt lòng trái', '前缺高': 'Cao khuyết trước', '前缺深': 'Sâu khuyết trước', '前内缩': 'Trước lùi vào', '后缺高': 'Cao khuyết sau',
+    '下抽屉高': 'Cao ngăn kéo dưới', '烤箱格高': 'Cao ô lò nướng', '蒸箱格高': 'Cao ô lò hấp', '中间柜深': 'Sâu tủ giữa', '踢脚宽': 'Rộng xà chân', '上下框高': 'Cao khung trên dưới',
+    '梳妆台高': 'Cao bàn trang điểm', '弧形柜宽': 'Rộng tủ cong', '左衣柜宽': 'Rộng tủ áo trái', '书柜宽': 'Rộng tủ sách', '底板左延伸': 'Đáy kéo dài trái', '底板右延伸': 'Đáy kéo dài phải',
+    '1空间': 'Khoang 1', '2空间': 'Khoang 2', '中间留空高': 'Cao khoảng hở giữa', '下墙板高': 'Cao tấm ốp tường dưới', '电视柜宽': 'Rộng tủ tivi', '右门宽': 'Rộng cánh phải',
+    '左柜5宽': 'Rộng tủ trái 5', '背板后留空': 'Hở sau hậu', '左深': 'Sâu trái', '右深': 'Sâu phải', '中上柜高': 'Cao tủ giữa trên', '悬空高': 'Cao treo cách sàn', '右柜3宽': 'Rộng tủ phải 3',
+    '洗衣机宽': 'Rộng máy giặt', '左侧宽': 'Rộng bên trái', '右侧宽': 'Rộng bên phải', '中柜深': 'Sâu tủ giữa', '桌面前伸': 'Mặt bàn kéo dài ra trước', '柜体前缩': 'Thùng tủ lùi trước',
+    '层板距上': 'Đợt cách trên', '左边宽': 'Rộng cạnh trái', '中间格宽': 'Rộng ô giữa', '背条左缩': 'Thanh giằng sau lùi trái', '背条右缩': 'Thanh giằng sau lùi phải', '下部份高': 'Cao phần dưới',
+    '中间空': 'Hở giữa', '侧板前伸': 'Hồi kéo dài ra trước', '内嵌': 'Âm vào trong', '下降': 'Hạ xuống', '左边厚': 'Dày cạnh trái', '左背板厚/含槽': 'Dày hậu trái / gồm rãnh',
+    '右边厚': 'Dày cạnh phải', '右背板厚/含槽': 'Dày hậu phải / gồm rãnh', '左转角宽': 'Rộng góc trái', '转角深': 'Sâu góc', '右转角宽': 'Rộng góc phải', '左侧下延伸': 'Hồi trái kéo dài xuống',
+    '右侧下延伸': 'Hồi phải kéo dài xuống', '封板上延伸': 'Tấm bịt kéo dài trên', '收口条': 'Nẹp bù', '左侧柜深': 'Sâu tủ bên trái', '抽屉总高': 'Tổng cao ngăn kéo',
+    '柜子前延伸': 'Tủ kéo dài ra trước', '右柜高': 'Cao tủ phải', '中间柜宽': 'Rộng tủ giữa', '台面前延伸': 'Mặt bàn kéo dài ra trước', '书桌厚': 'Dày bàn', '转角宽': 'Rộng góc', '1格高': 'Cao ô 1',
+    '2格高': 'Cao ô 2', '4格高': 'Cao ô 4', '梯宽': 'Rộng thang', '梯深': 'Sâu thang', '勾距上': 'Móc cách trên', '左梯宽': 'Rộng thang trái', '上床高': 'Cao giường trên',
+    '前板左伸': 'Tấm trước kéo dài trái', '前板右伸': 'Tấm trước kéo dài phải', '开放高': 'Cao phần hở', '左侧后延伸': 'Hồi trái kéo dài ra sau', '右侧后延伸': 'Hồi phải kéo dài ra sau',
+    '顶板后延伸': 'Nóc kéo dài ra sau', '底板后延伸': 'Đáy kéo dài ra sau', '底左侧板判断': 'Điều kiện hồi trái dưới', '底左底板判断': 'Điều kiện đáy trái dưới',
+    '底右侧板判断': 'Điều kiện hồi phải dưới', '底右底板判断': 'Điều kiện đáy phải dưới', '上左侧板判断': 'Điều kiện hồi trái trên', '上左顶板判断': 'Điều kiện nóc trái trên',
+    '上右侧板判断': 'Điều kiện hồi phải trên', '上右顶板判断': 'Điều kiện nóc phải trên', '背板槽判断': 'Điều kiện rãnh hậu', '背板封边判断': 'Điều kiện dán cạnh hậu', '吊柜右留空': 'Tủ treo hở phải',
+    '右格栅宽': 'Rộng lam phải', '3空间': 'Khoang 3', '弧度': 'Độ cong', '立板距右': 'Vách cách phải', '衣柜宽': 'Rộng tủ áo', '左衣柜深': 'Sâu tủ áo trái', '抽屉柜宽': 'Rộng tủ ngăn kéo',
+    '下柜深': 'Sâu tủ dưới', '右板宽': 'Rộng tấm phải', '中留空': 'Hở giữa', '电视柜长': 'Dài tủ tivi', '中墙板宽': 'Rộng tấm ốp tường giữa', '下抽屉柜高': 'Cao tủ ngăn kéo dưới',
+    '上抽屉柜高': 'Cao tủ ngăn kéo trên', '右上柜宽': 'Rộng tủ trên phải', '餐桌高': 'Cao bàn ăn', '右吊柜宽': 'Rộng tủ treo phải', '左开放格宽': 'Rộng ô hở trái', '左吊柜宽': 'Rộng tủ treo trái',
+    '上柜宽': 'Rộng tủ trên', '抽屉柜延伸': 'Tủ ngăn kéo kéo dài', '弧形封板宽': 'Rộng tấm bịt cong', '右前延': 'Kéo dài trước phải', '凳子高': 'Cao ghế', '右上高': 'Cao trên phải',
+    '左柜深度': 'Sâu tủ trái', '右柜深度': 'Sâu tủ phải', '左柜1': 'Tủ trái 1', '左柜2': 'Tủ trái 2', '下柜离地高': 'Tủ dưới cách sàn', '吊柜离台面高': 'Tủ treo cách mặt bàn', '转角柜深': 'Sâu tủ góc',
+    '右上柜深': 'Sâu tủ trên phải', '床头柜高': 'Cao tab đầu giường', '床头柜延伸': 'Tab đầu giường kéo dài', '左上柜深': 'Sâu tủ trên trái', '烟机吊柜宽': 'Rộng tủ treo máy hút mùi',
+    '拉篮地柜宽': 'Rộng tủ dưới có giá kéo', '收口宽度': 'Rộng nẹp bù', '书柜高': 'Cao tủ sách', '开放宽': 'Rộng phần hở', '洗衣机高': 'Cao máy giặt', '水槽柜高': 'Cao tủ chậu rửa',
+    '洗衣机柜宽': 'Rộng tủ máy giặt', '左封板宽': 'Rộng tấm bịt trái', '拉手槽长度': 'Dài rãnh tay nắm', '桌背留空': 'Hở sau bàn', '后踢脚前移': 'Xà chân sau dời ra trước',
+    '拉槽判断': 'Điều kiện rãnh tay nắm', '背板判断上': 'Điều kiện hậu trên', '背板判断下': 'Điều kiện hậu dưới', '封边判断': 'Điều kiện dán cạnh', '上开放格高': 'Cao ô hở trên', '延伸': 'Kéo dài',
+    '左侧下留空': 'Hồi trái hở dưới', '右侧下留空': 'Hồi phải hở dưới', '背板左延伸': 'Hậu kéo dài trái', '背板右延伸': 'Hậu kéo dài phải', '整体前缩': 'Cả tủ lùi trước', '水槽开孔长': 'Dài lỗ chậu rửa',
+    '水槽开孔宽': 'Rộng lỗ chậu rửa', '水槽距后': 'Chậu rửa cách sau', '灶上移': 'Bếp dời lên', '柜体前延伸': 'Thùng tủ kéo dài ra trước', '左抽屉宽': 'Rộng ngăn kéo trái',
+    '中抽屉柜宽': 'Rộng tủ ngăn kéo giữa', '右柜柜门宽': 'Rộng cánh tủ phải', '罗马柱宽': 'Rộng cột La Mã', '梳妆台深': 'Sâu bàn trang điểm', '玻璃框宽': 'Rộng khung kính',
+    '左右倒角': 'Vát góc trái phải', '桌侧左缩': 'Hông bàn lùi trái', '房门宽': 'Rộng cửa phòng', '靠背高': 'Cao tựa lưng', '衣柜下高': 'Cao phần dưới tủ áo', '衣柜深度': 'Sâu tủ áo',
+    '书桌抽屉高含桌面': 'Cao ngăn kéo bàn (gồm mặt bàn)', '上格栅高': 'Cao lam trên', '错层深': 'Sâu lệch tầng', '立板距左': 'Vách cách trái', '左后留空': 'Hở sau trái', '右后留空': 'Hở sau phải',
+    '衣柜总宽': 'Tổng rộng tủ áo', '背板后距': 'Hậu cách sau', '左柜高': 'Cao tủ trái', '抽屉柜下留空': 'Tủ ngăn kéo hở dưới', '左下高': 'Cao dưới trái', '左边开放格宽': 'Rộng ô hở bên trái',
+    '下留空高': 'Cao khoảng hở dưới', '上收口': 'Nẹp bù trên', '右柜门宽': 'Rộng cánh tủ phải', '中间开放高': 'Cao phần hở giữa', '开放柜深': 'Sâu tủ hở', '右书柜宽': 'Rộng tủ sách phải',
+    '右书柜深': 'Sâu tủ sách phải', '左1宽': 'Rộng trái 1', '左2宽': 'Rộng trái 2', '左3宽': 'Rộng trái 3', '左4宽': 'Rộng trái 4', '左5宽': 'Rộng trái 5', '左6宽': 'Rộng trái 6',
+    '电视左柜宽': 'Rộng tủ bên trái tivi', '电视右柜宽': 'Rộng tủ bên phải tivi', '矮柜高': 'Cao tủ thấp', '左电视柜宽': 'Rộng tủ tivi trái', '下格栅高': 'Cao lam dưới', '腰线柜高': 'Cao tủ ngang eo',
+    '有柜宽': 'Rộng tủ phải', '墙板高': 'Cao tấm ốp tường', '电视格宽': 'Rộng ô tivi', '吊柜总高': 'Tổng cao tủ treo', '中间条子宽': 'Rộng nẹp giữa', '左上柜宽': 'Rộng tủ trên trái',
+    '开放格深度': 'Sâu ô hở', '加强条高': 'Cao thanh tăng cứng', '餐桌宽': 'Rộng bàn ăn', '餐桌长': 'Dài bàn ăn', '开放格宽度': 'Rộng ô hở', '开放上柜': 'Tủ trên hở', '抽屉宽': 'Rộng ngăn kéo',
+    '餐柜深': 'Sâu tủ ăn', '加强条': 'Thanh tăng cứng', '双抽高': 'Cao 2 ngăn kéo', '柜1宽': 'Rộng tủ 1', '柜2宽': 'Rộng tủ 2', '柜3宽': 'Rộng tủ 3', '柜4宽': 'Rộng tủ 4', '柜5宽': 'Rộng tủ 5',
+    '柜6宽': 'Rộng tủ 6', '柜1': 'Tủ 1', '柜2': 'Tủ 2', '柜3': 'Tủ 3', '柜4': 'Tủ 4', '右吊柜高': 'Cao tủ treo phải', '键盘深': 'Sâu khay bàn phím', '总宽': 'Tổng rộng', '总高': 'Tổng cao',
+    '引孔': 'Lỗ mồi', '左柜6宽': 'Rộng tủ trái 6', '下弧形封板高': 'Cao tấm bịt cong dưới', '左前延': 'Kéo dài trước trái', '凳子深': 'Sâu ghế', '鞋柜深': 'Sâu tủ giày',
+    '左上吊柜高': 'Cao tủ treo trên trái', '小上柜高': 'Cao tủ trên nhỏ', '左边柜宽': 'Rộng tủ bên trái', '中柜宽': 'Rộng tủ giữa', '左上高': 'Cao trên trái', '侧柜深度': 'Sâu tủ bên',
+    '左柜3': 'Tủ trái 3', '台面上高': 'Cao trên mặt bàn', '造型空间宽': 'Rộng khoang tạo hình', '中间封板宽': 'Rộng tấm bịt giữa', '下柜抽屉宽': 'Rộng ngăn kéo tủ dưới', '银镜宽': 'Rộng gương',
+    '右开门宽': 'Rộng cánh mở phải', '梳妆台宽': 'Rộng bàn trang điểm', '楣条高': 'Cao diềm trên', '拉条下降': 'Thanh giằng hạ xuống', '左书柜深': 'Sâu tủ sách trái',
+    '桌上开放柜宽': 'Rộng tủ hở trên bàn', '衣柜下柜高': 'Cao tủ dưới của tủ áo', '衣柜开放柜高': 'Cao tủ hở của tủ áo', '书桌开放柜宽': 'Rộng tủ hở của bàn', '右柜4宽': 'Rộng tủ phải 4',
+    '右柜5宽': 'Rộng tủ phải 5', '中下柜宽': 'Rộng tủ giữa dưới', '转角柜宽': 'Rộng tủ góc', '延伸衣柜宽': 'Rộng tủ áo nối dài', '桌面深': 'Sâu mặt bàn', '左开放柜高': 'Cao tủ hở trái',
+    '右开放柜高': 'Cao tủ hở phải', '垫板前缩': 'Tấm đệm lùi trước', '垫板后缩': 'Tấm đệm lùi sau', '下切': 'Cắt dưới', '上切': 'Cắt trên', '吊柜左留空': 'Tủ treo hở trái',
+    '灶下柜宽': 'Rộng tủ dưới bếp', '洗衣机位宽': 'Rộng chỗ máy giặt', '上柜深度': 'Sâu tủ trên', '左上收口宽': 'Rộng nẹp bù trên trái', '左柜宽度': 'Rộng tủ trái', '下柜高度': 'Cao tủ dưới',
+    '吊柜深度': 'Sâu tủ treo', '开放柜高度': 'Cao tủ hở', '踢脚高度': 'Cao xà chân', '地柜深': 'Sâu tủ dưới', '封板上延': 'Tấm bịt kéo dài trên', '桌侧右缩': 'Hông bàn lùi phải',
+    '桌面左伸': 'Mặt bàn kéo dài trái', '桌面右伸': 'Mặt bàn kéo dài phải', '背板后缩': 'Hậu lùi sau', '中倒角': 'Vát góc giữa', '前盖': 'Phủ trước', '后盖': 'Phủ sau', '封板高': 'Cao tấm bịt',
+    '整体往前加深': 'Cả tủ sâu thêm ra trước', '下柜总高': 'Tổng cao tủ dưới', '上层空间': 'Khoang tầng trên', '4空间': 'Khoang 4', '左柜上延伸': 'Tủ trái kéo dài lên',
+    '右柜上延伸': 'Tủ phải kéo dài lên', '电视位宽': 'Rộng chỗ tivi', '拉手条高': 'Cao thanh tay nắm', '抽屉离地高': 'Ngăn kéo cách sàn', '双抽高度': 'Cao 2 ngăn kéo', '门板宽度': 'Rộng cánh',
+    '档条高': 'Cao thanh chắn', '下开放格高': 'Cao ô hở dưới', '立板': 'Vách', '左侧缩': 'Hồi trái lùi', '右侧缩': 'Hồi phải lùi', '左侧厚': 'Dày hồi trái', '右侧厚': 'Dày hồi phải',
+    '挂钩距上': 'Móc treo cách trên', '柜子深': 'Sâu tủ', '台面厚度': 'Dày mặt bàn', '柜子后缩': 'Tủ lùi sau', '弧形': 'Cong', '抽上到底距离': 'Khoảng từ mép trên ngăn kéo tới đáy',
+    '台面长': 'Dài mặt bàn', '靠墙距离': 'Khoảng cách tới tường', '右上升': 'Nâng lên bên phải', '顶包背动作': 'Động tác nóc phủ hậu', '后地脚后缩': 'Chân sau lùi sau',
+    '前地脚内缩': 'Chân trước lùi vào', '前背板左延伸': 'Hậu trước kéo dài trái', '前背板右延伸': 'Hậu trước kéo dài phải',
   };
 
   /* ---- 2. Ghép từ: cho ghi chú lạ chưa có trong bảng trên (kết quả có dấu ~ phía trước để biết là dịch ghép) ---- */

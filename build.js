@@ -71,6 +71,11 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
 
+MỚI Ở BẢN 1.19.1 — THÊM CÂU DỊCH GHI CHÚ THAM SỐ CHO CÁC BỘ TỦ MẪU
+ Bảng dịch cột "Ghi chú" (Remarks / 备注) có thêm 444 câu của các bộ tủ mẫu: tủ áo, tủ tivi, bếp, bàn học, giường tầng, tatami…
+ Mẫu mới lấy về từ cửa hàng mà ghi chú còn chữ Trung thì các ghi chú hay gặp hiện tiếng Việt ngay; câu lạ vẫn dịch ghép (có dấu ~).
+ Không đổi cách vẽ, không sửa mẫu trong kho.
+
 MỚI Ở BẢN 1.19 — VÁCH TIVI / ĐẦU GIƯỜNG: CHIA Ô TRÊN MẶT ĐỨNG + CHỌN MẪU KHO CHENFENG
  Thẻ Phòng: mỗi "khung" là một ô trên mặt tường.
    • Tạo ô: "+ Thêm khung", hoặc bật "＋ Vẽ khung trên mặt đứng" rồi KÉO CHUỘT ngay trên mặt đứng của tường (số bắt chẵn 10, bám mép tường / cửa / khung có sẵn).
