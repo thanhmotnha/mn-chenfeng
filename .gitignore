@@ -1,7 +1,8 @@
 node_modules/
-# dist/ chỉ giữ 3 tệp của kênh tự cập nhật; phần còn lại sinh lại bằng `node build.js`
+# dist/ chỉ giữ 4 tệp của kênh tự cập nhật; phần còn lại sinh lại bằng `node build.js`
 dist/*
 !dist/mn-chenfeng.js
+!dist/mn-chenfeng-sx.js
 !dist/phien-ban.json
 !dist/mn-chenfeng.user.js
 *.log

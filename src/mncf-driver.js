@@ -2632,6 +2632,117 @@
     return { ok: true };
   };
 
+  /* ------------------------------------------------------------------ *
+   * XUẤT VÁN (bản 1.22 — anh Jason 04/10/2026 09:09: "thử xuất ván … làm sao để hợp lý nhất nhanh gọn"; 14:14: "làm cả 2").
+   * Chạy lệnh TÁCH ĐƠN `CD` (拆单) của Chenfeng thay người dùng: tự chọn đúng tấm + phụ kiện của tủ rồi Enter. Đã đo trên Chenfeng thật 04/10/2026:
+   *   - `CD` hỏi "选择板件或者五金"; đang hỏi thì `SelectCtrl.AddSelect` rồi `InputEvent('')` (Enter) là đi tiếp; Chenfeng kiểm 排钻碰撞 + 封边 (≈ 5 ms / tấm),
+   *     có lỗi thì HỎI trước (bảng không trả lời hộ), rồi mở hộp "Order Splitting" (`.bp3-dialog` có một khung 350 × 100 trỏ sang trang sản xuất sc.leye.site);
+   *   - tới đây CHƯA có gì rời máy: khung nhận dữ liệu tấm bằng postMessage rồi hỏi "是否打开拆单优化窗口?" — chỉ khi NGƯỜI DÙNG bấm 打开 thì tab trang sản xuất
+   *     mới mở và dữ liệu mới lên máy chủ. Bảng dừng ở đây, không bấm hộ (cũng không bấm được: khung khác nguồn);
+   *   - trang trong khung báo `{ command: 'loaded' }` ~0,25 giây TRƯỚC sự kiện load của khung (thường 1,4 – 3,7 giây sau khi hộp thoại hiện);
+   *     khung không tải được thì ~31 giây sau chỉ có sự kiện load (trang lỗi của trình duyệt), không có tin nào → phải đóng, chạy lại `CD`;
+   *   - người dùng bấm 打开 → trang sản xuất báo `{ command: 'closeWindow' }` → Chenfeng tự đóng hộp thoại.
+   * ------------------------------------------------------------------ */
+  const NGUON_SX = /^https:\/\/([a-z0-9-]+\.)*leye\.site$/;      // trang sản xuất của Chenfeng (khung "Order Splitting")
+  const hopXuat = () => { try { return [...document.querySelectorAll('.bp3-dialog')].find(d => d.querySelector('iframe')) || null; } catch (e) { return null; } };
+  /** Tấm + phụ kiện sẽ xuất: đang chọn tấm nào thì lấy cả (các) tủ chứa tấm đó; không chọn gì = cả bản vẽ. Lỗ khoan không đưa vào (Chenfeng tự lấy theo tấm). */
+  D.phamViXuat = () => {
+    const chon = D.selected().filter(D.isBoard), all = D.all(), pkAll = all.filter(D.isHardware);
+    const tam = chon.length ? D.tamCuaTu(chon) : all.filter(D.isBoard);
+    const tenTu = b => String((b.BoardProcessOption || {}).cabinetName || '');
+    let pk = pkAll;
+    if (chon.length) {      // phụ kiện của tủ = phụ kiện có tâm nằm trong hộp bao của tủ đó (như khi quét chọn quanh tủ)
+      const hop = new Map();
+      for (const b of tam) { let x; try { x = D.boxOf(b); } catch (e) { continue; } const k = D.tagOf(b) || tenTu(b) || '\u0001', h = hop.get(k); if (!h) hop.set(k, x.slice()); else for (let i = 0; i < 6; i += 2) { h[i] = Math.min(h[i], x[i]); h[i + 1] = Math.max(h[i + 1], x[i + 1]); } }
+      const cac = [...hop.values()];
+      pk = pkAll.filter(e => { let x; try { x = D.boxOf(e); } catch (err) { return false; } const c = [(x[0] + x[1]) / 2, (x[2] + x[3]) / 2, (x[4] + x[5]) / 2]; return cac.some(h => c[0] >= h[0] - 1 && c[0] <= h[1] + 1 && c[1] >= h[2] - 1 && c[1] <= h[3] + 1 && c[2] >= h[4] - 1 && c[2] <= h[5] + 1); });
+    }
+    return { pham_vi: chon.length ? 'chon' : 'tat_ca', tam, pk, tu: [...new Set(tam.map(tenTu).filter(Boolean))], khong_ten: tam.filter(b => !tenTu(b)).length };
+  };
+  /** Đóng hộp "Order Splitting" đang mở (bấm nút × của chính hộp đó). Không có hộp nào → true. */
+  D.dongKhungXuat = async () => {
+    const h = hopXuat(); if (!h) return true;
+    try { const nut = h.querySelector('.bp3-dialog-close-button') || [...h.querySelectorAll('.bp3-dialog-header button')].pop(); if (nut) nut.click(); } catch (e) { /* bỏ qua */ }
+    for (let i = 0; i < 25 && h.isConnected; i++) await sleep(100);
+    return !h.isConnected;
+  };
+  /**
+   * Chạy `CD` cho phạm vi xuất (opt.pham_vi_san = kết quả D.phamViXuat đã lấy trước; bỏ trống thì tự lấy), dừng khi hộp "Order Splitting" hiện.
+   * opt: onStatus; cho_hop (ms chờ hộp thoại, mặc định 90000); cho_khung (ms chờ khung lên tiếng, 45000); tre_loi (ms sau sự kiện load mà khung vẫn im thì coi là trang lỗi, 2500).
+   * @returns {{ ok, giai_doan: 'chon' | 'dang_mo' | 'lenh' | 'hoi' | 'khung', pham_vi, so_tam, so_pk, tu: [tên tủ], reason?, hoi? (câu Chenfeng đang hỏi),
+   *   san_sang?: Promise<{ ok, ly_do: '' | 'loi' (khung ra trang lỗi) | 'cham' (quá hạn) | 'dong' (hộp bị đóng), ms }>,
+   *   da_mo?: Promise<boolean> (true khi trang sản xuất báo closeWindow = người dùng đã bấm 打开) }}
+   */
+  D.xuatVan = async (opt) => {
+    opt = opt || {};
+    const st = guard(opt.onStatus), kq = { ok: false, giai_doan: 'chon' };
+    const pv = opt.pham_vi_san || D.phamViXuat();
+    const tam = (pv.tam || []).filter(laTam), pk = (pv.pk || []).filter(e => e && !e.IsErase && D.isHardware(e));
+    kq.pham_vi = pv.pham_vi; kq.so_tam = tam.length; kq.so_pk = pk.length; kq.tu = pv.tu || [];
+    if (!tam.length) { kq.reason = 'Bản vẽ chưa có tấm ván nào để xuất.'; return kq; }
+    D.boManChe();
+    if (hopXuat() && !(await D.dongKhungXuat())) { kq.giai_doan = 'dang_mo'; kq.reason = 'Khung xuất ván (Order Splitting) của lần trước còn mở và bảng không đóng được — bấm × trên khung đó rồi bấm lại.'; return kq; }
+    if (D.busy()) await D.cancel();
+    try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+    await sleep(150);
+    // nghe trang sản xuất từ TRƯỚC khi chạy lệnh (khỏi lỡ tin "loaded"); chỉ nhận tin từ nguồn *.leye.site
+    const tin = { san: false, mo: false };
+    const nghe = e => { try { if (!NGUON_SX.test(String(e.origin || ''))) return; const d = e.data, c = d && typeof d === 'object' ? String(d.command || d.cmd || '') : ''; if (c === 'loaded') tin.san = true; else if (c === 'closeWindow') tin.mo = true; } catch (er) { /* bỏ qua */ } };
+    const thoiNghe = () => { try { root.removeEventListener('message', nghe); } catch (e) { /* bỏ qua */ } };
+    root.addEventListener('message', nghe);
+    const truoc = new Set(document.querySelectorAll('.bp3-dialog, .bp3-alert')), t0 = Date.now();
+    kq.giai_doan = 'lenh';
+    st(`Đang chạy lệnh tách đơn CD của Chenfeng cho ${tam.length} tấm…`);
+    try {
+      D.cmd('CD');
+      for (let i = 0; i < 30 && !D.busy(); i++) await sleep(100);
+      if (!D.busy()) { kq.reason = 'Lệnh CD (tách đơn) của Chenfeng không hỏi chọn tấm — tài khoản này chưa có quyền tách đơn, hoặc Chenfeng đang bận việc khác. Thử gõ CD trực tiếp ở dòng lệnh của Chenfeng.'; thoiNghe(); return kq; }
+      D.select(tam.concat(pk));
+      await sleep(300);
+      D.input('');
+    } catch (e) { thoiNghe(); if (D.busy()) await D.cancel(); kq.reason = 'Không chạy được lệnh CD của Chenfeng (' + String(e && e.message || e).slice(0, 120) + ').'; return kq; }
+    // chờ hộp "Order Splitting". Chenfeng có thể hỏi trước (tự đánh số tấm, lỗi khoan / dán cạnh, tấm vượt cỡ…): KHÔNG trả lời hộ, chỉ nêu câu hỏi và chờ người dùng.
+    const han = opt.cho_hop > 0 ? opt.cho_hop : 90000; let hop = null, hoi = '';
+    while (Date.now() - t0 < han) {
+      const h = hopXuat(); if (h && !truoc.has(h)) { hop = h; break; }
+      let chu = '';
+      try { const q = [...document.querySelectorAll('.bp3-alert, .bp3-dialog')].find(d => !truoc.has(d) && d.isConnected && !d.querySelector('iframe')); chu = q ? String(q.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 220) : ''; } catch (e) { chu = ''; }
+      if (chu && chu !== hoi) st(`Chenfeng đang hỏi: “${chu}” — anh trả lời trong hộp thoại đó, bảng chờ.`);
+      if (chu) hoi = chu;
+      await sleep(150);
+    }
+    if (!hop) {
+      thoiNghe();
+      if (D.busy()) await D.cancel();
+      try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+      if (hoi) { kq.giai_doan = 'hoi'; kq.hoi = hoi; kq.reason = `Chenfeng hỏi mà chưa có trả lời: “${hoi}”. Trả lời trong hộp thoại của Chenfeng (hoặc sửa bản vẽ) rồi bấm Xuất ván lại.`; }
+      else kq.reason = `Chenfeng không mở khung xuất ván (Order Splitting) sau ${Math.round(han / 1000)} giây.`;
+      return kq;
+    }
+    kq.ok = true; kq.giai_doan = 'khung'; kq.ms_hop = Date.now() - t0;
+    const fr = hop.querySelector('iframe'), hanK = opt.cho_khung > 0 ? opt.cho_khung : 45000, tre = opt.tre_loi > 0 ? opt.tre_loi : 2500;
+    let luTai = 0; const taiXong = () => { luTai = Date.now(); };
+    try { fr.addEventListener('load', taiXong); } catch (e) { /* bỏ qua */ }
+    const t1 = Date.now();
+    kq.san_sang = (async () => {
+      try {
+        for (;;) {
+          if (tin.san) return { ok: true, ly_do: '', ms: Date.now() - t1 };
+          if (!hop.isConnected) return { ok: false, ly_do: tin.mo ? '' : 'dong', ms: Date.now() - t1 };
+          if (luTai && Date.now() - luTai >= tre) return { ok: false, ly_do: 'loi', ms: Date.now() - t1 };      // khung tải xong mà trang sản xuất vẫn im = trang lỗi của trình duyệt
+          if (Date.now() - t1 >= hanK) return { ok: false, ly_do: 'cham', ms: Date.now() - t1 };
+          await sleep(100);
+        }
+      } finally { try { fr.removeEventListener('load', taiXong); } catch (e) { /* bỏ qua */ } }
+    })();
+    // người dùng bấm 打开 → trang sản xuất báo closeWindow → hộp thoại đóng. Theo dõi tối đa 10 phút rồi thôi nghe.
+    kq.da_mo = (async () => {
+      const r = await kq.san_sang;
+      try { if (!r.ok) return false; const t2 = Date.now(); while (hop.isConnected && !tin.mo && Date.now() - t2 < 600000) await sleep(200); return tin.mo; } finally { thoiNghe(); }
+    })();
+    return kq;
+  };
+
   D.zoom = () => { try { D.cmd('ZOOME'); } catch (e) { /* bỏ qua */ } };
   D.undo = async (steps) => { for (let i = 0; i < (steps || 1); i++) { try { if (D.busy()) await D.cancel(); D.cmd('UNDO'); } catch (e) { /* bỏ qua */ } await sleep(400); await D.settle(600, 20000); } };
   D.sleep = sleep;

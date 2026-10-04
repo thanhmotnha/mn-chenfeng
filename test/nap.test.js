@@ -16,21 +16,27 @@ const doiBan = v => BAN.split("VERSION = '" + V + "'").join("VERSION = '" + v + 
 async function mo(kho) {       // kho = { raw: {tt, ban} | null, jsd: {tt, ban} | null } — null = nguồn chết
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mncf-nap-'));
   const ctx = await chromium.launchPersistentContext(dir, { channel: 'chromium', headless: true, viewport: { width: 1400, height: 900 }, args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`] });
-  const dem = { raw_tt: 0, raw_ban: 0, jsd_tt: 0, jsd_ban: 0 };
-  const phucVu = (ten, re) => ctx.route(re, r => { const n = new URL(r.request().url()).pathname.split('/').pop(), k = kho[ten];
+  const dem = { raw_tt: 0, raw_ban: 0, raw_sx: 0, jsd_tt: 0, jsd_ban: 0, jsd_sx: 0 };
+  const phucVu = (ten, re) => ctx.route(re, async r => { const n = new URL(r.request().url()).pathname.split('/').pop(), k = kho[ten];
     if (!k) return r.abort('failed');
     const h = { 'access-control-allow-origin': '*' };
-    if (n === 'phien-ban.json') { dem[ten + '_tt']++; return r.fulfill({ status: 200, contentType: 'application/json', headers: h, body: JSON.stringify(k.tt) }); }
+    if (n === 'phien-ban.json') { dem[ten + '_tt']++; if (kho.tre_tt) await new Promise(x => setTimeout(x, kho.tre_tt)); return r.fulfill({ status: 200, contentType: 'application/json', headers: h, body: JSON.stringify(k.tt) }).catch(() => {}); }
     if (n === 'mn-chenfeng.js') { dem[ten + '_ban']++; return r.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: h, body: k.ban }); }
+    if (n === 'mn-chenfeng-sx.js' && k.sx) { dem[ten + '_sx']++; return r.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: h, body: k.sx }); }
     return r.fulfill({ status: 404, body: '' }); });
   await phucVu('raw', /^https:\/\/raw\.githubusercontent\.com\//); await phucVu('jsd', /^https:\/\/cdn\.jsdelivr\.net\//);
   await ctx.route('https://api.cfcad.cn/**', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' }, body: '{"err_code":1,"err_msg":"no"}' }));
   await ctx.route('https://cfcad.cn/**', r => new URL(r.request().url()).pathname.startsWith('/help') ? r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>help</title><p>trợ giúp</p>' }) : r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }));
+  await ctx.route('https://sc.leye.site/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: '<!doctype html><meta charset="utf-8"><title>晨丰生产管理系统</title><div id="app"></div>' }));      // trang sản xuất giả (trống): chỉ để xem bộ nạp làm gì ở đó
   const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  // mở / tải lại trang sản xuất, chờ bộ nạp làm xong cả phần cập nhật ngầm
+  const taiSX = async () => { if (page.url().startsWith('https://sc.leye.site')) await page.reload(); else await page.goto('https://sc.leye.site/#/cadSingleAdd?stamp=1&type=single&fileName=x');
+    await page.waitForFunction(() => window.__MNCF_NAP__ && window.__MNCF_NAP__.cho, null, { timeout: 15000 }); await page.evaluate(() => window.__MNCF_NAP__.cho);
+    return page.evaluate(() => ({ v: window.MNCF_SX && window.MNCF_SX.version, bang: typeof window.MNCF, n: { nguon: window.__MNCF_NAP__.nguon, pb: window.__MNCF_NAP__.phien_ban, xong: window.__MNCF_NAP__.xong, sau: window.__MNCF_NAP__.cho_lan_sau || '', ghi: window.__MNCF_NAP__.ghi } })); };
   const tai = async () => { if (page.url().startsWith('https://cfcad.cn')) await page.reload(); else await page.goto('https://cfcad.cn/');
     await page.waitForFunction(() => window.__MNCF_NAP__ && (window.__MNCF_NAP__.xong || window.__MNCF_NAP__.het) && !window.__MNCF_NAP__.dang_cat, null, { timeout: 30000 }).catch(() => {});      // chờ cả việc cất bản vào máy (tải lại trang sớm quá thì lần sau phải tải lại)
     return page.evaluate(() => ({ v: window.MNCF && window.MNCF.version, app: !!(window.MNCF && window.MNCF.app), n: window.__MNCF_NAP__ && { nguon: window.__MNCF_NAP__.nguon, pb: window.__MNCF_NAP__.phien_ban, xong: window.__MNCF_NAP__.xong, ghi: window.__MNCF_NAP__.ghi } })); };
-  return { ctx, page, dem, errs, tai, kho };
+  return { ctx, page, dem, errs, tai, taiSX, kho };
 }
 const banMoi = v => { const ban = doiBan(v); return { tt: { phien_ban: v, sha256: sha(ban) }, ban }; };
 const GOC = { tt: { phien_ban: V, sha256: sha(BAN) }, ban: BAN };
@@ -119,6 +125,61 @@ const GOC = { tt: { phien_ban: V, sha256: sha(BAN) }, ban: BAN };
     ok(r2.v === V && /đã cất trong máy|bản kèm tiện ích/.test(r2.n.nguon) && r2.n.ghi.some(g => /lỗi/.test(g)), 'bản mới hỏng cú pháp → chạy bản đã cất, bảng vẫn dùng được', r2);
     const nho = await T.page.evaluate(() => new Promise(res => { const q = indexedDB.open('mncf_nap'); q.onsuccess = () => { const g = q.result.transaction('ban').objectStore('ban').get('moi'); g.onsuccess = () => res(g.result && g.result.phien_ban); }; }));
     ok(nho === V, 'bản hỏng không được cất đè lên bản tốt', nho);
+  } finally { await T.ctx.close(); }
+
+  /* ===== bản 1.22 — TRANG SẢN XUẤT (sc.leye.site): bộ nạp chạy NGAY bản trợ lý đang có (không chờ mạng), cập nhật ngầm để lần mở trang sau dùng ===== */
+  const SXBAN = fs.readFileSync(path.join(__dirname, '..', 'dist', 'mn-chenfeng-sx.js'), 'utf8');
+  const doiSX = v => SXBAN.split('__MNCF_SX_PB__ = "' + V + '"').join('__MNCF_SX_PB__ = "' + v + '"');
+  const khoSX = (v, sx) => ({ tt: { phien_ban: v, sha256: sha(BAN), sx: { sha256: sha(sx) } }, ban: BAN, sx });
+  ok(TT.sx && TT.sx.sha256 === sha(SXBAN) && TT.sx.kich_thuoc === Buffer.byteLength(SXBAN), 'dist/phien-ban.json có mục sx khớp mã kiểm và cỡ của dist/mn-chenfeng-sx.js', TT.sx);
+  ok(doiSX('9.9.9') !== SXBAN && SXBAN.length < 40000, 'bản trợ lý nhỏ (dưới 40 KB), tạo được "bản mới" giả', SXBAN.length);
+  { const cs = man.content_scripts[1] || {};
+    ok(JSON.stringify(cs.matches) === '["https://sc.leye.site/*"]' && JSON.stringify(cs.js) === '["du-phong-sx.js","nap.js"]' && cs.world === 'MAIN' && cs.run_at === 'document_start' && !cs.all_frames, 'manifest: trang sản xuất nạp bản dự phòng của trợ lý + bộ nạp, từ đầu trang, chỉ khung trên cùng', cs);
+    ok(JSON.stringify(man.content_scripts[0].js) === '["du-phong.js","nap.js"]' && !man.content_scripts[0].matches.some(m => /leye/.test(m)), 'manifest: trang CAD vẫn nạp như cũ'); }
+  T = await mo({ raw: khoSX(V, SXBAN), jsd: null });
+  try {
+    /* S1. lần đầu: chạy ngay bản kèm tiện ích; kho trùng bản đó → không tải gì thêm; không nạp bảng vẽ tủ ở trang sản xuất */
+    T.kho.tre_tt = 1500;                                                     // kho trả lời chậm 1,5 giây
+    await T.page.goto('https://sc.leye.site/#/cadSingleAdd?stamp=1&type=single&fileName=x');
+    await T.page.waitForFunction(() => window.MNCF_SX, null, { timeout: 1000 }).then(() => ok(true, 'trợ lý có ngay khi trang vừa mở, không chờ kho trả lời'), () => ok(false, 'trợ lý có ngay khi trang vừa mở, không chờ kho trả lời'));
+    ok(T.dem.raw_tt <= 1 && (await T.page.evaluate(() => window.__MNCF_NAP__.xong === true)), 'lúc đó kho còn chưa trả lời xong');
+    T.kho.tre_tt = 0;
+    let r = await T.taiSX();
+    ok(r.v === V && /bản kèm tiện ích/.test(r.n.nguon) && r.bang === 'undefined', 'trang sản xuất: chạy trợ lý (bản kèm tiện ích), không nạp bảng vẽ tủ', r);
+    ok(T.dem.raw_sx === 0 && T.dem.raw_ban === 0, 'kho trùng bản đang có: không tải lại, không đụng bản gộp của bảng', T.dem);
+    ok(await T.page.evaluate(() => window.__MNCF_NAP__.ban_nap === 2), 'bộ nạp bản 2');
+    /* S2. kho có bản trợ lý mới: lần này vẫn chạy bản đang có, tải ngầm + cất; lần mở sau chạy bản mới */
+    T.kho.raw = khoSX('9.9.9', doiSX('9.9.9'));
+    r = await T.taiSX();
+    ok(r.v === V && r.n.sau === '9.9.9' && T.dem.raw_sx === 1, 'kho có bản mới: lần này vẫn chạy bản cũ, bản mới được tải ngầm và cất', [r, T.dem]);
+    r = await T.taiSX();
+    ok(r.v === '9.9.9' && /đã cất trong máy/.test(r.n.nguon) && T.dem.raw_sx === 1, 'lần mở trang sau: chạy bản mới từ bộ nhớ máy, không tải lại', [r, T.dem]);
+    /* S3. mất mạng: vẫn chạy bản đã cất */
+    T.kho.raw = null;
+    r = await T.taiSX();
+    ok(r.v === '9.9.9' && r.n.xong, 'không vào được kho: trợ lý vẫn chạy bản đã cất', r);
+    /* S4. bản trên kho lệch mã kiểm: không cất */
+    T.kho.raw = { tt: { phien_ban: '9.9.10', sha256: sha(BAN), sx: { sha256: sha('khác') } }, ban: BAN, sx: 'window.__HONG_SX__ = 1;' };
+    r = await T.taiSX(); r = await T.taiSX();
+    ok(r.v === '9.9.9' && (await T.page.evaluate(() => window.__HONG_SX__ === undefined)) && r.n.ghi.some(g => /không khớp mã kiểm/.test(g)), 'bản trợ lý lệch mã kiểm: không cất, không chạy', r);
+    /* S5. kho kiểu cũ (phien-ban.json chưa có mục sx): không lỗi, giữ bản đang có */
+    T.kho.raw = { tt: { phien_ban: '9.9.11', sha256: sha(BAN) }, ban: BAN };
+    r = await T.taiSX();
+    ok(r.v === '9.9.9' && r.n.xong && T.errs.length === 0, 'kho chưa có mục sx: bỏ qua, không lỗi', [r, T.errs]);
+    /* S6. kho giữ bản CŨ hơn bản đang có: không lùi */
+    T.kho.raw = khoSX('9.9.8', doiSX('9.9.8')); const d1 = T.dem.raw_sx;
+    r = await T.taiSX(); r = await T.taiSX();
+    ok(r.v === '9.9.9' && T.dem.raw_sx === d1, 'kho giữ bản cũ hơn: không tải, không lùi bản', [r, T.dem]);
+    /* S7. trang CAD: không có trợ lý; khung nhỏ sc.leye.site nằm trong trang CAD: bộ nạp không chạy trong khung */
+    T.kho.raw = khoSX(V, SXBAN);
+    await T.tai();
+    ok(await T.page.evaluate(() => typeof window.MNCF_SX === 'undefined' && !!window.MNCF), 'trang CAD: có bảng vẽ tủ, không có trợ lý trang sản xuất');
+    await T.page.evaluate(() => { const f = document.createElement('iframe'); f.id = 'khung-sx'; f.src = 'https://sc.leye.site/?stamp=1#/cadIndex'; document.body.appendChild(f); });
+    await T.page.waitForFunction(() => { const f = document.getElementById('khung-sx'); return !!f; });
+    const khung = await (async () => { for (let i = 0; i < 40; i++) { const f = T.page.frames().find(x => /^https:\/\/sc\.leye\.site/.test(x.url())); if (f) return f; await new Promise(k => setTimeout(k, 100)); } return null; })();
+    await new Promise(k => setTimeout(k, 600));
+    ok(khung && JSON.stringify(await khung.evaluate(() => [typeof window.MNCF_SX, typeof window.__MNCF_NAP__, typeof window.MNCF])) === '["undefined","undefined","undefined"]', 'khung "Order Splitting" trong trang CAD: tiện ích không nạp gì vào đó');
+    ok(T.errs.length === 0, 'không có lỗi JS lọt ra trang (phần trang sản xuất)', T.errs);
   } finally { await T.ctx.close(); }
 
   console.log(`nap.test: ${pass} đạt, ${fail} hỏng`);

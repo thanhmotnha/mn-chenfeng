@@ -10,10 +10,16 @@ const MO_TA = 'Nhập thông số tủ, kéo chia đợt trên hình, đặt ng�
 const bundle = `/* Một Nhà · Vẽ tủ vào Chenfeng — v${V} — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */\n;(function(){\n${R('src/mncf-core.js')}\n${R('src/mncf-phong.js')}\n${R('src/mncf-dich.js')}\n${R('src/mncf-driver.js')}\n${R('src/mncf-ui.js')}\n}).call(typeof self !== 'undefined' ? self : this);\n`;
 W('mn-chenfeng.js', bundle);
 
-/* ---- kênh tự cập nhật: tiện ích (bộ nạp) hỏi dist/phien-ban.json trên GitHub, khác mã kiểm thì tải dist/mn-chenfeng.js ---- */
+/* ---- bản 1.22: TRỢ LÝ TRANG SẢN XUẤT (src/mncf-sx.js) — bản gộp riêng, nhỏ, chạy ở sc.leye.site (tab mà lệnh tách đơn CD của Chenfeng mở ra) ---- */
+const sxBundle = `/* Một Nhà · Trợ lý trang sản xuất Chenfeng — v${V} */\n;(function(){\nvar __MNCF_SX_PB__ = ${JSON.stringify(V)};\n${R('src/mncf-sx.js')}\n}).call(typeof self !== 'undefined' ? self : this);\n`;
+W('mn-chenfeng-sx.js', sxBundle);
+
+/* ---- kênh tự cập nhật: tiện ích (bộ nạp) hỏi dist/phien-ban.json trên GitHub, khác mã kiểm thì tải dist/mn-chenfeng.js (trang CAD) / dist/mn-chenfeng-sx.js (trang sản xuất) ---- */
 const KHO_RAW = 'https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/';
-const sha256 = require('crypto').createHash('sha256').update(Buffer.from(bundle, 'utf8')).digest('hex');
-W('phien-ban.json', JSON.stringify({ phien_ban: V, sha256, kich_thuoc: Buffer.byteLength(bundle) }, null, 1) + '\n');
+const bam = t => require('crypto').createHash('sha256').update(Buffer.from(t, 'utf8')).digest('hex');
+const sha256 = bam(bundle), shaSx = bam(sxBundle);
+// mục "sx" là của bộ nạp bản 2 (có trợ lý); bộ nạp bản 1 chỉ đọc phien_ban + sha256 nên vẫn chạy như cũ
+W('phien-ban.json', JSON.stringify({ phien_ban: V, sha256, kich_thuoc: Buffer.byteLength(bundle), sx: { sha256: shaSx, kich_thuoc: Buffer.byteLength(sxBundle) } }, null, 1) + '\n');
 
 W('mn-chenfeng.user.js', `// ==UserScript==
 // @name         Một Nhà · Vẽ tủ vào Chenfeng
@@ -36,11 +42,16 @@ ${bundle}`);
 // Tiện ích = BỘ NẠP (src/mncf-nap.js) + bản kèm sẵn để dự phòng. Cài một lần; bản mới tự về từ GitHub mỗi lần mở Chenfeng.
 W('extension/nap.js', R('src/mncf-nap.js'));
 W('extension/du-phong.js', `/* Bản kèm tiện ích (v${V}) — chỉ chạy khi không vào được kho GitHub và máy chưa cất bản nào. */\nwindow.__MNCF_DU_PHONG__ = { phien_ban: ${JSON.stringify(V)}, sha256: ${JSON.stringify(sha256)}, chay: function () {\n${bundle}\n} };\n`);
+W('extension/du-phong-sx.js', `/* Trợ lý trang sản xuất — bản kèm tiện ích (v${V}): chạy ngay khi mở trang sản xuất nếu máy chưa cất bản nào mới hơn. */\nwindow.__MNCF_SX_DU_PHONG__ = { phien_ban: ${JSON.stringify(V)}, sha256: ${JSON.stringify(shaSx)}, chay: function () {\n${sxBundle}\n} };\n`);
 { const cu = path.join(__dirname, 'dist', 'extension', 'mn-chenfeng.js'); if (fs.existsSync(cu)) fs.unlinkSync(cu); }
 W('extension/manifest.json', JSON.stringify({
   manifest_version: 3, name: 'Một Nhà · Vẽ tủ vào Chenfeng', version: V, minimum_chrome_version: '111',
   description: 'Nhập thông số tủ, kéo chia đợt, đặt ngăn kéo / suốt treo → tự vẽ vào Chenfeng WebCAD, Chenfeng tự khoan lỗ.',      // Chrome giới hạn 132 ký tự
-  content_scripts: [{ matches: ['https://cfcad.cn/*', 'https://www.cfcad.cn/*', 'https://hk.cfcad.cn/*'], exclude_matches: ['https://cfcad.cn/help/*', 'https://www.cfcad.cn/help/*'], js: ['du-phong.js', 'nap.js'], run_at: 'document_idle', world: 'MAIN' }],
+  content_scripts: [
+    { matches: ['https://cfcad.cn/*', 'https://www.cfcad.cn/*', 'https://hk.cfcad.cn/*'], exclude_matches: ['https://cfcad.cn/help/*', 'https://www.cfcad.cn/help/*'], js: ['du-phong.js', 'nap.js'], run_at: 'document_idle', world: 'MAIN' },
+    // trang sản xuất của Chenfeng (tab mở ra sau lệnh tách đơn CD → 打开): trợ lý phải có từ đầu trang; chỉ khung trên cùng (khung nhỏ "Order Splitting" trong trang CAD không nạp)
+    { matches: ['https://sc.leye.site/*'], js: ['du-phong-sx.js', 'nap.js'], run_at: 'document_start', world: 'MAIN' },
+  ],
   icons: { 48: 'icon48.png', 128: 'icon128.png' },
 }, null, 2) + '\n');
 for (const n of ['icon48.png', 'icon128.png']) {
@@ -70,6 +81,28 @@ MÁY ĐANG CÀI BẢN CŨ (1.13 trở về trước) — CHUYỂN SANG BẢN T�
  2. Vào chrome://extensions → bấm nút tải lại (mũi tên tròn) trên thẻ "Một Nhà · Vẽ tủ vào Chenfeng".
  3. Tải lại trang Chenfeng (F5). Từ đây về sau không phải làm lại các bước này nữa.
  Thông số tủ và "Chuẩn xưởng" đã nhập ở bản cũ vẫn được giữ.
+
+MỚI Ở BẢN 1.22 — XUẤT VÁN NHANH: NÚT "XUẤT VÁN" + TRỢ LÝ Ở TRANG SẢN XUẤT   (PHẢI CÀI LẠI TIỆN ÍCH MỘT LẦN — xem cuối mục)
+ Thẻ Kết quả → "Xuất ván (tách đơn CD)":
+   • Chọn 1 tấm của tủ trên bản vẽ = xuất (các) tủ đó; không chọn gì = cả bản vẽ.
+   • Bảng dò lỗi sản xuất trên đúng các tấm sắp xuất. Còn LỖI (tấm đè nhau, lỗ khoan giao nhau…) thì dừng, nêu lỗi, có nút "Vẫn xuất".
+   • Bảng tự chọn tấm + phụ kiện của tủ rồi chạy lệnh CD của Chenfeng. Anh chỉ còn bấm 打开 trong khung nhỏ "Order Splitting".
+     Chưa bấm 打开 thì chưa có gì gửi đi. Chenfeng hỏi gì giữa chừng (đánh số tấm, lỗi khoan…) thì bảng nêu câu hỏi và chờ anh trả lời, không trả lời hộ.
+   • Khung nhỏ tải lâu hoặc không tải được (đường truyền tới máy chủ sản xuất của Chenfeng): bảng báo, có nút "Thử lại".
+ Trang sản xuất (tab "晨丰生产管理系统" mở ra sau khi bấm 打开) — có TRỢ LÝ MỘT NHÀ ở góc dưới bên phải:
+   • Lúc trang còn trắng: báo đang chờ gì — "Máy chủ Chenfeng đang tính 228 tấm… 9 giây (thường khoảng 15 giây)". Máy chủ tính khoảng 4 giây + 0,05 giây
+     mỗi tấm, có lúc lâu gấp 2–3; đó là máy chủ của Chenfeng, bảng không làm nhanh hơn được.
+   • Trang đứng trắng do lỗi của chính trang Chenfeng: trợ lý tự gọi lại để bảng tối ưu hiện ra.
+   • Hộp 优化进度 hiện: trợ lý tự bấm 开始优化, đọc số tờ ván từng loại; mọi loại đã có kết quả và số tờ đứng yên vài giây thì tự bấm 停止优化 rồi
+     确认新优化 → sơ đồ cắt hiện. (Thanh tiến độ của Chenfeng không bao giờ tự dừng; chạy 3 giây hay 80 giây đều ra cùng số tờ.)
+   • Trợ lý KHÔNG lưu, KHÔNG xuất NC, KHÔNG in tem — 保存优化 / 一键NC / 打印标签… anh tự bấm khi cần.
+   • Muốn tự tay tối ưu (thêm ván dư, đổi tuỳ chọn…): bấm "Để tôi tự làm", hoặc bỏ chọn "Tự tối ưu khi mở trang" (máy nhớ lựa chọn). Anh đụng vào hộp
+     tối ưu lúc trợ lý đang chờ thì trợ lý cũng thôi ngay.
+   • ĐỪNG F5 tab trang sản xuất: dữ liệu tấm chỉ được trao một lần lúc bấm 打开, tải lại là mất — đóng tab rồi bấm Xuất ván lại. Trang báo lỗi cũng làm vậy.
+ Nên đổ màu (thẻ Màu) trước khi xuất: trang sản xuất tách tờ ván theo vật liệu / màu của từng tấm.
+ CÀI LẠI MỘT LẦN ĐỂ CÓ TRỢ LÝ: trợ lý chạy ở trang sc.leye.site nên tiện ích phải được cấp thêm trang đó. Máy đang cài bản cũ: giải nén zip này ĐÈ lên thư mục
+ tiện ích cũ → chrome://extensions → bấm nút tải lại (mũi tên tròn) trên thẻ "Một Nhà · Vẽ tủ vào Chenfeng" → F5 trang Chenfeng. Chưa cài lại thì nút
+ "Xuất ván" vẫn dùng được (tự về qua kênh cập nhật), chỉ chưa có trợ lý — thẻ Hướng dẫn → "Cập nhật tự động" ghi máy đang ở bản nào.
 
 MỚI Ở BẢN 1.21 — ĐỔ MÀU: THÙNG MỘT MÀU, CÁNH + PHÀO MỘT MÀU; TÌM VÀ THAY MÀU
  Thẻ Màu (chỉ có trong Chenfeng): màu = các vật liệu trong kho vật liệu của tài khoản (thẻ Material của Chenfeng), có hình; gõ mã để tìm (103, lux279…), lọc theo nhóm.
@@ -286,7 +319,8 @@ MỚI Ở BẢN 1.4 — GHI CHÚ THAM SỐ BẰNG TIẾNG VIỆT
  (板厚 → Dày ván, 左前缩 → Hồi trái lùi trước…). Rê chuột vào ô để xem chữ gốc. Chỉ đổi chữ hiển thị trên máy đã cài tiện ích,
  không sửa mẫu / bản vẽ / tài khoản. Tắt, bật lại: bảng Một Nhà → tab Hướng dẫn → nút "Tắt dịch ghi chú".
 
-Tiện ích chỉ chạy trên trang cfcad.cn, không gửi dữ liệu đi đâu, không lưu bản vẽ, không đổi cấu hình tài khoản Chenfeng.
+Tiện ích chỉ chạy trên trang cfcad.cn và (từ bản 1.22) trang sản xuất sc.leye.site của Chenfeng; không gửi dữ liệu đi đâu, không lưu bản vẽ,
+không đổi cấu hình tài khoản Chenfeng, không bấm nút lưu / xuất file nào ở trang sản xuất.
 `);
 
 /* ---- trang độc lập + bản artifact ---- */

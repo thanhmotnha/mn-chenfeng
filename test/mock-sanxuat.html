@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>晨丰生产管理系统</title>
+<style>html,body{margin:0;height:100%;background:#fff;font:13px sans-serif}iframe{border:0;width:100%;height:900px;display:block}</style></head>
+<body><div id="app"></div>
+<script>
+/* Trang GIẢ LẬP tab "晨丰生产管理系统" (sc.leye.site/#/cadSingleAdd) mà lệnh tách đơn CD của Chenfeng mở ra — chỉ đủ những gì trợ lý (src/mncf-sx.js) nhìn vào.
+ * Dựng theo trang thật đã đo 04/10/2026 (ghi chú nội bộ mục "Xuất ván — ĐO THẬT"):
+ *   - trang nhận tấm từ khung nhỏ bằng tin nhắn { command: 'webCadData', content: { webCadData: { cadData: { blockList… } }, roomList } } (ở đây trang tự gửi cho mình sau tre_dl ms);
+ *   - gọi /api/v1/Cad/InitCut … rồi /api/v1/Cad/GetPlanOrder (máy chủ tính, lâu) → hiện thành phần "single-cut-block" → thành phần Invoker tạo khung /modules/cut-block/index.html;
+ *   - Invoker (Vue 2): { loaded, modContext, needUpdate, items, $el (khung), initFinish(ctx), invokeUpdate() }. Khung vừa gắn vào trang là có sự kiện load của about:blank
+ *     → loaded = true → đẩy nội dung một lần (invokeUpdate) — lúc này modContext chưa có nên lần đẩy bị nuốt; rồi địa chỉ khung mới được đặt, Receiver trong khung gọi initFinish.
+ *     Lần chạy tốt: ngay sau initFinish trang cha vẽ lại và đẩy lần nữa → bảng tối ưu hiện. Lần hỏng (lỗi tranh nhau, kieu: 'trang'): không có lần đẩy thứ hai
+ *     → TRANG TRẮNG mãi cho tới khi có ai gọi invokeUpdate();
+ *   - máy chủ lỗi: sau GetPlanOrder trang gọi /api/v1/Account/Reporting rồi trắng mãi, không tạo khung (kieu: 'loi_may_chu').
+ * Cấu hình: window.__MOCK_SX_CFG__ = { tam, tre_dl, co_dl, kieu, toi_uu, nuot_bam_dau }.  Sổ ghi cho phép thử: window.__MOCK_SX__. */
+(function () {
+  'use strict';
+  const C = Object.assign({ tam: 38, tre_dl: 150, co_dl: true, kieu: 'tot', toi_uu: 'nhanh', nuot_bam_dau: false }, window.__MOCK_SX_CFG__ || {});
+  const SO = window.__MOCK_SX__ = { cfg: C, iv: null, bam: [], goi: { invokeUpdate: 0, initFinish: 0 }, moc: [], t0: performance.now() };
+  const moc = t => SO.moc.push([Math.round(performance.now() - SO.t0), t]);
+  const vm = (name, data) => Object.assign({ $options: { name }, $children: [], $refs: {} }, data || {});
+  const trang = vm(undefined, { orderData: {}, planOrder: {}, percentage: 0, roomList: [], machineID: 0 });      // thành phần của tuyến #/cadSingleAdd (không tên)
+  const scb = vm('single-cut-block', { isShow: false, percentage: 0, config: null });
+  trang.$children.push(scb);
+  const goc = vm(undefined); const appVm = vm('app'); goc.$children.push(appVm); appVm.$children.push(trang);
+  document.getElementById('app').__vue__ = goc;
+  if (!/^#\/cadSingleAdd/.test(location.hash)) return;                       // tuyến khác của trang sản xuất: không có gì để làm
+  const goi = (duong) => fetch(duong, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+
+  function hienCutBlock() {
+    scb.isShow = true; scb.percentage = 100; moc('hien single-cut-block');
+    const fr = document.createElement('iframe');
+    const iv = vm('Invoker', { id: 1, loaded: false, modContext: null, needUpdate: true, isTemplate: false, items: [{ tag: 'CutBlockWithConfig', attrs: { order: { BlockList: new Array(C.tam).fill(0) } } }, { tag: 'CncExport', attrs: {} }], $el: fr,
+      initFinish(ctx) { SO.goi.initFinish++; this.modContext = ctx; moc('initFinish'); if (C.kieu !== 'trang' && this.loaded) this.invokeUpdate(); },
+      invokeUpdate() { SO.goi.invokeUpdate++; if (this.modContext) { this.modContext.renderVersion = true; moc('invokeUpdate → dựng'); } else moc('invokeUpdate bị nuốt (chưa có modContext)'); },
+      iframeLoad() { this.loaded = true; moc('khung load'); if (this.needUpdate) { this.invokeUpdate(); this.needUpdate = false; } } });
+    SO.iv = iv; scb.$refs.invoker = iv; scb.$children.push(iv);
+    fr.addEventListener('load', () => iv.iframeLoad());
+    document.getElementById('app').appendChild(fr);
+    fr.src = '/modules/cut-block/index.html';
+  }
+
+  window.addEventListener('message', e => {
+    const d = e.data;
+    if (!d || d.command !== 'webCadData') return;
+    trang.orderData = d.content.webCadData.cadData; trang.roomList = d.content.roomList; moc('nhận webCadData');
+    goi('/api/v1/Cad/GetPlanOrder').then(r => {
+      moc('GetPlanOrder ' + r.status);
+      if (!r.ok || C.kieu === 'loi_may_chu') return goi('/api/v1/Account/Reporting').then(() => moc('Reporting'), () => {});      // trang thật: báo lỗi về máy chủ rồi đứng trắng
+      trang.planOrder = { ok: 1 };
+      return goi('/api/v1/Account/CutBlockVersion').then(hienCutBlock);
+    }, () => moc('GetPlanOrder hỏng'));
+  });
+  Promise.all([goi('/api/v1/Cad/InitCut'), goi('/api/v1/SysConfig/GetSet'), goi('/api/v1/Machine/Search')]).then(() => moc('InitCut xong'), () => {});
+  // khung nhỏ "Order Splitting" (window.opener thật) trả dữ liệu tấm; tab bị F5 thì không còn ai trả (co_dl: false)
+  if (C.co_dl) setTimeout(() => window.postMessage({ command: 'webCadData', content: { webCadData: { cadData: { blockList: new Array(C.tam).fill(0).map((x, i) => ({ id: i })), objectList: [], processGroupObjectList: [], alignLineGroupList: [], componentGroupTree: [] } }, roomList: [{ name: '未命名' }] } }, location.origin), C.tre_dl);
+})();
+</script></body></html>
