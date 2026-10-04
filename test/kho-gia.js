@@ -6,7 +6,7 @@ const DIST = path.join(__dirname, '..', 'dist');
 module.exports = async function khoGia(ctx) {
   await ctx.route(/^https:\/\/(raw\.githubusercontent\.com|cdn\.jsdelivr\.net)\//, r => {
     const n = new URL(r.request().url()).pathname.split('/').pop(), f = path.join(DIST, n);
-    return /^(phien-ban\.json|mn-chenfeng\.js)$/.test(n) && fs.existsSync(f)
+    return /^(phien-ban\.json|mn-chenfeng\.js|mn-chenfeng-sx\.js)$/.test(n) && fs.existsSync(f)
       ? r.fulfill({ status: 200, contentType: n.endsWith('.json') ? 'application/json' : 'text/plain; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(f) })
       : r.fulfill({ status: 404, body: 'không có' });
   });

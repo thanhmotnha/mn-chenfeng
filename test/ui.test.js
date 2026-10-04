@@ -40,7 +40,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.21\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.22\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   let m = await page.evaluate(inPage.model);
   ok(m.errors.length === 0 && m.parts === 71, 'tủ mẫu dựng 71 tấm (2 thùng rời: thêm 2 hồi; có xà + nẹp che khe hộc ngăn kéo), không lỗi', m.parts);
   // bộ mẫu tủ áo: chọn mẫu → bấm Dùng mẫu → kích thước, khoang đổi theo; Chuẩn xưởng giữ nguyên

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>cut-block</title>
+<style>
+body{margin:0;font:13px sans-serif;background:#f5f5f5}
+.thanh{padding:10px;display:flex;gap:8px;flex-wrap:wrap}
+.el-button{padding:6px 12px;border:1px solid #bbb;border-radius:4px;background:#fff;cursor:pointer}
+.el-button.is-disabled{color:#bbb;cursor:not-allowed}
+.el-dialog__wrapper{position:fixed;inset:0;background:rgba(0,0,0,.4)}
+.el-dialog{position:relative;margin:80px auto 0;width:900px;background:#fff;padding:16px}
+.el-table table{border-collapse:collapse;width:100%}.el-table td,.el-table th{border-bottom:1px solid #eee;padding:8px 6px;text-align:left}
+.chan{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+canvas{display:block;margin:10px;background:#e8ece8}
+</style></head>
+<body><div id="app"><div></div></div>
+<script>
+/* Khung GIẢ LẬP /modules/cut-block/index.html của trang sản xuất Chenfeng — dựng theo trang thật đã đo 04/10/2026:
+ *   - #app.__vue__ → app → Receiver; Receiver chỉ dựng nội dung khi trang cha gán modContext.renderVersion (Invoker.invokeUpdate);
+ *   - hộp "优化进度" kiểu Element UI: .el-dialog__wrapper > .el-dialog; bảng .el-table (đầu bảng và thân bảng là 2 <table> riêng), 14 cột:
+ *       已排 名称 材质 颜色 纹路 板厚 小板 大板 前N 最后 余料板 新优化 开料刀 操作;  nút 开始优化 (đang chạy thì thành 停止优化) / 取消优化 / 确认新优化;
+ *   - 开始优化: tối ưu chạy tại máy, kết quả đủ sau ≤ 1 giây (228 tấm: 20 → 19 tờ ở 0,7 giây), sau đó chỉ nhích diện tích tờ cuối; thanh tiến độ quay MÃI, không tự dừng;
+ *     停止优化 giữ nguyên kết quả; 确认新优化 đóng hộp, hiện sơ đồ + thanh công cụ đủ nút (保存优化, 导出NC, 一键NC, 打印标签…).
+ * Cấu hình lấy ở trang cha: __MOCK_SX__.cfg = { tam, kieu: 'tot' | 'trang', toi_uu: 'nhanh' | 'cham' | 'khong_ra', nuot_bam_dau, hop_hoi (trang hỏi một câu trước khi mở hộp 优化进度), tu_xong (ms: tối ưu tự dừng) }.
+ * Mọi lần bấm nút ghi vào __MOCK_SX__.bam. */
+(function () {
+  'use strict';
+  const P = window.parent, SO = P.__MOCK_SX__, C = SO.cfg, iv = SO.iv;
+  const rc = { $options: { name: 'Receiver' }, $children: [] };
+  document.getElementById('app').__vue__ = { $options: {}, $children: [{ $options: { name: 'app' }, $children: [rc] }] };
+  const ti = n => Math.max(1, Math.round(C.tam * n / 228));
+  const VL = [['MDF', 'MDF', '103T', '17.5', ti(174)], ['MDF', 'MDF', '103T', '6', ti(12)], ['MDF', 'MDF', '103T', '5', ti(12)], ['Acrylic', 'Acrylic', 'LUX279PRL', '17.5', ti(30)]];
+  // lịch kết quả: [ms kể từ lúc bấm 开始优化, [大板 từng vật liệu], [最后 từng vật liệu]]
+  const LICH = { nhanh: [[100, [20, 6, 2, 4], [0.416, 2.029, 0.405, 1.530]], [700, [19, 6, 2, 4], [2.034, 2.029, 0.405, 1.510]], [1300, [19, 6, 2, 4], [1.928, 2.029, 0.405, 1.510]], [4200, [19, 6, 2, 4], [1.824, 2.029, 0.405, 1.510]], [14000, [19, 6, 2, 4], [1.820, 2.029, 0.405, 1.510]]],
+    cham: [[300, [62, 0, 0, 0], [1.1, 0, 0, 0]], [900, [62, 6, 2, 4], [1.1, 2.029, 0.405, 1.51]], [1500, [61, 6, 2, 4], [2.2, 2.029, 0.405, 1.51]], [2100, [60, 6, 2, 4], [2.4, 2.029, 0.405, 1.51]]],
+    khong_ra: [[100, [20, 6, 0, 4], [0.416, 2.029, 0, 1.53]]] }[C.toi_uu] || [];
+  const ghiBam = (ten, noi, e) => SO.bam.push({ ten, noi, tin: !!(e && e.isTrusted), luc: Math.round(P.performance.now() - SO.t0) });
+  const NUT_DAU = ['开始优化', '导出优化', 'CNC导出', '系统配置'], NUT_DU = ['继续优化', '保存优化', '导出优化', '小板明细', '手动排版', '开料顺序', '下刀点', '导出NC', '打印标签', '一键NC', '一键打印', '导出备料单', 'CNC导出', '系统配置'];
+
+  function veGiaoDien() {
+    const goc = document.querySelector('#app > div');
+    goc.innerHTML = '<div class="thanh"></div><div class="el-tabs">' + VL.map(v => `<span class="el-tabs__item">${v[3]} ${v[0]} ${v[1]} ${v[2]}</span>`).join(' ') + '</div><div class="so-do"></div>'
+      + '<div class="el-dialog__wrapper"><div class="el-dialog" role="dialog"><div class="el-dialog__header"><span class="el-dialog__title">优化进度</span></div><div class="el-dialog__body">'
+      + '<div class="el-table"><div class="el-table__header-wrapper"><table class="el-table__header"><thead><tr>' + ['已排', '名称', '材质', '颜色', '纹路', '板厚', '小板', '大板', '前N', '最后', '余料板', '新优化', '开料刀', '操作'].map(t => `<th><div class="cell">${t}</div></th>`).join('') + '<th class="gutter"></th></tr></thead></table></div>'
+      + '<div class="el-table__body-wrapper"><table class="el-table__body"><tbody>' + VL.map(v => `<tr class="el-table__row">${['-', v[0], v[1], v[2], '有', v[3], v[4], 0, '0.000', '0.000', 0, '-', 'T1 D=6'].map(c => `<td><div class="cell">${c}</div></td>`).join('')}<td><div class="cell"><button class="el-button el-button--text"><span>修改</span></button></div></td></tr>`).join('') + '</tbody></table></div></div>'
+      + '<div class="el-table du-lieu-thua"><div class="el-table__header-wrapper"><table class="el-table__header"><thead><tr>' + ['板宽', '板长', '数量', '操作'].map(t => `<th><div class="cell">${t}</div></th>`).join('') + '</tr></thead></table></div><div class="el-table__body-wrapper"><table class="el-table__body"><tbody></tbody></table></div></div>'
+      + '<div class="tien" hidden>现在优化: <div class="el-progress" role="progressbar" aria-valuenow="0"></div></div>'
+      + '<div class="chan"><label class="el-checkbox"><input type="checkbox"><span>补板(每张小板单独开料)</span></label><label class="el-checkbox is-checked"><input type="checkbox" checked><span>重新优化</span></label><label class="el-checkbox is-checked"><input type="checkbox" checked><span>双面优先</span></label><label class="el-checkbox"><input type="checkbox"><span>使用王者优化</span></label>'
+      + '<button class="el-button" data-n="chay"><span>开始优化</span></button><button class="el-button" data-n="huy"><span>取消优化</span></button><button class="el-button" data-n="xac"><span>确认新优化</span></button><button class="el-button" data-n="them"><span>添加余料板</span></button></div>'
+      + '</div></div></div>';
+    const thanh = goc.querySelector('.thanh'), wrap = goc.querySelector('.el-dialog__wrapper'), hop = goc.querySelector('.el-dialog');
+    const dong = [...hop.querySelectorAll('.el-table')[0].querySelectorAll('tbody tr')], nut = n => hop.querySelector(`[data-n="${n}"]`), tien = hop.querySelector('.tien');
+    const veThanh = ds => { thanh.innerHTML = ds.map(t => `<button class="el-button"><span>${t}</span></button>`).join(''); [...thanh.querySelectorAll('button')].forEach(b => b.addEventListener('click', e => { const t = b.innerText.trim(); ghiBam(t, 'thanh', e); if (t === '开始优化' || t === '继续优化') wrap.style.display = ''; })); };
+    veThanh(NUT_DAU);
+    if (C.hop_hoi) {      // trang hỏi trước (vd tấm vượt cỡ, chưa chọn máy…): một hộp Element UI KHÁC; trả lời xong hộp 优化进度 mới hiện
+      wrap.style.display = 'none';
+      const hoi = document.createElement('div'); hoi.className = 'el-dialog__wrapper hoi';
+      hoi.innerHTML = '<div class="el-dialog" role="dialog" style="width:420px"><div class="el-dialog__header"><span class="el-dialog__title">提示</span></div><div class="el-dialog__body">' + (C.hop_hoi === true ? '有板件超出大板尺寸, 是否继续?' : C.hop_hoi) + '</div><div class="el-dialog__footer"><button class="el-button el-button--primary"><span>确定</span></button></div></div>';
+      hoi.querySelector('button').addEventListener('click', e => { ghiBam('确定', 'hoi', e); hoi.remove(); wrap.style.display = ''; });
+      goc.appendChild(hoi);
+    }
+    let chay = false, hen = [], vong = 0, lanBam = 0;
+    const dat = (to, cuoi) => dong.forEach((r, i) => { const td = r.querySelectorAll('td'); td[7].firstChild.textContent = to[i]; td[8].firstChild.textContent = to[i] ? '2.5' + i + '0' : '0.000'; td[9].firstChild.textContent = Number(cuoi[i]).toFixed(3); td[11].firstChild.textContent = to[i] ? '有' : '-'; });
+    const khoa = k => { for (const n of ['huy', 'xac']) { nut(n).disabled = k; nut(n).classList.toggle('is-disabled', k); } };
+    const dung = () => { chay = false; hen.forEach(clearTimeout); hen = []; clearInterval(vong); tien.hidden = true; nut('chay').firstChild.textContent = '开始优化'; khoa(false); };
+    nut('chay').addEventListener('click', e => {
+      ghiBam(nut('chay').innerText.trim(), 'hop', e);
+      if (chay) return dung();
+      if (C.nuot_bam_dau && lanBam++ < (C.nuot_bam_dau === true ? 1 : +C.nuot_bam_dau)) return;      // lần bấm đầu trong tab vừa mở có khi bị nuốt (đo thật 04/10/2026); số = nuốt ngần ấy lần
+      chay = true; nut('chay').firstChild.textContent = '停止优化'; khoa(true); tien.hidden = false; SO.t_chay = Math.round(P.performance.now() - SO.t0);
+      let pt = 0; vong = setInterval(() => { pt = (pt + 7) % 100; tien.querySelector('.el-progress').setAttribute('aria-valuenow', pt); }, 100);      // thanh tiến độ quay mãi
+      hen = LICH.map(([ms, to, cuoi]) => setTimeout(() => { dat(to, cuoi); SO.doi_cuoi = Math.round(P.performance.now() - SO.t0); }, ms));
+      if (C.tu_xong) hen.push(setTimeout(() => { SO.tu_xong = (SO.tu_xong || 0) + 1; dung(); }, C.tu_xong));      // tối ưu TỰ dừng sau ngần ấy ms (nút trở lại 开始优化, kết quả giữ nguyên) — khác lần đo thật mặc định (quay mãi), để thử trường hợp tuỳ chọn khác
+    });
+    nut('huy').addEventListener('click', e => { ghiBam('取消优化', 'hop', e); if (chay) dung(); wrap.style.display = 'none'; });
+    nut('them').addEventListener('click', e => ghiBam('添加余料板', 'hop', e));
+    hop.querySelectorAll('.el-button--text').forEach(b => b.addEventListener('click', e => ghiBam('修改', 'hop', e)));
+    nut('xac').addEventListener('click', e => {
+      ghiBam('确认新优化', 'hop', e);
+      if (chay) return;                                                      // đang chạy thì nút này bị khoá
+      const to = dong.map(r => +r.querySelectorAll('td')[7].innerText);
+      SO.xac_nhan = { to, luc: Math.round(P.performance.now() - SO.t0), lan: ((SO.xac_nhan && SO.xac_nhan.lan) || 0) + 1 };
+      wrap.style.display = 'none'; veThanh(NUT_DU);
+      goc.querySelector('.so-do').innerHTML = '<canvas width="800" height="400"></canvas><div class="chan-trang">规格:1220*2440*17.5 小板数:13/' + VL[0][4] + ' 大板号:1/' + to[0] + '</div>';
+    });
+  }
+
+  let ban = 0;
+  const ctx = { get renderVersion() { return ban; }, set renderVersion(v) { ban++; if (!rc.$children.length) { rc.$children.push({ $options: { name: 'CutBlockWithConfig' }, $children: [] }, { $options: { name: 'CncExport' }, $children: [] }); veGiaoDien(); } }, $forceUpdate() {}, $destroy() {}, get $refs() { return {}; }, get $children() { return rc.$children; } };
+  // Receiver báo cho Invoker của trang cha (trang thật: sau một bước không đồng bộ). Trang cha có đẩy nội dung sang hay không là việc của nó — xem mock-sanxuat.html.
+  setTimeout(() => iv.initFinish(ctx), 30);
+})();
+</script></body></html>

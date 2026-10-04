@@ -192,6 +192,9 @@ input::placeholder{color:var(--ph)}
 .dlsx{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}
 .dlsx .frow{align-items:center;margin-bottom:8px}
 .dlsx .hint{margin:0;flex:1 1 180px}
+.xvan{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}
+.xvan .frow{align-items:center;margin-bottom:8px}
+.xvan .hint{margin:0;flex:1 1 180px}
 .sum{margin:0 0 10px;padding:0 0 0 16px;color:var(--ink);font-size:12.5px}
 .sum li{margin-bottom:2px}
 .hint{color:var(--muted);font-size:12px;margin:0 0 8px}
@@ -530,7 +533,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
     <div class="pane" data-pane="chuan" hidden><p class="hint">Số chuẩn của xưởng — chốt một lần, máy này tự nhớ. Đơn vị mm.</p><div class="settings"></div>
       <div class="frow"><button class="sec" data-act="defaults">Khôi phục mặc định</button></div><datalist id="drill"></datalist></div>
     <div class="pane" data-pane="kq" hidden><div class="report"><p class="hint">Chưa vẽ lần nào.</p></div>
-      ${inCF ? `<div class="dlsx"><div class="frow"><button class="sec" data-act="doloi" title="Đọc tấm và lỗ khoan thật trên bản vẽ: tấm đè / trùng nhau, lỗ khoan giao nhau, lỗ lệch khỏi tấm hoặc khoan thủng, kiểu khoan lạ, tấm không lỗ, mối nối thiếu liên kết, tấm vượt khổ ván, tấm đứng riêng, tấm chưa có tên tủ">Dò lỗi sản xuất</button><p class="hint">Không chọn gì = dò cả bản vẽ. Chọn vài tấm trên bản vẽ trước = chỉ dò các tấm đó (kể cả phần anh tự vẽ / tự sửa).</p></div><div data-ui="doloi"></div></div>` : ''}</div>
+      ${inCF ? `<div class="dlsx"><div class="frow"><button class="sec" data-act="doloi" title="Đọc tấm và lỗ khoan thật trên bản vẽ: tấm đè / trùng nhau, lỗ khoan giao nhau, lỗ lệch khỏi tấm hoặc khoan thủng, kiểu khoan lạ, tấm không lỗ, mối nối thiếu liên kết, tấm vượt khổ ván, tấm đứng riêng, tấm chưa có tên tủ">Dò lỗi sản xuất</button><p class="hint">Không chọn gì = dò cả bản vẽ. Chọn vài tấm trên bản vẽ trước = chỉ dò các tấm đó (kể cả phần anh tự vẽ / tự sửa).</p></div><div data-ui="doloi"></div></div>
+      ${Drv && typeof Drv.xuatVan === 'function' ? `<div class="xvan"><div class="frow"><button class="sec" data-act="xuatvan" title="Chạy lệnh tách đơn CD của Chenfeng cho đúng các tấm cần xuất: bảng dò lỗi sản xuất trước, tự chọn tấm + phụ kiện của tủ rồi Enter. Tới khung nhỏ “Order Splitting” thì dừng — dữ liệu chỉ lên máy chủ sản xuất của Chenfeng khi anh bấm 打开 trong khung đó.">Xuất ván (tách đơn CD)</button><p class="hint">Chọn 1 tấm của tủ trên bản vẽ = xuất (các) tủ đó. Không chọn gì = cả bản vẽ. Bảng dò lỗi, tự chọn tấm rồi chạy lệnh <code>CD</code>; anh chỉ còn bấm <b>打开</b> ở khung nhỏ.</p></div><div data-ui="xuatvan"></div></div>` : ''}` : ''}</div>
     <div class="pane" data-pane="hd" hidden>${guideHTML(inCF)}</div>
   </div>
   <footer>
@@ -569,6 +573,7 @@ ${Ph && Ph.LOAI_DN ? `<li><b>Điện – nước hiện trạng</b> — bản 1.
 <li><b>Dò lỗi sản xuất</b> — bản 1.20: thẻ Tủ có phiếu <b>Tự kiểm trước khi vẽ</b> ngay dưới các dòng cảnh báo (bấm để mở): kích thước, thân, khổ ván, va chạm, tấm lơ lửng, nhịp đợt, cánh, ngăn kéo, khoang treo, hậu, phào – chân, khấu cột — mỗi mục một dòng ✓ / ! / ✗. Ngưỡng cảnh báo (nhịp đợt 1000, cánh cao 2300, ngăn kéo rộng 1000, khoang treo sâu 480, cao trần) đổi ở <b>Chuẩn xưởng → Dò lỗi sản xuất</b>; để 0 là không kiểm mục đó.${cf ? ' Vẽ xong, bảng <b>tự đọc lại tấm và lỗ khoan thật</b> trên bản vẽ và ghi phiếu ở thẻ Kết quả: tấm đè / trùng nhau, lỗ khoan giao nhau, lỗ lệch khỏi tấm hoặc khoan thủng tấm, kiểu khoan lạ, tấm vượt khổ ván (đỏ — phải sửa trước khi xuất file cắt); tấm không lỗ, mối nối dài không có liên kết, tấm đứng riêng, tấm chưa có tên tủ (vàng — xưởng xem lại). Sau khi anh tự vẽ thêm, sửa tay hay chèn mẫu kho: thẻ <b>Kết quả → Dò lỗi sản xuất</b> — không chọn gì là dò cả bản vẽ, chọn vài tấm trước thì chỉ dò các tấm đó. Phép dò chỉ đọc bản vẽ, không sửa gì.' : ''}</li>
 <li><b>Chọn loại ngăn kéo bằng hình</b> — bản 1.13: bấm ô ngăn kéo → bấm nút hình cạnh ô Loại → bấm hình loại cần dùng.</li>
 ${cf ? '<li><b>Đổ màu</b> — bản 1.21, thẻ <b>Màu</b>: ba ô <b>Thùng</b> / <b>Cánh + phào</b> / <b>Hậu</b> — bấm một ô rồi bấm một màu trong danh sách (màu là vật liệu trong kho vật liệu của tài khoản Chenfeng; gõ mã để tìm, vd <code>103</code>, <code>lux279</code>; chọn nhóm MDF / Acrylic). Trên bản vẽ bấm chọn 1 tấm của tủ → <b>Đổ màu tủ đang chọn</b>: thùng một màu; cánh, phào, xà chân trước, mặt ngăn kéo lộ ngoài, tấm ốp, nẹp một màu; hậu theo thùng (hoặc màu riêng). Mặt ngăn kéo nằm sau cánh và cả hộp ngăn kéo theo màu thùng. Tấm nhận vật liệu hiển thị + tên ván / vật liệu / màu, nên bảng cắt gom đúng loại ván. <b>Đổ màu ô đang bật cho riêng các tấm đang chọn</b> để sửa vài tấm lẻ. Bật <b>Tủ và mẫu kho vẽ mới tự đổ màu</b> thì tủ vẽ ra đã có màu. <b>Tìm và thay</b>: <b>Xem màu đang dùng trên bản vẽ</b> → bấm một màu → <b>Chọn các tấm màu này</b> (bôi sáng trên bản vẽ) hoặc <b>Thay trên cả bản vẽ</b> / <b>Chỉ thay trong các tấm đang chọn</b> bằng màu của ô đang bật. Mỗi lần đổ / thay là một bước, có nút <b>Hoàn tác</b>. “Cập nhật tủ này trên bản vẽ” giữ lại màu của tủ cũ; đổi L / W / H của module trong Chenfeng màu vẫn giữ.</li>' : ''}
+${cf ? '<li><b>Xuất ván</b> — bản 1.22, thẻ <b>Kết quả → Xuất ván (tách đơn CD)</b>: chọn 1 tấm của tủ trên bản vẽ = xuất (các) tủ đó, không chọn gì = cả bản vẽ. Bảng <b>dò lỗi sản xuất</b> trên đúng các tấm sắp xuất (còn lỗi thì dừng, có nút “Vẫn xuất”), tự chọn tấm + phụ kiện của tủ rồi chạy lệnh <code>CD</code> của Chenfeng; anh chỉ còn bấm <b>打开</b> trong khung nhỏ “Order Splitting”. Chưa bấm 打开 thì chưa có gì gửi đi. Khung nhỏ tải lâu / không tải được: bảng báo và có nút <b>Thử lại</b>. Bấm 打开 xong, trang sản xuất mở ở tab mới: máy chủ Chenfeng tính khoảng 4 giây + 0,05 giây mỗi tấm (có lúc lâu gấp 2–3), rồi hộp 优化进度 hiện — <b>trợ lý Một Nhà</b> ở góc dưới bên phải trang đó tự bấm 开始优化, tự dừng khi số tờ ván đứng yên (thanh tiến độ của Chenfeng không bao giờ tự dừng) rồi mở sơ đồ cắt; nó cũng tự cứu trang khi trang đứng trắng. Trợ lý <b>không lưu, không xuất NC, không in tem</b> — các nút đó anh tự bấm. Muốn tự tay tối ưu: bỏ chọn “Tự tối ưu khi mở trang” ở bảng báo của trợ lý, hoặc bấm “Để tôi tự làm”. <b>Đừng F5 tab trang sản xuất</b> (tải lại là mất dữ liệu tấm — đóng tab rồi bấm Xuất ván lại). Đổ màu trước khi xuất để trang sản xuất tách đúng loại ván.</li>' : ''}
 ${cf ? '<li><b>Phím tắt Alt + M</b>: ẩn / hiện bảng này (khi ẩn còn lại nút “Một Nhà · Vẽ tủ” ở góc dưới bên phải).</li>' : ''}
 <li>Vẫn gõ được cao độ các đợt trong thẻ khoang: <code>400, 750, 1800</code> (mặt dưới, tính từ sàn) hoặc <code>deu:4</code> để chia đều 4 đợt.</li>
 ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản vẽ để đặt tủ (điểm đó là góc trái – trước – dưới). Chenfeng tự khoan lỗ. Tab <b>Kết quả</b> báo số tấm, số lỗ, chỗ cần xem lại.</li><li>Vẽ nhầm: tab Kết quả → <b>Hoàn tác lần vẽ này</b> (hoặc Ctrl+Z).</li><li><b>Sửa ngay trong Chenfeng</b>: tủ vẽ xong là một <b>module tham số của Chenfeng</b>. Chọn 1 tấm của tủ → thẻ <b>Template</b> (Thông số) ở bảng bên phải của Chenfeng hiện Rộng (L) / Sâu (W) / Cao (H) → gõ số mới vào <b>cột cuối “Expression”</b> của dòng đó (cột “Parameter Value” chỉ để xem, không gõ được) → <b>Apply data modifications</b>: tủ co giãn đúng kết cấu (cánh, vách, đợt, hộp ngăn kéo chạy theo), Chenfeng tự khoan lại. Tắt ở Chuẩn xưởng → Module Chenfeng.</li><li><b>Sửa tủ đã vẽ</b>: vẽ xong, bảng tự nối với tủ đó — sửa số rồi bấm <b>Cập nhật tủ này trên bản vẽ</b>: tủ cũ được bỏ, tủ mới nằm đúng chỗ cũ, không bấm điểm lại. Tủ vẽ từ trước: trên bản vẽ bấm chọn 1 tấm của tủ → bấm <b>Sửa tủ đang chọn</b> → bảng mở lại đúng thông số của tủ đó. Dùng được cả khi đã vẽ thêm thứ khác, đã di chuyển tủ, đã lưu rồi mở lại bản vẽ (tủ bị xoay thì không). Thông số từng tủ lưu trong trình duyệt của máy này; mỗi tấm mang một ghi chú ngắn “MNCF: mã tủ” để tìm lại. Bản lề, tay nắm anh tự gắn thêm không bị xoá. (Tấm do bảng này vẽ là tấm rời nên bảng Thông số bên phải của Chenfeng không có tham số — sửa tủ thì sửa ở bảng này.)</li><li>Nút <b>Mở rộng</b> ở góc trên làm bảng rộng ra, hình đứng to hơn để kéo đợt cho dễ.</li>'
@@ -594,7 +599,7 @@ ${cf ? `<fieldset><legend>Module lấy từ Kho mẫu Chenfeng (bản 1.11–1.1
 <li>Chỉ sửa module <b>trên bản vẽ</b> — mẫu trong kho giữ nguyên. Làm nhầm: thẻ Kết quả → <b>Hoàn tác lần chuẩn hoá này</b>.</li>
 <li>Chưa làm được (bảng báo lý do, không sửa gì): module đang xoay, tủ góc, tủ né dầm / cột có hậu khuyết hoặc hậu nằm sâu, bộ ghép nhiều thùng (tủ sách, tủ sảnh, tatami… — hồi và vách là tấm tự động của Chenfeng).</li>
 </ul></fieldset>` : ''}
-${cf && root.__MNCF_NAP__ ? `<fieldset><legend>Cập nhật tự động</legend><ul class="sum"><li>Tiện ích trên máy này là <b>bộ nạp</b>: mỗi lần mở / tải lại trang Chenfeng, nó tự lấy bản mới nhất của bảng Một Nhà từ kho GitHub (đối chiếu mã kiểm rồi mới chạy). Không vào được kho thì chạy bản đã cất trong máy. Không phải cài lại khi có bản mới — chỉ cần <b>F5</b>.</li><li>Đang chạy: <b>v${Core.VERSION}</b> — <span class="nap-nguon">${esc(root.__MNCF_NAP__.nguon || 'đang nạp')}</span>.</li></ul><div class="frow"><button class="sec" data-act="nap-kt">Kiểm tra bản mới</button></div></fieldset>` : ''}
+${cf && root.__MNCF_NAP__ ? `<fieldset><legend>Cập nhật tự động</legend><ul class="sum"><li>Tiện ích trên máy này là <b>bộ nạp</b>: mỗi lần mở / tải lại trang Chenfeng, nó tự lấy bản mới nhất của bảng Một Nhà từ kho GitHub (đối chiếu mã kiểm rồi mới chạy). Không vào được kho thì chạy bản đã cất trong máy. Không phải cài lại khi có bản mới — chỉ cần <b>F5</b>.</li><li>Đang chạy: <b>v${Core.VERSION}</b> — <span class="nap-nguon">${esc(root.__MNCF_NAP__.nguon || 'đang nạp')}</span>.</li>${root.__MNCF_NAP__.ban_nap >= 2 ? '<li>Tiện ích này có kèm <b>trợ lý trang sản xuất</b> (tab mở ra khi bấm 打开 lúc xuất ván): báo trạng thái, tự tối ưu, tự dừng, cứu trang trắng — cũng tự cập nhật từ kho.</li>' : '<li><b>Tiện ích trên máy này là bản cũ, chưa có trợ lý trang sản xuất</b> (tự tối ưu + cứu trang trắng khi xuất ván). Muốn có: tải zip mới ở kho <code>github.com/thanhmotnha/mn-chenfeng</code> (thư mục tai-ve), giải nén đè lên thư mục tiện ích cũ, vào <code>chrome://extensions</code> bấm nút tải lại trên thẻ “Một Nhà · Vẽ tủ vào Chenfeng” — cài lại một lần là xong.</li>'}</ul><div class="frow"><button class="sec" data-act="nap-kt">Kiểm tra bản mới</button></div></fieldset>` : ''}
 ${cf && root.MNCFDich ? `<fieldset><legend>Ghi chú tham số bằng tiếng Việt</legend><ul class="sum"><li>Cột <b>Ghi chú</b> (Remarks / 备注) của bảng tham số mẫu — bảng bên phải và bảng trong Kho mẫu — được hiện bằng tiếng Việt: 板厚 → Dày ván, 左前缩 → Hồi trái lùi trước… Rê chuột vào ô để xem chữ gốc.</li><li>Chỉ đổi chữ hiển thị trên máy này; mẫu, bản vẽ và tài khoản Chenfeng không bị sửa. Ghi chú lạ chưa có trong bảng dịch thì được ghép từ, có dấu <b>~</b> đứng trước.</li></ul><div class="frow"><button class="sec" data-act="dich">${root.MNCFDich.dangBat ? 'Tắt dịch ghi chú' : 'Bật dịch ghi chú'}</button></div></fieldset>` : ''}
 <fieldset><legend>Chưa làm</legend><ul class="sum"><li>Bản lề, tay nắm: bảng này chưa tự gắn — gắn bằng lệnh bản lề / tay nắm của Chenfeng sau khi vẽ. Có tuỳ chọn khoét chén Ø35 ở tab Chuẩn xưởng, mặc định tắt.</li><li>Các ngăn kéo trong một ô cao bằng nhau (muốn cao khác nhau thì chia ô bằng đợt).</li><li>Đợt di động, tủ góc, cánh lùa.</li><li>Thẻ Phòng: nhãn tên phòng trong Chenfeng ghi không dấu (phông nhãn của Chenfeng thiếu chữ có dấu); cột / hộp kỹ thuật vẽ ra luôn cao hết tường; cột trên tường xiên không tự xoay theo tường; tủ đã xoay theo tường thì không dùng được nút “Cập nhật tủ này”.</li></ul></fieldset>`;
     }
@@ -981,6 +986,72 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const kq = p.dem.loi ? `có ${p.dem.loi} mục LỖI phải sửa trước khi sản xuất${p.dem.luu_y ? `, ${p.dem.luu_y} mục cần xưởng xem lại` : ''}` : p.dem.luu_y ? `không thấy lỗi, có ${p.dem.luu_y} mục cần xưởng xem lại` : 'không thấy lỗi sản xuất nào';
       el.innerHTML = `<div class="msg ${p.dem.loi ? 'err' : p.dem.luu_y ? 'warn' : 'ok'}">Đã dò ${pv}, ${p.so_lo} lỗ khoan: ${kq}.${p.dem.chua ? ' Có mục chưa kiểm được (không đọc được cấu hình khoan của Chenfeng).' : ''}</div>` + phieuVeHTML(p, 'Phiếu dò lỗi sản xuất', 'phieu-do', true) + dongDoLoi(p, false);
       setStatus(p.dem.loi ? `Dò lỗi sản xuất: có ${p.dem.loi} mục lỗi — xem thẻ Kết quả.` : p.dem.luu_y ? `Dò lỗi sản xuất: không lỗi, ${p.dem.luu_y} mục cần xem lại.` : 'Dò lỗi sản xuất: không thấy lỗi.');
+    }
+
+    /* ---- nút "Xuất ván" (bản 1.22 — anh Jason 04/10/2026): dò lỗi → tự chọn tấm của tủ đang chọn / cả bản vẽ → lệnh CD → chờ khung "Order Splitting" ---- */
+    const xv = { ban: false, pv: null, luot: 0 };      // pv = phạm vi của lần bấm gần nhất: "Vẫn xuất" / "Thử lại" dùng lại đúng tập đó (tập chọn trên bản vẽ đã mất sau lần chạy trước)
+    const coTroLy = () => { try { return !!(root.__MNCF_NAP__ && root.__MNCF_NAP__.ban_nap >= 2); } catch (e) { return false; } };      // bộ nạp bản 2 trở lên có kèm trợ lý ở trang sản xuất
+    const xvPham = pv => pv.pham_vi === 'chon' ? `${pv.tam.length} tấm của ${pv.tu.length > 1 ? `${pv.tu.length} tủ đang chọn (${pv.tu.join(', ')})` : `tủ ${pv.tu[0] || 'đang chọn'}`}` : `${pv.tam.length} tấm — cả bản vẽ${pv.tu.length ? ` (${pv.tu.length} tủ)` : ''}`;
+    const XV_DUNG_F5 = 'Đừng F5 tab trang sản xuất: tải lại là mất dữ liệu tấm, phải bấm Xuất ván lại.';
+    const xvNutLai = '<div class="frow"><button class="sec" data-act="xuatvan-lai" title="Đóng khung đang mở rồi chạy lại lệnh CD cho đúng các tấm của lần vừa rồi">Thử lại</button></div>';
+    async function xuatVan(che) {      // che: '' = nút chính; 'van' = "Vẫn xuất" (bỏ qua lỗi sản xuất); 'lai' = "Thử lại"
+      const el = $('[data-ui="xuatvan"]');
+      if (!el || !Drv || typeof Drv.xuatVan !== 'function' || xv.ban) return;
+      if (busy) { setStatus('Bảng đang vẽ — chờ vẽ xong rồi xuất ván.'); return; }
+      if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return; }
+      const luot = ++xv.luot; xv.ban = true;
+      try {
+        const pv = che && xv.pv ? xv.pv : Drv.phamViXuat();
+        xv.pv = pv;
+        if (!pv.tam.length) { el.innerHTML = '<div class="msg note">Bản vẽ chưa có tấm ván nào để xuất.</div>'; setStatus('Bản vẽ chưa có tấm ván nào.'); return; }
+        const pham = xvPham(pv);
+        if (!che && typeof Drv.doLoi === 'function') {      // dò lỗi sản xuất trên đúng các tấm sắp xuất: có LỖI thì dừng, hỏi lại
+          let p = null; try { p = Drv.doLoi(pv.tam, { kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }); } catch (e) { p = null; }
+          if (p && p.dem.loi) {
+            const muc = p.muc.filter(m => m.ket === 'loi').map(m => m.ten).join('; ');
+            el.innerHTML = `<div class="msg err">Chưa xuất: ${esc(pham)} còn ${p.dem.loi} mục LỖI sản xuất (${esc(muc)}) — sửa xong hãy xuất, kẻo cắt ra tấm hỏng.</div>${dongDoLoi(p, false)}<div class="frow"><button class="sec" data-act="xuatvan-van" title="Bỏ qua các lỗi vừa nêu và chạy lệnh CD">Vẫn xuất (bỏ qua lỗi)</button></div>`;
+            setStatus(`Chưa xuất ván: còn ${p.dem.loi} mục lỗi sản xuất — xem thẻ Kết quả.`);
+            return;
+          }
+        }
+        el.innerHTML = `<div class="msg note">Đang chạy lệnh tách đơn CD cho ${esc(pham)}…</div>`;
+        const r = await Drv.xuatVan({ pham_vi_san: pv, onStatus: setStatus });
+        if (luot !== xv.luot) return;
+        if (!r.ok) { el.innerHTML = `<div class="msg err">Chưa xuất được: ${esc(r.reason || '')}</div>${r.giai_doan === 'chon' ? '' : xvNutLai}`; setStatus('Chưa xuất được ván — xem thẻ Kết quả.'); return; }
+        const dem = `${pham}${r.so_pk ? `, ${r.so_pk} phụ kiện` : ''}`;
+        el.innerHTML = `<div class="msg note">Đã chạy CD cho ${esc(dem)}. Đang chờ khung “Order Splitting” của Chenfeng (thường 2–4 giây)…</div>`;
+        setStatus('Đang chờ khung xuất ván của Chenfeng…');
+        xv.ban = false;                                   // khung đã mở: cho bấm "Thử lại" trong lúc chờ
+        const cham = setTimeout(safe(() => { if (luot === xv.luot && /Đang chờ khung/.test(el.textContent)) el.innerHTML = `<div class="msg warn">Khung “Order Splitting” tải lâu bất thường (bình thường 2–4 giây) — đường truyền tới máy chủ sản xuất của Chenfeng đang chậm. Chờ thêm, hoặc bấm Thử lại.</div>${xvNutLai}`; }), 9000);
+        const sn = await r.san_sang;
+        clearTimeout(cham);
+        if (luot !== xv.luot) return;
+        if (sn.ok) {
+          const giay = Math.max(5, Math.round((4 + 0.05 * r.so_tam) / 5) * 5);
+          const sau = coTroLy()
+            ? `Trang sản xuất mở ở tab mới; <b>trợ lý Một Nhà</b> ở đó tự chạy tối ưu, tự dừng khi số tờ ván đứng yên rồi mở sơ đồ cắt (máy chủ Chenfeng tính khoảng ${giay} giây cho ${r.so_tam} tấm).`
+            : `Trang sản xuất mở ở tab mới (máy chủ Chenfeng tính khoảng ${giay} giây cho ${r.so_tam} tấm). Ở đó: bảng 优化进度 hiện → <b>开始优化</b> → đếm 3–5 giây → <b>停止优化</b> → <b>确认新优化</b> (thanh tiến độ không bao giờ tự dừng). Tiện ích trên máy này là bản cũ: tải zip mới ở kho và cài lại để có trợ lý tự làm các bước đó.`;
+          el.innerHTML = `<div class="msg ok">Khung xuất ván đã mở — ${esc(dem)}. Bấm 打开 trong khung nhỏ “Order Splitting”.</div><div class="msg note">${sau} ${XV_DUNG_F5}</div>`;
+          setStatus('Khung xuất ván đã mở — bấm 打开 trong khung nhỏ.');
+          // bảng đang che khung nhỏ (cửa sổ hẹp, hoặc bảng đang "Mở rộng") → thu bảng lại cho thấy nút 打开, hiện lời nhắc nổi; khung đóng thì mở bảng lại
+          let daThu = false;
+          try {
+            const h = typeof Drv.hopXuat === 'function' ? Drv.hopXuat() : null, a = h && h.getBoundingClientRect(), b = panel.getBoundingClientRect();
+            if (a && !panel.hidden && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom) { daThu = true; panel.hidden = true; chip.textContent = 'Xuất ván: bấm 打开 trong khung nhỏ “Order Splitting”'; chip.hidden = false; }
+          } catch (e) { /* không đo được thì để nguyên bảng */ }
+          r.da_mo.then(safe(kq => {
+            if (daThu) { chip.hidden = true; if (panel.hidden && launch.hidden) panel.hidden = false; }
+            if (luot !== xv.luot) return;
+            if (kq === 'mo') { el.innerHTML = `<div class="msg ok">Đã bấm 打开 — trang sản xuất đang mở ở tab mới (${esc(dem)}).</div><div class="msg note">${XV_DUNG_F5} Trang trắng quá 1 phút mà trợ lý không báo gì: đóng tab đó rồi bấm Xuất ván lại.</div>`; setStatus('Trang sản xuất đang mở ở tab mới.'); }
+            else if (kq === 'dong') { el.innerHTML = '<div class="msg note">Khung xuất ván đã đóng mà chưa bấm 打开 — chưa có gì được gửi đi. Bấm Xuất ván để chạy lại.</div>'; setStatus('Khung xuất ván đã đóng, chưa gửi gì.'); }
+          }));
+        } else if (sn.ly_do === 'dong') { el.innerHTML = '<div class="msg note">Khung xuất ván đã bị đóng trước khi sẵn sàng — chưa có gì được gửi đi. Bấm Xuất ván để chạy lại.</div>'; setStatus('Khung xuất ván đã đóng.'); }
+        else {
+          el.innerHTML = `<div class="msg err">${sn.ly_do === 'loi' ? 'Khung xuất ván không tải được — máy không nối được tới máy chủ sản xuất của Chenfeng (sc.leye.site) lúc này.' : 'Khung xuất ván tải quá lâu mà chưa xong — máy chủ sản xuất của Chenfeng đang chậm.'} Chưa có gì được gửi đi. Bấm Thử lại (bảng tự đóng khung hỏng rồi chạy lại lệnh CD).</div>${xvNutLai}`;
+          setStatus('Khung xuất ván không tải được — bấm Thử lại ở thẻ Kết quả.');
+        }
+      } catch (e) { el.innerHTML = `<div class="msg err">Chưa xuất được: ${esc(String(e && e.message || e))}</div>`; setStatus('Chưa xuất được ván.'); }
+      finally { if (luot === xv.luot) xv.ban = false; }
     }
 
     function switchTab(name) { panel.dataset.tabon = name; $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name)); $$('.pane').forEach(p => { p.hidden = p.dataset.pane !== name; }); if (name === 'tu' && model) { if (dnTuHT || dnTu()) paint(); else paintView(); } if (name === 'phong') paintPhong(); if (name === 'kho') { veChon(); khoNap(); } if (name === 'mausac') { veO(); veGan(); veDung(); vlNap(); } if (name !== 'phong' && veMD) datVeMD(false); }      // có điện – nước sau tủ: vẽ lại cả dòng báo (phòng có thể vừa sửa ở thẻ Phòng)
@@ -2284,6 +2355,9 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'undo') { if (Drv && lastRep && !busy) { const laKho = !!lastRep.kho, kv = lastRep.khung_ve; setStatus('Đang hoàn tác…'); return Drv.undoLast().then(r => { if (r.ok) { setStatus('Đã hoàn tác lần vẽ vừa rồi.'); $('.report').innerHTML = '<p class="hint">Đã hoàn tác lần vẽ vừa rồi.</p>'; lastRep = null; if (laKho) { if (kv && phong && phong.khung[kv.j] && phong.khung[kv.j].ten === kv.ten && /^kho-/.test(phong.khung[kv.j].tu_id || '')) { delete phong.khung[kv.j].tu_id; phongStore.save(); paintPhong(); } return; } noi = null; const rd = $('[data-act="redraw"]'); if (rd) rd.disabled = true; capNoi(); } else setStatus(r.reason); }); } }
       else if (act === 'zoom') { if (Drv) Drv.zoom(); }
       else if (act === 'doloi') return doLoi();
+      else if (act === 'xuatvan') return xuatVan('');
+      else if (act === 'xuatvan-van') return xuatVan('van');
+      else if (act === 'xuatvan-lai') return xuatVan('lai');
     }));
 
     function capMau() { const m = Core.MAU_TU.find(x => x.ma === $('[data-ui="mau"]').value), el = $('[data-ui="mau-mota"]'); if (el) el.textContent = m ? `${m.rong} × ${m.cao}${m.cao_duoi ? '' : ' (một thân)'} — ${m.mo_ta}` : ''; }
