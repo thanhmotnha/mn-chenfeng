@@ -346,6 +346,31 @@ T('Vẽ lại phòng không vẽ chồng (bản 1.23 — anh Jason 04/10/2026 23
   eq(P.doiChieuPhong(moi, co1, null).trung, { lo: [], cot: [], dam: [] }, 'không có cái nào trùng: rỗng');
   const co13b = banVe(moi); co13b.cot.push({ hop: [1250, 1550, -200, 0, 0, 2700] });
   eq([P.doiChieuPhong(moi, co13b, null).trung.cot, P.doiChieuPhong(moi, co13b, null).thua.cot], [[], [1]], 'cột lệch 50 so với cột đang giữ: không phải vẽ trùng (vẫn là cột lạc trong phòng — chỉ bỏ khi người dùng đồng ý)');
+  // … CỘT vẽ trùng trên Chenfeng thật không chồng khít: gặp cột đã có đúng chỗ, Chenfeng ĐẨY cột mới sang bên theo cạnh NGẮN của đáy cột (bằng nhau thì theo x), về phía dương, đúng một bề cột
+  //   (đo 04/10/2026 — bản 1.22 bấm "Vẽ phòng" 2, 3 lần): cột tường A 300 × 200 [1200,1500,−200,0] → cột thừa [1200,1500,0,200] cao 1000 (ra sau lưng tường, ngoài phòng nên cao mặc định 1000),
+  //   bấm lần nữa → [1200,1500,200,400]; cột tường B 250 × 400 → đẩy +x; cột tường C 350 × 150 → đẩy +y VÀO phòng (cao bằng tường); cột vuông tường D → đẩy +x vào phòng.
+  const p4c = { ten: 'Bốn cột', cao: 2700, day: 110, tuong: [{ dai: 3000 }, { dai: 2400 }, { dai: 3000 }, { dai: 'auto' }], goc: [0, 0, 0],
+    can: [{ tuong: 0, loai: 'cot', cach: 1200, rong: 300, nho: 200 }, { tuong: 1, loai: 'cot', cach: 800, rong: 400, nho: 250 }, { tuong: 2, loai: 'cot', cach: 500, rong: 350, nho: 150 }, { tuong: 3, loai: 'cot', cach: 1000, rong: 300, nho: 300 }] };
+  const moi4c = P.phanPhong(P.hinhHoc(p4c), 110), co4c = banVe(moi4c);
+  eq(moi4c.cot.map(c => c.hop), [[1200, 1500, -200, 0, 0, 2700], [2750, 3000, -1200, -800, 0, 2700], [2150, 2500, -2400, -2250, 0, 2700], [0, 300, -1400, -1100, 0, 2700]], '(dữ liệu thử) 4 cột trên 4 tường — đúng hộp đo trên Chenfeng thật');
+  co4c.cot.push({ hop: [1200, 1500, 0, 200, 0, 1000] }, { hop: [3000, 3250, -1200, -800, 0, 1000] }, { hop: [2150, 2500, -2250, -2100, 0, 2700] }, { hop: [300, 600, -1400, -1100, 0, 2700] }, { hop: [1200, 1500, 200, 400, 0, 1000] });
+  k = P.doiChieuPhong(moi4c, co4c, null);
+  eq([k.cot.map(t => t.co), k.trung.cot, k.thua.cot], [[0, 1, 2, 3], [4, 5, 6, 7, 8], []], 'cột bị Chenfeng đẩy sang bên (1 hoặc nhiều bậc liền nhau, cùng cỡ đáy): nhận là cột vẽ trùng — kể cả cột bị đẩy vào trong phòng (không báo thành cột lạc)');
+  const lech = hop => { const c = banVe(moi4c); c.cot.push({ hop }); const r = P.doiChieuPhong(moi4c, c, null); return [r.trung.cot, r.thua.cot]; };
+  eq([lech([1200, 1500, 200, 400, 0, 1000]), lech([1200, 1500, 0, 150, 0, 1000]), lech([1200, 1500, -400, -200, 0, 2700]), lech([1500, 1800, -200, 0, 0, 2700])], [[[], []], [[], []], [[], [4]], [[], [4]]],
+    'không phải cột vẽ trùng: cách một bậc trống (cột của phòng bên kia tường), khác cỡ đáy, nằm phía −y (Chenfeng chỉ đẩy về phía +), nằm sát bên theo cạnh DÀI (Chenfeng đẩy theo cạnh ngắn) — cột lạc trong phòng thì vẫn ghi vào `thua`');
+  // cột sâu hơn rộng (200 × 300 trên tường A; 300 × 200 trên tường B) và cột vuông 250: đo trên Chenfeng thật → đẩy +x / +y / +x
+  const p5 = JSON.parse(JSON.stringify(p4c)); p5.can = [{ tuong: 0, loai: 'cot', cach: 1200, rong: 200, nho: 300 }, { tuong: 1, loai: 'cot', cach: 800, rong: 200, nho: 300 }, { tuong: 0, loai: 'cot', cach: 2000, rong: 250, nho: 250 }];
+  const moi5 = P.phanPhong(P.hinhHoc(p5), 110), co5c = banVe(moi5);
+  eq(moi5.cot.map(c => c.hop), [[1200, 1400, -300, 0, 0, 2700], [2700, 3000, -1000, -800, 0, 2700], [2000, 2250, -250, 0, 0, 2700]], '(dữ liệu thử) hộp 3 cột như đo trên Chenfeng thật');
+  co5c.cot.push({ hop: [1400, 1600, -300, 0, 0, 2700] }, { hop: [2700, 3000, -800, -600, 0, 2700] }, { hop: [2250, 2500, -250, 0, 0, 2700] });
+  k = P.doiChieuPhong(moi5, co5c, null);
+  eq([k.trung.cot, k.thua.cot], [[3, 4, 5], []], 'cột sâu hơn rộng: Chenfeng đẩy dọc tường (theo cạnh ngắn) — vẫn nhận ra là cột vẽ trùng');
+  const c2 = banVe(moi4c); c2.cot.push({ hop: [1200, 1500, 0, 200, 0, 1000] }, { hop: [1200, 1500, 200, 400, 0, 2700] });
+  eq(P.doiChieuPhong(moi4c, c2, null).trung.cot, [4], 'bậc thứ hai cao khác bậc thứ nhất (cột thật của phòng bên, cao bằng tường bên đó): không đụng');
+  const p2k = JSON.parse(JSON.stringify(p4c)); p2k.can = [{ tuong: 0, loai: 'cot', cach: 1200, rong: 300, nho: 200 }, { tuong: 0, loai: 'cot', cach: 1500, rong: 300, nho: 200 }];
+  const moi2k = P.phanPhong(P.hinhHoc(p2k), 110);
+  eq(P.doiChieuPhong(moi2k, banVe(moi2k), null).trung.cot, [], 'hai cột cùng cỡ của chính phòng đứng sát nhau: đều là cột đang giữ, không cột nào là vẽ trùng');
   // 14. dấu điện – nước cũ khi KHÔNG có bản ghi: nhận ra theo chỗ — tâm hộp của nét / chữ nằm trong lòng phòng sắp vẽ (dấu trên mặt tường nhô vào phòng 2 mm), cao độ từ sàn tới trần
   const tl = (h, m) => P.trongLongPhong(m || moi, h);
   eq([tl([890, 1010, -2, -2, 260, 340]), tl([1400, 1510, -310, -200, 1, 1]), tl([890, 1010, 0, 0, 260, 340]), tl([890, 1010, 110, 112, 260, 340]), tl([3112, 3112, -900, -700, 260, 340]), tl([890, 1010, -2, -2, 2800, 2900])], [true, true, true, false, false, false],

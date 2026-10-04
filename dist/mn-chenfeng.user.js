@@ -2925,6 +2925,25 @@
       return { kq, bo, trung };
     };
     const M = doi(moi.mo, co.lo, cu && cu.mo), C = doi(moi.cot, co.cot, cu && cu.cot), D = doi(moi.dam, co.dam, cu && cu.dam);
+    // CỘT vẽ trùng trên Chenfeng thật không chồng khít (đo 04/10/2026): vẽ cột vào chỗ đã có cột thì Chenfeng ĐẨY cột mới sang bên theo cạnh NGẮN của đáy cột (bằng nhau thì theo x),
+    // về phía dương, đúng một bề cột; bấm nữa thì đẩy tiếp thành một dãy liền nhau. Cột thừa ra ngoài phòng cao mặc định 1000, vào trong phòng thì cao bằng tường.
+    // → cột cùng cỡ đáy nằm đúng các bậc liền nhau đó (bậc 2 trở đi phải cao như bậc 1 — cột thật của phòng bên kia tường thường cao khác) là cột vẽ trùng.
+    {
+      const CC = co.cot || [], giuC = new Set(C.kq.map(x => x.co).filter(q => q >= 0)), day4 = (h1, h2) => [0, 1, 2, 3].every(i => Math.abs(h1[i] - h2[i]) <= T);
+      for (const x of C.kq) {
+        if (x.co < 0 || !CC[x.co].hop) continue;
+        const g0 = CC[x.co].hop, truc = (g0[1] - g0[0]) <= (g0[3] - g0[2]) ? 0 : 1, be = g0[truc * 2 + 1] - g0[truc * 2];
+        let z = null;
+        for (let b = 1; b <= 30 && be > T; b++) {
+          const muon = g0.slice(); muon[truc * 2] += b * be; muon[truc * 2 + 1] += b * be;
+          const q = CC.findIndex((e, i) => !giuC.has(i) && C.trung.indexOf(i) < 0 && C.bo.indexOf(i) < 0 && e.hop && day4(e.hop, muon) && (!z || (Math.abs(e.hop[4] - z[0]) <= T && Math.abs(e.hop[5] - z[1]) <= T)));
+          if (q < 0) break;
+          if (!z) z = [CC[q].hop[4], CC[q].hop[5]];
+          C.trung.push(q);
+        }
+      }
+      C.trung.sort((p, q) => p - q);
+    }
     // --- tường cũ không phải của lần vẽ trước mà vướng phòng mới: chồng một phần lên tường mới (cùng đường, có đoạn chung) hoặc nằm trong lòng phòng mới ---
     const chong = [], trong = [];
     const trongPhong = q => { if (!moi.kin) return false; let c = false; for (let i = 0, k = n - 1; i < n; k = i++) { const a1 = moi.tuong[i].a, b1 = moi.tuong[k].a; if ((a1[1] > q[1]) !== (b1[1] > q[1]) && q[0] < (b1[0] - a1[0]) * (q[1] - a1[1]) / (b1[1] - a1[1]) + a1[0]) c = !c; } return c && moi.tuong.every(w => kcDoan(q, [w.a, w.b]) > 5); };
@@ -8054,7 +8073,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (r.ok && (tongPhong(r.giu) || tongPhong(r.bo) || tongPhong(r.trung) || (r.bo && r.bo.dn))) {
         const boDn = !!(r.bo && r.bo.dn), themDn = (r.them && r.them.dn) || 0;
         const ph = [tongPhong(r.them) ? 'vẽ thêm ' + kePhong(r.them) : '', tongPhong(r.bo) ? `bỏ ${kePhong(r.bo)} ${boChong ? 'cũ nằm vướng' : 'của lần vẽ trước'}` : '',
-          tongPhong(r.trung) ? `dọn ${kePhong(r.trung)} vẽ trùng (chồng khít lên cái đã có)` : '', tongPhong(r.giu) ? 'giữ nguyên ' + kePhong(r.giu) : '',
+          tongPhong(r.trung) ? `dọn ${kePhong(r.trung)} vẽ trùng (thừa do bấm vẽ nhiều lần ở bản trước)` : '', tongPhong(r.giu) ? 'giữ nguyên ' + kePhong(r.giu) : '',
           themDn ? `${boDn ? 'đánh lại' : 'đánh'} ${themDn} dấu điện – nước` : (boDn ? 'bỏ dấu điện – nước cũ' : '')].filter(Boolean);
         h.push(`<div class="msg ok">Đã cập nhật phòng: ${ph.join('; ')}. Bấm “Hoàn tác phòng” để về như trước lần cập nhật này.</div>`);
       }

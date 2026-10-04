@@ -1581,7 +1581,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (r.ok && (tongPhong(r.giu) || tongPhong(r.bo) || tongPhong(r.trung) || (r.bo && r.bo.dn))) {
         const boDn = !!(r.bo && r.bo.dn), themDn = (r.them && r.them.dn) || 0;
         const ph = [tongPhong(r.them) ? 'vẽ thêm ' + kePhong(r.them) : '', tongPhong(r.bo) ? `bỏ ${kePhong(r.bo)} ${boChong ? 'cũ nằm vướng' : 'của lần vẽ trước'}` : '',
-          tongPhong(r.trung) ? `dọn ${kePhong(r.trung)} vẽ trùng (chồng khít lên cái đã có)` : '', tongPhong(r.giu) ? 'giữ nguyên ' + kePhong(r.giu) : '',
+          tongPhong(r.trung) ? `dọn ${kePhong(r.trung)} vẽ trùng (thừa do bấm vẽ nhiều lần ở bản trước)` : '', tongPhong(r.giu) ? 'giữ nguyên ' + kePhong(r.giu) : '',
           themDn ? `${boDn ? 'đánh lại' : 'đánh'} ${themDn} dấu điện – nước` : (boDn ? 'bỏ dấu điện – nước cũ' : '')].filter(Boolean);
         h.push(`<div class="msg ok">Đã cập nhật phòng: ${ph.join('; ')}. Bấm “Hoàn tác phòng” để về như trước lần cập nhật này.</div>`);
       }

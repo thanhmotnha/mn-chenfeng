@@ -388,13 +388,14 @@ async function tienIch() {
       await page.evaluate(p => { window.MNCFDriver.lastRoom = null; window.MNCF.phong.dat(p); }, P3);
       kq2 = await vePh();
       ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm, 3 dấu điện – nước/.test(kq2) && (await dauO()).so === 20, '(chuẩn bị) phòng có 3 điểm điện – nước: 20 nét + chữ trên bản vẽ', [kq2, await dauO()]);
-      await page.evaluate(() => { const M = window.__MOCK__, nhan = (e, C) => { const c = new C(); Object.assign(c, { box: e.box.slice(), tuong: e.tuong, tam: e.tam, cfg: e.cfg }); M.ents.push(c); };
-        for (const C of [M.RoomHolePolyline, M.RoomPillar, M.RoomGirder]) for (const e of M.ents.filter(x => x instanceof C && !x.IsErase && x.box[0] > 99000 && x.box[0] < 110000)) nhan(e, C);
+      // như đo trên Chenfeng thật: lỗ cửa, dầm thừa chồng khít lên cái cũ; cột thừa bị Chenfeng đẩy sang bên theo cạnh ngắn của đáy cột (cột 220 × 300 → +x 220)
+      await page.evaluate(() => { const M = window.__MOCK__, nhan = (e, C, dx) => { const c = new C(); Object.assign(c, { box: e.box.map((v, i) => (i < 2 ? v + dx : v)), tuong: e.tuong, tam: e.tam, cfg: e.cfg }); M.ents.push(c); };
+        for (const C of [M.RoomHolePolyline, M.RoomPillar, M.RoomGirder]) for (const e of M.ents.filter(x => x instanceof C && !x.IsErase && x.box[0] > 99000 && x.box[0] < 110000)) nhan(e, C, C === M.RoomPillar ? 220 : 0);
         window.MNCFDriver.lastRoom = null; });
       await doiPh('delete p.da_ve;');
       eq1(await demPh(), cong8([4, 2, 2, 2, 1]), '(chuẩn bị) như bản trước bấm hai lần: lỗ cửa, cột, dầm chồng đôi');
       kq2 = await vePh();
-      ok(/Đã cập nhật phòng: dọn 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm vẽ trùng \(chồng khít lên cái đã có\); giữ nguyên 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm; đánh lại 3 dấu điện – nước/.test(kq2) && !/Chưa vẽ xong|chỉ vẽ được|chỉ dựng được/.test(kq2), 'phòng cũ không có bản ghi: dọn lỗ cửa / cột / dầm vẽ trùng, giữ phần đúng, đánh lại dấu — không báo lỗi tường', kq2);
+      ok(/Đã cập nhật phòng: dọn 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm vẽ trùng \(thừa do bấm vẽ nhiều lần ở bản trước\); giữ nguyên 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm; đánh lại 3 dấu điện – nước/.test(kq2) && !/Chưa vẽ xong|chỉ vẽ được|chỉ dựng được/.test(kq2), 'phòng cũ không có bản ghi: dọn lỗ cửa / cột / dầm vẽ trùng, giữ phần đúng, đánh lại dấu — không báo lỗi tường', kq2);
       eq1([await demPh(), (await dauO()).so], [cong8([4, 1, 1, 1, 1]), 20], '… bản vẽ còn đúng 1 lỗ cửa, 1 cột, 1 dầm; dấu điện – nước vẫn 20 nét (không thành 40)');
       kq2 = await vePh();
       ok(/Phòng này đã có đủ trên bản vẽ \(4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm, 3 dấu điện – nước\) — không vẽ chồng/.test(kq2) && (await dauO()).so === 20, 'bấm lần nữa (đã có bản ghi): báo đã có đủ, dấu giữ nguyên', [kq2, await dauO()]);
