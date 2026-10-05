@@ -197,12 +197,14 @@
     // window.__MOCK_MAT_KHAC__ = số mm: mẫu của tài khoản đặt mặt ngăn kéo THẤP hơn thiết kế chừng đó (mẫu khác quy cách — chuyện có thật; bảng chỉ lưu ý, không coi là lỗi)
     const BH = P.BH, GD = P.GD === undefined ? 13 : P.GD, fx0 = x - P.ZYS, fx1 = x + L + P.YYS, fz0 = z - P.XYS, fz1 = z + H + P.SYS - (window.__MOCK_MAT_KHAC__ || 0);
     const bz0 = fz0 + (P.XLK || 0), bz1 = fz1 - (P.SLK || 0), old = ['三合一', '三合一', '三合一', '三合一'], no = ['不排', '不排', '不排', '不排'];
+    // ĐÃ ĐO 05/10/2026: mẫu ray âm đỡ đáy (托底轨…) dựng các tấm của hộp NGẮN hơn sâu danh nghĩa 10 (hộp 500 → thành 490: chừa chỗ móc ray) — không tấm nào dài đúng bằng W của mẫu
+    const Wt = W - (/托底轨/.test(String(o.Name || '')) ? 10 : 0);
     out.push(new Board('抽面板', 2, [fx0, fx1, y - BH, y, fz0, fz1], BH, o.CabinetName, o.RoomName, no));
-    out.push(new Board('抽侧板', 1, [x + GD, x + GD + BH, y, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
-    out.push(new Board('抽侧板', 1, [x + L - GD - BH, x + L - GD, y, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽侧板', 1, [x + GD, x + GD + BH, y, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽侧板', 1, [x + L - GD - BH, x + L - GD, y, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
     out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y, y + BH, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
-    out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y + W - BH, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
-    out.push(new Board('抽底板', 0, [x + GD + BH - 6, x + L - GD - BH + 6, y + 11.5, y + W - 11.5, bz0 + 10, bz0 + 15], 5, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y + Wt - BH, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽底板', 0, [x + GD + BH - 6, x + L - GD - BH + 6, y + 11.5, y + Wt - 11.5, bz0 + 10, bz0 + 15], 5, o.CabinetName, o.RoomName, old));
     out.push(new HardwareCompositeEntity('三节轨', [x, x + L, y, y + W, bz0, bz0 + 40], o.CabinetName));
     return out;
   }
@@ -224,7 +226,7 @@
    *   Giả định xấu để thử lối lui của bảng: __MOCK_NK_KHONG_MO__ (hộp không mở), __MOCK_NK_THUA_O__ (InitInfos dựng thừa một ô), __MOCK_NK_KHONG_DONG__ (bấm OK hộp không đóng),
    *   __MOCK_NK_LECH__ (mặt lệch), __MOCK_NK_SAU__ (sâu hộp khác), __MOCK_NK_KET_TRUOC__ (báo lệnh kết thúc trước khi đối tượng vào bản vẽ),
    *   __MOCK_NK_KHONG_THEO__ (mặt ngăn kéo không theo phép dời của tủ), __MOCK_NK_LECH_MODULE__ (cập nhật cây mẫu của module mẹ làm lệch mặt ngăn kéo),
-   *   __MOCK_NK_KHONG_KHOA__ (hộp không nhận cách khoá cao đã đo: mọi ô vẫn chia đều).
+   *   __MOCK_NK_KHONG_KHOA__ (hộp không nhận cách khoá cao đã đo: mọi ô vẫn chia đều), __MOCK_NK_KHONG_W__ (nút mẫu ngăn kéo không có tham số W).
    *   KHOÁ CAO từng ô (đo 05/10/2026 chiều, gõ số vào ô cao như người dùng): lúc gõ → isLockHeight = true, showHeight = chuỗi vừa gõ; rời ô → height = số đó, các ô "D" chia đều phần còn lại (CalcInfos).
    *   Ghi thẳng isLockHeight + showHeight + height rồi gọi CalcInfos() cho đúng kết quả đó; bấm OK thì mặt của ô khoá cao đúng bằng `height`, ô "D" nhận phần còn lại.
    *   `m_Option.thickness` của hộp này KHÔNG phải dày mặt ngăn kéo (đo: ghi 20, mặt vẫn 17,5 = BH của mẫu) — đó là dày tấm đứng chia cột.
@@ -272,7 +274,8 @@
       if (st.doorDrawersInfo.some(d => d.isLockHeight && Number(d.showHeight) !== Number(d.height))) return;
       for (const k of Object.keys(st.m_UiOption)) st.m_Option[k] = typeof st.m_Option[k] === 'number' ? Number(st.m_UiOption[k]) : st.m_UiOption[k];      // UpdateOption: chuỗi hiển thị → lựa chọn thật
       const o = st.doorDrawersInfo.slice().sort((a, c) => a.row - c.row);
-      const nk = { lc: JSON.parse(JSON.stringify(st.m_Option)), mau: o.map(d => String(d.tempInfo.temp.id || '')), khoa: o.map(d => (d.isLockHeight ? Number(d.height) : 'D')), ket: '' };
+      const nk = { lc: JSON.parse(JSON.stringify(st.m_Option)), mau: o.map(d => String(d.tempInfo.temp.id || '')), khoa: o.map(d => (d.isLockHeight ? Number(d.height) : 'D')),
+        bh: o.map(d => { const q = (Array.isArray(d.tempInfo.temp.props) ? d.tempInfo.temp.props : []).find(x => x.name === 'BH'); return q ? (q.expr || q.value) : null; }), ket: '' };
       (window.__MOCK_NK__ = window.__MOCK_NK__ || []).push(nk);
       dl.remove(); state = null;
       if (!o.some(d => d.tempInfo.temp.id)) { nk.ket = 'khong_mau'; setTimeout(() => fireEnd('DRAWER', [], []), 10); return; }
@@ -313,9 +316,15 @@
     for (const d of o) {      // từ ô trên cùng xuống
       const h = khoa.indexOf(d) >= 0 ? Number(d.height) : caoD, fz0 = zTren - h; zTren = fz0 - so(lc.midSpace);
       const P = n => { const q = d.tempInfo.temp.props.find(x => x.name === n); return q ? Number(q.value) : undefined; };
+      // ĐÃ ĐO 05/10/2026: dày mặt (và dày ván của hộp) = tham số BH của MẪU — mẫu ray bi / ray âm ghi BH = $BH (theo thùng), mẫu hộp ray Blum ghi BH = 18 cố định (mặt ra 18 dù thùng 17,5).
+      // Ô `thickness` của hộp thoại không dính gì tới dày mặt. (GIẢ ĐỊNH tới khi thử lại: BH cố định ghi trong `props` của ô thì Chenfeng dùng đúng số đó.)
+      const pB = d.tempInfo.temp.props.find(x => x.name === 'BH'), bhMau = pB && (pB.expr === '' || !isNaN(Number(pB.expr))) ? Number(pB.value) : BH;
       const es = templateFromJSON({ Name: d.tempInfo.temp.name, CabinetName: tu, RoomName: phong, BoxSize: [kh.x1 - kh.x0, W, h], Pos: [kh.x0, yF, fz0],
-        ParamMap: [['BH', BH], ['GD', P('GD')], ['SLK', P('SLK')], ['XLK', P('XLK')], ['SYS', 0], ['XYS', 0], ['ZYS', kh.x0 - fx0], ['YYS', fx1 - kh.x1]].filter(x => x[1] !== undefined).map(([name, value]) => ({ name, value: String(value) })) });
+        ParamMap: [['BH', bhMau], ['GD', P('GD')], ['SLK', P('SLK')], ['XLK', P('XLK')], ['SYS', 0], ['XYS', 0], ['ZYS', kh.x0 - fx0], ['YYS', fx1 - kh.x1]].filter(x => x[1] !== undefined).map(([name, value]) => ({ name, value: String(value) })) });
       const rec = new Tpl(d.tempInfo.temp.name, es); rec.Parent = kg.Id; kg.Children.push(rec.Id);
+      // ĐÃ ĐO: nút mẫu ngăn kéo mang L = _L, W = floor(_W/50)*50 (sâu DANH NGHĨA của hộp), H theo ô, BH; mặt ngăn kéo thuộc thẳng nút này
+      rec.LParam.value = kh.x1 - kh.x0; rec.LParam.expr = '_L'; rec.WParam.value = W; rec.WParam.expr = 'floor(_W/50)*50'; rec.HParam.value = h; rec.GetParam('BH').value = bhMau; if (pB) rec.GetParam('BH').expr = pB.expr;
+      if (window.__MOCK_NK_KHONG_W__) rec.DeleteParam('W');      // giả định xấu: bản Chenfeng khác, nút mẫu không còn tham số W
       for (const e of es) e.Template = rec.Id;
       created = created.concat(es);
     }

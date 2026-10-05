@@ -955,7 +955,7 @@ T('Ngăn kéo bằng LỆNH GỐC `DRAWER` của Chenfeng (bản 1.26 — anh Ja
   eq([n.lenh, n.than, n.khoang, n.kieu, n.so, n.trong], ['NK', 'D', 0, 'nk_am', 2, true], 'bước NK: thân, khoang, kiểu, số ngăn; ngăn kéo âm = lọt lòng');
   eq(n.kep.map(i => ten(K, i)), ['Vách đệm ngăn kéo@100', 'Vách đệm ngăn kéo@882.5', 'Đáy@67.5', 'Đợt@67.5'], 'kẹp = vách đệm trái, vách đệm phải, đáy, đợt phía trên (đúng thứ tự trái – phải – dưới – trên)');
   eq([n.lui, n.ext, n.khe, n.day, n.cao, n.sau], [17.5, { trai: -2, phai: -2, duoi: -2, tren: -22.5 }, 22, 17.5, null, 500], 'lưng mặt cách mép trước vách đệm đúng một dày ván (mặt ngang mép vách đệm); khe bên 2, dưới 2, trên 22,5, giữa 22; các mặt bằng nhau → không khoá cao; hộp sâu 500');
-  eq([n.mau, n.ts, n.tp, n.mat], [{ id: C0.DEFAULT_SPEC.ngan_keo.loai[0].mau_id, ten: C0.DEFAULT_SPEC.ngan_keo.loai[0].ten_mau }, { GD: 13, LC: 0, SLK: 30, XLK: 30 }, [0, 1], [0, 1]], 'mẫu của loại ngăn kéo + tham số riêng của loại; các mẫu / mặt của ô xếp từ dưới lên');
+  eq([n.mau, n.ts, n.tp, n.mat], [{ id: C0.DEFAULT_SPEC.ngan_keo.loai[0].mau_id, ten: C0.DEFAULT_SPEC.ngan_keo.loai[0].ten_mau }, { GD: 13, LC: 0, SLK: 30, XLK: 30, BH: 17.5 }, [0, 1], [0, 1]], 'mẫu của loại ngăn kéo + tham số riêng của loại + BH = dày mặt thiết kế; các mẫu / mặt của ô xếp từ dưới lên');
   ok(!K.chua.some(c => c.ten === 'Ngăn kéo') && K.chua.some(c => c.loai === 'DEM') && K.chua.some(c => c.loai === 'XA'), 'ngăn kéo có lệnh gốc; vách đệm, xà, nẹp vẫn là tấm rời', K.chua);
   // phần dư làm tròn 0,5 của mặt dồn vào khe trên → vẫn chia đều được, không phải khoá cao
   const Kd = C0.keHoachGoc({ ma: 'NK', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [521], o: [{ tu: 0, kieu: 'nk_am', so: 3 }] }] }), nd = Kd.nk[0], md = Kd.M.mat_ngan_keo;
@@ -970,6 +970,10 @@ T('Ngăn kéo bằng LỆNH GỐC `DRAWER` của Chenfeng (bản 1.26 — anh Ja
   const Kt = C0.keHoachGoc({ ma: 'NT', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] }] }), nt = Kt.nk[0];
   eq([nt.kieu, nt.trong, nt.lui, nt.kep.map(i => ten(Kt, i)), nt.ext, nt.khe, nt.day, nt.cao, nt.sau], ['nk_trum', false, 0, ['Hồi trái@50', 'Hồi phải@932.5', 'Đáy@67.5', 'Đợt@67.5'], { trai: 15.5, phai: 15.5, duoi: 15.5, tren: 8 }, 2, 17.5, null, 550],
     'trùm ngoài: kẹp bằng 2 hồi + đáy + đợt; trùm hồi 15,5, trùm đáy 15,5, lên tới tim đợt (8); khe giữa 2; hộp sâu 550');
+  // dày mặt đi theo THIẾT KẾ: ghi vào tham số BH của mẫu (đo 05/10/2026: hộp ray Blum có BH = 18 cố định → mặt ra 18 dù thùng 17,5; mẫu ray bi / ray âm có BH = $BH thì tự theo thùng)
+  const Kt18 = C0.keHoachGoc({ ma: 'NT', rong: 1000, cao: 2200, van: Object.assign({}, C0.DEFAULT_SPEC.van, { t_canh: 18 }), khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] }] }).nk[0];
+  eq([nt.ts.BH, Kt18.day, Kt18.ts.BH, Kt18.ts.GD], [17.5, 18, 18, 13], 'bước NK: BH của mẫu = dày mặt của thiết kế (trùm ngoài: dày ván cánh), tham số riêng của loại vẫn giữ');
+  eq(C0.DEFAULT_SPEC.ngan_keo.loai[0].ts, { GD: 13, LC: 0, SLK: 30, XLK: 30 }, '… không ghi lẫn BH vào Chuẩn xưởng');
   // mặt trùm ngoài không chia đều được ra số chẵn 0,5 → khoá cao từng mặt (từ dưới lên) để ra đúng số của bảng
   const Kl = C0.keHoachGoc({ ma: 'NL', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_trum', so: 3 }] }] });
   eq(Kl.nk[0].cao, [141, 140.5, 140.5], 'mặt không bằng nhau: kèm chiều cao từng mặt, từ dưới lên');
@@ -1038,6 +1042,9 @@ T('Lệnh DRAWER (bản 1.26): lựa chọn của hộp "Drawer Design" theo m�
   const T1 = C0.tempNganKeo({ module_id: 123456, name: 'Ngăn kéo thử' }, hang, { GD: 21, SLK: 20, W: 400, XLK: 10 });
   eq(T1.props.map(p => [p.name, p.value, p.expr]), [['L', 600, ''], ['GD', 21, '21'], ['SLK', 20, ''], ['W', 450, '_W-5']], 'ghi đè GD (cả biểu thức số), SLK; W là công thức → giữ; XLK mẫu không có → bỏ qua');
   eq([T1.logo, T1.diy_logo, hang[1][3]], ['', '', 13], 'bản ghi thiếu hình vẫn dựng được; không sửa vào dữ liệu gốc');
+  // BH (dày mặt) — hai kiểu mẫu đã đo trên Chenfeng thật: hộp ray Blum BH = 18 cố định → ghi đè bằng dày mặt thiết kế; ray bi / ray âm BH = $BH (theo thùng) → giữ công thức
+  eq([C0.tempNganKeo({ module_id: 9, name: 'Blum' }, [[3, 'BH', '', 18, null, null, 1, null, null]], { BH: 17.5 }).props.map(p => [p.value, p.expr]), C0.tempNganKeo({ module_id: 9, name: 'Ray bi' }, [[3, 'BH', '$BH', 18, null, null, 1, null, null]], { BH: 17.5 }).props.map(p => [p.value, p.expr])],
+    [[[17.5, '']], [[18, '$BH']]], 'BH cố định của mẫu nhận dày mặt thiết kế; BH = $BH giữ nguyên (mặt tự theo dày ván thùng)');
   // đúng công thức đã đo: ghi chú lấy NGUYÊN trường [5] (kể cả null), biểu thức trống (null / '') thành ''
   eq(C0.tempNganKeo({ module_id: 7, name: 'x' }, [[3, 'LC', null, 0, null, null, 1, null, null]]).props.map(p => [p.description, p.expr]), [[null, '']], 'ghi chú null giữ null; biểu thức null thành chuỗi rỗng');
   // hàng tham số lạ (bản khác 3, kiểu khác 1, thiếu tên) → không dựng (bảng sẽ chèn ngăn kéo bằng mẫu như trước, không đưa dữ liệu lạ cho Chenfeng)

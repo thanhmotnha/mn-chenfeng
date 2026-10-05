@@ -2194,7 +2194,12 @@
         const hit = tam.find(e => !dung.has(e) && near(D.boxOf(e), want, 0.12));
         if (hit) dung.add(hit); else { lech = `mặt ngăn kéo cần ${want.map(r2).join(' / ')}`; break; }
       }
-      if (!lech && !tam.some(e => { const x = D.boxOf(e); return Math.abs((x[3] - x[2]) - b.sau) < 0.6; })) lech = `hộp ngăn kéo cần sâu ${b.sau}`;
+      // SÂU HỘP = tham số W của nút mẫu chứa mặt ngăn kéo (đo trên Chenfeng thật 05/10/2026: W = floor(_W/50)*50 là sâu danh nghĩa của hộp; mẫu ray âm đỡ đáy dựng thành hộp ngắn hơn 10
+      // nên không tấm nào dài đúng bằng sâu hộp — đối chiếu theo chiều dài tấm là báo lệch oan). Không đọc được W (bản Chenfeng khác) thì không dám nhận là đúng.
+      if (!lech) {
+        const sai = [...dung].map(e => { try { const p = e.Template.Object.WParam; return p ? Number(p.value) : NaN; } catch (er) { return NaN; } }).find(w => !(Math.abs(w - b.sau) < 0.6));
+        if (sai !== undefined) lech = `hộp ngăn kéo cần sâu ${b.sau} (Chenfeng dựng ${isFinite(sai) ? r2(sai) : 'không rõ'})`;
+      }
       if (lech) {
         const ve = tam.slice(0, 6).map(e => `${e.Name} ${D.boxOf(e).join(' / ')}`).join(' ; ');
         const h1 = hmMark(); if (h0 && h1 && h1.i > h0.i) await D.undo(h1.i - h0.i);

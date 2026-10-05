@@ -17,8 +17,9 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
   try {
     // KHO MẪU GIẢ của tài khoản (mã giả): thư mục 抽屉 có mẫu "三节轨薄底抽" (cùng TÊN với mẫu mặc định của bảng, mã khác), một mẫu tham số lạ; thư mục con (tên không nhắc gì tới ngăn kéo) có một mẫu nữa
     const props = a => zlib.deflateSync(Buffer.from(JSON.stringify(a))).toString('base64');
-    const hang = a => a.map(([n, v, d]) => [3, n, '', v, null, d || null, 1, null, null]);
-    const chung = [['L', 426, '宽'], ['W', 350, '深'], ['H', 200, '高'], ['BH', 18, '板厚']];
+    const hang = a => a.map(([n, v, d, e]) => [3, n, e || '', v, null, d || null, 1, null, null]);
+    // (đo trên Chenfeng thật: mẫu ray bi / ray âm ghi BH = $BH — dày ván theo thùng; mẫu hộp ray Blum ghi BH = 18 cố định)
+    const chung = [['L', 426, '宽'], ['W', 350, '深'], ['H', 200, '高'], ['BH', 18, '板厚', '$BH']];
     const api = [], cau = { hong: '' };      // cau.hong: 'thu_muc' | 'danh_sach' → máy chủ báo lỗi ở lời gọi đó
     await ctx.route('https://api.cfcad.cn/**', r => {
       const u = new URL(r.request().url()), body = JSON.parse(r.request().postData() || '{}'); api.push([u.pathname, body.dir_id || body.dir_type || '']);
@@ -28,7 +29,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
         { module_id: '555001', name: '三节轨薄底抽', logo: 'thu/555001.png', diy_logo: '', props: props(hang(chung.concat([['GD', 13, '轨道'], ['LC', 0], ['SLK', 30], ['XLK', 30]]))) },
         { module_id: '555077', name: 'Mẫu tham số lạ', logo: '', diy_logo: '', props: props([[2, 'L', '', 426, null, null, 1]]) },
         { module_id: '555010', name: 'Tên trong kho', logo: '', diy_logo: '', props: props(hang(chung.concat([['GD', 13], ['SLK', 30], ['XLK', 30]]))) },
-        { module_id: '555078', name: 'Mẫu hỏng tham số', logo: '', diy_logo: '', props: 'khong-phai-du-lieu-nen' }] };
+        { module_id: '555078', name: 'Mẫu hỏng tham số', logo: '', diy_logo: '', props: 'khong-phai-du-lieu-nen' },
+        { module_id: '555016', name: '百隆骑马抽中帮16MM', logo: '', diy_logo: '', props: props(hang([['L', 426], ['W', 350], ['H', 195], ['BH', 18], ['LC', 0], ['XLK', 30]])) }] };
       else if (u.pathname === '/CAD-moduleList' && cau.hong !== 'danh_sach' && body.dir_id === '13') j = { err_code: 0, err_msg: '', count: '1', modules: [
         { module_id: '555002', name: '托底轨厚底抽', logo: 'thu/555002.png', diy_logo: '', props: props(hang(chung.concat([['GDK', 24.5], ['LC', 0], ['SLK', 30], ['XLK', 30]]))) }] };
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' }, body: JSON.stringify(j) });
@@ -107,6 +109,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       [['ok', ['555001', '555001'], 2, 1, 1, '17.5', '0', '2', '2', '22.5', '2', '22', true, true]], 'hộp "Drawer Design" nhận: 2 ô, lọt lòng, offset 17,5, khe 2 / 2 / 22,5 / 2 / 22, tự tính sâu bậc 50; cả hai ô có mẫu');
     eq([r.lc === LC0, r.bao_loi, r.busy, r.hop], [true, 0, false, false], 'lựa chọn của người dùng trong hộp được trả lại nguyên; không lỗi nào tới Chenfeng; lệnh đã xong, hộp đã đóng');
     eq(r.tu, ['NK'], 'tấm ngăn kéo mang tên tủ của tấm chung quanh');
+    eq(r.nk.map(x => x.bh), [['$BH', '$BH']], 'mẫu ghi dày ván theo thùng (BH = $BH): bảng giữ nguyên công thức đó');
     eq(api, [['/CAD-dirQuery', '5'], ['/CAD-moduleList', '12']], 'chỉ ĐỌC kho mẫu: danh sách thư mục + danh sách mẫu của thư mục ngăn kéo');
 
     console.log('— Kho mẫu chỉ đọc một lần trong phiên');
@@ -152,6 +155,12 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     c = await T.chuanBi({ mau: 555002, ten_mau: '托底轨厚底抽', ma: 'NC' }, 15000);
     r = await T.ve();
     eq([r.so, r.mat, r.nk.map(x => x.mau), r.doi_ma], [1, [true, true], [['555002', '555002']], []], 'mẫu nằm ở thư mục con: vẫn tìm thấy theo mã (không coi là đổi mã)');
+    eq([r.sau, r.hong], [[490], []], 'ray âm đỡ đáy: thành hộp ngắn hơn sâu hộp 10 (không tấm nào dài 500) vẫn là đúng — sâu hộp đối chiếu theo tham số W của mẫu, không theo chiều dài tấm');
+
+    console.log('— Mẫu có dày mặt cố định (hộp ray Blum: BH = 18, không theo thùng) → bảng ghi dày mặt của thiết kế vào BH của mẫu');
+    c = await T.chuanBi({ mau: 555016, ten_mau: '百隆骑马抽中帮16MM', ma: 'NBL', ts: { LC: 0, XLK: 30 } }, 13500);
+    r = await T.ve();
+    eq([r.so, r.hong, r.mat, r.nk.map(x => x.bh)], [1, [], [true, true], [[17.5, 17.5]]], 'mặt ra dày 17,5 đúng thiết kế (không phải 18 của mẫu): vẽ được bằng lệnh gốc');
 
     c = await T.chuanBi({ mau: 555010, ten_mau: '三节轨薄底抽', ma: 'NV7' }, 16500);      // mã trỏ tới một mẫu, tên lại trùng một mẫu KHÁC trong kho
     r = await T.ve();
@@ -203,8 +212,11 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     await page.evaluate(() => { delete window.__MOCK_NK_LECH__; window.__MOCK_NK_SAU__ = 450; });
     r = await T.ve();
     eq([r.so, r.hong, r.moi, r.buoc], [0, [[0, 'lech']], 0, 0], 'mặt đúng nhưng hộp sâu 450 thay vì 500 (ray khác cỡ): cũng bỏ lệnh vừa rồi');
-    ok(/hộp ngăn kéo cần sâu 500/.test(r.bao[0]), '… lời báo nêu sâu hộp', r.bao);
-    await page.evaluate(() => { delete window.__MOCK_NK_SAU__; });
+    ok(/hộp ngăn kéo cần sâu 500/.test(r.bao[0]) && /450/.test(r.bao[0]), '… lời báo nêu sâu hộp cần và sâu hộp Chenfeng dựng', r.bao);
+    await page.evaluate(() => { delete window.__MOCK_NK_SAU__; window.__MOCK_NK_KHONG_W__ = true; });
+    r = await T.ve();
+    eq([r.so, r.hong, r.moi, r.buoc], [0, [[0, 'lech']], 0, 0], 'nút mẫu ngăn kéo không đọc được sâu hộp (bản Chenfeng khác): không dám nhận là đúng — bỏ lệnh vừa rồi');
+    await page.evaluate(() => { delete window.__MOCK_NK_KHONG_W__; });
 
     console.log('— Hộp "Drawer Design" không mở / không nhận lựa chọn');
     await page.evaluate(() => { window.__MOCK_NK_THUA_O__ = true; });

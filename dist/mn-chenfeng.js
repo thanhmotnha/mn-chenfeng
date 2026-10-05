@@ -1612,7 +1612,7 @@
      *     trong: lọt lòng (Inner Cover) hay trùm ngoài (Outer Cover), lui: `offset` của hộp thoại = lưng mặt ngăn kéo cách mép trước KHOẢNG TRỐNG (đo trên Chenfeng: khoảng trống tính từ
      *     mép trước của tấm kẹp LÙI NHẤT — có vách đệm thì là mép vách đệm), ext: { trai, phai, duoi, tren } = mặt trùm ra ngoài khoảng kẹp (âm = khe hở vào trong), khe: khe giữa hai mặt,
      *     day: dày mặt, cao: null (các mặt bằng nhau — để Chenfeng tự chia đều) | [cao từng mặt, từ dưới lên] (phải khoá cao từng ô), sau: sâu hộp,
-     *     mau: { id, ten } mẫu ngăn kéo trong kho của tài khoản, ts: tham số riêng của loại, tp: [chỉ số M.templates], mat: [chỉ số M.mat_ngan_keo] (từ dưới lên) }
+     *     mau: { id, ten } mẫu ngăn kéo trong kho của tài khoản, ts: tham số ghi vào mẫu = tham số riêng của loại + BH = dày mặt thiết kế (đo 05/10/2026: mẫu hộp ray Blum có BH cố định 18 → không ghi thì mặt ra 18; mẫu có BH = $BH tự theo thùng, tempNganKeo giữ công thức), tp: [chỉ số M.templates], mat: [chỉ số M.mat_ngan_keo] (từ dưới lên) }
      * CHƯA dùng lệnh gốc (vẫn nhập mẫu như bản 1.23): loại có tham số lấy theo cao mặt ('mat' — ngăn kéo chia ô), loại chưa khai mã mẫu, "hở sau" ≠ 5 hoặc "bước sâu" ≠ 50
      * (công thức sâu hộp của Chenfeng là floor((sâu khoảng − offset − 5) / 50) × 50), không tìm đủ 4 tấm kẹp.
      * Các mẫu của một ô nằm liền nhau trong M.templates theo thứ tự `build` đẩy vào: từ dưới lên — `tp` / `mat` của bước giữ thứ tự đó (hộp thoại của Chenfeng thì đánh số ô từ TRÊN xuống). */
@@ -1637,7 +1637,7 @@
         nk.push({ lenh: 'NK', than: t0.than, khoang: i, kieu: t0.kieu, so: js.length, kep: [I.get(vT), I.get(vP), I.get(duoi), I.get(tren)], trong: !trum, lui,
           ext: { trai: rn(xa - m0.x), phai: rn(m0.x + m0.w - xb), duoi: rn(za - m0.z), tren: rn(mN.z + mN.h - zb) },
           khe: trum ? s.canh.khe : s.ngan_keo.khe_giua, day: m0.t, cao: deu ? null : mats.map(q => q.h), sau: t0.box[1],
-          mau: { id: t0.id, ten: t0.ten }, ts: Object.assign({}, lo.ts), tp: js.slice(), mat: js.map(j => M.templates[j].mat) });
+          mau: { id: t0.id, ten: t0.ten }, ts: Object.assign({}, lo.ts, { BH: m0.t }), tp: js.slice(), mat: js.map(j => M.templates[j].mat) });
         for (const j of js) tpNK.add(j);
       }
     }
@@ -6098,7 +6098,12 @@
         const hit = tam.find(e => !dung.has(e) && near(D.boxOf(e), want, 0.12));
         if (hit) dung.add(hit); else { lech = `mặt ngăn kéo cần ${want.map(r2).join(' / ')}`; break; }
       }
-      if (!lech && !tam.some(e => { const x = D.boxOf(e); return Math.abs((x[3] - x[2]) - b.sau) < 0.6; })) lech = `hộp ngăn kéo cần sâu ${b.sau}`;
+      // SÂU HỘP = tham số W của nút mẫu chứa mặt ngăn kéo (đo trên Chenfeng thật 05/10/2026: W = floor(_W/50)*50 là sâu danh nghĩa của hộp; mẫu ray âm đỡ đáy dựng thành hộp ngắn hơn 10
+      // nên không tấm nào dài đúng bằng sâu hộp — đối chiếu theo chiều dài tấm là báo lệch oan). Không đọc được W (bản Chenfeng khác) thì không dám nhận là đúng.
+      if (!lech) {
+        const sai = [...dung].map(e => { try { const p = e.Template.Object.WParam; return p ? Number(p.value) : NaN; } catch (er) { return NaN; } }).find(w => !(Math.abs(w - b.sau) < 0.6));
+        if (sai !== undefined) lech = `hộp ngăn kéo cần sâu ${b.sau} (Chenfeng dựng ${isFinite(sai) ? r2(sai) : 'không rõ'})`;
+      }
       if (lech) {
         const ve = tam.slice(0, 6).map(e => `${e.Name} ${D.boxOf(e).join(' / ')}`).join(' ; ');
         const h1 = hmMark(); if (h0 && h1 && h1.i > h0.i) await D.undo(h1.i - h0.i);

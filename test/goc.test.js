@@ -16,12 +16,12 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
   const ctx = await chromium.launchPersistentContext(dir, { channel: 'chromium', headless: true, viewport: { width: 1500, height: 900 }, args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`] });
   try {
     // kho mẫu giả của tài khoản (mã giả): thư mục 抽屉 có mẫu ngăn kéo cùng TÊN với mẫu mặc định của bảng
-    const props = a => zlib.deflateSync(Buffer.from(JSON.stringify(a.map(([n, v]) => [3, n, '', v, null, null, 1, null, null])))).toString('base64');
+    const props = a => zlib.deflateSync(Buffer.from(JSON.stringify(a.map(([n, v, e]) => [3, n, e || '', v, null, null, 1, null, null])))).toString('base64');
     await ctx.route('https://api.cfcad.cn/**', r => {
       const u = new URL(r.request().url()), body = JSON.parse(r.request().postData() || '{}');
       let j = { err_code: 1, err_msg: 'no' };
       if (u.pathname === '/CAD-dirQuery') j = { err_code: 0, err_msg: '', dirs: [{ dir_id: '12', dir_name: '抽屉', childs: [] }] };
-      else if (u.pathname === '/CAD-moduleList' && body.dir_id === '12') j = { err_code: 0, err_msg: '', count: '1', modules: [{ module_id: '555001', name: '三节轨薄底抽', logo: '', diy_logo: '', props: props([['L', 426], ['W', 350], ['H', 200], ['BH', 18], ['GD', 13], ['LC', 0], ['SLK', 30], ['XLK', 30]]) }] };
+      else if (u.pathname === '/CAD-moduleList' && body.dir_id === '12') j = { err_code: 0, err_msg: '', count: '1', modules: [{ module_id: '555001', name: '三节轨薄底抽', logo: '', diy_logo: '', props: props([['L', 426], ['W', 350], ['H', 200], ['BH', 18, '$BH'], ['GD', 13], ['LC', 0], ['SLK', 30], ['XLK', 30]]) }] };
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' }, body: JSON.stringify(j) });
     });
     await require('./kho-gia.js')(ctx);      // bộ nạp của tiện ích lấy bản gộp vừa dựng trong máy
@@ -78,7 +78,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     r = await ve(TR3, { at: [0, 0, 0] });
     eq([r.ok, r.gd, r.errors, r.nk, r.lenh_nk, r.mat_lech, r.nhap.filter(x => x[1] > 0)], [true, 'xong', [], { tong: 1, so: 1, lui: [] }, ['ok'], [], []], 'vẽ xong; ô ngăn kéo vẽ bằng lệnh gốc, không chèn mẫu nào');
     eq(await page.evaluate(() => window.__thu.hop('抽面板').map(b => [b[4], b[5]])), [[102, 243], [245, 385.5], [387.5, 528]], 'ba mặt đúng cao độ thiết kế (mặt dưới cùng cao hơn 0,5)');
-    eq([r.module && r.module[0], r.lc, r.bao_loi, r.warnings.filter(w => /ngăn kéo/i.test(w))], [true, true, 0, []], 'gom module được, lựa chọn của người dùng được trả lại, không lời báo nào về ngăn kéo');
+    eq([r.module && r.module[0], r.lc, r.bao_loi, r.warnings.filter(w => /đặt mặt khác thiết kế|chưa vẽ được bằng lệnh ngăn kéo|chưa gom được/.test(w))], [true, true, 0, []], 'gom module được, lựa chọn của người dùng được trả lại, không lời báo nào về ngăn kéo vẽ hỏng');
     ht = await page.evaluate(() => window.__thu.hoanTac());
     eq([ht.ok, ht.con], [true, 0], 'hoàn tác: sạch');
 
