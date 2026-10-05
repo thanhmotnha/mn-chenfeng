@@ -200,6 +200,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     await page.evaluate(() => { const l = document.getElementById('mncf-host').shadowRoot.querySelector('.launch'); if (l && !l.hidden) l.click(); });
     await H.locator('.tab[data-tab="tu"]').click();
     const nut = H.locator('[data-act="chuanhoa"]');
+    if (!(await nut.isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) nút Chuẩn hoá nằm sau nút ⋯
     // (bản 1.25: nút thành nút biểu tượng — tên đầy đủ nằm ở aria-label, chú thích ngắn dưới hình)
     ok(await nut.isVisible() && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await nut.getAttribute('aria-label') || '') && /Chuẩn hoá/.test(await nut.innerText()), 'bảng có nút "Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau"', [await nut.getAttribute('aria-label'), await nut.innerText().catch(() => '')]);
     await page.evaluate(() => window.__MOCK__.userSelect([]));

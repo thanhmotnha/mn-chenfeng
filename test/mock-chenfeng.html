@@ -638,6 +638,9 @@
       // (__MOCK_KHOA_NHIN__); lệnh bị tài khoản chủ cấm → chỉ hiện một dòng báo đỏ, dòng lệnh không ghi gì (__MOCK_CAM_LENH__ = tên lệnh).
       if (window.__MOCK_KHOA_NHIN__) { prompt('WARNING', '>视图已经锁定,无法执行命令! 如果是程序出错,请按F12,在Console那边输入:app.Viewer.IsLookSelect = false'); return; }
       if (window.__MOCK_CAM_LENH__ === name) { toast('该命令已设置禁用权限，无法调用', 'danger'); return; }
+      // ĐÃ ĐO 05/10/2026 (bản 1.27): SWISO (nhìn 3D từ tây nam) / TOPVIEW (nhìn từ trên) là lệnh "trong suốt" — đổi hướng camera, KHÔNG ghi dòng lệnh, không phát sự kiện kết thúc, không vào lịch sử.
+      // Hướng camera sau lệnh (đã đo, app.Viewer.CameraControl.Direction): SWISO ≈ (0,58; 0,58; −0,58), TOPVIEW = (0; 0; −1). GIẢ ĐỊNH: hướng đổi ngay trong lời gọi (bản thật có thể trễ một nhịp vẽ).
+      if (name === 'SWISO' || name === 'TOPVIEW') { window.__MOCK_NHIN__ = (window.__MOCK_NHIN__ || []).concat([name]); const cc = window.app.Viewer.CameraControl; if (cc) cc.Direction = name === 'SWISO' ? new V3(0.5774, 0.5774, -0.5774) : new V3(0, 0, -1); return; }
       prompt('COMMAND', '>' + name);
       // bản thật 2026-9-29 (đọc mã FixDrawWallDir, chạy sau InitWallMaterial): đang ở khung nhìn bố cục (app.Viewer.isLayout) thì lệnh vẽ tường chỉ hiện dòng báo (loại WARNING)
       // "不允许在布局视图绘制" rồi kết thúc ngay, không hỏi gì. GIẢ ĐỊNH: sự kiện "lệnh kết thúc" vẫn phát như mọi lệnh khác. Bật bằng window.__MOCK_BO_CUC__
@@ -901,6 +904,7 @@
     Editor,
     Database: Object.assign(new Database(), { ModelSpace: { get Entitys() { return ents; } }, hm }),
     Viewer: { get isLayout() { return window.__MOCK_BO_CUC__ === 'an' ? undefined : !!window.__MOCK_BO_CUC__; },      // bản thật (đo 05/10/2026): app.Viewer.isLayout là true / false
+      CameraControl: { Direction: new V3(0, 1, 0), LookAt(d) { this.Direction = new V3(d.x, d.y, d.z); } },      // bản vẽ mới mở: nhìn từ trước (0, 1, 0) — đã đo
       Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {}, Width: 800, Height: 500, WorldToScreen(v) { v.x = v.x / 20; v.y = 400 - v.y / 20 - v.z / 40; v.z = 0; return v; } },
     CommandReactor: { _cmdName: '', OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
     AutoSaveServer: { Stop() {}, Start() {} },

@@ -353,6 +353,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     kqNK = await veBang(null);
     eq(kqNK, [], 'tủ không có bước ngăn kéo: không có dòng đó');
 
+    if (!(await H.locator('.tab', { hasText: 'Hướng dẫn' }).isVisible())) await H.locator('[data-act="the-them"]').click();      // (bản 1.27) thẻ Hướng dẫn nằm ở hàng thẻ phụ sau nút ⚙
     await H.locator('.tab', { hasText: 'Hướng dẫn' }).click();
     const hd = await H.locator('.sum li', { hasText: 'bản 1.26:' }).allInnerTexts();      // (mục Khấu cột có nhắc "bản 1.26.1" — không phải mục này)
     ok(hd.length === 1 && /Ngăn kéo vẽ bằng lệnh ngăn kéo của Chenfeng/.test(hd[0]) && /Drawer Design/.test(hd[0]) && /chèn mẫu/.test(hd[0]), 'thẻ Hướng dẫn có mục của bản 1.26 về ngăn kéo lệnh gốc', hd);

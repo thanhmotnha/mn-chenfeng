@@ -5,6 +5,8 @@
 //   'tot'  — trang nhỏ báo { command: 'loaded' } rồi mới tải xong (đúng thứ tự đo trên Chenfeng thật 04/10/2026), có nút 打开 → báo 'closeWindow';
 //   'loi'  — yêu cầu hỏng → trình duyệt hiện trang lỗi trong khung (chỉ có sự kiện load);
 //   'treo' — không trả lời.
+// thẻ nằm sau nút ⚙ (bản 1.27 — Màu, Chuẩn xưởng, Hướng dẫn): hàng thẻ phụ chưa mở thì bấm ⚙ trước rồi mới bấm thẻ
+const theSau = async (H, t) => { const tab = H.locator('.tab[data-tab="' + t + '"]'); if (!(await tab.isVisible())) await H.locator('[data-act="the-them"]').click(); await tab.click(); };
 const path = require('path'), fs = require('fs'), os = require('os');
 const { chromium } = require('playwright');
 const EXT = path.join(__dirname, '..', 'dist', 'extension');
@@ -314,6 +316,7 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     console.log('— Bảng đang vẽ dở: chưa cho xuất (lệnh CD sẽ huỷ ngang lệnh đang vẽ)');
     await H.locator('.tab[data-tab="tu"]').click();
     await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({ ma: 'XD' }, TU));
+    if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) ô toạ độ nằm sau nút ⋯
     await H.locator('#mncf-ui-useat').check(); await H.locator('#mncf-ui-ax').fill('20000');
     lanTruoc = await page.evaluate(() => window.__MOCK_CD__.length);
     const lucVe = await page.evaluate(() => { const sh = document.getElementById('mncf-host').shadowRoot; sh.querySelector('[data-act="draw"]').click(); sh.querySelector('.tab[data-tab="kq"]').click(); sh.querySelector('[data-act="xuatvan"]').click(); return sh.querySelector('.status').textContent; });
@@ -322,7 +325,7 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     ok((await page.evaluate(() => window.__MOCK_CD__.length)) === lanTruoc && (await soHop()) === 0 && (await page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => D.isBoard(e) && e.BoardProcessOption.cabinetName === 'XD').length; })) > 5, 'không có lệnh CD nào chen vào; tủ XD vẫn vẽ trọn');
 
     console.log('— Thẻ Hướng dẫn: mục Xuất ván + khung "Cập nhật tự động" nói về trợ lý trang sản xuất');
-    await H.locator('.tab[data-tab="hd"]').click();
+    await theSau(H, 'hd');
     chu = await H.locator('[data-pane="hd"]').innerText();
     ok(/Xuất ván/.test(chu) && /bản 1\.22/.test(chu) && /打开/.test(chu), 'có mục hướng dẫn Xuất ván (bản 1.22)');
     let khungCN = await H.locator('fieldset', { hasText: 'Cập nhật tự động' }).innerText();
@@ -333,7 +336,7 @@ const KHUNG_HTML = `<!doctype html><meta charset="utf-8"><title>晨丰生产管�
     await p2.goto('https://cfcad.cn/');
     await p2.waitForFunction(() => window.MNCF && window.MNCF.app, null, { timeout: 15000 });
     const H2 = p2.locator('#mncf-host');
-    await H2.locator('.launch').click(); await H2.locator('.tab[data-tab="hd"]').click();
+    await H2.locator('.launch').click(); await theSau(H2, 'hd');
     khungCN = await H2.locator('fieldset', { hasText: 'Cập nhật tự động' }).innerText();
     ok(/bản cũ/i.test(khungCN) && /cài lại/i.test(khungCN) && /zip/i.test(khungCN), 'bộ nạp bản 1: nhắc tải zip mới, cài lại để có trợ lý', khungCN);
     await p2.close();

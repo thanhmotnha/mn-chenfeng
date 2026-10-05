@@ -1,0 +1,3 @@
+# Giữ nguyên từng byte ở mọi máy: bộ nạp đối chiếu sha256 của dist/mn-chenfeng*.js với dist/phien-ban.json —
+# git mà đổi dấu xuống dòng (LF ↔ CRLF trên Windows) thì tệp đẩy lên khác tệp đã băm, máy nào cũng từ chối bản mới.
+* -text

@@ -2,6 +2,8 @@
 // Bản 1.21 — ĐỔ MÀU: đọc kho vật liệu của tài khoản, chọn tủ → thùng một màu, cánh + phào một màu, tìm và thay màu — trên trang GIẢ LẬP Chenfeng (tiện ích thật nạp vào trang).
 //   NODE_PATH=<node_modules có playwright> PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node test/mau-ui.test.js
 // Kho vật liệu giả: 2 thư mục (MDF 130 mã — 2 trang, ACRYLIC 3 mã). Mã vật liệu trong phép thử là mã GIẢ (7000…), không phải mã của tài khoản nào.
+// thẻ nằm sau nút ⚙ (bản 1.27 — Màu, Chuẩn xưởng, Hướng dẫn): hàng thẻ phụ chưa mở thì bấm ⚙ trước rồi mới bấm thẻ
+const theSau = async (H, t) => { const tab = H.locator('.tab[data-tab="' + t + '"]'); if (!(await tab.isVisible())) await H.locator('[data-act="the-them"]').click(); await tab.click(); };
 const path = require('path'), fs = require('fs'), os = require('os'), zlib = require('zlib');
 const { chromium } = require('playwright');
 const EXT = path.join(__dirname, '..', 'dist', 'extension');
@@ -149,7 +151,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     const st = () => H.locator('.status').textContent();
     const chon = f => page.evaluate(src => { const D = window.MNCFDriver, ds = D.all().filter(D.isBoard).filter(new Function('b', 'return ' + src)); window.__MOCK__.userSelect(ds); return ds.length; }, f);
     await H.locator('.launch').click();
-    await H.locator('.tab[data-tab="mausac"]').click();
+    await theSau(H, 'mausac');
     await H.locator('.vlds .vlc').first().waitFor({ timeout: 10000 });
     eq(await H.locator('.vlds .vlc').count(), 120, 'kho 133 màu: bảng dựng 120 ô đầu');
     ok(/133 màu/.test(await H.locator('[data-ui="vl-dem"]').innerText()) && /còn 13/.test(await H.locator('[data-ui="vl-dem"]').innerText()), 'ghi tổng số màu và số chưa hiện', await H.locator('[data-ui="vl-dem"]').innerText());
@@ -165,9 +167,11 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     await H.locator('[data-ui="vl-tim"]').fill(''); await H.locator('[data-ui="vl-nhom"]').selectOption('ACRYLIC'); await page.waitForTimeout(350);
     eq((await H.locator('.vlds .vlc').allInnerTexts()).map(t => t.trim()), ['LUX279PRL', 'LUX 101', 'AC-555'], 'lọc theo nhóm ACRYLIC');
     await H.locator('[data-ui="vl-nhom"]').selectOption('');
-    // bản 1.25: bảng mặc định rộng 560; màn hình hẹp thì bảng co lại — ở 448 (bề rộng cũ) 7 thẻ vẫn phải nằm trên một hàng
-    r = await H.locator('.tabs').evaluate(e => { const p = e.closest('.panel'), rong = Math.round(p.getBoundingClientRect().width), cao = Math.round(e.getBoundingClientRect().height), cu = p.style.width; p.style.width = '448px'; const hep = Math.round(e.getBoundingClientRect().height), rong_hep = Math.round(p.getBoundingClientRect().width); p.style.width = cu; return { cao, so: e.children.length, rong, hep, rong_hep }; });
-    ok(r.so === 7 && r.cao < 44 && r.rong === 560 && r.hep < 44 && r.rong_hep === 448, 'thêm thẻ Màu: 7 thẻ nằm trên MỘT hàng ở bảng mặc định (rộng 560) và cả khi bảng hẹp còn 448', r);
+    // bản 1.25: bảng mặc định rộng 560; màn hình hẹp thì bảng co lại còn 448 (bề rộng cũ). Bản 1.27: hàng thẻ chính 5 nút (Tủ · Phòng · Kho mẫu · Kết quả · ⚙) + hàng thẻ phụ 4 nút
+    // (Màu · Chuẩn xưởng · Hướng dẫn · Đo mạng — đang hiện vì thẻ Màu đang mở): MỖI hàng phải nằm trên một dòng ở cả hai bề rộng
+    r = await H.locator('.tabs:not(.tabs2)').evaluate(e => { const p = e.closest('.panel'), e2 = p.querySelector('.tabs2'), cao = x => Math.round(x.getBoundingClientRect().height), rong = Math.round(p.getBoundingClientRect().width), c = [cao(e), cao(e2)], cu = p.style.width;
+      p.style.width = '448px'; const hep = [cao(e), cao(e2)], rong_hep = Math.round(p.getBoundingClientRect().width); p.style.width = cu; return { cao: c, so: [e.children.length, e2.children.length], rong, hep, rong_hep, phu_hien: !e2.hidden }; });
+    ok(JSON.stringify(r.so) === '[5,4]' && r.phu_hien && Math.min(...r.cao) > 0 && Math.max(...r.cao) < 44 && r.rong === 560 && Math.min(...r.hep) > 0 && Math.max(...r.hep) < 44 && r.rong_hep === 448, 'hàng thẻ chính (5 nút) và hàng thẻ phụ (4 nút): mỗi hàng nằm trên MỘT dòng ở bảng mặc định (rộng 560) và cả khi bảng hẹp còn 448', r);
     const truocLai = dem('/CAD-materialList');
     await H.locator('[data-act="vl-lai"]').click();
     await page.waitForFunction(() => /Đã đọc lại kho vật liệu: 133 màu/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 10000 });
@@ -266,6 +270,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     const truocVe = await page.evaluate(() => window.MNCFDriver.all().length);
     await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({}, TU, { ma: 'D4' }));
     await H.locator('.tab[data-tab="tu"]').click();
+    if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) ô toạ độ nằm sau nút ⋯
     await H.locator('#mncf-ui-useat').check(); await H.locator('#mncf-ui-ax').fill('12000');
     await H.locator('[data-act="draw"]').click();
     await page.waitForFunction(() => /Đã tự đổ màu/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').textContent), null, { timeout: 30000 });
@@ -277,7 +282,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     eq(await page.evaluate(() => window.MNCFDriver.all().length), truocVe, '"Hoàn tác lần vẽ này" lùi cả bước đổ màu lẫn bước vẽ: bản vẽ trở lại như trước');
 
     console.log('— Cập nhật tủ đã đổ màu: tủ vẽ lại giữ màu của tủ cũ');
-    await H.locator('.tab[data-tab="mausac"]').click();
+    await theSau(H, 'mausac');
     await H.locator('[data-ui="vl-tudong"]').uncheck();
     await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({}, TU, { ma: 'E5' }));
     await H.locator('.tab[data-tab="tu"]').click();
@@ -327,7 +332,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     await H.locator('[data-act="draw"]').click();
     await H.locator('.report .msg.ok').waitFor({ timeout: 30000 });
     eq(Object.keys(await xem('G7')), ['默认///'], 'tủ G7 vẽ lúc đang tắt tự đổ màu: chưa có màu');
-    await H.locator('.tab[data-tab="mausac"]').click();
+    await theSau(H, 'mausac');
     await H.locator('[data-ui="vl-tudong"]').check();
     await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({}, TU, { ma: 'G7', rong: 1300 }));
     await H.locator('.tab[data-tab="tu"]').click();
@@ -346,7 +351,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     ok(/Đã giữ màu của tủ cũ: thùng \d+ tấm → 388EV/.test(kqm) && !/Đã tự đổ màu/.test(kqm) && /Hồi trái/.test(m['388EV/MDF/MDF/388EV'] || '') && m['103T/MDF/MDF/103T'] === 'Hậu', 'tủ đã có màu: cập nhật giữ màu của tủ (thùng 388EV, hậu 103T), không đổ đè theo ô dù đang bật tự đổ màu', [kqm.slice(0, 200), m]);
 
     console.log('— Mẫu kho vẽ vào khung cũng tự đổ màu theo các ô');
-    await H.locator('.tab[data-tab="mausac"]').click();
+    await theSau(H, 'mausac');
     await H.locator('[data-ui="vl-tudong"]').check();
     const truocKho = await page.evaluate(() => { window.__MOCK_KHO__ = { 9001: {} }; window.MNCF.phong.dat({ ten: 'P', cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], khung: [{ ten: 'TV', tuong: 0, cach: 0, rong: 1200, cao: 1000, sau: 350, z: 0, kieu: 'kho', kho: { id: 9001, ten: 'Tủ tivi 1' } }], goc: [30000, 0, 0] }); return window.MNCFDriver.all().length; });
     await H.locator('.tab[data-tab="phong"]').click();
@@ -373,7 +378,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     eq(await page.evaluate(async () => (await window.MNCFDriver.khoVatLieu({ lam_moi: true })).ds.length), 133, 'đọc lại kho cũ: 133 màu');
 
     console.log('— Tải lại trang: các ô màu, màu vừa dùng, lựa chọn tự đổ màu được nhớ');
-    const moLai = async () => { await page.reload(); await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCFDriver, null, { timeout: 15000 }); await H.locator('.launch').click(); await H.locator('.tab[data-tab="mausac"]').click(); await H.locator('.vlds .vlc').first().waitFor({ timeout: 10000 }); };
+    const moLai = async () => { await page.reload(); await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCFDriver, null, { timeout: 15000 }); await H.locator('.launch').click(); await theSau(H, 'mausac'); await H.locator('.vlds .vlc').first().waitFor({ timeout: 10000 }); };
     const trangThai = async () => ({ o: (await H.locator('.vlos .vlo').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').replace(' ✕', '').trim()), bat: await H.locator('.vlo.on').getAttribute('data-v'), tudong: await H.locator('[data-ui="vl-tudong"]').isChecked(), gan: (await H.locator('.vlgan .vlg').allInnerTexts()).map(t => t.trim()), anh: await H.locator('.vlo[data-v="thung"] img').count() ? await H.locator('.vlo[data-v="thung"] img').evaluate(i => i.getAttribute('src')) : '' });
     await moLai();
     eq(await trangThai(), { o: ['Thùng 103T', 'Cánh + phào LUX279PRL', 'Hậu như thùng'], bat: 'thung', tudong: true, gan: ['388EV', 'LUX279PRL', '103T'], anh: 'https://api.cfcad.cn/CAD/images/aa/thumbs/7000_100.jpg' }, 'mở lại trang: 3 ô, ô đang bật, ô tự đổ màu, dãy "Vừa dùng" như trước');

@@ -1169,7 +1169,7 @@
   const dongHopThoai = async () => { const d = hopThoai(); if (!d) return; const c = [...d.querySelectorAll('button')].find(b => /^(Cancel|取消|Huỷ|Hủy)$/i.test((b.textContent || '').trim())) || d.querySelector('.bp3-dialog-close-button'); if (c) { c.click(); await sleep(300); } };
   // Hạn chờ của các lệnh phòng (ms) — phép thử chỉnh thẳng vào D.CH. han_lenh: lệnh đã bắt đầu thì chờ lời nhắc đầu tiên tối đa chừng này; cho_bat_dau: không rõ Chenfeng đã nhận lệnh chưa thì chờ chừng này;
   // bao_cho: chờ quá chừng này thì nói cho người dùng biết đang chờ gì.
-  D.CH = { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000 };
+  D.CH = { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000, do_cach: 400 };
   // Vì sao lần moLenh gần nhất không mở được lệnh: '' | 'hop_mo' (Chenfeng đang mở một hộp thoại — tên hộp ở lenhBan; chưa gửi gì) | 'ban' (Chenfeng đang chạy dở một lệnh khác — tên ở lenhBan)
   // | 'khong_bat_dau' (Chenfeng không nhận lệnh — lời nó báo, nếu có, ở lenhBao) | 'het' (Chenfeng nhận lệnh rồi tự kết thúc, không hỏi gì) | 'qua_han' (lệnh đã bắt đầu, quá hạn vẫn chưa hỏi — đang chờ máy chủ)
   // | 'hop' (hộp thông số không nhận số)
@@ -1918,6 +1918,36 @@
     } catch (e) { if (het) throw new Error('Máy chủ Chenfeng không trả lời sau 60 giây (mạng tới Chenfeng đang chậm) — thử lại sau.'); throw e; }
     if (!j || (j.err_code !== 0 && j.err_code !== '0')) throw new Error('Chenfeng báo lỗi' + (j && j.err_msg ? ': ' + j.err_msg : '') + ' — kiểm tra đã đăng nhập chưa.');
     return j;
+  };
+  /**
+   * Đo mạng tới máy chủ Chenfeng (bản 1.27): một lượt làm nóng rồi `n` lượt hỏi CAD-dirQuery (chỉ ĐỌC) LẦN LƯỢT, cách nhau `D.CH.do_cach` ms, mỗi lượt chờ tối đa `han` ms.
+   * Máy chủ trả lời gì cũng tính là có trả lời (đo đường truyền, không đo việc đăng nhập); không trả lời / đứt kết nối = rớt. onBuoc(i, n) sau mỗi lượt.
+   * Đã đo trên máy xưởng (05/10/2026): lượt đầu phải mở kết nối (bắt tay TCP + TLS = thêm 2 – 3 lượt đi về) nên KHÔNG tính; các lượt sau cách nhau dưới một giây thì dùng lại kết nối đó
+   * (để quá vài giây máy chủ đóng kết nối — mỗi lượt lại thành lượt mở kết nối, số đo sai). Mất liền 3 lượt (kể cả lượt làm nóng) = đường đứt → dừng, khỏi bắt chờ đủ `n` lượt × `han`.
+   * Trả { ms: [thời gian từng lượt có trả lời], rot, n: số lượt đã đo, dut }.
+   */
+  D.doMang = async (n, han, onBuoc) => {
+    n = n || 20; han = han || 8000;
+    const mot = async () => {
+      const ac = typeof AbortController === 'function' ? new AbortController() : null, t0 = Date.now(); let co = false;
+      try {
+        co = await Promise.race([
+          root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined }).then(async r => { await r.text(); return true; }),
+          sleep(han).then(() => false)]);
+      } catch (e) { co = false; }
+      if (co) return Date.now() - t0;
+      if (ac) { try { ac.abort(); } catch (e) { /* bỏ qua */ } }
+      return -1;
+    };
+    const ms = []; let rot = 0, da = 0, dut = false, lien = (await mot()) < 0 ? 1 : 0;
+    while (da < n && !dut) {
+      await sleep(D.CH.do_cach);
+      const t = await mot(); da++;
+      if (t < 0) { rot++; lien++; } else { ms.push(t); lien = 0; }
+      if (onBuoc) { try { onBuoc(da, n); } catch (e) { /* bỏ qua */ } }
+      if (lien >= 3) dut = true;
+    }
+    return { ms, rot, n: da, dut };
   };
   const inflate = async b64 => { const bin = Uint8Array.from(root.atob(b64), c => c.charCodeAt(0)); return await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate'))).text(); };
   /** Các thư mục mẫu của tài khoản: [{id, ten, cha}] */
@@ -3411,6 +3441,26 @@
     return kq;
   };
 
+  /**
+   * (bản 1.27) Đổi góc nhìn của Chenfeng rồi thu phóng vừa bản vẽ. Đã đo 05/10/2026: SWISO (nhìn 3D từ tây nam, hướng nhìn 0,58 · 0,58 · −0,58) và TOPVIEW (nhìn từ trên) là lệnh
+   * "trong suốt" — không ghi dòng lệnh, không vào lịch sử, không đổi bản vẽ. Chenfeng đang hỏi dở / đang mở hộp thoại / còn lệnh trễ đang chờ thì không gửi (chữ gửi vào sẽ thành câu trả lời cho lệnh đó).
+   */
+  // Lệnh đổi góc nhìn của Chenfeng "trong suốt" (đã đo): không ghi dòng lệnh, không phát sự kiện kết thúc → muốn biết Chenfeng có nhận không thì xem CHÍNH góc nhìn
+  // (app.Viewer.CameraControl.Direction; SWISO = nhìn từ tây nam xuống (1, 1, −1), TOPVIEW = (0, 0, −1)). Chenfeng đang chạy dở lệnh khác thì chữ gửi vào bị lệnh đó nuốt, góc nhìn không đổi:
+  // trả false, không gửi tiếp lệnh thu phóng.
+  const HUONG_NHIN = { SWISO: [1, 1, -1], TOPVIEW: [0, 0, -1] };
+  const dungHuong = lenh => { try { const d = root.app.Viewer.CameraControl.Direction, h = HUONG_NHIN[lenh]; return (d.x * h[0] + d.y * h[1] + d.z * h[2]) / (Math.hypot(h[0], h[1], h[2]) * Math.hypot(d.x, d.y, d.z)) > 0.99; } catch (e) { return false; } };
+  const doiNhin = async lenh => {
+    try {
+      if (!D.available() || D.busy() || hopThoai() || (lenhTre && !lenhTre.xong)) return false;
+      await guiLenh(lenh);
+      for (let i = 0; i < 10 && !dungHuong(lenh); i++) await sleep(100);
+      if (!dungHuong(lenh)) return false;
+      await guiLenh('ZOOME'); return true;
+    } catch (e) { return false; }
+  };
+  D.xem3D = () => doiNhin('SWISO');
+  D.nhinTren = () => doiNhin('TOPVIEW');
   // lệnh của bảng bị bỏ dở còn đang chờ máy chủ (lenhTre) thì thôi không gửi ZOOME: Chenfeng đang chạy dở lệnh đó nên chữ gửi vào chỉ rơi mất — hoặc tệ hơn, thành câu trả lời cho lời nhắc vừa hiện ra của nó
   D.zoom = () => { try { if (lenhTre && !lenhTre.xong) return; D.cmd('ZOOME'); } catch (e) { /* bỏ qua */ } };
   D.undo = async (steps) => { for (let i = 0; i < (steps || 1); i++) { try { if (D.busy()) await D.cancel(); await guiLenh('UNDO'); } catch (e) { /* bỏ qua */ } await sleep(400); await D.settle(600, 20000); } };

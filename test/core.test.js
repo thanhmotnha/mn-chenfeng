@@ -1170,5 +1170,36 @@ T('Khấu cột: suốt treo của khoang dính cột vẫn nằm giữa chiều
   ok(M3.warnings.some(w => /^Khoang 1: hộp che cột chiếm 265 trong 941 bề ngang/.test(w) && /còn 676/.test(w)) && !M3.warnings.some(w => /khoang treo chỉ sâu/.test(w)), '… nhắc khoang 1 mất 265 bề ngang treo, còn 676', M3.warnings);
 });
 
+// Bản 1.27 — ĐO MẠNG tới Chenfeng (anh Thanh 05/10/2026 20:14 "làm sao hết lag nhỉ", 21:56 "làm sao để máy chủ ổn định được"). Đã đo trên máy anh (22:05 – 22:15): mạng trong nước + Google 0,04 s đều;
+// riêng đường tới Chenfeng mỗi lượt 0,29 s và RỚT GÓI từng đợt — lượt bị rớt một gói chậm thành 0,65 – 0,7 s, hai gói 1,1 – 1,5 s, ba gói 3 s (TCP gửi lại, giãn gấp đôi), có lúc đứt 10 – 20 giây.
+// Vì thế "tốt / kém" tính theo SỐ LƯỢT chậm hoặc rớt trong cả loạt đo (con số để so các đường VPN), không theo thời gian trung bình.
+T('Đo mạng: xếp loại theo số lượt chậm hoặc rớt (bản 1.27)', () => {
+  const C = require('../src/mncf-core.js');
+  const lap = (n, v) => Array.from({ length: n }, () => v);
+  const dg = (ms, rot, them) => { const r = C.danhGiaMang(Object.assign({ ms, rot: rot || 0, n: ms.length + (rot || 0) }, them || {})); return [r.muc, r.x, r.n, r.nhanh, r.cham]; };
+  eq(dg(lap(20, 300)), ['tot', 0, 20, 300, 300], '20 lượt đều 0,3 s: tốt, 0/20');
+  eq(dg(lap(19, 300).concat([700])), ['tot', 1, 20, 300, 700], 'một lượt chậm trong 20 (không rớt): vẫn tốt');
+  eq(dg(lap(18, 300).concat([700, 3100])), ['tam', 2, 20, 300, 3100], 'hai lượt chậm: tạm được');
+  eq(dg(lap(16, 300).concat([700, 700, 1500, 3100])), ['tam', 4, 20, 300, 3100], 'bốn lượt chậm trong 20: còn tạm được');
+  eq(dg(lap(15, 300).concat([700, 700, 700, 1500, 3100])), ['kem', 5, 20, 300, 3100], 'năm lượt chậm trong 20: kém');
+  eq(dg(lap(19, 300), 1), ['tam', 1, 20, 300, 300], 'một lượt RỚT hẳn: không còn là tốt (tạm được)');
+  eq(dg(lap(18, 300), 2), ['kem', 2, 20, 300, 300], 'hai lượt rớt hẳn: kém');
+  // ngưỡng "chậm" = hơn gấp đôi lượt bình thường VÀ hơn nửa giây (lượt bình thường = mốc 1/4 dưới của các lượt có trả lời — rớt gói nhiều thì số giữa cũng đã là lượt chậm)
+  eq([dg(lap(19, 300).concat([600]))[1], dg(lap(19, 300).concat([610]))[1]], [0, 1], 'đường 0,3 s: lượt 0,6 s chưa tính là chậm, 0,61 s thì tính');
+  eq([dg(lap(19, 40).concat([500]))[1], dg(lap(19, 40).concat([510]))[1]], [0, 1], 'đường nhanh 0,04 s: dưới nửa giây không tính là chậm');
+  eq([dg(lap(19, 1000).concat([2000]))[1], dg(lap(19, 1000).concat([2100]))[1]], [0, 1], 'đường 1 s: chậm là hơn 2 s');
+  eq(dg(lap(8, 300).concat(lap(12, 700)))[3], 300, 'hơn nửa số lượt bị chậm: "bình thường" vẫn là 0,3 s (không lấy số giữa)');
+  eq(dg(lap(8, 300).concat(lap(12, 700))).slice(0, 2), ['kem', 12], '… và xếp loại kém, 12/20');
+  // đường quá xa: không lượt nào chậm bất thường nhưng lượt nào cũng lâu
+  eq([dg(lap(20, 1400))[0], dg(lap(20, 1500))[0], dg(lap(20, 2900))[0], dg(lap(20, 3000))[0]], ['tot', 'tam', 'tam', 'kem'], 'lượt bình thường từ 1,5 s: cao nhất là tạm được; từ 3 s: kém');
+  eq(dg(lap(10, 1600).concat(lap(10, 4000))).slice(0, 2), ['kem', 10], '… đường xa mà còn rớt gói nhiều: vẫn là kém (mốc 1,5 s chỉ hạ "tốt" xuống "tạm được", không nâng "kém" lên)');
+  // đo ngắn hơn (bị dừng sớm) vẫn xếp theo TỈ LỆ: tốt ≤ 5 %, tạm được ≤ 20 %
+  eq([dg(lap(9, 300).concat([700]))[0], dg(lap(8, 300).concat([700, 700]))[0], dg(lap(7, 300).concat([700, 700, 700]))[0]], ['tam', 'tam', 'kem'], '10 lượt: 1 – 2 lượt chậm là tạm được, 3 lượt là kém');
+  eq([dg([], 3, { dut: true })[0], dg([], 20)[0], dg(lap(2, 300), 3, { dut: true })[0]], ['dut', 'dut', 'dut'], 'không lượt nào trả lời, hoặc 3 lượt liền không trả lời (đã dừng sớm): đứt');
+  eq(C.danhGiaMang(null).muc, 'dut', 'không có số đo: coi như đứt, không ném lỗi');
+  // loạt đo thật trên máy anh 05/10 22:12 (20 lượt đầu, 1 lượt rớt): kém
+  eq(dg([533, 314, 314, 5572, 308, 310, 309, 883, 1462, 292, 290, 289, 902, 301, 301, 302, 304, 1336, 1607], 1), ['kem', 7, 20, 301, 5572], 'loạt đo thật tối 05/10: 7/20 lượt chậm hoặc rớt → kém');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

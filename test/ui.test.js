@@ -8,6 +8,8 @@ let pass = 0, fail = 0;
 const ok = (c, name, extra) => { if (c) pass++; else { fail++; console.log('  ✗', name, extra === undefined ? '' : JSON.stringify(extra)); } };
 const near = (a, b, tol = 0.06) => Math.abs(a - b) <= tol;
 
+// thẻ nằm sau nút ⚙ (bản 1.27 — Màu, Chuẩn xưởng, Hướng dẫn): hàng thẻ phụ chưa mở thì bấm ⚙ trước rồi mới bấm thẻ
+const theSau = async (H, t) => { const tab = H.locator('.tab[data-tab="' + t + '"]'); if (!(await tab.isVisible())) await H.locator('[data-act="the-them"]').click(); await tab.click(); };
 const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
   { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
   { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] } ] };
@@ -40,7 +42,29 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.26\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.27\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
+  // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
+  {
+    const theHien = () => page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('header .tab')].filter(b => b.getClientRects().length > 0).map(b => b.dataset.tab || b.dataset.act).join(' '));
+    ok((await theHien()) === 'tu phong kq the-them', 'hàng thẻ: Tủ · Phòng · Kết quả · ⚙', await theHien());
+    await S(page, '[data-act="the-them"]').click();
+    ok((await theHien()) === 'tu phong kq the-them chuan hd', 'bấm ⚙: thêm hàng thẻ phụ Chuẩn xưởng · Hướng dẫn (trang độc lập không có Màu, Đo mạng)', await theHien());
+    await S(page, '.tab[data-tab="hd"]').click();
+    ok(await S(page, '.pane[data-pane="hd"]').isVisible() && (await S(page, '.pane[data-pane="hd"] .sum li').first().isVisible()), 'thẻ Hướng dẫn: chữ vẫn hiện đủ (ít chữ không áp vào thẻ này)');
+    await S(page, '.tab[data-tab="tu"]').click();
+    ok((await theHien()) === 'tu phong kq the-them', 'về thẻ Tủ: hàng thẻ phụ gọn lại', await theHien());
+    const chu = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, v = e => !!e && e.getClientRects().length > 0, p = r.querySelector('.pane[data-pane="tu"]');
+      return [[...p.querySelectorAll('.hint:not(.tt)')].filter(v).length > 0, v(p.querySelector('.legend')), v(p.querySelector('.sum')), v(p.querySelector('[data-ui="mau-mota"]')), r.querySelector('[data-act="chu"]').getAttribute('aria-pressed'), localStorage.getItem('mncf.ui.chu')]; });
+    ok(JSON.stringify(await chu()) === '[false,false,false,true,"false",null]', 'mặc định ÍT CHỮ: không hiện chữ hướng dẫn, chú giải màu, dòng mô tả tủ — dòng mô tả của mẫu đang chọn thì vẫn hiện', await chu());
+    await S(page, '[data-act="chu"]').click();
+    ok(JSON.stringify(await chu()) === '[true,true,true,true,"true","1"]', 'bấm "?": hiện lại đủ chữ, máy nhớ', await chu());
+    await page.reload();
+    await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCF.app.getModel());
+    ok(JSON.stringify(await chu()) === '[true,true,true,true,"true","1"]', 'mở lại trang: vẫn hiện chữ như lần trước đã chọn', await chu());
+    await S(page, '[data-act="chu"]').click();
+    ok(JSON.stringify(await chu()) === '[false,false,false,true,"false","0"]', 'bấm "?" lần nữa: ít chữ lại', await chu());
+  }
   let m = await page.evaluate(inPage.model);
   ok(m.errors.length === 0 && m.parts === 71, 'tủ mẫu dựng 71 tấm (2 thùng rời: thêm 2 hồi; có xà + nẹp che khe hộc ngăn kéo), không lỗi', m.parts);
   // bộ mẫu tủ áo: chọn mẫu → bấm Dùng mẫu → kích thước, khoang đổi theo; Chuẩn xưởng giữ nguyên
@@ -254,7 +278,7 @@ async function testPage(browser) {
 
   /* 12. tab Chuẩn xưởng: vách đệm + bảng các loại ngăn kéo */
   await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
-  await S(page, '.tab[data-tab="chuan"]').click();
+  await theSau(page.locator('#mncf-host'), 'chuan');
   ok((await S(page, '#mncf-ngan_keo-dem').inputValue()) === '50', 'Chuẩn xưởng có ô "vách đệm tránh bản lề" = 50');
   ok((await S(page, '.lkr').count()) === 11 && (await S(page, '#mncf-lk0-id').inputValue()) === '20216239' && (await S(page, '#mncf-lk0-ts').inputValue()) === 'GD=13; LC=0; SLK=30; XLK=30' && await S(page, '#mncf-lk0-md').isChecked(), 'bảng 11 loại ngăn kéo: mã mẫu, tham số riêng, loại mặc định');
   ok(!(await S(page, '[data-act="lk-do"]').count()), 'trang độc lập không có nút dò kho mẫu (chỉ có trong Chenfeng)');
@@ -327,7 +351,7 @@ async function testOldSaved(browser) {
   ok(sp.hau.kieu === 'phu' && h.length === 4 && h.every(x => x[0] === 6 && x[1] === 574 && x[2] === 580 && x[3] === '不排'), 'thông số bản cũ → hậu 6 li phủ sau lưng thùng', [sp.hau, h]);
   ok(/Hậu đã đổi sang chuẩn xưởng mới/.test(await page.evaluate(inPage.status)), 'có dòng báo hậu đã đổi sang chuẩn mới', await page.evaluate(inPage.status));
   // người dùng chủ động chọn lại hậu dày ở bản 1.3 → lần mở sau phải giữ, không tự đổi lần nữa
-  await S(page, '.tab[data-tab="chuan"]').click();
+  await theSau(page.locator('#mncf-host'), 'chuan');
   await S(page, '#mncf-hau-kieu').selectOption('day'); await page.waitForTimeout(350);
   await page.reload();
   await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCF.app.getModel());
@@ -344,7 +368,7 @@ async function testHau(browser) {
   await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
   let h = await hau();
   ok(h.length === 4 && h.every(x => x[0] === 6 && x[1] === 574 && x[2] === 580 && x[3] === '不排'), 'mặc định: 4 tấm hậu 6 li nằm sau thùng, không khoan', h);
-  await S(page, '.tab[data-tab="chuan"]').click();
+  await theSau(page.locator('#mncf-host'), 'chuan');
   ok((await S(page, '#mncf-hau-kieu').inputValue()) === 'phu' && (await S(page, '#mncf-hau-t').inputValue()) === '6' && (await S(page, '#mncf-hau-mep').inputValue()) === '1' && (await S(page, '#mncf-hau-chia').inputValue()) === 'khoang', 'Chuẩn xưởng → Hậu: kiểu phủ, dày 6, mép lùi 1, mỗi khoang 1 tấm');
   ok((await S(page, '#mncf-hau-lui').count()) === 0 && (await S(page, '#mncf-hau-ranh_sau').count()) === 0, 'các ô của hậu soi rãnh ẩn khi đang chọn hậu phủ');
   await S(page, '#mncf-hau-kieu').selectOption('day'); await page.waitForTimeout(350);
@@ -414,7 +438,7 @@ async function testPhieu(browser) {
   ok((await S(page, '.msgs .msg.warn').count()) === 2, '2 dòng cảnh báo vàng (mỗi khoang một dòng)');
   ok(await S(page, '.pri[data-act="json"]').isEnabled(), 'cảnh báo không khoá nút xuất file');
   // nâng ngưỡng ở Chuẩn xưởng → hết cảnh báo; máy tự nhớ như các số chuẩn khác
-  await S(page, '.tab[data-tab="chuan"]').click();
+  await theSau(page.locator('#mncf-host'), 'chuan');
   ok((await S(page, 'input[data-k="kiem.dot_max"]').inputValue()) === '1000', 'Chuẩn xưởng có ô ngưỡng nhịp đợt, mặc định 1000');
   for (const k of ['kiem.canh_cao_max', 'kiem.nk_rong_max', 'kiem.suot_sau_min', 'kiem.tran']) ok((await S(page, `input[data-k="${k}"]`).count()) === 1, 'có ô ' + k);
   await S(page, 'input[data-k="kiem.dot_max"]').fill('1200'); await S(page, 'input[data-k="kiem.dot_max"]').blur();

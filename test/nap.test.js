@@ -1,6 +1,8 @@
 'use strict';
 // Kiểm tra BỘ NẠP của tiện ích (src/mncf-nap.js → dist/extension/nap.js): tự lấy bản mới từ kho GitHub, cất vào máy, dự phòng khi mất mạng.
 //   NODE_PATH=<node_modules có playwright> PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node test/nap.test.js
+// thẻ nằm sau nút ⚙ (bản 1.27 — Màu, Chuẩn xưởng, Hướng dẫn): hàng thẻ phụ chưa mở thì bấm ⚙ trước rồi mới bấm thẻ
+const theSau = async (H, t) => { const tab = H.locator('.tab[data-tab="' + t + '"]'); if (!(await tab.isVisible())) await H.locator('[data-act="the-them"]').click(); await tab.click(); };
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
 const { chromium } = require('playwright');
 const EXT = path.join(__dirname, '..', 'dist', 'extension');
@@ -87,7 +89,7 @@ const GOC = { tt: { phien_ban: V, sha256: sha(BAN) }, ban: BAN };
     /* --- 8. thẻ Hướng dẫn có khung "Cập nhật tự động" --- */
     T.kho.raw = banMoi('9.9.11');
     await T.page.waitForFunction(() => window.MNCF && window.MNCF.app, null, { timeout: 15000 });
-    const H = T.page.locator('#mncf-host'); await H.locator('.launch').click(); await H.locator('[data-tab="hd"]').click();
+    const H = T.page.locator('#mncf-host'); await H.locator('.launch').click(); await theSau(H, 'hd');
     const kh = await H.locator('fieldset', { hasText: 'Cập nhật tự động' }).innerText();
     ok(/Đang chạy: v9\.9\.10/.test(kh) && /đã cất trong máy/.test(kh), 'thẻ Hướng dẫn ghi bản đang chạy và nguồn nạp', kh);
     await H.locator('[data-act="nap-kt"]').click();

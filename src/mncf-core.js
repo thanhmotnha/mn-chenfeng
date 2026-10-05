@@ -12,7 +12,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.26.1';
+  const VERSION = '1.27.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -1411,6 +1411,19 @@
     return dau.concat(giua);
   }
 
+  /** Xếp loại một loạt đo mạng tới Chenfeng (bản 1.27). r = { ms: [thời gian các lượt CÓ trả lời], rot: số lượt không trả lời, n: tổng số lượt, dut?: đã dừng sớm vì mất liền mấy lượt }.
+   *  Đo thật (05/10/2026): đường tới Chenfeng không chậm đều mà RỚT GÓI từng đợt — lượt mất một gói lâu gấp đôi trở lên (TCP gửi lại), còn các lượt khác vẫn nhanh như thường. Số giữa vì thế không nói lên gì
+   *  (và khi rớt nhiều thì chính số giữa đã là lượt chậm): mốc "bình thường" lấy ở 1/4 dưới, "chậm" = hơn gấp đôi mốc đó và hơn nửa giây, xếp loại theo TỈ LỆ lượt chậm hoặc rớt — con số để so hai đường mạng.
+   *  Trả { muc: 'tot' | 'tam' | 'kem' | 'dut', x: số lượt chậm hoặc rớt, n, nhanh, cham, tre, rot }. */
+  function danhGiaMang(r) {
+    const a = ((r && r.ms) || []).filter(v => v >= 0).sort((p, q) => p - q), rot = (r && r.rot) || 0, n = (r && r.n) || a.length + rot;
+    if (!a.length || (r && r.dut)) return { muc: 'dut', x: rot, n, nhanh: a.length ? a[0] : 0, cham: a.length ? a[a.length - 1] : 0, tre: 0, rot };
+    const nhanh = a[Math.floor((a.length - 1) / 4)], cham = a[a.length - 1], nguong = Math.max(500, 2 * nhanh), tre = a.filter(v => v > nguong).length, x = tre + rot;
+    let muc = x * 20 <= n && !rot ? 'tot' : x * 5 <= n && rot * 20 <= n ? 'tam' : 'kem';
+    if (nhanh >= 3000) muc = 'kem'; else if (nhanh >= 1500 && muc === 'tot') muc = 'tam';      // đường quá xa: lượt nào cũng lâu
+    return { muc, x, n, nhanh, cham, tre, rot };
+  }
+
   /* ------------------------------------------------------------------ *
    * XUẤT CHO CHENFENG (晨丰导入)
    * ------------------------------------------------------------------ */
@@ -2138,5 +2151,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang };
 });
