@@ -354,7 +354,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     eq(kqNK, [], 'tủ không có bước ngăn kéo: không có dòng đó');
 
     await H.locator('.tab', { hasText: 'Hướng dẫn' }).click();
-    const hd = await H.locator('.sum li', { hasText: 'bản 1.26' }).allInnerTexts();
+    const hd = await H.locator('.sum li', { hasText: 'bản 1.26:' }).allInnerTexts();      // (mục Khấu cột có nhắc "bản 1.26.1" — không phải mục này)
     ok(hd.length === 1 && /Ngăn kéo vẽ bằng lệnh ngăn kéo của Chenfeng/.test(hd[0]) && /Drawer Design/.test(hd[0]) && /chèn mẫu/.test(hd[0]), 'thẻ Hướng dẫn có mục của bản 1.26 về ngăn kéo lệnh gốc', hd);
     ok(hd.length === 1 && !/không chia đều/.test(hd[0]) && /mặt cao khác nhau/.test(hd[0]), '… mặt ngăn kéo cao khác nhau không còn nằm trong danh sách "chưa vẽ được" (bảng khoá cao từng ô)', hd);
 

@@ -109,6 +109,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok(mod.con.length === 4 && mod.con.every(c => c.cha && !c.pos) && mod.con.filter(c => /_L\*0\.5/.test(c.L)).length === 4, '2 hộp ngăn kéo + 2 suốt treo thành mẫu con, rộng bám theo _L', mod.con);
     ok(JSON.stringify(mod.dims) === '[2000,597.5,2800]' && mod.capNhat >= 1, 'kích thước module = phủ bì tủ (2000 × 597,5 × 2800)', mod.dims);
     ok(/Tủ đã là module tham số của Chenfeng/.test(await H.locator('.report .mod').innerText()), 'báo cáo nói rõ cách sửa ngay trong ô Thông số của Chenfeng');
+    ok(/L \(rộng\) \/ W \(sâu\) \/ H \(cao\)/.test(await H.locator('.report .mod').innerText()) && !/Riêng /.test(await H.locator('.report .mod').innerText()), 'tủ thường: cả L / W / H đều đổi được ở ô Thông số, không có câu "Riêng … chỉ để xem"', await H.locator('.report .mod').innerText());
     ok(JSON.stringify(rep.dem) === JSON.stringify([[6041.5, 6059, 30, 591.5, 67.5, 520], [6882.5, 6900, 30, 591.5, 67.5, 520]]), '2 vách đệm nằm đúng chỗ (đã cộng độ dời)', rep.dem);
     // hậu chuẩn xưởng: 4 tấm 6 li nằm sau thùng (y 574…580 + độ dời 17,5), không có lỗ khoan nào
     ok(JSON.stringify(rep.hau) === JSON.stringify([[6, 5051, 6000, 591.5, 597.5, 51, 2199], [6, 6000, 6949, 591.5, 597.5, 51, 2199], [6, 5051, 6000, 591.5, 597.5, 2201, 2749], [6, 6000, 6949, 591.5, 597.5, 2201, 2749]]) && rep.loHau === 0, 'hậu 6 li phủ sau lưng thùng: đúng chỗ, không lỗ khoan', [rep.hau, rep.loHau]);
@@ -331,8 +332,51 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok(kg.chuU.length >= 4 && kg.chuU.includes('Đáy') && kg.chuU.includes('Nóc') && kg.chuU.includes('Đợt'), 'đáy, nóc, đợt của khoang có cột là tấm chữ U 8 đỉnh', kg.chuU);
     ok(kg.dinh && kg.dinh.some(q => Math.abs(q[0] - 322.5) < 0.6 && Math.abs(q[1] - 352.5) < 0.6) && kg.dinh.some(q => Math.abs(q[0] - 627.5) < 0.6 && Math.abs(q[1] - 352.5) < 0.6), 'góc lõm chữ U đúng chỗ: x 322,5 và 627,5 (mặt ngoài 2 vách khấu), sâu 352,5 (mặt trước hậu khấu ván thùng)', kg.dinh);
     ok(kg.vach.length === 4 && kg.hauK.length === 2 && kg.hauK.every(h => h[0] === 70340 && h[1] === 70610), '2 thân × 2 vách khấu; hậu khấu trước mặt cột 340 … 610', [kg.vach, kg.hauK]);
+    // bản 1.26.1 — tủ có cột giữa: ô Rộng (L) của module CHỈ ĐỂ XEM. Cột đứng yên còn khoang chia lại nên vách khấu / hậu khấu không chạy đều theo L
+    // (đo trên Chenfeng thật 05/10/2026: tủ 3000 cột cách 1000, gõ L 3000 → 2900 thì vách khấu còn cách vách khoang 2,09 — thiết kế cần 30; đã đo luôn: tham số L không còn hành động nào
+    // và mẫu con không bám _L thì gõ L mới không tấm nào chạy, Chenfeng không báo lỗi). Hành động mặc định của lệnh MODELING cũng phải gỡ (nó kéo thô: cánh không giãn).
+    const km = await page.evaluate(() => { const D = window.MNCFDriver, tag = D.last.added.filter(D.isBoard).filter(D.tagOf), T = tag[0].Template.Object, P = n => T.GetParam(n);
+      return { hd: [P('L').actions.length, P('W').actions.length > 0, P('H').actions.length > 0], moTa: ['L', 'W', 'H'].map(n => P(n).description),
+        con: T.Children.map(c => c.Object).map(c => c.Params.map(p => String(p.expr == null ? '' : p.expr)).filter(Boolean).join(' | ')), dims: D.moduleDims(tag[0]) }; });
+    ok(JSON.stringify(km.hd) === '[0,true,true]', 'tủ có cột giữa: tham số L của module không còn hành động nào (kể cả hành động mặc định của MODELING); W / H vẫn co giãn', km.hd);
+    ok(/chỉ xem/.test(km.moTa[0]) && /cột giữa/.test(km.moTa[0]) && /bảng Một Nhà/.test(km.moTa[0]) && km.moTa[1] === 'Sâu phủ bì (cả cánh)' && km.moTa[2] === 'Cao phủ bì', 'ô ghi chú của L trong bảng Thông số nói ngay tại chỗ: chỉ xem, tủ có cột giữa, đổi ở bảng', km.moTa);
+    ok(km.con.length === 4 && km.con.every(c => !/_L\b/.test(c)) && km.con.filter(c => /_W\b/.test(c)).length === 4, 'hộp ngăn kéo / suốt treo (mẫu con) không bám theo _L nữa — cả 4 vẫn bám _W', km.con);
+    ok(JSON.stringify(km.dims) === '[2000,597.5,2800]', 'kích thước module vẫn là phủ bì tủ', km.dims);
+    // người dùng vẫn gõ số mới vào ô L đã khoá rồi Apply (bản thật, đo 05/10/2026: ô nhận số mới, không tấm nào chạy) → số đó KHÔNG phải bề rộng thật của tủ:
+    // "Sửa tủ đang chọn" / "Cập nhật tủ này" phải dò tủ theo kích thước lúc vẽ. Tham số không khoá (W) đổi ở module thì vẫn lấy theo module như trước.
+    const kl = await page.evaluate(() => { const D = window.MNCFDriver, C = window.MNCFCore, tag = D.last.added.filter(D.isBoard).filter(D.tagOf), T = tag[0].Template.Object, s = C.normalize(D.last.M.spec);
+      const gan = (n, v, e) => { const p = T.GetParam(n); p.expr = e === undefined ? String(v) : e; p.value = v; };
+      gan('L', 2100); const chiL = D.specTheoModule(s, tag[0]);
+      gan('W', 647.5); const caW = D.specTheoModule(s, tag[0]);
+      gan('W', 597.5, ''); gan('L', 2000, '');
+      return { chiL: chiL && [chiL.rong, chiL.sau_thung, chiL.cao], caW: caW && [caW.rong, caW.sau_thung, caW.cao], sau: D.specTheoModule(s, tag[0]) }; });
+    ok(kl.chiL === null && JSON.stringify(kl.caW) === '[2000,630,2800]' && kl.sau === null, 'gõ L mới vào ô đã khoá: bảng không coi đó là bề rộng thật của tủ; W (không khoá) đổi ở module thì vẫn lấy theo module — sâu thùng 580 → 630, rộng giữ 2000', kl);
+    const rgm = await H.locator('.report .mod').innerText();
+    ok(/Riêng Rộng \(L\) chỉ để xem/.test(rgm) && /cột giữa/.test(rgm) && /Cập nhật tủ này/.test(rgm) && /W \(sâu\) \/ H \(cao\)/.test(rgm) && !/L \(rộng\) \/ W \(sâu\)/.test(rgm), 'thẻ Kết quả nói rõ: ở ô Thông số chỉ đổi được Sâu / Cao; Rộng thì sửa ở bảng rồi bấm Cập nhật', rgm);
     await H.locator('[data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+    // … kích thước nào module không co giãn đều được vì lý do KHÁC cũng khoá y như vậy (ở đây: mọi khoang đều rộng cố định → đổi Rộng là thiết kế hỏng), không để hành động mặc định của MODELING kéo thô
+    const kc = await page.evaluate(async () => {
+      const r = await window.MNCF.draw({ ma: 'TC1', rong: 1000, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ rong: 400, canh: 1, dot: [800], o: [] }, { rong: 447.5, canh: 1, dot: [800], o: [] }] }, { at: [80000, 0, 0] });
+      const D = window.MNCFDriver, tag = D.last.added.filter(D.isBoard).filter(D.tagOf), T = tag[0].Template.Object;
+      const o = { ok: r.ok, loi: r.errors, khoa: r.module && r.module.khoa, bien: r.module && r.module.bien, hd: ['L', 'W', 'H'].map(n => T.GetParam(n).actions.length > 0), moTa: T.GetParam('L').description };
+      const u = await D.undoLast(); o.hoan_tac = !!(u && u.ok); return o; });
+    ok(kc.ok && JSON.stringify(kc.khoa) === JSON.stringify([{ ten: 'L', ly_do: 'khong_deu' }]) && JSON.stringify(kc.bien) === '["W","H"]' && JSON.stringify(kc.hd) === '[false,true,true]' && /chỉ xem/.test(kc.moTa) && /bảng Một Nhà/.test(kc.moTa) && !/cột giữa/.test(kc.moTa) && kc.hoan_tac,
+      'tủ mọi khoang rộng cố định: L của module bị khoá (lý do khong_deu, không nhắc cột giữa), W / H vẫn co giãn', kc);
+    // … "Cập nhật tủ này" khi ô L của module đang ghi số người dùng gõ vào (tủ thật vẫn rộng như lúc vẽ): vẫn tìm ra tủ cũ, bỏ nó, vẽ lại đúng bề rộng mới sửa ở BẢNG
+    const ku = await page.evaluate(async s => { const D = window.MNCFDriver, C = window.MNCFCore, n0 = D.all().length;
+      const r0 = await window.MNCF.draw(s, { at: [84000, 0, 0] }); if (!r0.ok) return { loi: r0.errors };
+      const tag = D.last.added.filter(D.isBoard).filter(D.tagOf), T = tag[0].Template.Object, id = D.last.id, cu = C.normalize(D.last.M.spec);
+      const p = T.GetParam('L'); p.expr = '2100'; p.value = 2100;
+      const q = await D.update(Object.assign({}, cu, { rong: 2100 }), { id, specCu: cu }, {});
+      const tag2 = q.giai_doan === 'xong' && D.last ? D.last.added.filter(D.isBoard).filter(D.tagOf) : [];
+      const o = { ok: q.ok, gd: q.giai_doan, loi: q.errors, khop: q.kiem_tra && [q.kiem_tra.so_tam_khop, q.kiem_tra.so_tam_thiet_ke], dims: tag2.length ? D.moduleDims(tag2[0]) : null, conCu: tag.filter(b => !b.IsErase).length };
+      if (q.giai_doan === 'xong') { const u = await D.undoLast(); o.hoan_tac = !!(u && u.ok); }
+      await D.undo(r0.so_buoc_hoan_tac); o.sach = D.all().length === n0; return o; }, Object.assign({}, TU_GIUA, { ma: 'TG2' }));
+    ok(ku.ok && ku.gd === 'xong' && ku.khop && ku.khop[0] === ku.khop[1] && JSON.stringify(ku.dims) === '[2100,597.5,2800]' && ku.conCu === 0 && ku.hoan_tac && ku.sach,
+      'tủ cột giữa mà ô L của module đang ghi số gõ tay: “Cập nhật tủ này” vẫn tìm ra tủ cũ và vẽ lại đúng rộng 2100 (hoàn tác được, bản vẽ sạch lại)', ku);
+    const hdK = await page.evaluate(() => { const li = [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('[data-pane="hd"] li')].find(x => /^Khấu cột/.test(x.textContent.trim())); return li ? li.textContent : ''; });
+    ok(/Rộng \(L\)[^.]*chỉ để xem/.test(hdK) && /1\.26\.1/.test(hdK) && /Cập nhật tủ này/.test(hdK) && /Sâu \/ Cao vẫn đổi được/.test(hdK), 'hướng dẫn, mục Khấu cột: tủ có cột giữa thì Rộng (L) của module chỉ để xem, đổi ở bảng', hdK.slice(-420));
     await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
 
     /* --- bản 1.23 — TẤM TRƯỚC, MẪU SAU (anh Jason 04/10/2026 22:57: "vẽ tủ vẫn trục trặc, làm sao phải liên kết máy chủ, vẽ bằng những cái có sẵn đi").

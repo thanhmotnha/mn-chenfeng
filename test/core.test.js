@@ -634,6 +634,10 @@ T('Hệ số tuyến tính để dựng module tham số gốc của Chenfeng (h
   // đổi kích thước làm đổi số tấm (tủ cao hơn khổ ván → thêm thân trên) thì thử chiều ngược lại; không được thì trả null
   const thap = C0.heSo({ rong: 1000, cao: 2400, than: { cao_duoi: 0 }, khoang: [{ rong: 'auto', canh: 2, dot: [1200], o: [] }] });
   ok(thap.bien.H === null || thap.bien.H.sai_so <= 0.5, 'tủ sát ngưỡng khổ ván: H hoặc tuyến tính (thử Δ âm) hoặc bỏ', thap.bien.H && thap.bien.H.sai_so);
+  // bản 1.26.1: kích thước nào module không co giãn đúng được thì heSo nói rõ VÌ SAO (driver khoá tham số đó: chỉ để xem, đổi ở bảng)
+  eq(h4.ly_do, {}, 'tủ thường: cả 3 kích thước co giãn được → không có lý do nào');
+  const cd = C0.heSo({ rong: 1000, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ rong: 400, canh: 1, dot: [800], o: [] }, { rong: 447.5, canh: 1, dot: [800], o: [] }] });
+  eq([cd.M.errors, cd.bien.L, cd.ly_do, !!cd.bien.W, !!cd.bien.H], [[], null, { L: 'khong_deu' }, true, true], 'mọi khoang rộng cố định: đổi Rộng là thiết kế hỏng → không co giãn theo L (lý do khong_deu); W / H vẫn được');
   eq(C0.normalize({}).module_cf, true, 'mặc định: vẽ xong gom thành module Chenfeng'); eq(C0.normalize({ module_cf: false }).module_cf, false, 'tắt được');
 });
 
@@ -839,11 +843,31 @@ T('Khấu cột GIỮA tủ (bản 1.14 — anh Jason 03/10/2026: "tính pa kh�
   const H0 = B([], hep), xk = H0.info.x_khoang[1], Hh = B([{ cach: Math.round(xk) + 40, rong: 300, sau: 200 }], hep);
   eq([Hh.errors, Hh.info.khoang, Hh.info.khau.map(k => [k.xa, k.xb, k.co_a, k.co_b]), Hh.parts.filter(p => p.khau).length, P(Hh, 'VACH').length], [[], H0.info.khoang, [[xk, xk + 400, true, true]], 0, P(H0, 'VACH').length], 'cột chiếm gần hết một khoang hẹp: khoang đó thành khoang nông, không thêm vách');
   eq(C0.normalize({ khau: HO10({ giua: [{ cach: '300', rong: '250,5', sau: 200 }, {}, null] }) }).khau.giua, [{ cach: 300, rong: 250.5, sau: 200 }], 'chuẩn hoá: số kiểu Việt, bỏ dòng trống ở cuối');
-  // hệ số module tham số: cột đứng yên so với mép trái khi đổi Rộng; bề sâu vùng khoét giữ nguyên khi đổi Sâu
+  // hệ số module tham số — bản 1.26.1: tủ có cột GIỮA KHÔNG co giãn theo Rộng bằng module. Cột đứng yên còn khoang thì chia lại: vách khấu / hậu khấu lúc bám vách khoang
+  // (giữ cách vách ≥ 30), lúc bám mép cột → không có bộ hệ số tuyến tính nào đúng cả hai chiều. Đo trên Chenfeng thật 05/10/2026: tủ 3000 có cột cách 1000, đổi L 3000 → 2900
+  // ở ô Thông số thì vách khấu chỉ còn cách vách khoang 2,09 (thiết kế cần 30). Sâu / Cao thì vẫn co giãn đúng: bề sâu vùng khoét giữ nguyên, mép khoét đi theo lưng tủ.
   const hs = C0.heSo(C0.normalize(Object.assign({}, nen, { khau: HO10({ giua: [{ cach: 300, rong: 300, sau: 200 }] }) })));
   const iDay = M.parts.findIndex(p => p.khau);
-  ok(hs.bien.L && hs.bien.L.khau[iDay] && JSON.stringify(hs.bien.L.khau[iDay]) === '[[0,0]]', 'đổi Rộng: 2 mép khoét (theo x) đứng yên', hs.bien.L && hs.bien.L.khau[iDay]);
+  eq([hs.bien.L, hs.ly_do], [null, { L: 'cot_giua' }], 'tủ có cột giữa: không co giãn theo Rộng (lý do cot_giua)');
   ok(hs.bien.W && JSON.stringify(hs.bien.W.khau[iDay]) === '[[1,1]]', 'đổi Sâu: mép khoét đi theo lưng tủ (bề sâu phần khoét giữ nguyên)', hs.bien.W && hs.bien.W.khau[iDay]);
+  eq(C0.heSo(Object.assign({}, nen, { khau: HO10({ giua: [{ cach: 40, rong: 300, sau: 200 }] }) })).ly_do, { L: 'cot_giua' }, 'cột khai là cột giữa mà dính hồi (bảng khấu như cột góc): vẫn neo theo mép trái tủ → Rộng vẫn không co giãn');
+  eq(C0.heSo(Object.assign({}, nen, { khau: HO10({ trai: { rong: 300, sau: 200 }, phai: { rong: 300, sau: 200 } }) })).ly_do, {}, 'cột GÓC (trái / phải): cả 3 kích thước vẫn co giãn được');
+  // … còn Sâu / Cao của tủ có cột giữa: dự đoán theo hệ số = bản dựng lại, với cột ở nhiều chỗ (giữa khoang, sát vách, đè vách) trên tủ một thùng và tủ tách thùng
+  const hop6 = p => [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1];
+  let soThu = 0;
+  for (const [rong, cach] of [[2000, 300], [2000, 700], [2000, 850], [2000, 1000], [2000, 1500], [3000, 1000], [3000, 1700]]) {
+    const sp = C0.normalize(Object.assign({}, nen, { rong, thung: { rong_max: 2000 }, khoang: nen.khoang.concat(rong > 2000 ? [{ rong: 'auto', canh: 2, dot: [800], o: [] }] : []), khau: HO10({ giua: [{ cach, rong: 300, sau: 200 }] }) })), h = C0.heSo(sp);
+    eq([h.M.errors, h.bien.L, h.ly_do], [[], null, { L: 'cot_giua' }], `tủ ${rong}, cột giữa cách ${cach}: dựng được, Rộng không co giãn`);
+    for (const [ten, khoa, d] of [['W', 'sau_thung', 50], ['W', 'sau_thung', -50], ['H', 'cao', 100], ['H', 'cao', -100]]) {
+      const s2 = JSON.parse(JSON.stringify(sp)); s2[khoa] += d; s2.thung = Object.assign({}, s2.thung, { tach: h.M.info.tach });
+      const M2 = C0.build(s2);
+      if (M2.errors.length || M2.parts.length !== h.M.parts.length) continue;
+      const b = h.bien[ten], bb = C0.bbox(M2.parts), g2 = [bb.x0, bb.y0, bb.z0][b.truc];
+      let sai = 0; h.M.parts.forEach((p, i) => { for (const k of [0, 1]) sai = Math.max(sai, Math.abs((hop6(M2.parts[i])[b.truc * 2 + k] - g2) - ((hop6(p)[b.truc * 2 + k] - h.goc[b.truc]) + b.tam[i][k] * d))); });
+      soThu++; ok(sai <= 0.51, `tủ ${rong}, cột giữa cách ${cach}: ${ten} ${d > 0 ? '+' : ''}${d} → tấm theo hệ số khớp bản dựng lại (lệch ${sai.toFixed(2)})`, sai);
+    }
+  }
+  ok(soThu >= 20, 'đã thử Sâu / Cao trên đủ các tủ có cột giữa', soThu);
   // kết hợp cột góc + cột giữa, tủ tách thùng
   const T2 = C0.build({ rong: 3600, cao: 2400, sau_thung: 580, khau: HO10({ trai: { rong: 300, sau: 200 }, giua: [{ cach: 2000, rong: 250, sau: 150 }] }), khoang: [1, 2, 3, 4].map(() => ({ rong: 'auto', canh: 2, dot: [800], o: [] })) });
   ok(T2.errors.length === 0 && T2.info.khau.length === 2 && T2.info.khau.map(k => k.ben).join() === 'trai,giua', 'cột góc trái + cột giữa trên tủ 3600 tách thùng', [T2.errors, T2.info.khau]);

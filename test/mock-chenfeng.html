@@ -116,14 +116,30 @@
   // bản thật (đo 05/10/2026): app.CommandReactor._cmdName = tên lệnh BẮT ĐẦU gần nhất (lệnh xong rồi vẫn giữ tên đó cho tới khi lệnh khác bắt đầu)
   const prompt = (type, msg) => { prompts.push({ key: ++key, type, msg }); if (type === 'COMMAND' && window.app && window.app.CommandReactor) window.app.CommandReactor._cmdName = String(msg).replace(/^>/, ''); };
   const svc = { IsReady: false }, gesvc = { IsReady: false }, kwsvc = { IsReady: false, keywordList: [] };
-  let selection = [], holeCfg = null;
+  let selection = [], holeCfg = null, lanNhanLenh = 0;      // lanNhanLenh: lúc CommandStore.HandleInput nhận lệnh gần nhất (bản thật bỏ lệnh gõ cách lệnh trước chưa tới 88 ms)
+  // LỆNH PHÒNG CHỜ MÁY CHỦ trước lời nhắc đầu tiên — ĐÃ ĐO trên Chenfeng thật 05/10/2026 tối (bản 2026-9-29) + đọc mã:
+  //  (1) VẬT LIỆU MẶC ĐỊNH (InitWallMaterial): bản vẽ chưa có vật liệu sàn mặc định (Database.MaterialTable.CurFloorMtl) thì lệnh vẽ tường / mở lỗ (ngay đầu lệnh, TRƯỚC cả câu hỏi
+  //      "chuyển sang nhìn từ trên?") và lệnh vẽ dầm (sau khi bấm OK ở hộp thông số) CHỜ tải file vật liệu "瓷砖" từ kho file của Chenfeng rồi mới đi tiếp; tải xong hiện 2 dòng báo
+  //      (loại SUCCESS) "đã tạo vật liệu sàn / tường mặc định". Lệnh vẽ cột không chờ vật liệu. File đó Chrome nhớ 20 ngày (max-age) — máy đã vẽ phòng rồi thì 3 ms, máy / hồ sơ Chrome
+  //      mới thì phải tải: đo trên máy xưởng (có VPN) 4 giây, có lần quá 20 giây. Đây là chỗ làm bảng 1.26.0 báo oan "Chenfeng không nhận lệnh vẽ tường" (anh Thanh 05/10 18:17).
+  //      window.__MOCK_VL_TRE__ = số ms kho file trả lời (0 = có sẵn trong bộ nhớ đệm).
+  //  (2) CẤU HÌNH của lệnh (DialogUserConfig.LoadAndInitConfig → configListMapStore.GetConfig / userConfigStore.GetAllConfigs — có hỏi phiên bản cấu hình ở máy chủ): với lệnh vẽ tường nằm SAU
+  //      các câu hỏi hướng nhìn, trước lời hỏi điểm. Lần đo thật không thấy chậm ở bước này (0,2 giây từ lúc gọi lệnh tới lúc hỏi điểm); GIẢ ĐỊNH nó cũng có lúc chậm, và hộp thông số của
+  //      cột / dầm cũng có thể hiện trễ. window.__MOCK_CH_TRE__ = số ms (mọi loại) hoặc { wall, hole, pillar, girder }.
+  //  Trong lúc chờ (đã đo): Esc không có tác dụng (lời nhắc hiện ra sau đó như thường), lệnh vẫn là "đang chạy" nên chữ gửi vào CommandStore.HandleInput bị bỏ lặng lẽ (xem HandleInput).
+  //  __MOCK__.quenCH() = coi như trang vừa mở với bản vẽ mới (chưa đọc cấu hình nào, chưa có vật liệu mặc định).
+  const daDocCH = new Set();
+  const choMayChu = (ms, tiep) => { if (!ms) return tiep(); const st = state; st.doc_ch = true; setTimeout(() => { if (state !== st) return; st.doc_ch = false; window.__MOCK_CH_XONG__ = (window.__MOCK_CH_XONG__ || 0) + 1; tiep(); }, ms); };      // __MOCK_CH_XONG__: số lần máy chủ trả lời trễ (cho phép thử biết lúc lệnh tới trễ hỏi tiếp)
+  const docCH = (loai, tiep) => { const c = window.__MOCK_CH_TRE__, ms = daDocCH.has(loai) ? 0 : (typeof c === 'number' ? c : (c && c[loai]) || 0); daDocCH.add(loai); choMayChu(ms, tiep); };
+  const docVL = tiep => { const mt = window.app.Database.MaterialTable; if (mt.CurFloorMtl) return tiep();
+    choMayChu(window.__MOCK_VL_TRE__ || 0, () => { mt.CurFloorMtl = { Name: '瓷砖' }; mt.CurWallMtl = { Name: '乳胶漆' }; toast('成功创建地板默认材质(可以在右侧材质面板,右键设置其他的地板默认材质!)', 'success'); toast('成功创建墙体默认材质', 'success'); tiep(); }); };
   const hm = { curIndex: -1, historyRecord: history, mo: null,
     // bản thật: StartCmd mở một bước lịch sử, các WriteAllObjectRecord sau đó ghi vào bước này; EndCmd đóng lại (bước rỗng thì bỏ)
     StartCmd(name) { hm.mo = { CommandName: name, created: [], snap: [], undo() { for (const f of this.snap.slice().reverse()) f(); } }; },
     EndCmd() { const r = hm.mo; hm.mo = null; if (r && r.snap.length) pushHist(r); return !!r; } };
   const fireEnd = (name, changed, created) => { for (const cb of [...endCbs]) cb(name, changed, created); };
   const pushHist = rec => { history.length = hm.curIndex + 1; history.push(rec); hm.curIndex = history.length - 1; };
-  const toast = text => { const d = document.createElement('div'); d.className = 'bp3-toast'; d.textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 4000); };
+  const toast = (text, loai) => { const d = document.createElement('div'); d.className = 'bp3-toast' + (loai ? ' bp3-intent-' + loai : ''); d.textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 4000); };      // bản thật (Blueprint): dòng báo mang lớp bp3-intent-success / -warning / -danger theo loại
 
   function drill(boards) {
     const made = [];
@@ -609,24 +625,43 @@
   const Editor = {
     GetPointServices: svc, GetEntityServices: gesvc, KeywordsServices: kwsvc, InteractiveServices: [svc, gesvc, kwsvc],
     CommandStore: { promptList: prompts, HandleInput(name) {
-      name = String(name).toUpperCase();
-      if (state || dangTai) { prompt('WARNING', '>命令正忙!'); return; }
+      const tho = String(name); name = tho.toUpperCase();
+      // BẢN THẬT (đo 05/10/2026 tối + đọc mã CommandStore.HandleInput): đang có lệnh chạy dở (CommandState.CommandIng) thì chữ gõ vào được CHUYỂN cho lời nhắc của lệnh đó
+      // (Editor.InputEvent) — lệnh đang hỏi điểm / chọn tấm thì coi là câu trả lời, lệnh đang chờ máy chủ hoặc đang mở hộp thông số thì chữ đó rơi mất. KHÔNG có dòng báo nào,
+      // tên lệnh bắt đầu gần nhất (CommandReactor._cmdName) không đổi. (Dòng  命令:"X"正忙!  chỉ có khi lệnh được gọi thẳng qua commandMachine — vd thả file nhập — xem chỗ thả file.)
+      // Rảnh mà lệnh trước vừa được nhận chưa tới 88 ms thì chữ đó cũng bị bỏ, không báo gì. __MOCK_BO_LENH__ đếm số lần bỏ (cho phép thử).
+      const bo = vi => { window.__MOCK_BO_LENH__ = (window.__MOCK_BO_LENH__ || 0) + 1; window.__MOCK_BO_DS__ = (window.__MOCK_BO_DS__ || []).concat([[name, vi]]); };      // __MOCK_BO_DS__: [tên lệnh, vì sao bị bỏ]
+      if (state || dangTai) { bo(state ? 'dang:' + state.kind : 'dang tai mau'); Editor.InputEvent(tho); return; }
+      if (Date.now() - lanNhanLenh < 88) { bo('88ms'); return; }
+      lanNhanLenh = Date.now();
+      // ĐỌC MÃ commandMachine.ExecCommand (chưa đo trên bản thật): khung nhìn đang bị khoá (Viewer.IsLookSelect) → chỉ ghi một dòng loại WARNING vào dòng lệnh, lệnh không bắt đầu
+      // (__MOCK_KHOA_NHIN__); lệnh bị tài khoản chủ cấm → chỉ hiện một dòng báo đỏ, dòng lệnh không ghi gì (__MOCK_CAM_LENH__ = tên lệnh).
+      if (window.__MOCK_KHOA_NHIN__) { prompt('WARNING', '>视图已经锁定,无法执行命令! 如果是程序出错,请按F12,在Console那边输入:app.Viewer.IsLookSelect = false'); return; }
+      if (window.__MOCK_CAM_LENH__ === name) { toast('该命令已设置禁用权限，无法调用', 'danger'); return; }
       prompt('COMMAND', '>' + name);
+      // bản thật 2026-9-29 (đọc mã FixDrawWallDir, chạy sau InitWallMaterial): đang ở khung nhìn bố cục (app.Viewer.isLayout) thì lệnh vẽ tường chỉ hiện dòng báo (loại WARNING)
+      // "不允许在布局视图绘制" rồi kết thúc ngay, không hỏi gì. GIẢ ĐỊNH: sự kiện "lệnh kết thúc" vẫn phát như mọi lệnh khác. Bật bằng window.__MOCK_BO_CUC__
+      // (= 'an': như trên nhưng app.Viewer.isLayout không có — bản Chenfeng khác).
+      const boCuc = () => { toast('不允许在布局视图绘制', 'warning'); state = null; setTimeout(() => fireEnd(name, [], []), 20); };
       if (name === 'DRAWHOLE') { state = { kind: 'entity' }; gesvc.IsReady = true; selection = []; }
       else if (name === 'UNDO') { const rec = history[hm.curIndex]; if (rec) { for (const e of rec.created || []) e.IsErase = true; for (const e of rec.erased || []) e.IsErase = false; if (rec.undo) rec.undo(); hm.curIndex--; } }
       else if (name === 'ZOOME') { window.__MOCK_ZOOM__ = (window.__MOCK_ZOOM__ || 0) + 1; }
       else if (name === 'MODELING') { state = { kind: 'modeling' }; gesvc.IsReady = true; }      // bản thật: hỏi chọn tấm (lấy lựa chọn sẵn), Enter → gom thành 1 mẫu theo tên tủ, tự thêm hành động L/W/H + tham số BH
-      else if (name === 'DRAWWALLINSIDE') { state = { kind: 'wall', pts: [], G: 2700, H: 240, cho: '' }; if (window.__MOCK_TOPVIEW__) { svc.IsReady = true; } else { kwsvc.IsReady = true; } }      // bản thật: đang không nhìn từ trên thì hỏi "chuyển sang nhìn từ trên? 1 có / 2 không"
-      else if (name === 'DRAWDOORHOLE' || name === 'DRAWIHOLE') { holeCfg = holeCfg || { H: 2000, L: 900, D: 0 }; state = { kind: 'hole', lenh: name, cho: '' }; svc.IsReady = true; }
+      else if (name === 'DRAWWALLINSIDE') { state = { kind: 'wall', lenh: name, pts: [], G: 2700, H: 240, cho: '' };      // bản thật (đo): vật liệu mặc định → (khung nhìn bố cục thì thôi) → đang không nhìn từ trên thì hỏi "chuyển sang nhìn từ trên? 1 có / 2 không" → cấu hình → hỏi điểm
+        docVL(() => { if (window.__MOCK_BO_CUC__) return boCuc(); if (window.__MOCK_TOPVIEW__) docCH('wall', () => { svc.IsReady = true; }); else { kwsvc.IsReady = true; } }); }
+      else if (name === 'DRAWDOORHOLE' || name === 'DRAWIHOLE') { holeCfg = holeCfg || { H: 2000, L: 900, D: 0 }; state = { kind: 'hole', lenh: name, cho: '' }; docVL(() => docCH('hole', () => { svc.IsReady = true; })); }
       else if (name === 'DRAWPILLAR' || name === 'DRAWGIRDER') {      // bản thật: mở hộp thoại 2 ô số + OK, rồi mới hỏi điểm
+        // ĐÃ ĐO 05/10/2026 tối (lệnh cột): hộp "Pillar properties" (tên hộp nằm ở .bp3-dialog-header .bp3-heading) hiện sau ~45 ms, không hỏi hướng nhìn trước; hộp đang mở thì Esc (Editor.Cancel)
+        // KHÔNG đóng được nó và chữ gửi vào HandleInput rơi mất; bấm Cancel thì hộp đóng + phát sự kiện "lệnh kết thúc" (tên lệnh). Hộp mở KHÔNG phát sự kiện kết thúc (khác lệnh DRAWER).
         const dl = document.createElement('div'); dl.className = 'bp3-dialog'; dl.style.cssText = 'position:fixed;left:40px;top:40px;width:260px;padding:10px;background:#fff;z-index:5';
-        dl.innerHTML = '<input type="text" value="240"><input type="text" value="240"><div class="bp3-dialog-footer"><button>OK</button><button>Cancel</button></div>';
+        dl.innerHTML = `<div class="bp3-dialog-header"><h4 class="bp3-heading">${name === 'DRAWPILLAR' ? 'Pillar properties' : 'Girder properties'}</h4></div><input type="text" value="240"><input type="text" value="240"><div class="bp3-dialog-footer"><button>OK</button><button>Cancel</button></div>`;
         const gia = [240, 240]; [...dl.querySelectorAll('input')].forEach((el, i) => el.addEventListener('focusout', () => { gia[i] = Number(el.value); }));      // bản thật chỉ nhận số khi ô mất tiêu điểm
         const [ok, huy] = dl.querySelectorAll('button');
-        state = { kind: 'dialog', lenh: name };
-        ok.onclick = () => { dl.remove(); state = { kind: name === 'DRAWPILLAR' ? 'pillar' : 'girder', a: gia[0], b: gia[1], pts: [] }; svc.IsReady = true; };
-        huy.onclick = () => { dl.remove(); state = null; };
-        document.body.appendChild(dl);
+        state = { kind: 'dialog', lenh: name, phong: true };
+        ok.onclick = () => { dl.remove(); state = { kind: name === 'DRAWPILLAR' ? 'pillar' : 'girder', lenh: name, a: gia[0], b: gia[1], pts: [] };
+          if (name === 'DRAWGIRDER') docVL(() => { svc.IsReady = true; }); else svc.IsReady = true; };      // bản thật (đọc mã): lệnh dầm chờ vật liệu mặc định SAU khi bấm OK
+        huy.onclick = () => { dl.remove(); state = null; setTimeout(() => fireEnd(name, [], []), 10); };
+        docCH(name === 'DRAWPILLAR' ? 'pillar' : 'girder', () => document.body.appendChild(dl));      // GIẢ ĐỊNH: hộp thông số có thể hiện trễ (đọc cấu hình của nó)
       }
       else if (name === 'ROTATE') { state = { kind: 'rotate', buoc: 0 }; gesvc.IsReady = true; }
       else if (name === 'DRAWER') { state = { kind: 'nk', kep: selection.filter(e => e instanceof Board && !e.IsErase) }; svc.IsReady = true; prompt('INFO', '>点选画板区域<实际空间>:'); }      // xem moHopNK
@@ -684,7 +719,8 @@
       const so3 = () => { const p = String(text).split(',').map(Number); return p.length === 3 && p.every(isFinite) ? p : null; };
       const them = (e, ten) => { ents.push(e); pushHist({ CommandName: ten, created: [e] }); setTimeout(() => fireEnd(ten, [], [e]), 20); };
       if (state.kind === 'wall') {
-        if (kwsvc.IsReady) { kwsvc.IsReady = false; if (text === '1') svc.IsReady = true; else state = null; return; }
+        if (kwsvc.IsReady) { kwsvc.IsReady = false; if (text === '1') docCH('wall', () => { svc.IsReady = true; }); else { state = null; setTimeout(() => fireEnd('DRAWWALLINSIDE', [], []), 10); } return; }      // trả lời khác "1" (kể cả chữ lạ bị chuyển vào): lệnh thôi
+        if (state.doc_ch) return;      // đang đọc cấu hình: chưa có lời nhắc nào nhận chữ
         if (state.cho) { state[state.cho] = Number(text); state.cho = ''; return; }
         if (text === 'G' || text === 'H') { state.cho = text; return; }
         const p = so3(); if (p) { state.pts.push(p); return; }
@@ -833,6 +869,10 @@
     Cancel() {
       window.__MOCK_CANCELS__ = (window.__MOCK_CANCELS__ || 0) + 1;
       if (!state) return;
+      if (state.doc_ch) return;      // lệnh đang chờ máy chủ (vật liệu mặc định / cấu hình): chưa có lời nhắc nào để huỷ — ĐÃ ĐO: Esc lúc này không có tác dụng, lời nhắc vẫn hiện ra sau đó
+      if (state.kind === 'dialog' && state.phong) return;      // ĐÃ ĐO (hộp thông số cột): Esc không đóng được hộp — phải bấm Cancel trong hộp
+      // ĐÃ ĐO (lệnh vẽ tường đang hỏi điểm): Esc → lời nhắc mất ngay + phát sự kiện "lệnh kết thúc" mang tên lệnh; dòng lệnh không ghi gì
+      if (['wall', 'hole', 'pillar', 'girder'].includes(state.kind)) { const ten = state.lenh; svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; setTimeout(() => fireEnd(ten, [], []), 10); return; }
       if (state.kind === 'hoi') { const st = state; state = null; svc.IsReady = false; st.res({ Status: -1 }); return; }
       if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog', 'dxf', 'cd', 'nk', 'goc', 'cua'].includes(state.kind)) { if (state.dl) state.dl.remove(); svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
       if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; if (state.nk) state.nk.ket = 'huy'; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
@@ -860,7 +900,8 @@
   window.app = {
     Editor,
     Database: Object.assign(new Database(), { ModelSpace: { get Entitys() { return ents; } }, hm }),
-    Viewer: { Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {}, Width: 800, Height: 500, WorldToScreen(v) { v.x = v.x / 20; v.y = 400 - v.y / 20 - v.z / 40; v.z = 0; return v; } },
+    Viewer: { get isLayout() { return window.__MOCK_BO_CUC__ === 'an' ? undefined : !!window.__MOCK_BO_CUC__; },      // bản thật (đo 05/10/2026): app.Viewer.isLayout là true / false
+      Renderer: { domElement: document.getElementById('cv') }, UpdateRender() {}, Width: 800, Height: 500, WorldToScreen(v) { v.x = v.x / 20; v.y = 400 - v.y / 20 - v.z / 40; v.z = 0; return v; } },
     CommandReactor: { _cmdName: '', OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
     AutoSaveServer: { Stop() {}, Start() {} },
   };
@@ -877,7 +918,7 @@
     cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(), sc = new V3(e.clientX - r.left, e.clientY - r.top, 0); Editor.MouseCtrl._CurMousePointVCS.set(sc.x, sc.y, 0);
       if (state && state.kind === 'goc' && state.lenh !== 'LEFTRIGHTBOARD') setTimeout(() => { if (state && state.kind === 'goc') { const kh = khoangGoc(sc); if (kh) hopXem(kh); } }, 30); });
   }
-  window.__MOCK__ = { gocSt, RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, Line, Circle, Polyline, Text, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
+  window.__MOCK__ = { quenCH() { daDocCH.clear(); const mt = window.app.Database.MaterialTable; delete mt.CurFloorMtl; delete mt.CurWallMtl; }, gocSt, RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, Line, Circle, Polyline, Text, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
     // chuột rê tới (x, y, z) khi bảng đang hỏi điểm: Chenfeng thật gọi Callback của lời nhắc với điểm dưới chuột
     reChuot(x, y, z) { if (state && state.kind === 'hoi') { state.cur = new V3(x, y, z || 0); if (state.o.Callback) state.o.Callback(state.cur); return true; } return false; }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, TplKho, StretchAction, V3, M4, nkSt, them(e) { ents.push(e); return e; } };
   // trang sản xuất (khung Order Splitting) báo "closeWindow" sau khi người dùng bấm 打开 → Chenfeng đóng hộp thoại
