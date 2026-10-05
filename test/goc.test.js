@@ -161,6 +161,23 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     eq([upd.ok, upd.gd, upd.errors, upd.nk, upd.mat_lech], [true, 'xong', [], { tong: 1, so: 1, lui: [] }, []], 'cập nhật 2 ngăn → 3 ngăn: vẽ lại xong, ngăn kéo lệnh gốc');
     eq([upd.truoc[0], upd.sau[0], upd.sau[2]], [2, 3, 3], 'trước 2 mặt ngăn kéo, sau đúng 3 mặt + 3 ray — không còn mặt / ray nào của tủ cũ');
 
+    console.log('— Tủ có khấu cột: lệnh gốc chưa làm được → vẽ theo cách nhập tấm; lời báo nói đúng module đổi được kích thước nào (bản 1.26.1)');
+    await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
+    const KG = { ma: 'G7', rong: 2000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [1100], o: [] }, { rong: 'auto', canh: 2, dot: [600, 1400], o: [] }] };
+    r = await ve(Object.assign({}, KG, { khau: { trai: { rong: 300, sau: 200 } } }), { at: [0, 0, 0] });
+    eq([r.ok, r.gd, r.errors, r.goc, r.module && r.module[0]], [true, 'xong', [], false, true], 'khấu cột GÓC: vẽ xong theo cách nhập tấm, vẫn gom thành module');
+    ok(r.warnings.some(w => /chưa vẽ được bằng lệnh gốc Chenfeng \(tủ có khấu cột\)/.test(w) && /module đổi được Rộng \/ Sâu \/ Cao ở ô Thông số/.test(w)) && !r.warnings.some(w => /chỉ để xem/.test(w)), '… lời báo: module đổi được cả Rộng / Sâu / Cao', r.warnings);
+    eq(await page.evaluate(() => window.__thu.rep.module.khoa), [], '… không tham số nào bị khoá');
+    ht = await page.evaluate(() => window.__thu.hoanTac());
+    // cột GIỮA: cột đứng yên còn khoang chia lại → module không co giãn đúng theo Rộng (đo trên Chenfeng thật 05/10/2026) → L chỉ để xem, lời báo phải nói thật
+    r = await ve(Object.assign({}, KG, { ma: 'G8', khau: { giua: [{ cach: 350, rong: 250, sau: 200 }] } }), { at: [0, 0, 0] });
+    eq([r.ok, r.gd, r.errors, r.goc, r.module && r.module[0]], [true, 'xong', [], false, true], 'khấu cột GIỮA: vẽ xong theo cách nhập tấm, vẫn gom thành module');
+    ok(r.warnings.some(w => /chưa vẽ được bằng lệnh gốc Chenfeng \(tủ có khấu cột\)/.test(w) && /module đổi được Sâu \/ Cao ở ô Thông số/.test(w) && /Rộng chỉ để xem/.test(w) && /cột giữa/.test(w) && /Cập nhật tủ này/.test(w)) && !r.warnings.some(w => /đổi được Rộng/.test(w)),
+      '… lời báo: module chỉ đổi được Sâu / Cao; Rộng chỉ để xem vì tủ có cột giữa, đổi ở bảng rồi bấm Cập nhật', r.warnings);
+    eq(await page.evaluate(() => window.__thu.rep.module.khoa), [{ ten: 'L', ly_do: 'cot_giua' }], '… kết quả ghi tham số bị khoá + lý do');
+    ht = await page.evaluate(() => window.__thu.hoanTac());
+    eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
+
     eq(errs, [], 'không có lỗi JS nào lọt ra trang');
   } finally { await ctx.close(); try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ } }
   console.log(`\n${pass} đạt, ${fail} hỏng`);

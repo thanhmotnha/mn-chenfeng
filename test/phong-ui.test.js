@@ -447,6 +447,193 @@ async function tienIch() {
       eq1((await dauO()).so, 15, 'Hoàn tác phòng: dấu vừa bỏ trở lại');
       // dọn nét / chữ của khối thử này (các phép thử điện – nước phía sau đếm trên cả bản vẽ)
       await page.evaluate(() => { const M = window.__MOCK__; for (const e of M.ents) if (!e.IsErase && (e instanceof M.Line || e instanceof M.Circle || e instanceof M.Polyline || e instanceof M.Text) && e.box[0] > 99000 && e.box[0] < 110000) e.IsErase = true; window.MNCFDriver.lastRoom = null; });
+      /* --- bản 1.26.1 — CHENFENG CHỜ MÁY CHỦ (anh Thanh 05/10/2026 18:17, trang Chenfeng vừa mở, bản vẽ mới: "không vẽ được phòng nữa rồi" — bảng báo "Chenfeng không nhận lệnh vẽ tường
+       *     (DRAWWALLINSIDE)", "Chưa mở được cửa đi 1", "Chưa vẽ được cột 1"). ĐÃ ĐO trên Chenfeng thật 05/10 tối: bản vẽ chưa có vật liệu sàn mặc định thì lệnh vẽ tường / mở lỗ / dầm CHỜ tải
+       *     vật liệu đó từ kho file của Chenfeng rồi mới hỏi (máy xưởng: 4 giây, có lần quá 20 giây); hạn chờ cũ của bảng là 5 giây → báo oan rồi gửi tiếp cửa, cột trong khi lệnh tường còn
+       *     chạy ngầm (Chenfeng bỏ lặng lẽ mọi chữ gửi vào lúc đó). Giờ: lệnh đã bắt đầu thì chờ tới D.CH.han_lenh và nói rõ đang chờ gì; quá hạn thì DỪNG (không gửi thêm lệnh nào),
+       *     lệnh tới trễ tự huỷ; bấm lại là vẽ nốt. Chenfeng đang chạy dở lệnh khác / đang mở hộp thoại / đang ở khung nhìn bố cục → nói đúng chuyện đó, không gửi gì. --- */
+      {
+        const lenhTu = moc => page.evaluate(m => window.app.Editor.CommandStore.promptList.filter(q => q.key > m && q.type === 'COMMAND').map(q => q.msg.replace(/^>/, '')).filter(x => /^DRAW/.test(x)), moc);
+        const mocLenh = () => page.evaluate(() => { const l = window.app.Editor.CommandStore.promptList; return l.length ? l[l.length - 1].key : -1; });
+        const ranh = () => page.evaluate(() => { const E = window.app.Editor; return [window.MNCFDriver.busy(), !!document.querySelector('.bp3-dialog'), E.GetPointServices.IsReady]; });
+        const CH0 = await page.evaluate(() => Object.assign({}, window.MNCFDriver.CH));
+        ok(CH0.han_lenh >= 45000 && CH0.cho_bat_dau >= 5000, 'hạn chờ mặc định cho một lệnh phòng: ít nhất 45 giây (kho file của Chenfeng có lúc trả lời hơn 20 giây)', CH0);
+        const PM = goc => Object.assign({}, PHONG, { goc, day: 220, khung: [], dn: [], mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200 }],
+          can: [{ tuong: 0, loai: 'cot', cach: 0, rong: 220, nho: 300, z0: 0, z1: 2700 }, { tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }] });
+        const nenM = await demPh(), congM = d => nenM.map((v, i) => v + d[i]), soDau = await page.evaluate(() => window.__MOCK__.ents.length);
+        const ngheTT = () => page.evaluate(() => { window.__ttCho = []; const el = document.getElementById('mncf-host').shadowRoot.querySelector('.status');
+          window.__ttQS = new MutationObserver(() => { const t = el.textContent; if (/chờ Chenfeng/.test(t) && !window.__ttCho.includes(t)) window.__ttCho.push(t); }); window.__ttQS.observe(el, { childList: true, characterData: true, subtree: true }); });
+        const layTT = () => page.evaluate(() => { window.__ttQS.disconnect(); return window.__ttCho; });
+
+        // (a) BẢN VẼ MỚI, kho file Chenfeng chậm: lệnh tường chờ vật liệu sàn mặc định 9 giây rồi mới hỏi hướng nhìn (hạn cũ 5 giây), hộp thông số cột 5,6 giây mới hiện → bảng CHỜ, vẽ đủ,
+        //     trong lúc chờ nói rõ đang chờ gì
+        await page.evaluate(p => { window.MNCFDriver.lastRoom = null; window.__MOCK__.quenCH(); window.__MOCK_VL_TRE__ = 9000; window.__MOCK_CH_TRE__ = { hole: 300, pillar: 5600, girder: 300 }; window.__MOCK_BO_LENH__ = 0; window.MNCF.phong.dat(p); }, PM([130000, 0, 0]));
+        await ngheTT();
+        let m0 = await mocLenh();
+        kq2 = await vePh();
+        ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm/.test(kq2) && !/Chưa|không nhận/.test(kq2), 'bản vẽ mới, kho file Chenfeng chậm (vật liệu mặc định 9 giây, hộp cột 5,6 giây): bảng chờ, phòng vẫn vẽ đủ — không báo "không nhận lệnh"', kq2);
+        eq1(await demPh(), congM([4, 1, 1, 1, 1]), '… đủ 4 tường, 1 lỗ cửa, 1 cột, 1 dầm, 1 vùng phòng');
+        let ttCho = await layTT();
+        ok(ttCho.some(t => /chờ Chenfeng trả lời lệnh vẽ tường/.test(t) && /vật liệu sàn mặc định/.test(t) && /máy chủ/.test(t)), '… lúc chờ lệnh tường, dòng trạng thái nói đúng việc Chenfeng đang làm: tải vật liệu sàn mặc định từ máy chủ của nó', ttCho);
+        ok(ttCho.some(t => /chờ Chenfeng trả lời lệnh vẽ cột/i.test(t) && !/vật liệu/.test(t)), '… lúc chờ hộp thông số cột: nói đang chờ lệnh vẽ cột (không đổ cho vật liệu — bản vẽ đã có)', ttCho);
+        eq1([await lenhTu(m0), await page.evaluate(() => window.__MOCK_BO_LENH__)], [['DRAWWALLINSIDE', 'DRAWDOORHOLE', 'DRAWPILLAR', 'DRAWGIRDER'], 0], '… mỗi lệnh chỉ gửi đúng một lần, không lệnh nào bị Chenfeng bỏ');
+
+        // (b) quá hạn chờ ở lệnh TƯỜNG (vật liệu mặc định chưa về): báo đúng nguyên nhân, DỪNG — không gửi lệnh cửa / cột / dầm (trước đây gửi tiếp, Chenfeng bỏ hết, báo thêm 2 dòng "chưa mở được / chưa vẽ được")
+        await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; D.CH.han_lenh = 1500; D.CH.bao_cho = 300; window.__MOCK__.quenCH(); window.__MOCK_VL_TRE__ = 3200; window.__MOCK_CH_TRE__ = 0; window.__MOCK_CH_XONG__ = 0; window.__MOCK_BO_LENH__ = 0; window.MNCF.phong.dat(p); }, PM([140000, 0, 0]));
+        m0 = await mocLenh();
+        kq2 = await vePh();
+        ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng chưa trả lời lệnh vẽ tường \(DRAWWALLINSIDE\) sau \d+ giây/.test(kq2) && /vật liệu sàn mặc định/.test(kq2) && /máy chủ/.test(kq2) && /bấm “Vẽ phòng vào Chenfeng” lại/.test(kq2), 'quá hạn chờ ở lệnh tường: nói rõ Chenfeng chưa trả lời sau mấy giây, đang tải gì từ máy chủ, và bảo bấm lại', kq2);
+        ok(!/Chưa mở được|Chưa vẽ được cột|Chưa vẽ được dầm|không nhận lệnh/.test(kq2), '… không kèm các dòng "chưa mở được cửa / chưa vẽ được cột" (những lệnh đó không hề được gửi)', kq2);
+        eq1([await lenhTu(m0), await page.evaluate(() => window.__MOCK_BO_LENH__), await demPh()], [['DRAWWALLINSIDE'], 0, congM([4, 1, 1, 1, 1])], '… chỉ một lệnh vẽ tường đã gửi, không gửi chữ nào vào lúc Chenfeng đang chờ; bản vẽ chưa thêm gì');
+        // lệnh tường tới trễ (kho file rốt cuộc trả lời sau 3,2 giây → Chenfeng hỏi hướng nhìn): không còn ai trả lời → bảng tự huỷ, Chenfeng rảnh lại
+        ok((await page.evaluate(() => window.__MOCK_CH_XONG__)) === 0, '(lúc bảng báo quá hạn, lệnh tường vẫn đang chờ vật liệu — chưa hỏi gì)');
+        await page.waitForFunction(() => window.__MOCK_CH_XONG__ >= 1, null, { timeout: 8000 }).catch(() => {});
+        await page.waitForTimeout(1200);
+        eq1(await ranh(), [false, false, false], '… lệnh tường tới trễ được bảng tự huỷ: Chenfeng không còn đứng chờ trả lời');
+        // bấm lại (vật liệu đã về): vẽ đủ
+        await page.evaluate(() => { window.MNCFDriver.CH.han_lenh = 20000; window.__MOCK_VL_TRE__ = 0; });
+        kq2 = await vePh();
+        ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm/.test(kq2), '… bấm “Vẽ phòng” lại: vẽ đủ', kq2);
+        eq1(await demPh(), congM([8, 2, 2, 2, 2]), '… phòng thứ hai đủ 4 tường, 1 lỗ cửa, 1 cột, 1 dầm');
+
+        // (c) quá hạn ở hộp thông số CỘT (tường, cửa đã xong): phần đã vẽ giữ nguyên, dừng — không gửi lệnh dầm; hộp cột hiện ra trễ thì bảng tự đóng; bấm lại là vẽ nốt cột + dầm
+        await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; D.CH.han_lenh = 1200; window.__MOCK__.quenCH(); window.__MOCK_CH_TRE__ = { pillar: 2800 }; window.__MOCK_CH_XONG__ = 0; window.__MOCK_TU_CHOI__ = 0; window.__MOCK_BO_LENH__ = 0; window.MNCF.phong.dat(p); },
+          Object.assign(PM([150000, 0, 0]), { dn: [{ tuong: 1, loai: 'o_dien', cach: 950, cao: 300 }] }));
+        m0 = await mocLenh();
+        kq2 = await vePh();
+        ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống/.test(kq2) && /Chưa vẽ được cột 1 \(tường A\): Chenfeng chưa trả lời lệnh sau \d+ giây/.test(kq2) && /Dừng ở đây vì Chenfeng chưa trả lời/.test(kq2) && /bấm “Vẽ phòng vào Chenfeng” lại để vẽ nốt/.test(kq2) && !/Chưa vẽ được dầm/.test(kq2), 'quá hạn ở lệnh cột: tường + cửa đã vẽ được giữ, báo cột chưa vẽ vì Chenfeng chưa trả lời, bảo bấm lại để vẽ nốt', kq2);
+        eq1([await lenhTu(m0), await page.evaluate(() => window.__MOCK_BO_LENH__), await demPh()], [['DRAWWALLINSIDE', 'DRAWDOORHOLE', 'DRAWPILLAR'], 0, congM([12, 3, 2, 2, 3])], '… không gửi lệnh dầm (hay chữ nào khác) sau khi Chenfeng đã không trả lời lệnh cột');
+        ok(!/điện – nước/.test(kq2) && (await page.evaluate(() => window.__MOCK_TU_CHOI__)) === 0, '… cũng không thả file dấu điện – nước vào lúc Chenfeng đang không trả lời (không có dòng "chưa đánh dấu được")', kq2);
+        await page.waitForFunction(() => window.__MOCK_CH_XONG__ >= 1, null, { timeout: 8000 }).catch(() => {});
+        await page.waitForTimeout(1200);
+        eq1(await ranh(), [false, false, false], '… hộp thông số cột hiện ra trễ được bảng tự đóng (không nằm lại chờ người bấm)');
+        await page.evaluate(() => { window.MNCFDriver.CH.han_lenh = 20000; });
+        kq2 = await vePh();
+        ok(/Đã cập nhật phòng: vẽ thêm 1 cột \/ hộp, 1 dầm; giữ nguyên 4 tường, 1 cửa \/ ô trống; đánh 1 dấu điện – nước/.test(kq2), '… bấm lại: vẽ nốt cột + dầm + dấu điện – nước, giữ tường và cửa đã có', kq2);
+        eq1(await demPh(), congM([12, 3, 3, 3, 3]), '… đủ cả ba phòng');
+
+        // (d) Chenfeng đang mở sẵn một hộp thoại (người dùng đang vẽ cột dở: hộp "Pillar properties"): lệnh gửi lúc này Chenfeng bỏ lặng lẽ, Esc không đóng được hộp (đã đo) → bảng KHÔNG gửi gì,
+        //     không tự đóng hộp của người dùng, không điền số của mình vào hộp đó — chỉ nói tên hộp đang mở
+        await page.waitForTimeout(200);      // người dùng gõ lệnh của mình sau lần vẽ trước một lúc (Chenfeng bỏ lệnh gõ cách lệnh trước chưa tới 88 ms)
+        await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; window.__MOCK_CH_TRE__ = 0; window.__MOCK_BO_LENH__ = 0; window.__MOCK_INPUTS__ = []; window.app.Editor.CommandStore.HandleInput('DRAWPILLAR'); window.MNCF.phong.dat(p); },
+          Object.assign(PM([160000, 0, 0]), { mo: [], can: [{ tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }] }));
+        ok((await ranh())[1], '(chuẩn bị) hộp thông số cột của người dùng đang mở');
+        m0 = await mocLenh(); const tD = Date.now();
+        kq2 = await vePh();
+        ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng đang mở hộp “Pillar properties”/.test(kq2) && /đóng hộp đó/.test(kq2) && /bấm “Vẽ phòng vào Chenfeng” lại/.test(kq2) && !/Chưa vẽ được|không nhận lệnh|máy chủ/.test(kq2) && Date.now() - tD < 6000,
+          'Chenfeng đang mở sẵn một hộp thoại: báo ngay tên hộp, bảo đóng hộp rồi bấm lại', [kq2, Date.now() - tD]);
+        eq1([await lenhTu(m0), await page.evaluate(() => [window.__MOCK_BO_LENH__, window.__MOCK_INPUTS__.length, [...document.querySelectorAll('.bp3-dialog input')].map(i => i.value)]), await demPh()], [[], [0, 0, ['240', '240']], congM([12, 3, 3, 3, 3])],
+          '… không gửi lệnh / chữ nào, hộp của người dùng còn nguyên (không bị đóng, không bị điền số); bản vẽ không thêm gì');
+        await page.evaluate(() => { const d = document.querySelector('.bp3-dialog'); if (d) d.querySelectorAll('button')[1].click(); });      // người dùng bấm Cancel ở hộp của mình
+        await page.waitForTimeout(300);
+        kq2 = await vePh();
+        ok(/Đã vẽ phòng: 4 tường, 1 dầm/.test(kq2) && !/Chưa|không nhận/.test(kq2), '… đóng hộp rồi bấm lại: vẽ phòng bình thường', kq2);
+        eq1([await demPh(), await ranh()], [congM([16, 3, 3, 4, 4]), [false, false, false]], '… thêm 4 tường + 1 dầm, không thêm cột nào; Chenfeng rảnh');
+
+        // (e) Chenfeng đang CHẠY DỞ một lệnh khác chưa hỏi gì (lệnh cột của người dùng, hộp thông số chưa hiện): chữ gửi vào Chenfeng bỏ lặng lẽ, không có dòng báo nào (đã đo) →
+        //     bảng nhận ra ngay nhờ dòng lệnh không ghi tên lệnh của mình, báo đang chạy dở lệnh nào — không chờ hết hạn, không đổ cho máy chủ, không gửi lệnh tiếp
+        await page.waitForTimeout(200);
+        await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; D.CH.han_lenh = 20000; window.__MOCK__.quenCH(); window.__MOCK_CH_TRE__ = { pillar: 4000 }; window.__MOCK_BO_LENH__ = 0; window.app.Editor.CommandStore.HandleInput('DRAWPILLAR'); window.MNCF.phong.dat(p); }, PM([170000, 0, 0]));
+        m0 = await mocLenh(); const tE = Date.now();
+        kq2 = await vePh();
+        ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng đang chạy dở lệnh “DRAWPILLAR” nên không nhận lệnh vẽ tường/.test(kq2) && /Esc/.test(kq2) && /bấm “Vẽ phòng vào Chenfeng” lại/.test(kq2) && !/máy chủ/.test(kq2) && !/Chưa mở được|Chưa vẽ được/.test(kq2) && Date.now() - tE < 3500,
+          'Chenfeng đang chạy dở lệnh khác: báo ngay đang chạy dở lệnh nào, bảo kết thúc lệnh đó rồi bấm lại (không chờ hết hạn, không gửi lệnh tiếp)', [kq2, Date.now() - tE]);
+        eq1([await lenhTu(m0), await page.evaluate(() => window.__MOCK_BO_LENH__)], [[], 1], '… Chenfeng không nhận lệnh nào của bảng; bảng chỉ gửi đúng một lần (lệnh tường), không gửi dồn');
+        await page.evaluate(async () => { await new Promise(r => setTimeout(r, 4300)); const d = document.querySelector('.bp3-dialog'); if (d) d.querySelectorAll('button')[1].click(); window.__MOCK_CH_TRE__ = 0; Object.assign(window.MNCFDriver.CH, { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000 }); });
+        await page.waitForTimeout(200);
+        eq1([await ranh(), await demPh()], [[false, false, false], congM([16, 3, 3, 4, 4])], '(dọn) lệnh cột của người dùng đóng lại; bản vẽ không thêm gì');
+
+        // (f) Chenfeng đang ở KHUNG NHÌN BỐ CỤC (app.Viewer.isLayout): lệnh vẽ tường ở đó chỉ hiện một dòng báo rồi thôi → bảng xem trước, nói ngay, không gửi lệnh nào
+        await page.evaluate(p => { window.MNCFDriver.lastRoom = null; window.__MOCK_BO_CUC__ = true; window.MNCF.phong.dat(p); }, PM([180000, 0, 0]));
+        m0 = await mocLenh(); let tF = Date.now();
+        kq2 = await vePh();
+        ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng đang ở khung nhìn bố cục/.test(kq2) && /khung nhìn mô hình/.test(kq2) && /bấm “Vẽ phòng vào Chenfeng” lại/.test(kq2) && !/Chưa mở được|Chưa vẽ được|máy chủ|không nhận lệnh/.test(kq2) && Date.now() - tF < 6000,
+          'Chenfeng đang ở khung nhìn bố cục: báo ngay và bảo chuyển về khung nhìn mô hình', [kq2, Date.now() - tF]);
+        eq1([await lenhTu(m0), await demPh()], [[], congM([16, 3, 3, 4, 4])], '… không gửi lệnh nào; bản vẽ không thêm gì');
+        // (f2) Chenfeng NHẬN lệnh vẽ tường rồi TỰ KẾT THÚC, không hỏi gì (vd bản Chenfeng không cho biết trước đang ở bố cục) — trên bản vẽ mới nên ngay trước đó còn có 2 dòng báo "đã tạo vật liệu
+        //      mặc định": báo ngay kèm ĐÚNG dòng báo lỗi của Chenfeng (không lấy nhầm dòng báo thành công) — không chờ hết 60 giây, không đổ cho máy chủ, không gửi lệnh nào nữa
+        await page.evaluate(() => { window.__MOCK__.quenCH(); window.__MOCK_BO_CUC__ = 'an'; window.MNCFDriver.lastRoom = null; });
+        m0 = await mocLenh(); tF = Date.now();
+        kq2 = await vePh();
+        await page.evaluate(() => { window.__MOCK_BO_CUC__ = false; });
+        ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng không nhận lệnh vẽ tường \(DRAWWALLINSIDE\) — Chenfeng báo: “不允许在布局视图绘制”/.test(kq2) && !/Chưa mở được|Chưa vẽ được|máy chủ|成功/.test(kq2) && Date.now() - tF < 9000,
+          'Chenfeng nhận lệnh vẽ tường rồi tự kết thúc: báo ngay, kèm đúng dòng báo lỗi của Chenfeng', [kq2, Date.now() - tF]);
+        eq1([await lenhTu(m0), await demPh()], [['DRAWWALLINSIDE'], congM([16, 3, 3, 4, 4])], '… không gửi lệnh cửa / cột / dầm; bản vẽ không thêm gì');
+
+        // (g) tường đã có, tới lệnh CỬA thì Chenfeng đang chạy dở một lệnh khác: báo đúng tên lệnh đó ở dòng của cửa, dừng — không gửi tiếp lệnh cột
+        await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; window.__MOCK__.quenCH(); window.__MOCK_CH_TRE__ = { pillar: 3500 }; window.__MOCK_BO_LENH__ = 0; window.MNCF.phong.dat(p); },
+          Object.assign(PM([160000, 0, 0]), { can: [{ tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }, { tuong: 1, loai: 'cot', cach: 1000, rong: 220, nho: 300, z0: 0, z1: 2700 }] }));
+        await page.waitForTimeout(200);
+        await page.evaluate(() => { window.app.Editor.CommandStore.HandleInput('DRAWPILLAR'); });      // lệnh cột của người dùng, hộp thông số chưa hiện
+        m0 = await mocLenh();
+        kq2 = await vePh();
+        ok(/Chưa vẽ thêm được gì — trên bản vẽ mới có 4 tường, 1 dầm/.test(kq2) && !/đã có đủ/.test(kq2) && /Chưa mở được cửa đi 1 \(tường C\): Chenfeng đang chạy dở lệnh “DRAWPILLAR”\./.test(kq2) && /Dừng ở đây vì Chenfeng đang bận việc khác/.test(kq2) && !/Chưa vẽ được cột/.test(kq2),
+          'tới lệnh cửa thì Chenfeng đang chạy dở lệnh khác: dòng báo của cửa nêu tên lệnh đó, bảng dừng — không gửi lệnh cột', kq2);
+        eq1([await lenhTu(m0), await page.evaluate(() => window.__MOCK_BO_LENH__), await demPh()], [[], 1, congM([16, 3, 3, 4, 4])], '… không lệnh nào của bảng được Chenfeng nhận, bảng chỉ gửi một lần (lệnh cửa); bản vẽ không thêm gì');
+        await page.evaluate(async () => { await new Promise(r => setTimeout(r, 3800)); const d = document.querySelector('.bp3-dialog'); if (d) d.querySelectorAll('button')[1].click(); });
+        await page.waitForTimeout(200);
+        eq1(await ranh(), [false, false, false], '(dọn) đóng lệnh cột của người dùng');
+
+        // (g2) vẽ nốt CỘT cho phòng đó trên một bản vẽ chưa có vật liệu sàn mặc định, hộp thông số cột hiện trễ: lệnh vẽ cột KHÔNG tải vật liệu (đã đọc mã) → lúc chờ không được đổ cho vật liệu
+        await page.evaluate(() => { const D = window.MNCFDriver; D.lastRoom = null; D.CH.bao_cho = 300; window.__MOCK__.quenCH(); window.__MOCK_CH_TRE__ = { pillar: 1500 }; const p = window.MNCF.phong.lay(); p.mo = []; window.MNCF.phong.dat(p); });
+        await ngheTT();
+        kq2 = await vePh();
+        ttCho = await layTT();
+        ok(/Đã cập nhật phòng: vẽ thêm 1 cột \/ hộp; giữ nguyên 4 tường, 1 dầm/.test(kq2) && ttCho.length === 1 && /chờ Chenfeng trả lời lệnh vẽ cột/.test(ttCho[0]) && !/vật liệu/.test(ttCho[0]),
+          'vẽ nốt cột trên bản vẽ chưa có vật liệu sàn mặc định: chờ hộp thông số cột thì chỉ nói đang chờ lệnh vẽ cột (lệnh cột không tải vật liệu)', [kq2, ttCho]);
+        await page.evaluate(() => { window.MNCFDriver.CH.bao_cho = 3000; window.__MOCK_CH_TRE__ = 0; });
+
+        // (i) Chenfeng TỪ CHỐI lệnh và có nói vì sao ở dòng lệnh (khung nhìn đang bị khoá — đọc mã ExecCommand): báo ngay kèm lời của Chenfeng, không đoán là "đang chạy dở lệnh khác", không gửi gì nữa
+        await page.waitForTimeout(200);
+        await page.evaluate(p => { window.MNCFDriver.lastRoom = null; window.__MOCK_KHOA_NHIN__ = true; window.MNCF.phong.dat(p); }, PM([210000, 0, 0]));
+        m0 = await mocLenh(); let tI = Date.now();
+        kq2 = await vePh();
+        await page.evaluate(() => { window.__MOCK_KHOA_NHIN__ = false; });
+        ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng không nhận lệnh vẽ tường \(DRAWWALLINSIDE\) — Chenfeng báo: “视图已经锁定,无法执行命令!/.test(kq2) && !/chạy dở|Chưa mở được|Chưa vẽ được|máy chủ/.test(kq2) && Date.now() - tI < 6000,
+          'Chenfeng từ chối lệnh, có ghi lý do ở dòng lệnh (khung nhìn bị khoá): báo ngay kèm lời của Chenfeng', [kq2, Date.now() - tI]);
+        eq1([await lenhTu(m0), await demPh()], [[], congM([16, 3, 4, 4, 4])], '… không lệnh nào được nhận; bản vẽ không thêm gì');
+        // (i2) Chenfeng từ chối bằng một DÒNG BÁO ĐỎ, dòng lệnh không ghi gì (lệnh bị tài khoản chủ cấm — đọc mã): cũng báo kèm lời đó
+        await page.waitForTimeout(200);
+        await page.evaluate(() => { window.MNCFDriver.lastRoom = null; window.__MOCK_CAM_LENH__ = 'DRAWWALLINSIDE'; });
+        m0 = await mocLenh(); tI = Date.now();
+        kq2 = await vePh();
+        await page.evaluate(() => { window.__MOCK_CAM_LENH__ = ''; });
+        ok(/Chưa vẽ xong phòng/.test(kq2) && /Chenfeng không nhận lệnh vẽ tường \(DRAWWALLINSIDE\) — Chenfeng báo: “该命令已设置禁用权限，无法调用”/.test(kq2) && !/chạy dở|Chưa mở được|Chưa vẽ được|máy chủ/.test(kq2) && Date.now() - tI < 6000,
+          'Chenfeng từ chối lệnh bằng một dòng báo đỏ (lệnh bị cấm): báo ngay kèm lời của Chenfeng', [kq2, Date.now() - tI]);
+        eq1([await lenhTu(m0), await demPh()], [[], congM([16, 3, 4, 4, 4])], '… không lệnh nào được nhận; bản vẽ không thêm gì');
+
+        // (h) bấm “Vẽ phòng” LẠI trong lúc lệnh tường của lần trước còn đang chờ máy chủ (đã trả lời hướng nhìn, đang đọc cấu hình): lần bấm sau dùng luôn lời hỏi điểm của lệnh đó khi nó tới
+        //     (không bị bộ canh lệnh trễ huỷ mất giữa chừng, không báo "đang chạy dở lệnh DRAWWALLINSIDE")
+        await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; D.CH.han_lenh = 1200; window.__MOCK__.quenCH(); window.__MOCK_CH_TRE__ = { wall: 4500 }; window.MNCF.phong.dat(p); }, PM([190000, 0, 0]));
+        m0 = await mocLenh();
+        kq2 = await vePh();
+        ok(/Chenfeng chưa trả lời lệnh vẽ tường/.test(kq2) && !/vật liệu/.test(kq2), '(chuẩn bị) lần bấm đầu quá hạn, lệnh tường còn chạy ngầm — bản vẽ đã có vật liệu nên không đổ cho vật liệu', kq2);
+        await page.evaluate(() => { window.MNCFDriver.CH.han_lenh = 20000; });
+        kq2 = await vePh();
+        ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm/.test(kq2) && !/Chưa|không nhận|chạy dở/.test(kq2), 'bấm lại ngay khi lệnh tường cũ còn chờ máy chủ: phòng vẫn vẽ đủ', kq2);
+        eq1([await lenhTu(m0), await demPh(), await ranh()], [['DRAWWALLINSIDE', 'DRAWDOORHOLE', 'DRAWPILLAR', 'DRAWGIRDER'], congM([20, 4, 5, 5, 5]), [false, false, false]], '… Chenfeng chỉ nhận MỘT lệnh vẽ tường (lệnh của lần đầu), không vẽ chồng; xong thì rảnh');
+        await page.waitForTimeout(1200);
+        eq1([await demPh(), await ranh()], [congM([20, 4, 5, 5, 5]), [false, false, false]], '… bộ canh lệnh trễ của lần đầu không làm gì thêm');
+        // (h2) như (h) nhưng lệnh tường cũ còn đang chờ VẬT LIỆU (chưa hỏi hướng nhìn): lần bấm sau trả lời luôn câu hỏi hướng nhìn của lệnh đó rồi vẽ
+        await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; D.CH.han_lenh = 1200; window.__MOCK__.quenCH(); window.__MOCK_CH_TRE__ = 0; window.__MOCK_VL_TRE__ = 4500; window.MNCF.phong.dat(p); }, PM([200000, 0, 0]));
+        m0 = await mocLenh();
+        kq2 = await vePh();
+        ok(/Chenfeng chưa trả lời lệnh vẽ tường/.test(kq2) && /vật liệu sàn mặc định/.test(kq2), '(chuẩn bị) lần bấm đầu quá hạn lúc Chenfeng còn tải vật liệu mặc định', kq2);
+        await page.evaluate(() => { window.MNCFDriver.CH.han_lenh = 20000; });
+        kq2 = await vePh();
+        ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm/.test(kq2) && !/Chưa|không nhận|chạy dở/.test(kq2), 'bấm lại khi lệnh tường cũ còn chờ vật liệu: phòng vẫn vẽ đủ', kq2);
+        eq1([await lenhTu(m0), await demPh(), await ranh()], [['DRAWWALLINSIDE', 'DRAWDOORHOLE', 'DRAWPILLAR', 'DRAWGIRDER'], congM([24, 5, 6, 6, 6]), [false, false, false]], '… vẫn chỉ MỘT lệnh vẽ tường; xong thì rảnh');
+        await page.evaluate(() => { window.__MOCK_CH_TRE__ = 0; window.__MOCK_VL_TRE__ = 0; Object.assign(window.MNCFDriver.CH, { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000 }); });
+        // (k) Chenfeng BỎ lặng lẽ lệnh gõ vào cách lệnh trước chưa tới 88 ms (đã đo + đọc mã CommandStore.HandleInput): bảng vừa gửi ZOOME xong gửi ngay UNDO → UNDO vẫn phải tới nơi
+        await page.waitForTimeout(1300);
+        const rK = await page.evaluate(async () => { const D = window.MNCFDriver, hm = window.app.Database.hm, h0 = hm.curIndex; window.__MOCK_BO_DS__ = [];
+          D.zoom(); await D.undo(1); return [hm.curIndex - h0, window.__MOCK_BO_DS__]; });
+        eq1(rK, [-1, []], 'bảng gửi ZOOME rồi gửi ngay UNDO: lệnh sau tự lùi lại cho cách lệnh trước hơn 88 ms — Chenfeng nhận, lùi đúng một bước');
+        // dọn các phòng của khối này
+        await page.waitForTimeout(1200);
+        await page.evaluate(n => { for (const e of window.__MOCK__.ents.slice(n)) e.IsErase = true; window.MNCFDriver.lastRoom = null; }, soDau);
+        eq1(await demPh(), nenM, '(dọn) bỏ các phòng của khối thử Chenfeng chờ máy chủ');
+      }
     }
     // dầm bị Chenfeng ép cao độ (đỉnh dầm không vượt trần của Chenfeng) → báo rõ
     await page.evaluate(p => { window.__MOCK_TRAN__ = 2600; window.MNCF.phong.dat(Object.assign({}, p, { khung: [], mo: [], can: [{ tuong: 0, loai: 'dam', cach: 0, rong: 3600, nho: 250, z0: 2350, z1: 2700 }] })); }, PHONG);
