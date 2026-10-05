@@ -81,7 +81,7 @@ node test/dich.test.js        # bảng dịch ghi chú tham số
 node test/phong.test.js       # thẻ Phòng
 node test/kiem.test.js        # dò lỗi sản xuất: quy tắc thiết kế + tấm và lỗ khoan thật (hàm thuần)
 node test/mau.test.js         # đổ màu: chia tấm của tủ thành nhóm thùng / cánh + phào / hậu, lọc màu (hàm thuần)
-# các bộ cần Playwright + Chromium: chuanhoa, ui, phong-ui, ext, nap, kho, doloi, mau-ui, xuatvan, sx, nk
+# các bộ cần Playwright + Chromium: chuanhoa, ui, phong-ui, ext, nap, kho, doloi, mau-ui, xuatvan, sx, nk, goc
 NODE_PATH=<node_modules> PLAYWRIGHT_BROWSERS_PATH=<trình duyệt> node test/nap.test.js
 ./phat-hanh.sh "ghi chú"      # dựng + thử + commit + đẩy lên main → các máy tự nhận
 ```
@@ -93,6 +93,6 @@ NODE_PATH=<node_modules> PLAYWRIGHT_BROWSERS_PATH=<trình duyệt> node test/nap
 - `src/mncf-ui.js` — bảng nổi trong Chenfeng / trang độc lập.
 - `src/mncf-sx.js` — trợ lý ở trang sản xuất của Chenfeng (bản gộp riêng `dist/mn-chenfeng-sx.js`): báo trạng thái, cứu trang trắng, tự tối ưu → mở sơ đồ cắt.
 - `src/mncf-nap.js` — bộ nạp tự cập nhật của tiện ích (trang CAD nạp bảng vẽ tủ, trang sản xuất nạp trợ lý).
-- `test/` — phép thử + trang giả lập Chenfeng (`mock-chenfeng.html`) và trang sản xuất (`mock-sanxuat.html` + `mock-cutblock.html`); `kho-gia.js` chặn kênh cập nhật về `dist/` trong máy để phép thử chạy đúng bản vừa dựng.
+- `test/` — phép thử + trang giả lập Chenfeng (`mock-chenfeng.html`; bật `window.__MOCK_GOC__` thì có cả các lệnh vẽ tấm gốc — `goc.test.js` chạy trọn `D.veGoc` trên đó, `nk.test.js` thử lệnh ngăn kéo gốc) và trang sản xuất (`mock-sanxuat.html` + `mock-cutblock.html`); `kho-gia.js` chặn kênh cập nhật về `dist/` trong máy để phép thử chạy đúng bản vừa dựng.
 - `dist/` — chỉ lưu 4 tệp của kênh cập nhật (`mn-chenfeng.js`, `mn-chenfeng-sx.js`, `phien-ban.json`, `mn-chenfeng.user.js`); phần còn lại sinh bằng `node build.js`.
 - `tai-ve/` — zip tiện ích để cài (chỉ dựng lại khi sửa bộ nạp / manifest; mỗi lần dựng lại thì các máy phải cài lại một lần).

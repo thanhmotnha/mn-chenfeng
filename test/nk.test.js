@@ -121,6 +121,22 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     eq(r.nk.map(x => [x.lc.doorPosType, x.lc.leftExt, x.lc.rightExt, x.lc.topExt, x.lc.bottomExt, x.lc.leftSpace, x.lc.topSpace, x.lc.midSpace]), [[0, '15.5', '15.5', '8', '15.5', '0', '0', '2']], 'hộp nhận: trùm ngoài, trùm ra 15,5 / 15,5 / 8 / 15,5, không khe hở, khe giữa 2');
     eq(r.lc === LC0, true, 'lựa chọn của người dùng vẫn được trả lại');
 
+    console.log('— Mặt ngăn kéo không bằng nhau (trùm ngoài 3 ngăn: 141 / 140,5 / 140,5 từ dưới lên) → khoá cao từng ô trong hộp "Drawer Design"');
+    c = await T.chuanBi({ mau: 555001, kieu: 'nk_trum', so: 3, ma: 'NK3' }, 7500);
+    r = await T.ve();
+    eq([r.so, r.xong, r.hong, r.mat, r.buoc, r.added], [1, [0, 1, 2], [], [true, true, true], 1, 21], 'ba mặt cao khác nhau đều nằm đúng hộp thiết kế, vẽ bằng lệnh gốc trong một bước');
+    eq(r.nk.map(x => [x.ket, x.lc.row, x.khoa]), [['ok', 3, [140.5, 140.5, 'D']]], 'hộp nhận: 3 ô, hai ô trên khoá cao 140,5 (ô 0 = trên cùng), ô dưới cùng để "D" nhận phần còn lại (141)');
+    eq([r.thanh_z, r.lc === LC0, r.bao_loi, r.hop], [['132…213', '275…355.5', '417.5…498'], true, 0, false], 'hộp của từng ngăn theo đúng mặt của nó; lựa chọn của người dùng được trả lại; không lỗi nào tới Chenfeng');
+    c = await T.chuanBi({ mau: 555001, kieu: 'nk_trum', so: 3, ma: 'NK3B' }, 4500);
+    await page.evaluate(() => { window.__MOCK_NK_KHONG_KHOA__ = true; });      // giả định xấu: bản Chenfeng khác không nhận cách khoá cao đã đo
+    r = await T.ve();
+    eq([r.so, r.hong, r.moi, r.nk.length, r.hop, r.busy, r.lc === LC0, r.bao_loi], [0, [[0, 'hop']], 0, 0, false, false, true, 0], 'hộp không chia ô theo số đã khoá: KHÔNG bấm OK, đóng hộp, trả lại lựa chọn của người dùng');
+    ok(/chia ô/.test(r.bao[0]), '… lời báo nêu ô nào chia khác thiết kế', r.bao);
+    await page.evaluate(() => { delete window.__MOCK_NK_KHONG_KHOA__; });
+    c = await T.chuanBi({ mau: 555001, kieu: 'nk_trum', ma: 'NK3C' }, 10500);
+    r = await T.ve();
+    eq([r.so, r.mat, r.nk.map(x => x.khoa)], [1, [true, true], [['D', 'D']]], 'lần vẽ sau (hai mặt bằng nhau): không ô nào còn bị khoá cao');
+
     console.log('— Mã mẫu ở Chuẩn xưởng không có trong kho tài khoản → dùng mẫu CÙNG TÊN của tài khoản');
     c = await T.chuanBi({ ma: 'NT2' }, 9000);      // mã mặc định của bảng (không có trong kho giả), tên 三节轨薄底抽
     r = await T.ve();
@@ -151,9 +167,6 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     c = await T.chuanBi({ mau: 555078, ten_mau: 'Mẫu hỏng tham số', ma: 'NL2' }, 22500);
     r = await T.ve();
     eq([r.so, r.hong, r.moi, r.nk.length], [0, [[0, 'mau_la']], 0, 0], 'tham số của mẫu không giải nén được: không gọi lệnh DRAWER');
-    c = await T.chuanBi({ mau: 555001, kieu: 'nk_trum', so: 3, ma: 'NK3' }, 24000);
-    r = await T.ve();
-    eq([r.so, r.hong, r.moi, r.nk.length], [0, [[0, 'khoa_cao']], 0, 0], 'mặt trùm ngoài không bằng nhau (phải khoá cao từng ô): chưa dùng lệnh gốc');
     cau.hong = 'thu_muc';
     c = await T.chuanBi({ mau: 555003, ten_mau: 'Mẫu chưa hỏi lần nào', ma: 'NH' }, 27000);
     r = await T.ve();
@@ -329,6 +342,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     await H.locator('.tab', { hasText: 'Hướng dẫn' }).click();
     const hd = await H.locator('.sum li', { hasText: 'bản 1.26' }).allInnerTexts();
     ok(hd.length === 1 && /Ngăn kéo vẽ bằng lệnh ngăn kéo của Chenfeng/.test(hd[0]) && /Drawer Design/.test(hd[0]) && /chèn mẫu/.test(hd[0]), 'thẻ Hướng dẫn có mục của bản 1.26 về ngăn kéo lệnh gốc', hd);
+    ok(hd.length === 1 && !/không chia đều/.test(hd[0]) && /mặt cao khác nhau/.test(hd[0]), '… mặt ngăn kéo cao khác nhau không còn nằm trong danh sách "chưa vẽ được" (bảng khoá cao từng ô)', hd);
 
     eq(errs, [], 'không có lỗi JS nào lọt ra trang');
     eq(await page.evaluate(() => window.__MOCK_BAO_LOI__ || 0), 0, 'suốt bộ thử: Chenfeng không lần nào nhận ô có mã mẫu mà thiếu tham số (không báo cáo lỗi nào bị gửi đi)');

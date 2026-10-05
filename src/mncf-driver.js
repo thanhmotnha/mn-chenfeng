@@ -2120,6 +2120,14 @@
       await sleep(80);
       const o = (st.doorDrawersInfo || []).slice().sort((p, q) => p.row - q.row);
       if (o.length !== b.so || o.some(d => !d || !d.tempInfo)) throw new Error(`hộp "Drawer Design" dựng ${o.length} ô, cần ${b.so}`);
+      if (L.cao) {
+        // MẶT KHÔNG BẰNG NHAU → khoá cao từng ô (đo trên Chenfeng thật 05/10/2026: gõ số vào ô cao = isLockHeight + showHeight (chuỗi trong ô nhập) + height (số thật); CalcInfos() chia phần còn lại cho các ô "D").
+        // Khoá mọi ô trừ ô dưới cùng: ô đó nhận phần còn lại nên tổng luôn khít khoảng. Chia xong mà có ô khác thiết kế (bản Chenfeng khác không nhận cách khoá này) → không bấm OK.
+        o.slice(0, -1).forEach((d, i) => { d.isLockHeight = true; d.showHeight = soLC(L.cao[i]); d.height = L.cao[i]; });
+        st.CalcInfos();
+        const sai = o.findIndex((d, i) => !(Math.abs(Number(d.height) - L.cao[i]) < 0.05));
+        if (sai >= 0) throw new Error(`hộp "Drawer Design" chia ô ${sai + 1} (từ trên xuống) cao ${r2(Number(o[sai].height))}, thiết kế cần ${L.cao[sai]}`);
+      }
       for (const d of o) d.tempInfo.temp = JSON.parse(JSON.stringify(temp));
       w = watchEnd();
       m.ok.click();
@@ -2135,7 +2143,7 @@
    * Chạy các bước NK của kế hoạch K (Core.keHoachGoc). Phần tấm của tủ — kể cả vách đệm — phải có sẵn trên bản vẽ: tamCua = Map tấm thiết kế → tấm thật; offset = độ dời thiết kế → bản vẽ.
    * opt: { onStatus, cho_mau: hạn chờ máy chủ trả mẫu (ms, mặc định 40000), cho_hop: hạn chờ hộp thoại mở }
    * @returns {{ so: số ô đã vẽ, xong: Set<chỉ số M.templates đã vẽ bằng lệnh gốc>, added: đối tượng mới, hong: [{ khoang, so, ly_do, bao }], doi_ma: [{ tu, sang, ten }], ban: Chenfeng còn đang chờ máy chủ }}
-   *   ly_do: 'kep' không tìm lại đủ 4 tấm kẹp · 'kho' không đọc được kho mẫu · 'khong_co' kho tài khoản không có mẫu (cả mã lẫn tên) · 'mau_la' tham số mẫu không đúng dạng đã biết · 'khoa_cao' mặt không bằng nhau (chưa hỗ trợ)
+   *   ly_do: 'kep' không tìm lại đủ 4 tấm kẹp · 'kho' không đọc được kho mẫu · 'khong_co' kho tài khoản không có mẫu (cả mã lẫn tên) · 'mau_la' tham số mẫu không đúng dạng đã biết
    *        · 'hop' hộp thoại không mở / không nhận lựa chọn · 'may_chu' | 'khong_thuoc_tk' máy chủ không trả mẫu · 'treo' máy chủ không trả lời trong hạn (Chenfeng còn bận) · 'lech' ngăn kéo ra khác thiết kế (đã hoàn tác).
    * Ô hỏng thì nơi gọi chèn ngăn kéo của ô đó bằng mẫu như bản 1.23 — TRỪ khi `ban`: Chenfeng còn đang chờ máy chủ, chèn thêm là hai ngăn kéo chồng nhau.
    */
@@ -2149,7 +2157,6 @@
       opt.onStatus(`Ngăn kéo khoang ${b.khoang + 1} (${i + 1}/${K.nk.length}): lệnh ngăn kéo của Chenfeng…`);
       const kep = b.kep.map(j => tamCua.get(M.parts[j])).filter(e => e && !e.IsErase);
       if (kep.length !== 4) { hongO(b, 'kep'); continue; }
-      if (b.cao) { hongO(b, 'khoa_cao'); continue; }
       let bg;
       try { bg = await banGhiNK(b.mau); } catch (e) { hongO(b, 'kho', String(e && e.message || e)); continue; }
       if (!bg) { hongO(b, 'khong_co'); continue; }
@@ -2207,7 +2214,7 @@
    * Lệnh DRAWER bị treo vì máy chủ → KHÔNG gửi lệnh nhập nào nữa: Chenfeng còn đang chờ máy chủ (lệnh khác bị bỏ qua), và máy chủ trả lời trễ thì ô đó vẫn được dựng — chèn thêm là hai ngăn kéo chồng nhau.
    */
   const LY_DO_NK = { kep: 'không tìm lại đủ 4 tấm kẹp của ô trên bản vẽ', kho: 'không đọc được kho mẫu của tài khoản', khong_co: 'kho mẫu của tài khoản không có mẫu ngăn kéo này', mau_la: 'tham số của mẫu ngăn kéo không đúng dạng bảng biết',
-    khoa_cao: 'các mặt ngăn kéo của ô không bằng nhau', hop: 'Chenfeng không mở hoặc không nhận lựa chọn của hộp “Drawer Design”', may_chu: 'máy chủ Chenfeng không trả mẫu', khong_thuoc_tk: 'mẫu không thuộc tài khoản đang đăng nhập',
+    hop: 'Chenfeng không mở hoặc không nhận lựa chọn của hộp “Drawer Design”', may_chu: 'máy chủ Chenfeng không trả mẫu', khong_thuoc_tk: 'mẫu không thuộc tài khoản đang đăng nhập',
     lech: 'Chenfeng dựng ngăn kéo khác thiết kế nên bảng đã bỏ lệnh đó' };
   D.themMauNK = async (K, offset, tamCua, opt) => {
     opt = Object.assign({ onStatus() {} }, opt || {});
