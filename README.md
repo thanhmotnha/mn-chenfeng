@@ -12,6 +12,15 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Ngăn kéo vẽ bằng lệnh ngăn kéo của Chenfeng (bản 1.26)
+
+- Tủ vẽ bằng lệnh gốc thì **ô ngăn kéo** (âm sau cánh hoặc trùm ngoài) cũng được dựng bằng chính lệnh ngăn kéo của Chenfeng (`DRAWER`, hộp *Drawer Design*) với mẫu ngăn kéo trong kho của tài khoản: bảng tự chọn 4 tấm kẹp của ô (vách đệm / hồi / vách, đáy, đợt), ghi số ngăn, lọt lòng hay trùm ngoài, khe hở, trùm ra, sâu hộp (ô có mặt cao khác nhau thì khoá cao từng ngăn) rồi bấm OK hộ. Ngăn kéo nằm trong cây mẫu của thùng như cánh và đợt — không còn là mẫu chèn rời: đổi rộng / sâu / cao của tủ trong Chenfeng thì mặt và hộp ngăn kéo tự chạy theo (sâu hộp tự nhảy bậc 50).
+- Mỗi ô một lệnh; Chenfeng chỉ hỏi máy chủ **một lần cho cả ô** (trước đây mỗi hộp ngăn kéo một lần). Vẽ xong bảng đối chiếu từng mặt ngăn kéo và sâu hộp với thiết kế; lệch thì bỏ lệnh đó.
+- Dùng được với các loại ngăn kéo của thẻ *Chuẩn xưởng*: ray bi (đáy mỏng / dày), ray âm đỡ đáy (kể cả hông soi rãnh), khung kéo treo quần, hộp ray Blum, khay bàn phím. Tham số riêng của từng loại (khe ray, hở trên / dưới…) và dày mặt của thiết kế được ghi vào mẫu khi vẽ.
+- Mã mẫu ghi ở *Chuẩn xưởng* không có trong kho của tài khoản đang đăng nhập → bảng lấy mẫu **cùng tên** của tài khoản (chỉ đọc kho) và nhắc sửa mã.
+- Ô nào chưa vẽ được bằng lệnh đó — ngăn kéo chia ô, *hở sau* khác 5 hoặc *bước sâu* khác 50, kho không có mẫu, Chenfeng dựng khác thiết kế… — thì bảng **chèn mẫu như bản trước** và ghi rõ ô nào, vì sao ở thẻ Kết quả. Suốt treo vẫn chèn mẫu.
+- Sửa: loại ngăn kéo chưa khai mã mẫu (không vẽ ngăn kéo) không còn bị báo oan "Mẫu ngăn kéo đặt mặt khác thiết kế".
+
 ## Bảng gọn hơn; dời / đổi cỡ khung ngay trên mặt đứng (bản 1.25)
 
 - **Chân thẻ Tủ là hàng nút biểu tượng** — chỉ còn một nút chữ lớn **Vẽ vào Chenfeng**; bên cạnh là **Tường** (đặt tủ theo tường) · **Chuột** (đặt tủ bằng chuột) · **Hình** (tủ theo hình đang chọn trên mặt bằng); hàng dưới: **Cập nhật** · **Sửa tủ** · **Chuẩn hoá** · JSON · CSV · Lưu · Mở. Rê chuột vào nút nào thì dòng ngay trên hàng nút ghi tên đầy đủ và cách dùng. Bảng rộng hơn (560) cho hình to, dễ nắm.
@@ -73,7 +82,7 @@ node test/dich.test.js        # bảng dịch ghi chú tham số
 node test/phong.test.js       # thẻ Phòng
 node test/kiem.test.js        # dò lỗi sản xuất: quy tắc thiết kế + tấm và lỗ khoan thật (hàm thuần)
 node test/mau.test.js         # đổ màu: chia tấm của tủ thành nhóm thùng / cánh + phào / hậu, lọc màu (hàm thuần)
-# các bộ cần Playwright + Chromium: chuanhoa, ui, phong-ui, ext, nap, kho, doloi, mau-ui, xuatvan, sx
+# các bộ cần Playwright + Chromium: chuanhoa, ui, phong-ui, ext, nap, kho, doloi, mau-ui, xuatvan, sx, nk, goc
 NODE_PATH=<node_modules> PLAYWRIGHT_BROWSERS_PATH=<trình duyệt> node test/nap.test.js
 ./phat-hanh.sh "ghi chú"      # dựng + thử + commit + đẩy lên main → các máy tự nhận
 ```
@@ -85,6 +94,6 @@ NODE_PATH=<node_modules> PLAYWRIGHT_BROWSERS_PATH=<trình duyệt> node test/nap
 - `src/mncf-ui.js` — bảng nổi trong Chenfeng / trang độc lập.
 - `src/mncf-sx.js` — trợ lý ở trang sản xuất của Chenfeng (bản gộp riêng `dist/mn-chenfeng-sx.js`): báo trạng thái, cứu trang trắng, tự tối ưu → mở sơ đồ cắt.
 - `src/mncf-nap.js` — bộ nạp tự cập nhật của tiện ích (trang CAD nạp bảng vẽ tủ, trang sản xuất nạp trợ lý).
-- `test/` — phép thử + trang giả lập Chenfeng (`mock-chenfeng.html`) và trang sản xuất (`mock-sanxuat.html` + `mock-cutblock.html`); `kho-gia.js` chặn kênh cập nhật về `dist/` trong máy để phép thử chạy đúng bản vừa dựng.
+- `test/` — phép thử + trang giả lập Chenfeng (`mock-chenfeng.html`; bật `window.__MOCK_GOC__` thì có cả các lệnh vẽ tấm gốc — `goc.test.js` chạy trọn `D.veGoc` trên đó, `nk.test.js` thử lệnh ngăn kéo gốc) và trang sản xuất (`mock-sanxuat.html` + `mock-cutblock.html`); `kho-gia.js` chặn kênh cập nhật về `dist/` trong máy để phép thử chạy đúng bản vừa dựng.
 - `dist/` — chỉ lưu 4 tệp của kênh cập nhật (`mn-chenfeng.js`, `mn-chenfeng-sx.js`, `phien-ban.json`, `mn-chenfeng.user.js`); phần còn lại sinh bằng `node build.js`.
 - `tai-ve/` — zip tiện ích để cài (chỉ dựng lại khi sửa bộ nạp / manifest; mỗi lần dựng lại thì các máy phải cài lại một lần).

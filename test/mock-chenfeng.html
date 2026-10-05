@@ -18,7 +18,8 @@
   let SO_MA = 100;
   class Ent { constructor() { this.IsErase = false; this.DrawObject = { ent: this }; this.box = [0, 0, 0, 0, 0, 0]; this.Id = { Object: this, Index: ++SO_MA }; this.M = new M4(); }      // M: phép dời / xoay tích luỹ từ lúc tạo (để mẫu kho biết khung của mình đang ở đâu)
     // bản thật: ApplyMatrix dời / xoay đối tượng và tự ghi lịch sử. Giả lập: biến đổi 8 góc hộp bao (đúng với góc xoay bội của 90° quanh trục đứng)
-    ApplyMatrix(m) { const e = m.elements, b = this.box, xs = [], ys = [], zs = [], r = v => Math.round(v * 1e6) / 1e6;
+    ApplyMatrix(m) { if (window.__MOCK_NK_KHONG_THEO__ && this.Name === '抽面板' && this.Template && this.Template.Object.Parent) return;      // giả định xấu: mặt ngăn kéo lệnh gốc không theo phép dời của tủ
+      const e = m.elements, b = this.box, xs = [], ys = [], zs = [], r = v => Math.round(v * 1e6) / 1e6;
       for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) for (const z of [b[4], b[5]]) { xs.push(e[0] * x + e[4] * y + e[8] * z + e[12]); ys.push(e[1] * x + e[5] * y + e[9] * z + e[13]); zs.push(e[2] * x + e[6] * y + e[10] * z + e[14]); }
       if (hm.mo) { const cu = b.slice(), dinh = this.dinh, M0 = this.M; hm.mo.snap.push(() => { this.box = cu; this.dinh = dinh; this.M = M0; }); }
       this.box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), Math.min(...zs), Math.max(...zs)].map(r);
@@ -50,6 +51,7 @@
       hm.mo.snap.push(() => { if (op) t._option = op; for (const x of pr) { x.p.expr = x.expr; x.p.value = x.value; for (const y of x.acts) { y.a.MoveEntitys = y.doi; y.a.EntityStretchPointMap = y.keo; } } }); } }
     // Bản thật: đổi biểu thức tham số rồi UpdateTemplateTree → từng động tác dời nguyên tấm (MoveEntitys) hoặc kéo một số điểm (EntityStretchPointMap) một đoạn Δ × hướng; mẫu hậu tự động dựng lại theo khoảng kẹp.
     async UpdateTemplateTree() { this.capNhat++;
+      if (window.__MOCK_NK_LECH_MODULE__ && hm.mo && hm.mo.CommandName === 'MNCF_GAN') for (const b of ents) if (b instanceof Board && !b.IsErase && b.Name === '抽面板' && b.Template && b.Template.Object.Parent) { const cu = b.box.slice(); hm.mo.snap.push(() => { b.box = cu; }); b.move([0, 0, 5]); }      // giả định xấu: gom module làm lệch mặt ngăn kéo lệnh gốc
       if (this.coGian) for (const p of this.Params) { const v = Number(p.expr); if (p.expr === '' || !isFinite(v) || v === p.value) continue; const d = v - p.value; p.value = v;
         for (const a of p.actions) { const dv = [a.StretchDirection.x * d, a.StretchDirection.y * d, a.StretchDirection.z * d];
           for (const id of a.MoveEntitys) id.Object.move(dv);
@@ -192,16 +194,150 @@
       out.push(new HardwareCompositeEntity('衣托', [x, x + L, y + W / 2 - 14, y + W / 2 + 14, zc - 22, zc + 22], o.CabinetName));
       return out;
     }
-    const BH = P.BH, GD = P.GD === undefined ? 13 : P.GD, fx0 = x - P.ZYS, fx1 = x + L + P.YYS, fz0 = z - P.XYS, fz1 = z + H + P.SYS;
+    // window.__MOCK_MAT_KHAC__ = số mm: mẫu của tài khoản đặt mặt ngăn kéo THẤP hơn thiết kế chừng đó (mẫu khác quy cách — chuyện có thật; bảng chỉ lưu ý, không coi là lỗi)
+    const BH = P.BH, GD = P.GD === undefined ? 13 : P.GD, fx0 = x - P.ZYS, fx1 = x + L + P.YYS, fz0 = z - P.XYS, fz1 = z + H + P.SYS - (window.__MOCK_MAT_KHAC__ || 0);
     const bz0 = fz0 + (P.XLK || 0), bz1 = fz1 - (P.SLK || 0), old = ['三合一', '三合一', '三合一', '三合一'], no = ['不排', '不排', '不排', '不排'];
+    // ĐÃ ĐO 05/10/2026: mẫu ray âm đỡ đáy (托底轨…) dựng các tấm của hộp NGẮN hơn sâu danh nghĩa 10 (hộp 500 → thành 490: chừa chỗ móc ray) — không tấm nào dài đúng bằng W của mẫu
+    const Wt = W - (/托底轨/.test(String(o.Name || '')) ? 10 : 0);
     out.push(new Board('抽面板', 2, [fx0, fx1, y - BH, y, fz0, fz1], BH, o.CabinetName, o.RoomName, no));
-    out.push(new Board('抽侧板', 1, [x + GD, x + GD + BH, y, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
-    out.push(new Board('抽侧板', 1, [x + L - GD - BH, x + L - GD, y, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽侧板', 1, [x + GD, x + GD + BH, y, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽侧板', 1, [x + L - GD - BH, x + L - GD, y, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
     out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y, y + BH, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
-    out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y + W - BH, y + W, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
-    out.push(new Board('抽底板', 0, [x + GD + BH - 6, x + L - GD - BH + 6, y + 11.5, y + W - 11.5, bz0 + 10, bz0 + 15], 5, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y + Wt - BH, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
+    out.push(new Board('抽底板', 0, [x + GD + BH - 6, x + L - GD - BH + 6, y + 11.5, y + Wt - 11.5, bz0 + 10, bz0 + 15], 5, o.CabinetName, o.RoomName, old));
     out.push(new HardwareCompositeEntity('三节轨', [x, x + L, y, y + W, bz0, bz0 + 40], o.CabinetName));
     return out;
+  }
+
+  /* ---- LỆNH NGĂN KÉO GỐC `DRAWER` (bản 1.26) — theo các điều đã đo trên Chenfeng thật 05/10/2026:
+   *   chọn sẵn 4 tấm kẹp → DRAWER → lời nhắc "点选画板区域<实际空间>:" → từ khoá S (框选) → hộp "Drawer Design" mở sau 0,2 – 0,7 giây; kho lựa chọn (store) lấy được từ nút OK qua React fiber.
+   *   m_Option (bản 13): row, col, doorPosType (0 trùm ngoài / 1 lọt lòng), offset, top / bottom / left / rightExt, top / bottom / left / right / midSpace, depth, isAuto, isFloor50… — trùm ra / khe hở / offset là CHUỖI;
+   *   m_UiOption (UIOption) = chuỗi hiển thị, lúc bấm OK Chenfeng chép từ đó sang m_Option (UpdateOption) → ghi lựa chọn phải ghi CẢ HAI.
+   *   InitInfos() dựng lại các ô theo `row` (ô 0 = TRÊN CÙNG), ô mới có temp = { id: '', name: '' } (KHÔNG có props); SetDrawerDepth() tự tính `depth` khi isAuto.
+   *   Bấm OK: không ô nào có mẫu → không vẽ gì, lịch sử không đổi. Có mẫu: MỘT lần gọi CAD-moduleDetail cho cả lệnh rồi dựng — mỗi ngăn kéo 6 tấm (抽面板 kiểu khoan 不排, 抽侧板 × 2, 抽背板 × 2, 抽底板)
+   *   + 1 phụ kiện ray; tấm mới nhận tên tủ của tấm chung quanh; MỘT bước lịch sử.
+   *   Ô có mã mẫu mà thiếu `props` → Chenfeng ném "props is not iterable", tự huỷ lệnh và GỬI BÁO CÁO LỖI về máy chủ của nó — đếm ở window.__MOCK_BAO_LOI__ (phép thử phải giữ số này bằng 0).
+   *   Khoảng trống: rộng = giữa hai tấm đứng, cao = giữa hai tấm nằm, sâu tính từ mép trước của tấm kẹp LÙI NHẤT tới mép sau thùng.
+   *   Lọt lòng: LƯNG mặt cách mép trước khoảng trống đúng `offset`; mặt rộng = khoảng − khe trái − khe phải; cao mỗi ô "D" = (cao khoảng − khe trên − khe dưới − (số ô − 1) × khe giữa) / số ô.
+   *   Trùm ngoài: mặt nằm trước mép khoảng trống, phủ ra mỗi phía (trùm ra − khe hở). Hộp bắt đầu ngay sau lưng mặt, sâu floor((sâu khoảng − offset − 5) / 50) × 50; thành cách tấm kẹp GD; hộp thấp hơn mép mặt SLK (trên) / XLK (dưới).
+   *   GIẢ ĐỊNH (chưa đo): chọn không đủ 2 tấm đứng + 2 tấm nằm thì hộp không mở; tải mẫu hỏng thì Chenfeng báo lỗi + tự huỷ lệnh như lệnh nhập; lúc đang tải mẫu Chenfeng không nhận lệnh khác (như lệnh nhập);
+   *   cây mẫu của ngăn kéo: <mẫu ngăn kéo> → 抽屉空间 → 抽屉总空间 (→ mẫu của một tấm kẹp nếu tấm kẹp thuộc mẫu).
+   *   window.__MOCK_MAU_LOI__ / __MOCK_TEMPLATE_DELAY__ (như lệnh nhập): máy chủ trả lỗi / trả lời chậm lúc tải mẫu.
+   *   Giả định xấu để thử lối lui của bảng: __MOCK_NK_KHONG_MO__ (hộp không mở), __MOCK_NK_THUA_O__ (InitInfos dựng thừa một ô), __MOCK_NK_KHONG_DONG__ (bấm OK hộp không đóng),
+   *   __MOCK_NK_LECH__ (mặt lệch), __MOCK_NK_SAU__ (sâu hộp khác), __MOCK_NK_KET_TRUOC__ (báo lệnh kết thúc trước khi đối tượng vào bản vẽ),
+   *   __MOCK_NK_KHONG_THEO__ (mặt ngăn kéo không theo phép dời của tủ), __MOCK_NK_LECH_MODULE__ (cập nhật cây mẫu của module mẹ làm lệch mặt ngăn kéo),
+   *   __MOCK_NK_KHONG_KHOA__ (hộp không nhận cách khoá cao đã đo: mọi ô vẫn chia đều), __MOCK_NK_KHONG_W__ (nút mẫu ngăn kéo không có tham số W).
+   *   KHOÁ CAO từng ô (đo 05/10/2026 chiều, gõ số vào ô cao như người dùng): lúc gõ → isLockHeight = true, showHeight = chuỗi vừa gõ; rời ô → height = số đó, các ô "D" chia đều phần còn lại (CalcInfos).
+   *   Ghi thẳng isLockHeight + showHeight + height rồi gọi CalcInfos() cho đúng kết quả đó; bấm OK thì mặt của ô khoá cao đúng bằng `height`, ô "D" nhận phần còn lại.
+   *   `m_Option.thickness` của hộp này KHÔNG phải dày mặt ngăn kéo (đo: ghi 20, mặt vẫn 17,5 = BH của mẫu); ô nhập đó nằm cạnh ô tên tấm đứng — có lẽ là dày tấm đứng chia cột (chưa đo).
+   *   Nút mẫu của từng ngăn kéo mang W = floor(_W/50)*50 (sâu danh nghĩa của hộp); lệnh áp BIỂU THỨC của từng tham số trong `props` của ô, không áp giá trị (xem dungNK).
+   *   window.__MOCK_NK__ = nhật ký từng lần bấm OK: { lc: m_Option lúc dựng, mau: [mã mẫu từng ô, từ trên xuống], ket: 'ok' | 'loi' | 'khong_mau' } ---- */
+  const nkSt = (() => {
+    const st = {
+      // lựa chọn "của người dùng" (lần dùng hộp gần nhất): bảng phải trả lại nguyên sau mỗi lệnh
+      m_Option: { version: 13, row: 3, col: 1, isAllSelect: true, doorPosType: 0, offset: '18', topExt: '17.5', bottomExt: '17.5', leftExt: '17.5', rightExt: '17.5', topSpace: '2', bottomSpace: '2', leftSpace: '2', rightSpace: '2', midSpace: '2',
+        depth: 300, isAuto: false, isFloor50: false, topOffset: 0, bottomOffset: 0, useBoardRoomCabinetName: true, verticalBoardName: 'Hồi' },
+      m_UiOption: { row: '3', col: '1', offset: '18', topExt: '17.5', bottomExt: '17.5', leftExt: '17.5', rightExt: '17.5', topSpace: '2', bottomSpace: '2', leftSpace: '2', rightSpace: '2', midSpace: '2', depth: '300', topOffset: '0', bottomOffset: '0' },
+      configName: '默认', configsNames: ['默认'], doorDrawersInfo: [], kh: null,
+      get UIOption() { return st.m_UiOption; },
+      InitInfos() { st.doorDrawersInfo = Array.from({ length: Math.max(1, Math.round(Number(st.m_Option.row)) || 1) + (window.__MOCK_NK_THUA_O__ ? 1 : 0) }, (_, i) => ({ row: i, col: 0, width: 0, height: 0, isLockHeight: false, isLockWidth: false, showHeight: 'D', showWidth: 'D', isSelect: true,
+        tempInfo: { temp: { id: '', name: '' }, handleTemp: { id: '', logo: '', name: '', title: '选择拉手' } } })); st.CalcInfos(); },
+      SetDrawerDepth() { if (st.m_Option.isAuto && st.kh) { st.m_Option.depth = st.kh.y1 - st.kh.y0; st.m_UiOption.depth = String(st.m_Option.depth); } },
+      // ĐÃ ĐO 05/10/2026 (chiều): `height` của ô = cao MẶT ngăn kéo. Ô khoá cao (isLockHeight) GIỮ `height` đang ghi — đổi riêng `showHeight` thì CalcInfos không đổi gì;
+      // các ô "D" chia đều phần còn lại = (cao khoảng + trùm trên + trùm dưới − khe trên − khe dưới − (số ô − 1) × khe giữa − tổng các ô khoá) / số ô "D". InitInfos bỏ mọi khoá.
+      CalcInfos() {
+        if (!st.kh) return;
+        const so = v => Number(v) || 0, lc = st.m_Option, o = st.doorDrawersInfo, khoa = window.__MOCK_NK_KHONG_KHOA__ ? [] : o.filter(d => d.isLockHeight), tuDo = o.filter(d => khoa.indexOf(d) < 0);
+        const tong = st.kh.z1 - st.kh.z0 + so(lc.topExt) + so(lc.bottomExt) - so(lc.topSpace) - so(lc.bottomSpace) - (o.length - 1) * so(lc.midSpace);
+        for (const d of tuDo) d.height = (tong - khoa.reduce((a, k) => a + Number(k.height), 0)) / tuDo.length;
+      },
+      OnOk() {} };
+    return st;
+  })();
+  const khoangNK = kep => {
+    const dung = kep.filter(b => b.BoardType === 1).sort((a, c) => a.box[0] - c.box[0]), nam = kep.filter(b => b.BoardType === 0).sort((a, c) => a.box[4] - c.box[4]);
+    if (kep.length !== 4 || dung.length !== 2 || nam.length !== 2) return null;
+    const kh = { x0: dung[0].box[1], x1: dung[1].box[0], z0: nam[0].box[5], z1: nam[1].box[4], y0: Math.max(...kep.map(b => b.box[2])), y1: Math.min(...kep.map(b => b.box[3])) };
+    return kh.x1 > kh.x0 && kh.z1 > kh.z0 && kh.y1 > kh.y0 ? kh : null;
+  };
+  function moHopNK(kep, kh) {
+    if (!state || state.kind !== 'dialog' || state.lenh !== 'DRAWER') return;      // Esc trước khi hộp kịp mở
+    const st = nkSt; st.kh = kh; st.InitInfos(); st.SetDrawerDepth();      // (isAuto đang tắt thì SetDrawerDepth không đổi gì: sâu hộp vẫn là số người dùng gõ)
+    const dl = document.createElement('div'); dl.className = 'bp3-dialog mock-nk'; dl.style.cssText = 'position:fixed;left:60px;top:60px;width:420px;padding:10px;background:#fff;z-index:6';
+    dl.innerHTML = '<div class="bp3-dialog-header"><h4 class="bp3-heading">Drawer Design</h4></div><div class="bp3-dialog-footer"><button>OK</button><button>Cancel</button></div>';
+    const [ok, huy] = dl.querySelectorAll('button');
+    ok['__reactFiber$mock'] = { memoizedProps: {}, return: { memoizedProps: { store: st }, return: null } };
+    state.dl = dl;
+    huy.onclick = () => { dl.remove(); state = null; setTimeout(() => fireEnd('DRAWER', [], []), 10); };
+    ok.onclick = () => {
+      if (window.__MOCK_NK_KHONG_DONG__) return;      // giả định: lựa chọn không hợp lệ (HasInvailValue) → hộp không đóng, không vẽ gì
+      // GIẢ ĐỊNH (chưa đo): ô khoá cao mà chuỗi trong ô nhập (showHeight) khác số thật (height) thì hộp coi là chưa hợp lệ — gõ tay luôn ra hai giá trị bằng nhau
+      if (st.doorDrawersInfo.some(d => d.isLockHeight && Number(d.showHeight) !== Number(d.height))) return;
+      for (const k of Object.keys(st.m_UiOption)) st.m_Option[k] = typeof st.m_Option[k] === 'number' ? Number(st.m_UiOption[k]) : st.m_UiOption[k];      // UpdateOption: chuỗi hiển thị → lựa chọn thật
+      const o = st.doorDrawersInfo.slice().sort((a, c) => a.row - c.row);
+      const nk = { lc: JSON.parse(JSON.stringify(st.m_Option)), mau: o.map(d => String(d.tempInfo.temp.id || '')), khoa: o.map(d => (d.isLockHeight ? Number(d.height) : 'D')),
+        bh: o.map(d => { const q = (Array.isArray(d.tempInfo.temp.props) ? d.tempInfo.temp.props : []).find(x => x.name === 'BH'); return q ? (q.expr || q.value) : null; }), ket: '' };
+      (window.__MOCK_NK__ = window.__MOCK_NK__ || []).push(nk);
+      dl.remove(); state = null;
+      if (!o.some(d => d.tempInfo.temp.id)) { nk.ket = 'khong_mau'; setTimeout(() => fireEnd('DRAWER', [], []), 10); return; }
+      if (o.some(d => d.tempInfo.temp.id && !Array.isArray(d.tempInfo.temp.props))) {
+        window.__MOCK_BAO_LOI__ = (window.__MOCK_BAO_LOI__ || 0) + 1; nk.ket = 'loi';
+        toast('抱歉!命令<DRAWER>执行过程中发生错误,已自动取消命令,请联系软件技术人员'); setTimeout(() => fireEnd('DRAWER', [], []), 10); return;
+      }
+      dungNK(kep, kh, o.filter(d => d.tempInfo.temp.id), JSON.parse(JSON.stringify(st.m_Option)), nk);
+    };
+    document.body.appendChild(dl);
+  }
+  async function dungNK(kep, kh, o, lc, nk) {
+    dangTai = true;
+    try {      // một lần gọi máy chủ cho mỗi mã mẫu của lệnh (ba ngăn cùng mẫu vẫn chỉ một lần)
+      for (const id of [...new Set(o.map(d => Number(d.tempInfo.temp.id)))]) {
+        (window.__MOCK_MAU_TAI__ = window.__MOCK_MAU_TAI__ || []).push(id);
+        if (window.__MOCK_TEMPLATE_DELAY__) await new Promise(r => setTimeout(r, window.__MOCK_TEMPLATE_DELAY__));
+        const L = (window.__MOCK_MAU_LOI__ || {})[id];
+        if (L && L.lan > 0) { L.lan--; const e = new Error('tai mau'); e.kieu = (Array.isArray(L.kieu) ? L.kieu.shift() : L.kieu) || 'may_chu'; throw e; }
+      }
+    } catch (e) {
+      dangTai = false; nk.ket = 'loi';
+      toast('抱歉!命令<DRAWER>执行过程中发生错误,已自动取消命令,请联系软件技术人员');
+      if (e.kieu === 'tk') toast('服务器返回错误 URL: https://api.cfcad.cn/CAD-moduleDetail 不是您店铺的模板，鉴权失败');
+      fireEnd('DRAWER', [], []); return;
+    }
+    const so = v => Number(v) || 0, BH = kep[0].Thickness, tu = kep[0].BoardProcessOption.cabinetName, phong = kep[0].BoardProcessOption.roomName;
+    const trong = lc.doorPosType === 1, off = trong ? so(lc.offset) : 0;
+    // giả định xấu (KHÔNG phải điều đã đo): bản Chenfeng mới dựng mặt ngăn kéo khác công thức đã đo — window.__MOCK_NK_LECH__ = số mm mép dưới mặt dưới cùng bị nâng lên
+    const fx0 = kh.x0 + so(lc.leftSpace) - so(lc.leftExt), fx1 = kh.x1 - so(lc.rightSpace) + so(lc.rightExt), fzA = kh.z0 + so(lc.bottomSpace) - so(lc.bottomExt) + (window.__MOCK_NK_LECH__ || 0), fzB = kh.z1 - so(lc.topSpace) + so(lc.topExt);
+    // (đã đo: mặt của ô khoá cao đúng bằng `height` của ô, ô "D" nhận phần còn lại; cây mẫu ghi H của ô khoá là hằng số)
+    const khoa = window.__MOCK_NK_KHONG_KHOA__ ? [] : o.filter(d => d.isLockHeight), caoD = (fzB - fzA - (o.length - 1) * so(lc.midSpace) - khoa.reduce((a, d) => a + Number(d.height), 0)) / Math.max(1, o.length - khoa.length);
+    // sâu hộp lấy theo `depth` ĐANG GHI trong lựa chọn (SetDrawerDepth đã tính khi isAuto) — __MOCK_NK_SAU__: giả định xấu, bản Chenfeng mới ra sâu hộp khác công thức đã đo
+    const depth = so(lc.depth), W = window.__MOCK_NK_SAU__ || (lc.isFloor50 ? Math.floor((depth - off - 5) / 50 + 1e-9) * 50 : depth - off - 5), yF = kh.y0 + off;
+    const tong = new Tpl('抽屉总空间', []), kg = new Tpl('抽屉空间', []); kg.Parent = tong.Id; tong.Children.push(kg.Id);
+    const cha = kep.map(b => b.Template).find(Boolean); if (cha) { tong.Parent = cha; cha.Object.Children.push(tong.Id); }
+    let created = [], zTren = fzB;
+    for (const d of o) {      // từ ô trên cùng xuống
+      const h = khoa.indexOf(d) >= 0 ? Number(d.height) : caoD, fz0 = zTren - h; zTren = fz0 - so(lc.midSpace);
+      // ĐÃ ĐO 05/10/2026: lệnh DRAWER áp BIỂU THỨC (`expr`) của từng tham số trong `props` của ô, KHÔNG áp `value` (như GetOnlineTemplate): biểu thức rỗng → Chenfeng dùng số mặc định của mẫu trong kho
+      // (hộp ray Blum, BH mặc định 18: ghi value 17,5 / expr '' → mặt vẫn 18; ghi expr '17.5' → mặt 17,5).
+      // window.__MOCK_MAU_MAC_DINH__ = { [mã mẫu]: { tên tham số: số mặc định của mẫu } } — phép thử khai theo kho giả của nó; mẫu / tham số không khai thì lấy `value` của ô.
+      const md = (window.__MOCK_MAU_MAC_DINH__ || {})[String(d.tempInfo.temp.id)] || {};
+      const P = n => { const q = d.tempInfo.temp.props.find(x => x.name === n); if (!q) return undefined; if (q.expr !== '' && !isNaN(Number(q.expr))) return Number(q.expr); return md[n] !== undefined ? md[n] : Number(q.value); };
+      // ĐÃ ĐO: dày mặt = tham số BH của MẪU — mẫu ray bi / ray âm ghi BH = $BH (theo thùng), mẫu hộp ray Blum ghi BH = 18 cố định. Ô `thickness` của hộp thoại không dính gì tới dày mặt.
+      const pB = d.tempInfo.temp.props.find(x => x.name === 'BH'), bhMau = pB && (pB.expr === '' || !isNaN(Number(pB.expr))) ? P('BH') : BH;
+      const es = templateFromJSON({ Name: d.tempInfo.temp.name, CabinetName: tu, RoomName: phong, BoxSize: [kh.x1 - kh.x0, W, h], Pos: [kh.x0, yF, fz0],
+        ParamMap: [['BH', bhMau], ['GD', P('GD')], ['SLK', P('SLK')], ['XLK', P('XLK')], ['SYS', 0], ['XYS', 0], ['ZYS', kh.x0 - fx0], ['YYS', fx1 - kh.x1]].filter(x => x[1] !== undefined).map(([name, value]) => ({ name, value: String(value) })) });
+      const rec = new Tpl(d.tempInfo.temp.name, es); rec.Parent = kg.Id; kg.Children.push(rec.Id);
+      // ĐÃ ĐO: nút mẫu ngăn kéo mang L = _L, W = floor(_W/50)*50 (sâu DANH NGHĨA của hộp), H theo ô, BH; mặt ngăn kéo thuộc thẳng nút này
+      rec.LParam.value = kh.x1 - kh.x0; rec.LParam.expr = '_L'; rec.WParam.value = W; rec.WParam.expr = 'floor(_W/50)*50'; rec.HParam.value = h; rec.GetParam('BH').value = bhMau; if (pB) rec.GetParam('BH').expr = pB.expr;
+      if (window.__MOCK_NK_KHONG_W__) rec.DeleteParam('W');      // giả định xấu: bản Chenfeng khác, nút mẫu không còn tham số W
+      for (const e of es) e.Template = rec.Id;
+      created = created.concat(es);
+    }
+    // __MOCK_NK_KET_TRUOC__ (giả định, chưa đo): Chenfeng bắn "lệnh kết thúc" TRƯỚC khi đối tượng vào bản vẽ một nhịp
+    const vao = () => { for (const e of created) ents.push(e); pushHist({ CommandName: 'DRAWER', created }); };
+    dangTai = false; nk.ket = 'ok';
+    if (window.__MOCK_NK_KET_TRUOC__) { fireEnd('DRAWER', [], created); setTimeout(vao, 300); return; }
+    vao();
+    setTimeout(() => fireEnd('DRAWER', [], created), 30);
   }
 
   /* ---- MẪU KHO: cổng nhập nhận { Type: 'Template', TempalteId } của một mẫu trong kho → dựng cả tủ theo BoxSize (đo trên bản thật 04/10/2026).
@@ -355,6 +491,121 @@
     importFile(f);
   });
 
+  /* ---- LỆNH VẼ TẤM GỐC (bản 1.26 của bộ thử; bật bằng window.__MOCK_GOC__ = true TRƯỚC khi trang tải — không bật thì trang như cũ: MNCFDriver.gocDuoc() = false, bảng vẽ theo cách nhập tấm).
+   *   LEFTRIGHTBOARD, VERTIALBOARD, TOPBOTTOMBOARD, BEHINDBOARD, LAYERBOARD, DOOR — theo các điều đã đo trên Chenfeng thật 03/10/2026 (bản 1.15 – 1.16):
+   *   - lệnh → hộp thoại (kho lựa chọn lấy từ nút OK qua React fiber; m_Option = số thật, m_UiOption = chuỗi hiển thị; gán chuỗi hiển thị KHÔNG tự sang m_Option) → OK → lời nhắc;
+   *   - LEFTRIGHTBOARD hỏi "请拾取基点:" → gõ toạ độ → 2 hồi + mẫu gốc 左右侧板模板 (L = tổng rộng, W = sâu, H = cao);
+   *   - các lệnh còn lại hỏi "点选画板区域<实际空间>:" và dò khoảng trống theo VỊ TRÍ CHUỘT (MouseCtrl._CurMousePointVCS, toạ độ màn hình) trên HÌNH đang dựng: 4 đường từ chuột ra 4 phía,
+   *     lấy tấm gần nhất mỗi phía trong Scene; tấm trùm lên điểm (hậu, cánh) không tính; điểm gõ trả lời không dùng để dò;
+   *   - hình của tấm mới vào Scene trễ một nhịp setTimeout (tab bị che: trễ cả giây — window.__MOCK_GOC_TRE__ = số ms); bảng phải tự đưa hình vào (Scene.add) trước khi dò;
+   *   - rê chuột lúc đang hỏi khoảng trống: 30 ms sau Chenfeng dò thử và ghi hộp xem trước vào app.MoveTool._DrawDimPoints (3 cặp điểm quanh hộp);
+   *   - Chenfeng đọc lựa chọn của hộp thoại SAU khi lời nhắc đã đóng (một nhịp) rồi mới dựng tấm — trả lựa chọn của người dùng về sớm là tấm ra theo cấu hình cũ;
+   *   - bề dày / khoảng cách của vách, đợt, hậu lấy theo BIỂU THỨC chuỗi (exprThickness, calcSpaceSize, calcFrontShrink…) với L / W / H = kích thước khoảng trống;
+   *   - hậu: mặt SAU cách mép sau khoảng trống `spaceSize` (âm = nằm sau thùng), trùm ra 4 phía; nóc / đáy: `offset` = hạ nóc / nâng đáy;
+   *   - DOOR + từ khoá S: cánh theo 4 tấm kẹp đang chọn (chuỗi hiển thị → lựa chọn lúc bấm OK), tên 左开门板 / 右开门板 theo hướng mở; tấm con mang tên tủ / phòng của thùng.
+   *   GIẢN LƯỢC (không giả lập): cây mẫu tự dựng lại khi đổi L / W / H (UpdateTemplateTree của các mẫu này không làm gì), chế độ "đặt theo phòng" của LEFTRIGHTBOARD,
+   *   xà chân / thanh giằng của hộp nóc đáy (bật các ô đó thì trang ghi window.__MOCK_GOC_THUA__ để phép thử thấy).
+   *   window.__MOCK_GOC_LOG__ = nhật ký từng lệnh: { lenh, khoang: [x0, x1, z0, z1] | null, so_tam } ---- */
+  const GOC = !!window.__MOCK_GOC__;
+  const cam = { x0: 0, z1: 10000, k: 20 }, scene = { children: [], add(o) { if (o && o.parent !== scene) { o.parent = scene; scene.children.push(o); } } };
+  const vaoScene = es => setTimeout(() => { for (const e of es) scene.add(e.DrawObject); }, window.__MOCK_GOC_TRE__ || 0);
+  const mkSt = (m, them) => { const ui = {}; for (const k of Object.keys(m)) if (typeof m[k] !== 'boolean') ui[k] = String(m[k]);
+    const bp = { roomName: '', cabinetName: '', boardName: '', useBoardProcessOption: true, drillType: FIRST, highDrill: [FIRST, FIRST, FIRST, FIRST] };
+    return Object.assign({ m_Option: m, m_UiOption: ui, m_BoardProcessOption: bp, ui_BoardProcessOption: Object.assign({}, bp, { highDrill: bp.highDrill.slice() }), rectDrillOption: { up: FIRST, down: FIRST, left: FIRST, right: FIRST },
+      autoCutOption: { isAutoCut: true, isRelevance: true }, configName: '默认', configsNames: ['默认'], OnOk() {} }, them || {}); };
+  // cấu hình "của người dùng" trong từng hộp thoại (bảng phải trả lại nguyên sau mỗi lệnh)
+  const tbO = (ten, off) => ({ isDraw: true, isWrapSide: true, frontDist: 20, behindDistance: 0, leftExt: 0, rightExt: 0, name: ten, thickness: 18, offset: off, footThickness: 18, isDrawFooter: true, isDrawBackFooter: true, isDrawStrengthenStrip: true });
+  const uiCua = o => { const u = {}; for (const k of Object.keys(o)) if (typeof o[k] !== 'boolean') u[k] = String(o[k]); return u; };
+  const gocSt = {
+    LEFTRIGHTBOARD: mkSt({ height: 2000, width: 550, thickness: 18, spaceSize: 800, leftShrink: 0, rightShrink: 0, leftBackShrink: 0, leftFrontExt: 0, leftBottomExt: 0, rightBackShrink: 0, rightFrontExt: 0, rightBottomExt: 0, leftBoardName: 'Hồi trái (của anh)', rightBoardName: 'Hồi phải (của anh)' }),
+    VERTIALBOARD: mkSt({ name: 'Hồi giữa', frontShrink: 0, bottomShrink: 0, calcFrontShrink: '0', calcBottomShrink: '0', isTotalLength: true, isTotalWidth: true, boardRelative: 'div', thickness: 18, exprThickness: '18', count: 1, exprCount: '1', spaceSize: 0, calcSpaceSize: '0', cuttingProtrudingPart: false }),
+    TOPBOTTOMBOARD: (() => { const st = mkSt({}); delete st.m_Option; delete st.m_UiOption; st.topBoardOption = tbO('Nóc (của anh)', 0); st.bottomBoardOption = tbO('Đáy (của anh)', 80); st.topUiOption = uiCua(st.topBoardOption); st.bottomUiOption = uiCua(st.bottomBoardOption); return st; })(),
+    BEHINDBOARD: mkSt({ name: '背板', leftExt: 6, rightExt: 6, topExt: 6, bottomExt: 6, thickness: 5, exprThickness: '5', boardPosition: 'all', moveDist: 0, calcMoveDist: '0', boardRelative: 'back', spaceSize: 20, calcSpaceSize: '20', count: 1, exprCount: '1' }),
+    LAYERBOARD: mkSt({ name: '层板', frontShrink: 20, calcFrontShrink: '20', leftShrink: 0, rightShrink: 0, calcLeftShrink: '0', calcRightShrink: '0', isTotalLength: true, boardRelative: 'div', thickness: 18, exprThickness: '18', count: 1, exprCount: '1', spaceSize: 0, calcSpaceSize: '0', isActive: false, cuttingProtrudingPart: false }),
+    DOOR: (() => { const st = mkSt({ col: 2, row: 1, isAllSelect: true, topOffset: 0, bottomOffset: 0, doorPosType: 0, offset: '0', leftExt: '17', leftSpace: '2', rightExt: '17', rightSpace: '2', topExt: '17', topSpace: '2', bottomExt: '17', bottomSpace: '2', midSpace: '3', thickness: '18', useBoardRoomCabinetName: true, changeTemplateBoardNameOfOpenDir: true });
+      st.doorDrawersInfo = []; st.CalcInfos = () => { const cu = st.doorDrawersInfo, ds = []; for (let r = 0; r < Math.max(1, +st.m_Option.row || 1); r++) for (let c = 0; c < Math.max(1, +st.m_Option.col || 1); c++) { const o = cu.find(d => d.row === r && d.col === c); ds.push(o || { row: r, col: c, openDir: 'lf' }); } st.doorDrawersInfo = ds; }; return st; })(),
+  };
+  const tinhBT = (bt, so, kh) => { const t = String(bt === undefined || bt === '' ? so : bt); if (!isNaN(Number(t))) return Number(t); return Function('L', 'W', 'H', 'return ' + t)(kh.x1 - kh.x0, kh.y1 - kh.y0, kh.z1 - kh.z0); };
+  class TplGoc extends Tpl { constructor(name, objs, cha, option) { super(name, objs); if (cha) { this.Parent = cha; cha.Object.Children.push(this.Id); } if (option) this._option = option; this.Positioning = undefined; } async UpdateTemplateTree() { this.capNhat++; } }
+  class TplLR extends TplGoc { constructor(objs, goc0) { super('左右侧板模板', objs, null, null); this.neo = objs[0]; this.goc0 = goc0.slice(); }
+    GetTemplateRealitySpaceCS() { return new M4().copy(this.neo.M).multiply(new M4().makeTranslation(this.goc0[0], this.goc0[1], this.goc0[2])); } }
+  const gocCua = b => { let o = b.Template && b.Template.Object, n = 0; while (o && o.Parent && o.Parent.Object && n++ < 40) o = o.Parent.Object; return o || null; };
+  // khoảng trống dưới chuột (toạ độ màn hình → hình chiếu đứng): 4 đường từ điểm ra 4 phía, tấm gần nhất mỗi phía trong Scene; trên / dưới (hoặc trái / phải) chưa có tấm thì lấy theo hai tấm kẹp
+  const khoangGoc = sc => {
+    const px = cam.x0 + sc.x * cam.k, pz = cam.z1 - sc.y * cam.k, T = { trai: null, phai: null, duoi: null, tren: null };
+    for (const b of ents) {
+      if (!(b instanceof Board) || b.IsErase || b.DrawObject.parent !== scene) continue;
+      const x = b.box;
+      if (x[0] < px && x[1] > px && x[4] < pz && x[5] > pz) continue;      // tấm trùm lên điểm (hậu, cánh)
+      if (x[4] < pz && x[5] > pz) { if (x[1] <= px && (!T.trai || x[1] > T.trai.box[1])) T.trai = b; if (x[0] >= px && (!T.phai || x[0] < T.phai.box[0])) T.phai = b; }
+      if (x[0] < px && x[1] > px) { if (x[5] <= pz && (!T.duoi || x[5] > T.duoi.box[5])) T.duoi = b; if (x[4] >= pz && (!T.tren || x[4] < T.tren.box[4])) T.tren = b; }
+    }
+    if (!T.trai || !T.phai) return null;
+    const goc = gocCua(T.trai), y0 = T.trai.box[2], y1 = goc && goc.WParam ? y0 + goc.WParam.value : T.trai.box[3];
+    return { x0: T.trai.box[1], x1: T.phai.box[0], z0: T.duoi ? T.duoi.box[5] : Math.max(T.trai.box[4], T.phai.box[4]), z1: T.tren ? T.tren.box[4] : Math.min(T.trai.box[5], T.phai.box[5]), y0, y1, kep: T, goc, px, pz };
+  };
+  const hopXem = kh => { const P = (x, y, z) => new V3(x, y, z); window.app.MoveTool._DrawDimPoints = [[P(kh.x0, kh.y0, kh.z0), P(kh.x1, kh.y0, kh.z0)], [P(kh.x0, kh.y0, kh.z0), P(kh.x0, kh.y0, kh.z1)], [P(kh.x1, kh.y1, kh.z1), P(kh.x1, kh.y0, kh.z1)]]; };
+  const moHopGoc = (lenh, st, khiOk) => {
+    const dl = document.createElement('div'); dl.className = 'bp3-dialog mock-goc'; dl.style.cssText = 'position:fixed;left:60px;top:60px;width:420px;padding:10px;background:#fff;z-index:6';
+    dl.innerHTML = '<div class="bp3-dialog-header"><h4 class="bp3-heading"></h4></div><div class="bp3-dialog-footer"><button>OK</button><button>Cancel</button></div>'; dl.querySelector('h4').textContent = lenh;
+    const [ok, huy] = dl.querySelectorAll('button');
+    ok['__reactFiber$mock'] = { memoizedProps: {}, return: { memoizedProps: { store: st }, return: null } };
+    state = { kind: 'dialog', lenh, dl };
+    huy.onclick = () => { dl.remove(); state = null; setTimeout(() => fireEnd(lenh, [], []), 10); };
+    ok.onclick = () => { dl.remove(); khiOk(); };
+    document.body.appendChild(dl);
+  };
+  const tamGoc = (ten, kieu, box, day, mauTu, khoan) => { const o = mauTu.BoardProcessOption, b = new Board(ten, kieu, box, day, o.cabinetName, o.roomName, khoan); return b; };
+  // dựng tấm của một lệnh (gọi một nhịp SAU khi lời nhắc đóng — lúc đó mới đọc lựa chọn)
+  function dungGoc(lenh, diem, chuot, kep) {
+    const st = gocSt[lenh], nk = { lenh, khoang: null, so_tam: 0 }; (window.__MOCK_GOC_LOG__ = window.__MOCK_GOC_LOG__ || []).push(nk);
+    const bp = st.m_BoardProcessOption, K4 = () => { const r = st.rectDrillOption; return [r.up, r.down, r.left, r.right]; }, KHONG = ['不排', '不排', '不排', '不排'];
+    const xong = made => { for (const e of made) ents.push(e); const holes = drill(made); nk.so_tam = made.length; state = null; if (made.length) { pushHist({ CommandName: lenh, created: made.concat(holes) }); vaoScene(made); } setTimeout(() => fireEnd(lenh, [], made.concat(holes)), 30); };
+    if (lenh === 'LEFTRIGHTBOARD') {
+      const o = st.m_Option, [x, y, z] = diem, t = o.thickness;
+      const tr = new Board(o.leftBoardName, 1, [x, x + t, y, y + o.width, z, z + o.height], t, bp.cabinetName, bp.roomName, K4()), ph = new Board(o.rightBoardName, 1, [x + o.spaceSize - t, x + o.spaceSize, y, y + o.width, z, z + o.height], t, bp.cabinetName, bp.roomName, K4());
+      const T = new TplLR([tr, ph], [x, y, z]); T.LParam.value = o.spaceSize; T.WParam.value = o.width; T.HParam.value = o.height; T.GetParam('BH').value = t;
+      tr.Template = ph.Template = T.Id; (window.__MOCK__.templates = window.__MOCK__.templates || []).push(T);
+      return xong([tr, ph]);
+    }
+    if (lenh === 'DOOR') {
+      const o = st.m_Option, so = v => Number(v) || 0, dung = kep.filter(b => b.BoardType === 1).sort((a, c) => a.box[0] - c.box[0]), nam = kep.filter(b => b.BoardType === 0).sort((a, c) => a.box[4] - c.box[4]);
+      if (kep.length !== 4 || dung.length !== 2 || nam.length !== 2) return xong([]);
+      const kh = { x0: dung[0].box[1], x1: dung[1].box[0], z0: nam[0].box[5], z1: nam[1].box[4], y0: Math.max(...kep.map(b => b.box[2])) }; nk.khoang = [kh.x0, kh.x1, kh.z0, kh.z1];
+      const X0 = kh.x0 - so(o.leftExt) + so(o.leftSpace), X1 = kh.x1 + so(o.rightExt) - so(o.rightSpace), Z0 = kh.z0 - so(o.bottomExt) + so(o.bottomSpace), Z1 = kh.z1 + so(o.topExt) - so(o.topSpace), n = Math.max(1, so(o.col)), t = so(o.thickness), w = (X1 - X0 - (n - 1) * so(o.midSpace)) / n;
+      const made = [], goc = gocCua(dung[0]);
+      for (let c = 0; c < n; c++) { const d = st.doorDrawersInfo.find(q => q.row === 0 && q.col === c) || {}, x = X0 + c * (w + so(o.midSpace)); const b = tamGoc(d.openDir === 'rt' ? '右开门板' : '左开门板', 2, [x, x + w, kh.y0 - t, kh.y0, Z0, Z1], t, dung[0], KHONG); const tp = new TplGoc('门板', [b], goc && goc.Id, null); b.Template = tp.Id; made.push(b); }
+      return xong(made);
+    }
+    const kh = khoangGoc(chuot); if (!kh) { prompt('ERROR', '>没有找到合适的空间'); return xong([]); }
+    nk.khoang = [kh.x0, kh.x1, kh.z0, kh.z1];
+    const cha = kh.goc && kh.goc.Id, mau = kh.kep.trai, khoan = bp.useBoardProcessOption ? (Array.isArray(bp.highDrill) ? bp.highDrill.slice() : K4()) : mau.BoardProcessOption.highDrill.slice();
+    const them = (b, tenMau, option) => { const tp = new TplGoc(tenMau, [b], cha, option); b.Template = tp.Id; return b; };
+    if (lenh === 'VERTIALBOARD') {
+      const o = Object.assign({}, st.m_Option), t = tinhBT(o.exprThickness, o.thickness, kh), cach = tinhBT(o.calcSpaceSize, o.spaceSize, kh), fs = tinhBT(o.calcFrontShrink, o.frontShrink, kh), bs = tinhBT(o.calcBottomShrink, o.bottomShrink, kh);
+      const x = o.boardRelative === 'left' ? kh.x0 + cach : (kh.x0 + kh.x1 - t) / 2;      // 'div' (cấu hình của người dùng): vách nằm GIỮA khoảng trống
+      return xong([them(tamGoc(o.name, 1, [x, x + t, kh.y0 + fs, kh.y1, kh.z0 + bs, kh.z1], t, mau, khoan), '立板(自动)', o)]);
+    }
+    if (lenh === 'LAYERBOARD') {
+      const o = Object.assign({}, st.m_Option), t = tinhBT(o.exprThickness, o.thickness, kh), cach = tinhBT(o.calcSpaceSize, o.spaceSize, kh), fs = tinhBT(o.calcFrontShrink, o.frontShrink, kh);
+      const z = o.boardRelative === 'bottom' ? kh.z0 + cach : (kh.z0 + kh.z1 - t) / 2;
+      return xong([them(tamGoc(o.name, 0, [kh.x0 + tinhBT(o.calcLeftShrink, o.leftShrink, kh), kh.x1 - tinhBT(o.calcRightShrink, o.rightShrink, kh), kh.y0 + fs, kh.y1, z, z + t], t, mau, khoan), '层板(自动)', o)]);
+    }
+    if (lenh === 'BEHINDBOARD') {
+      const o = Object.assign({}, st.m_Option), t = tinhBT(o.exprThickness, o.thickness, kh), sau = kh.y1 - tinhBT(o.calcSpaceSize, o.spaceSize, kh);
+      return xong([them(tamGoc(o.name, 2, [kh.x0 - o.leftExt, kh.x1 + o.rightExt, sau - t, sau, kh.z0 - o.bottomExt, kh.z1 + o.topExt], t, mau, khoan), '背板(自动)', o)]);
+    }
+    if (lenh === 'TOPBOTTOMBOARD') {
+      const made = [], no = st.topBoardOption, da = st.bottomBoardOption;
+      if (no.isWrapSide || da.isWrapSide || da.isDrawFooter || da.isDrawBackFooter || da.isDrawStrengthenStrip) window.__MOCK_GOC_THUA__ = (window.__MOCK_GOC_THUA__ || 0) + 1;      // cấu hình của người dùng lọt vào lệnh: nóc bọc hồi / có xà chân, thanh giằng
+      if (no.isDraw) { const z1 = kh.z1 - no.offset; made.push(tamGoc(no.name, 0, [kh.x0 - no.leftExt, kh.x1 + no.rightExt, kh.y0 + no.frontDist, kh.y1 - no.behindDistance, z1 - no.thickness, z1], no.thickness, mau, khoan)); }
+      if (da.isDraw) { const z0 = kh.z0 + da.offset; made.push(tamGoc(da.name, 0, [kh.x0 - da.leftExt, kh.x1 + da.rightExt, kh.y0 + da.frontDist, kh.y1 - da.behindDistance, z0, z0 + da.thickness], da.thickness, mau, khoan)); }
+      const tp = new TplGoc('顶底板', made, cha, null); for (const b of made) b.Template = tp.Id;
+      return xong(made);
+    }
+    xong([]);
+  }
+
   const Editor = {
     GetPointServices: svc, GetEntityServices: gesvc, KeywordsServices: kwsvc, InteractiveServices: [svc, gesvc, kwsvc],
     CommandStore: { promptList: prompts, HandleInput(name) {
@@ -378,6 +629,12 @@
         document.body.appendChild(dl);
       }
       else if (name === 'ROTATE') { state = { kind: 'rotate', buoc: 0 }; gesvc.IsReady = true; }
+      else if (name === 'DRAWER') { state = { kind: 'nk', kep: selection.filter(e => e instanceof Board && !e.IsErase) }; svc.IsReady = true; prompt('INFO', '>点选画板区域<实际空间>:'); }      // xem moHopNK
+      else if (GOC && name === 'DOOR') { state = { kind: 'cua', kep: selection.filter(e => e instanceof Board && !e.IsErase) }; svc.IsReady = true; prompt('INFO', '>点选画板区域<实际空间>:'); }      // xem dungGoc
+      else if (GOC && gocSt[name]) {
+        state = { kind: 'dialog', lenh: name };
+        setTimeout(() => { if (state && state.kind === 'dialog' && state.lenh === name && !state.dl) moHopGoc(name, gocSt[name], () => { state = { kind: 'goc', lenh: name }; svc.IsReady = true; prompt('INFO', name === 'LEFTRIGHTBOARD' ? '>请拾取基点:' : '>点选画板区域<实际空间>:'); }); }, 120);
+      }
       else if (name === 'CD' || name === 'CHAIDAN') {      // 拆单: hỏi "选择板件或者五金"; tài khoản không có quyền tách đơn (quyền 377) thì lệnh thôi luôn, không hỏi
         if (window.__MOCK_CD_KHONG_QUYEN__) { setTimeout(() => fireEnd('CHAIDAN', [], []), 10); return; }
         state = { kind: 'cd' }; gesvc.IsReady = true; prompt('INFO', '>选择板件或者五金');
@@ -405,6 +662,25 @@
         return;
       }
       if (state.kind === 'dxf') { const st = state; state = null; kwsvc.IsReady = false; importDXF(st.file, String(text).toUpperCase() === 'Y'); return; }
+      if (state.kind === 'goc') {      // lệnh vẽ tấm gốc đang hỏi điểm: điểm gõ vào chỉ để trả lời — khoảng trống dò theo chỗ CHUỘT lúc đó
+        const p = String(text).split(',').map(Number); if (p.length !== 3 || !p.every(isFinite)) return;
+        const lenh = state.lenh, chuot = Editor.MouseCtrl._CurMousePointVCS.clone(); state = { kind: 'goc_dung', lenh }; svc.IsReady = false;
+        setTimeout(() => dungGoc(lenh, p, chuot, null), 40);
+        return;
+      }
+      if (state.kind === 'cua') {
+        if (String(text).toUpperCase() !== 'S') return;
+        const kep = state.kep, st = gocSt.DOOR; state = { kind: 'dialog', lenh: 'DOOR' }; svc.IsReady = false;
+        setTimeout(() => { if (!state || state.kind !== 'dialog' || state.lenh !== 'DOOR' || state.dl) return; st.CalcInfos();
+          moHopGoc('DOOR', st, () => { for (const k of Object.keys(st.m_UiOption)) st.m_Option[k] = typeof st.m_Option[k] === 'number' ? Number(st.m_UiOption[k]) : st.m_UiOption[k]; state = { kind: 'goc_dung', lenh: 'DOOR' }; setTimeout(() => dungGoc('DOOR', null, null, kep), 40); }); }, 200);
+        return;
+      }
+      if (state.kind === 'nk') {      // S (框选): lấy các tấm đang chọn làm khoảng kẹp → mở hộp "Drawer Design"
+        if (String(text).toUpperCase() !== 'S' || window.__MOCK_NK_KHONG_MO__) return;      // __MOCK_NK_KHONG_MO__: giả định Chenfeng không mở hộp (lời nhắc vẫn chờ)
+        const kep = state.kep, kh = khoangNK(kep); if (!kh) return;
+        state = { kind: 'dialog', lenh: 'DRAWER' }; svc.IsReady = false; setTimeout(() => moHopNK(kep, kh), window.__MOCK_NK_TRE__ || 200);
+        return;
+      }
       const so3 = () => { const p = String(text).split(',').map(Number); return p.length === 3 && p.every(isFinite) ? p : null; };
       const them = (e, ten) => { ents.push(e); pushHist({ CommandName: ten, created: [e] }); setTimeout(() => fireEnd(ten, [], [e]), 20); };
       if (state.kind === 'wall') {
@@ -558,7 +834,7 @@
       window.__MOCK_CANCELS__ = (window.__MOCK_CANCELS__ || 0) + 1;
       if (!state) return;
       if (state.kind === 'hoi') { const st = state; state = null; svc.IsReady = false; st.res({ Status: -1 }); return; }
-      if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog', 'dxf', 'cd'].includes(state.kind)) { svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
+      if (['wall', 'hole', 'pillar', 'girder', 'rotate', 'dialog', 'dxf', 'cd', 'nk', 'goc', 'cua'].includes(state.kind)) { if (state.dl) state.dl.remove(); svc.IsReady = false; gesvc.IsReady = false; kwsvc.IsReady = false; state = null; return; }
       if (state.kind === 'point') { for (const e of state.created) e.IsErase = true; if (state.nk) state.nk.ket = 'huy'; svc.IsReady = false; state = null; setTimeout(() => fireEnd('晨丰导入', [], []), 10); }
       else { const ten = state.kind === 'modeling' ? 'MODELING' : 'DRAWHOLE'; gesvc.IsReady = false; state = null; setTimeout(() => fireEnd(ten, [], []), 10); }
     },
@@ -569,6 +845,7 @@
     MouseCtrl: { _CurMousePointVCS: new V3(0, 0, 0) },
     UCSMatrix: new M4(),
   };
+  if (GOC) Editor.ModalManage = {};
   // VẬT LIỆU (bản 1.21) — như bản thật đã đo 04/10/2026: Database.MaterialTable (Symbols: Map tên → PhysicalMaterialRecord, GetAt, Has), Database.DefaultMaterial ("默认");
   // file vật liệu của kho là một Database thu nhỏ: new Database(false, false, true).FileRead(new CADFiler(mảng)).MaterialTable.Symbols chứa đúng một bản ghi;
   // WblockCloneObejcts([bản ghi], bảng vật liệu của bản vẽ, new Map, 1) chép bản ghi sang bản vẽ. Bản ghi có Name, GoodsInfo { name, color, material } (thông tin ván ghi vào tấm), IsMaterialLock.
@@ -587,9 +864,22 @@
     CommandReactor: { _cmdName: '', OnCommandEnd(cb) { endCbs.add(cb); return () => endCbs.delete(cb); } },
     AutoSaveServer: { Stop() {}, Start() {} },
   };
-  window.__MOCK__ = { RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, Line, Circle, Polyline, Text, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
+  if (GOC) {      // hướng nhìn + thu phóng + Scene của vùng vẽ (xem khối LỆNH VẼ TẤM GỐC)
+    const V = window.app.Viewer, cv = V.Renderer.domElement;
+    const vua = ds => { const bs = ds.map(e => e && e.BoundingBox).filter(b => b && isFinite(b.min.x) && isFinite(b.max.x)); if (!bs.length) return;
+      const x0 = Math.min(...bs.map(b => b.min.x)), x1 = Math.max(...bs.map(b => b.max.x)), z0 = Math.min(...bs.map(b => b.min.z)), z1 = Math.max(...bs.map(b => b.max.z));
+      cam.k = Math.max((x1 - x0) / 640, (z1 - z0) / 400, 0.5); cam.x0 = (x0 + x1) / 2 - 400 * cam.k; cam.z1 = (z0 + z1) / 2 + 250 * cam.k; };
+    Object.assign(V, { _Scene: scene, CameraControl: { Direction: new V3(0, 1, 0), LookAt(d) { this.Direction = new V3(d.x, d.y, d.z); } },
+      ViewToFront() { V.CameraControl.Direction = new V3(0, 1, 0); }, ZoomtoEntitys(ds) { vua(ds); }, ZoomAll() { vua(ents.filter(e => !e.IsErase)); }, Render() { window.__MOCK_GOC_VE__ = (window.__MOCK_GOC_VE__ || 0) + 1; },
+      WorldToScreen(v) { const x = v.x, z = v.z; v.x = (x - cam.x0) / cam.k; v.y = (cam.z1 - z) / cam.k; v.z = 0; return v; } });
+    window.app.MoveTool = { _DrawDimPoints: [] };
+    // chuột rê trên vùng vẽ: Chenfeng ghi điểm chuột; đang hỏi khoảng trống thì 30 ms sau dò thử và vẽ hộp xem trước
+    cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(), sc = new V3(e.clientX - r.left, e.clientY - r.top, 0); Editor.MouseCtrl._CurMousePointVCS.set(sc.x, sc.y, 0);
+      if (state && state.kind === 'goc' && state.lenh !== 'LEFTRIGHTBOARD') setTimeout(() => { if (state && state.kind === 'goc') { const kh = khoangGoc(sc); if (kh) hopXem(kh); } }, 30); });
+  }
+  window.__MOCK__ = { gocSt, RoomRegion, RoomWallLine, RoomHolePolyline, RoomPillar, RoomGirder, Line, Circle, Polyline, Text, ents, history, userSelect(list) { selection = list.slice(); }, clickPoint(x, y, z) { Editor.InputEvent([x, y, z].join(',')); },
     // chuột rê tới (x, y, z) khi bảng đang hỏi điểm: Chenfeng thật gọi Callback của lời nhắc với điểm dưới chuột
-    reChuot(x, y, z) { if (state && state.kind === 'hoi') { state.cur = new V3(x, y, z || 0); if (state.o.Callback) state.o.Callback(state.cur); return true; } return false; }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, TplKho, StretchAction, V3, M4, them(e) { ents.push(e); return e; } };
+    reChuot(x, y, z) { if (state && state.kind === 'hoi') { state.cur = new V3(x, y, z || 0); if (state.o.Callback) state.o.Callback(state.cur); return true; } return false; }, Board, CylinderHole, HardwareCompositeEntity, endCbs, Tpl, TplHau, TplKho, StretchAction, V3, M4, nkSt, them(e) { ents.push(e); return e; } };
   // trang sản xuất (khung Order Splitting) báo "closeWindow" sau khi người dùng bấm 打开 → Chenfeng đóng hộp thoại
   window.addEventListener('message', e => { if (e.origin === 'https://sc.leye.site' && e.data && e.data.command === 'closeWindow') { const ov = document.querySelector('.mock-cd'); if (ov) ov.remove(); } });
   // người dùng bấm chuột trên vùng vẽ khi đang hỏi điểm = đặt tại (1000, -17.5, 0)
