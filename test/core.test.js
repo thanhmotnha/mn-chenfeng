@@ -1038,13 +1038,15 @@ T('Lệnh DRAWER (bản 1.26): lựa chọn của hộp "Drawer Design" theo m�
     Object.assign({}, ts0, { name: 'SLK', value: 30, description: '上留空', min: 0, max: 100 }), Object.assign({}, ts0, { name: 'W', value: 450, expr: '_W-5' })] },
     'mẫu: mã dạng chuỗi, tên, hình, danh sách tham số đủ các trường mặc định (thiếu `props` là Chenfeng ném lỗi lúc dựng)');
   eq(Object.keys(T0.props[0]), Object.keys(ts0), 'thứ tự trường của một tham số đúng như Chenfeng tự tạo');
-  // tham số riêng của loại ngăn kéo (Chuẩn xưởng) ghi đè giá trị mặc định của mẫu; tham số là công thức thì giữ nguyên; tham số mẫu không có thì không thêm
+  // tham số riêng của loại ngăn kéo (Chuẩn xưởng) ghi đè giá trị mặc định của mẫu; tham số là công thức thì giữ nguyên; tham số mẫu không có thì không thêm.
+  // Đo trên Chenfeng thật 05/10/2026: lệnh DRAWER áp BIỂU THỨC (`expr`) của từng tham số, không áp `value` — ghi đè mà để biểu thức rỗng thì Chenfeng vẫn dùng số mặc định của mẫu
+  // (hộp ray Blum: BH ghi value 17,5 / expr '' → mặt vẫn 18; ghi expr '17.5' → mặt 17,5).
   const T1 = C0.tempNganKeo({ module_id: 123456, name: 'Ngăn kéo thử' }, hang, { GD: 21, SLK: 20, W: 400, XLK: 10 });
-  eq(T1.props.map(p => [p.name, p.value, p.expr]), [['L', 600, ''], ['GD', 21, '21'], ['SLK', 20, ''], ['W', 450, '_W-5']], 'ghi đè GD (cả biểu thức số), SLK; W là công thức → giữ; XLK mẫu không có → bỏ qua');
+  eq(T1.props.map(p => [p.name, p.value, p.expr]), [['L', 600, ''], ['GD', 21, '21'], ['SLK', 20, '20'], ['W', 450, '_W-5']], 'ghi đè GD, SLK: cả giá trị lẫn BIỂU THỨC (kể cả khi mẫu để biểu thức rỗng); W là công thức → giữ; XLK mẫu không có → bỏ qua; L không ghi đè → giữ nguyên biểu thức rỗng');
   eq([T1.logo, T1.diy_logo, hang[1][3]], ['', '', 13], 'bản ghi thiếu hình vẫn dựng được; không sửa vào dữ liệu gốc');
   // BH (dày mặt) — hai kiểu mẫu đã đo trên Chenfeng thật: hộp ray Blum BH = 18 cố định → ghi đè bằng dày mặt thiết kế; ray bi / ray âm BH = $BH (theo thùng) → giữ công thức
   eq([C0.tempNganKeo({ module_id: 9, name: 'Blum' }, [[3, 'BH', '', 18, null, null, 1, null, null]], { BH: 17.5 }).props.map(p => [p.value, p.expr]), C0.tempNganKeo({ module_id: 9, name: 'Ray bi' }, [[3, 'BH', '$BH', 18, null, null, 1, null, null]], { BH: 17.5 }).props.map(p => [p.value, p.expr])],
-    [[[17.5, '']], [[18, '$BH']]], 'BH cố định của mẫu nhận dày mặt thiết kế; BH = $BH giữ nguyên (mặt tự theo dày ván thùng)');
+    [[[17.5, '17.5']], [[18, '$BH']]], 'BH cố định của mẫu nhận dày mặt thiết kế (ghi thành biểu thức); BH = $BH giữ nguyên (mặt tự theo dày ván thùng)');
   // đúng công thức đã đo: ghi chú lấy NGUYÊN trường [5] (kể cả null), biểu thức trống (null / '') thành ''
   eq(C0.tempNganKeo({ module_id: 7, name: 'x' }, [[3, 'LC', null, 0, null, null, 1, null, null]]).props.map(p => [p.description, p.expr]), [[null, '']], 'ghi chú null giữ null; biểu thức null thành chuỗi rỗng');
   // hàng tham số lạ (bản khác 3, kiểu khác 1, thiếu tên) → không dựng (bảng sẽ chèn ngăn kéo bằng mẫu như trước, không đưa dữ liệu lạ cho Chenfeng)

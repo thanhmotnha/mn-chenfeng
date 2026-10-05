@@ -1680,7 +1680,8 @@
       if (!Array.isArray(r) || r[0] !== 3 || typeof r[1] !== 'string' || r[6] !== 1) return null;
       const p = { name: r[1], value: r[3], description: r[5], expr: r[2] || '', isLock: false, type: 1, option: [], isOptionOnly: false, minCompareType: '>=', maxCompareType: '<=', defaultDir: '', defaultDirId: '',
         min: r[7] === undefined ? null : r[7], max: r[8] === undefined ? null : r[8] };
-      if (ts && typeof ts[p.name] === 'number' && (p.expr === '' || !isNaN(Number(p.expr)))) { p.value = ts[p.name]; if (p.expr !== '') p.expr = String(ts[p.name]); }
+      // ghi đè = ghi cả BIỂU THỨC: đo trên Chenfeng thật 05/10/2026, lệnh DRAWER áp `expr` của từng tham số chứ không áp `value` (để biểu thức rỗng thì Chenfeng vẫn dùng số mặc định của mẫu)
+      if (ts && typeof ts[p.name] === 'number' && (p.expr === '' || !isNaN(Number(p.expr)))) { p.value = ts[p.name]; p.expr = String(Math.round(ts[p.name] * 1000) / 1000); }
       props.push(p);
     }
     return { id: String(id), name: String(banGhi.name || ''), logo: String(banGhi.logo || ''), title: '选择抽屉', tagName: '', diy_logo: String(banGhi.diy_logo || ''), isHandle: false, isHinge: false, isKuGan: false, props };

@@ -96,6 +96,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     const T = { chuanBi: (o, x0) => page.evaluate(([o, x0]) => window.__thu.chuanBi(window.__thu.spec(o), x0), [o, x0]), ve: opt => page.evaluate(opt => window.__thu.ve(opt), opt || {}), xem: () => page.evaluate(() => window.__thu.xem()),
       veMau: opt => page.evaluate(opt => window.__thu.veMau(opt), opt || {}), cuaTu: () => page.evaluate(() => window.__thu.cuaTu()) };
     const LC0 = await page.evaluate(() => window.__thu.lc());
+    // số mặc định của từng mẫu trong kho giả ở trên — lệnh DRAWER của trang giả lập dùng số này cho tham số nào ô để biểu thức rỗng (đúng như Chenfeng thật: nó áp biểu thức, không áp giá trị)
+    await page.evaluate(() => { window.__MOCK_MAU_MAC_DINH__ = { 555001: { GD: 13, LC: 0, SLK: 30, XLK: 30 }, 555010: { GD: 13, SLK: 30, XLK: 30 }, 555002: { GDK: 24.5, LC: 0, SLK: 30, XLK: 30 }, 555016: { BH: 18, LC: 0, XLK: 30 } }; });
 
     console.log('— Ngăn kéo âm giữa hai vách đệm: lệnh DRAWER ra đúng mặt + hộp của thiết kế');
     let c = await T.chuanBi({ mau: 555001 }, 0);
@@ -160,7 +162,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     console.log('— Mẫu có dày mặt cố định (hộp ray Blum: BH = 18, không theo thùng) → bảng ghi dày mặt của thiết kế vào BH của mẫu');
     c = await T.chuanBi({ mau: 555016, ten_mau: '百隆骑马抽中帮16MM', ma: 'NBL', ts: { LC: 0, XLK: 30 } }, 13500);
     r = await T.ve();
-    eq([r.so, r.hong, r.mat, r.nk.map(x => x.bh)], [1, [], [true, true], [[17.5, 17.5]]], 'mặt ra dày 17,5 đúng thiết kế (không phải 18 của mẫu): vẽ được bằng lệnh gốc');
+    eq([r.so, r.hong, r.mat, r.nk.map(x => x.bh)], [1, [], [true, true], [['17.5', '17.5']]], 'mặt ra dày 17,5 đúng thiết kế (không phải 18 của mẫu): bảng ghi BH thành BIỂU THỨC "17.5" — Chenfeng áp biểu thức của tham số, không áp giá trị');
 
     c = await T.chuanBi({ mau: 555010, ten_mau: '三节轨薄底抽', ma: 'NV7' }, 16500);      // mã trỏ tới một mẫu, tên lại trùng một mẫu KHÁC trong kho
     r = await T.ve();

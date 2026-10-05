@@ -315,10 +315,13 @@
     let created = [], zTren = fzB;
     for (const d of o) {      // từ ô trên cùng xuống
       const h = khoa.indexOf(d) >= 0 ? Number(d.height) : caoD, fz0 = zTren - h; zTren = fz0 - so(lc.midSpace);
-      const P = n => { const q = d.tempInfo.temp.props.find(x => x.name === n); return q ? Number(q.value) : undefined; };
-      // ĐÃ ĐO 05/10/2026: dày mặt (và dày ván của hộp) = tham số BH của MẪU — mẫu ray bi / ray âm ghi BH = $BH (theo thùng), mẫu hộp ray Blum ghi BH = 18 cố định (mặt ra 18 dù thùng 17,5).
-      // Ô `thickness` của hộp thoại không dính gì tới dày mặt. (GIẢ ĐỊNH tới khi thử lại: BH cố định ghi trong `props` của ô thì Chenfeng dùng đúng số đó.)
-      const pB = d.tempInfo.temp.props.find(x => x.name === 'BH'), bhMau = pB && (pB.expr === '' || !isNaN(Number(pB.expr))) ? Number(pB.value) : BH;
+      // ĐÃ ĐO 05/10/2026: lệnh DRAWER áp BIỂU THỨC (`expr`) của từng tham số trong `props` của ô, KHÔNG áp `value` (như GetOnlineTemplate): biểu thức rỗng → Chenfeng dùng số mặc định của mẫu trong kho
+      // (hộp ray Blum, BH mặc định 18: ghi value 17,5 / expr '' → mặt vẫn 18; ghi expr '17.5' → mặt 17,5).
+      // window.__MOCK_MAU_MAC_DINH__ = { [mã mẫu]: { tên tham số: số mặc định của mẫu } } — phép thử khai theo kho giả của nó; mẫu / tham số không khai thì lấy `value` của ô.
+      const md = (window.__MOCK_MAU_MAC_DINH__ || {})[String(d.tempInfo.temp.id)] || {};
+      const P = n => { const q = d.tempInfo.temp.props.find(x => x.name === n); if (!q) return undefined; if (q.expr !== '' && !isNaN(Number(q.expr))) return Number(q.expr); return md[n] !== undefined ? md[n] : Number(q.value); };
+      // ĐÃ ĐO: dày mặt = tham số BH của MẪU — mẫu ray bi / ray âm ghi BH = $BH (theo thùng), mẫu hộp ray Blum ghi BH = 18 cố định. Ô `thickness` của hộp thoại không dính gì tới dày mặt.
+      const pB = d.tempInfo.temp.props.find(x => x.name === 'BH'), bhMau = pB && (pB.expr === '' || !isNaN(Number(pB.expr))) ? P('BH') : BH;
       const es = templateFromJSON({ Name: d.tempInfo.temp.name, CabinetName: tu, RoomName: phong, BoxSize: [kh.x1 - kh.x0, W, h], Pos: [kh.x0, yF, fz0],
         ParamMap: [['BH', bhMau], ['GD', P('GD')], ['SLK', P('SLK')], ['XLK', P('XLK')], ['SYS', 0], ['XYS', 0], ['ZYS', kh.x0 - fx0], ['YYS', fx1 - kh.x1]].filter(x => x[1] !== undefined).map(([name, value]) => ({ name, value: String(value) })) });
       const rec = new Tpl(d.tempInfo.temp.name, es); rec.Parent = kg.Id; kg.Children.push(rec.Id);
