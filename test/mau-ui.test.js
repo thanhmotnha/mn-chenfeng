@@ -165,8 +165,9 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     await H.locator('[data-ui="vl-tim"]').fill(''); await H.locator('[data-ui="vl-nhom"]').selectOption('ACRYLIC'); await page.waitForTimeout(350);
     eq((await H.locator('.vlds .vlc').allInnerTexts()).map(t => t.trim()), ['LUX279PRL', 'LUX 101', 'AC-555'], 'lọc theo nhóm ACRYLIC');
     await H.locator('[data-ui="vl-nhom"]').selectOption('');
-    r = await H.locator('.tabs').evaluate(e => ({ cao: Math.round(e.getBoundingClientRect().height), so: e.children.length, rong: Math.round(e.closest('.panel').getBoundingClientRect().width) }));
-    ok(r.so === 7 && r.cao < 44 && r.rong === 448, 'thêm thẻ Màu: 7 thẻ vẫn nằm trên MỘT hàng ở bảng hẹp 448', r);
+    // bản 1.25: bảng mặc định rộng 560; màn hình hẹp thì bảng co lại — ở 448 (bề rộng cũ) 7 thẻ vẫn phải nằm trên một hàng
+    r = await H.locator('.tabs').evaluate(e => { const p = e.closest('.panel'), rong = Math.round(p.getBoundingClientRect().width), cao = Math.round(e.getBoundingClientRect().height), cu = p.style.width; p.style.width = '448px'; const hep = Math.round(e.getBoundingClientRect().height), rong_hep = Math.round(p.getBoundingClientRect().width); p.style.width = cu; return { cao, so: e.children.length, rong, hep, rong_hep }; });
+    ok(r.so === 7 && r.cao < 44 && r.rong === 560 && r.hep < 44 && r.rong_hep === 448, 'thêm thẻ Màu: 7 thẻ nằm trên MỘT hàng ở bảng mặc định (rộng 560) và cả khi bảng hẹp còn 448', r);
     const truocLai = dem('/CAD-materialList');
     await H.locator('[data-act="vl-lai"]').click();
     await page.waitForFunction(() => /Đã đọc lại kho vật liệu: 133 màu/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 10000 });

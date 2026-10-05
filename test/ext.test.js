@@ -55,6 +55,29 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok(/Alt \+ M/.test(await H.locator('.launch').getAttribute('title')) && /Alt \+ M/.test(await H.locator('[data-act="close"]').getAttribute('title')), 'nút mở bảng và nút thu gọn có ghi phím tắt');
     await H.locator('.launch').click();
     ok(await H.locator('[data-act="draw"]').isVisible() && /Vẽ vào Chenfeng/.test(await H.locator('[data-act="draw"]').innerText()), 'bảng nổi có nút "Vẽ vào Chenfeng"');
+    // bản 1.25 — CHÂN BẢNG GỌN (anh Thanh 05/10/2026 08:25: "rối rắm quá khó sử dụng, các nút thành icon cho nó nhanh đi"; 08:32: "cho bảng thao tác rộng ra cũng được"):
+    // chỉ còn một nút chữ (Vẽ vào Chenfeng); mọi nút khác là nút biểu tượng có chú thích ngắn; bảng mặc định rộng hơn.
+    const chan = await page.evaluate(() => {
+      const r = document.getElementById('mncf-host').shadowRoot, ft = r.querySelector('footer'), hien = b => b.getClientRects().length > 0;
+      const nut = [...ft.querySelectorAll('button')].filter(hien), ic = nut.filter(b => b.classList.contains('ic'));
+      return { rong: Math.round(r.querySelector('.panel').getBoundingClientRect().width), chu: nut.filter(b => !b.classList.contains('ic')).map(b => b.dataset.act), ic: ic.map(b => b.dataset.act),
+        du: ic.map(b => (b.querySelector('svg') ? '' : 'thiếu hình ') + (b.getAttribute('aria-label') ? '' : 'thiếu tên ') + (b.title ? '' : 'thiếu giải thích ') + (b.querySelector('.nh') && b.querySelector('.nh').textContent.trim() && b.querySelector('.nh').textContent.trim().length <= 10 ? '' : 'thiếu chú thích ngắn')).filter(Boolean),
+        nho: ic.filter(b => { const q = b.getBoundingClientRect(); return q.width < 40 || q.height < 40; }).map(b => b.dataset.act),
+        cao: Math.round(ft.getBoundingClientRect().height - ft.querySelector('.status').getBoundingClientRect().height), hang: new Set(ic.map(b => Math.round(b.getBoundingClientRect().top))).size,
+        tran: [...ft.children].filter(e => e.getClientRects().length && !e.classList.contains('goiy') && e.scrollWidth > e.clientWidth + 1).map(e => e.className) };      // (dòng gợi ý cố ý cắt bằng dấu …)
+    });
+    ok(chan.rong >= 540 && chan.rong <= 640, 'bảng mặc định rộng hơn (≈ 560) cho hình đứng và hàng nút đỡ chật', chan.rong);
+    ok(JSON.stringify(chan.chu) === '["draw"]', 'chân bảng chỉ còn MỘT nút chữ: Vẽ vào Chenfeng', chan.chu);
+    ok(JSON.stringify(chan.ic) === '["dat-tuong","dat","hinh","redraw","pick","chuanhoa","json","csv","save","open"]', 'các nút còn lại là nút biểu tượng: 3 cách đặt tủ nằm cạnh nút Vẽ; rồi cập nhật / sửa tủ đang chọn / chuẩn hoá; rồi tệp', chan.ic);
+    ok(chan.du.length === 0 && chan.nho.length === 0, 'nút biểu tượng nào cũng có hình, chú thích ngắn, tên đọc được (aria-label), lời giải thích (title) và đủ to để bấm (≥ 40 × 40)', [chan.du, chan.nho]);
+    ok(chan.cao <= 185 && chan.hang <= 2 && chan.tran.length === 0, 'chân bảng gọn: ngoài dòng trạng thái chỉ còn nửa chiều cao cũ (trước là 7 hàng nút chữ, 363 px), nút biểu tượng nằm trong 2 hàng, không hàng nào tràn ngang', chan);
+    // rê chuột vào nút biểu tượng: dòng gợi ý ngay trên hàng nút nói liền nút đó làm gì (khỏi chờ tooltip của trình duyệt)
+    await H.locator('[data-act="pick"]').hover();
+    ok(/Sửa tủ đang chọn/.test(await H.locator('footer .goiy').innerText()), 'rê chuột vào nút biểu tượng: dòng gợi ý ghi nút đó làm gì', await H.locator('footer .goiy').innerText());
+    await H.locator('[data-act="chuanhoa"]').focus();
+    ok(/Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await H.locator('footer .goiy').innerText()) && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await H.locator('[data-act="chuanhoa"]').getAttribute('aria-label')), 'đưa con trỏ bàn phím vào nút cũng hiện gợi ý; nút Chuẩn hoá ghi đúng dày ván + hậu đang dùng', await H.locator('footer .goiy').innerText());
+    await H.locator('#mncf-rong').focus(); await H.locator('.brand').hover();
+    ok((await H.locator('footer .goiy').innerText()).trim() === '', 'rời nút: dòng gợi ý trống lại');
     ok((await H.locator('[data-dot]').count()) > 0 && (await H.locator('[data-o]').count()) > 0, 'hình đứng tương tác trong bảng nổi');
 
     // gõ phím trong bảng không lọt ra Chenfeng

@@ -881,5 +881,132 @@ T('Phòng đã đo: chưa đủ số, gói lạ, dữ liệu hỏng — không v
   ok(P.phongDaDo(Array.from({ length: 2000 }, (x, i) => { const q = PHONG_DO(); q.muc.id = 'muc' + String(100000000 + i); return q; }), {}).length <= 400, 'số phòng cũng có trần');
 });
 
+/* ---- bản 1.25 — KÉO KHUNG trên mặt đứng: dời, đổi cỡ, bắt điểm (anh Thanh 05/10/2026 08:19 "vẽ khung nhưng không move được", 08:20 "với có bắt điểm") ---- */
+const PH_KEO = () => ({ cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }],
+  mo: [{ tuong: 0, loai: 'cua', cach: 200, rong: 900, cao: 2200, be: 0 }],
+  can: [{ tuong: 0, loai: 'cot', cach: 3300, rong: 300, nho: 200 }, { tuong: 1, loai: 'dam', cach: 0, rong: 3000, nho: 300, z0: 2400, z1: 2700 }],
+  khung: [{ ten: 'K1', tuong: 0, cach: 1100, z: 0, rong: 1510, cao: 1190, sau: 400 }, { ten: 'K2', tuong: 0, cach: 1303, z: 1500, rong: 600, cao: 600, sau: 300 }, { ten: 'B1', tuong: 1, cach: 500, z: 0, rong: 1000, cao: 2000, sau: 600 }] });
+const kq4 = r => r && [r.cach, r.z, r.rong, r.cao];
+
+T('Mốc bắt điểm của một tường: mép tường, sàn, trần, mép cửa / cột / dầm / khung trên tường đó', () => {
+  const H = P.hinhHoc(PH_KEO());
+  eq(P.mocKhung(H, 0), { s: [0, 200, 1100, 1303, 1903, 2610, 3300, 3600], z: [0, 1190, 1500, 2100, 2200, 2700] }, 'tường A: đủ mốc, không trùng, xếp tăng dần (không lẫn mốc của tường B)');
+  eq(P.mocKhung(H, 0, 0), { s: [0, 200, 1100, 1303, 1903, 3300, 3600], z: [0, 1500, 2100, 2200, 2700] }, 'bỏ khung đang kéo (K1): mép riêng của nó (2610, 1190) không còn là mốc; 1100 vẫn còn vì là mép cửa');
+  eq(P.mocKhung(H, 1), { s: [0, 500, 1500, 3000], z: [0, 2000, 2400, 2700] }, 'tường B: mép khung B1 + đáy dầm 2400');
+  eq(P.mocKhung(H, 9), { s: [], z: [] }, 'tường không có: không mốc nào');
+});
+
+T('Kéo khung — DỜI: số bắt chẵn 10; mép nào tới gần mốc thì bám mốc; không ra khỏi tường, không vượt trần', () => {
+  const H = P.hinhHoc(PH_KEO());
+  let r = P.keoKhung(H, 0, { ds: 406, dz: 297, tam: 10 });
+  eq([kq4(r), r.bat_s, r.bat_z, r.ke], [[1510, 300, 1510, 1190], null, null, []], 'không gần mốc nào: dời đúng quãng kéo, làm tròn chẵn 10 (1506 → 1510, 297 → 300); cỡ giữ nguyên');
+  r = P.keoKhung(H, 0, { ds: 406, dz: 297, tam: 85 });
+  eq([kq4(r), r.bat_s, r.bat_z], [[1510, 310, 1510, 1190], null, 1500], 'tầm bắt 85: ĐỈNH khung (1487) bám đáy khung K2 (1500) → đáy = 310');
+  r = P.keoKhung(H, 0, { ds: 20, dz: 15, tam: 85 });
+  eq([kq4(r), r.bat_s, r.bat_z], [[1100, 0, 1510, 1190], 1100, 0], 'nhích nhẹ quanh mép cửa + sàn: mép trái bám mép cửa (1100), đáy bám sàn (0)');
+  r = P.keoKhung(H, 0, { ds: 730, dz: 0, tam: 85, giu_z: true });
+  eq([kq4(r), r.bat_s, r.bat_z], [[1790, 0, 1510, 1190], 3300, null], 'cả hai mép đều có mốc trong tầm (trái cách 1903: 73, phải cách mép cột 3300: 40): mép GẦN hơn thắng → mép phải bám mép cột');
+  r = P.keoKhung(H, 0, { ds: 763, dz: 0, tam: 85, giu_z: true });
+  eq([kq4(r), r.bat_s], [[1903, 0, 1510, 1190], 1903], '… mép trái gần hơn (cách 1903: 40, mép phải cách 3300: 73) → mép trái bám');
+  r = P.keoKhung(H, 0, { ds: 5000, dz: 5000, tam: 85 });
+  eq([kq4(r), r.bat_s, r.bat_z], [[2090, 1510, 1510, 1190], 3600, 2700], 'kéo quá cuối tường + quá trần: dừng sát cuối tường (3600 − 1510) và sát trần (2700 − 1190); vạch báo ở cuối tường, trần');
+  r = P.keoKhung(H, 0, { ds: -5000, dz: -5000, tam: 85 });
+  eq([kq4(r), r.bat_s, r.bat_z], [[0, 0, 1510, 1190], 0, 0], 'kéo quá đầu tường + xuống dưới sàn: dừng ở đầu tường, sàn');
+  r = P.keoKhung(H, 0, { ds: 24, dz: 24, tam: 85, tu_do: true });
+  eq([kq4(r), r.bat_s, r.bat_z], [[1120, 20, 1510, 1190], null, null], 'giữ Alt (tu_do): không bắt điểm, chỉ làm tròn chẵn 10');
+  r = P.keoKhung(H, 0, { ds: 5000, dz: 0, tam: 85, tu_do: true });
+  eq([kq4(r), r.bat_s], [[2090, 0, 1510, 1190], null], 'giữ Alt vẫn không ra khỏi tường (nhưng không có vạch báo)');
+  r = P.keoKhung(H, 1, { ds: 2, dz: 104, tam: 0, giu_s: true });
+  eq(kq4(r), [1303, 1600, 600, 600], 'kéo DỌC (giu_s): cách trái giữ nguyên số lẻ 1303 — không bị làm tròn thành 1300');
+  r = P.keoKhung(H, 1, { ds: 104, dz: 26, tam: 85, giu_z: true });
+  eq([kq4(r), r.bat_z], [[1410, 1500, 600, 600], null], 'kéo NGANG (giu_z): cao độ đáy giữ nguyên dù chuột có lệch lên 26, không bắt điểm theo chiều đứng');
+  eq([P.keoKhung(H, 99, { ds: 10 }), P.keoKhung(null, 0, {}), P.keoKhung(P.hinhHoc({ cao: 2700, tuong: [{ dai: 0 }], khung: [{ tuong: 0, rong: 500, cao: 500, sau: 300 }] }), 0, { ds: 10 })], [null, null, null], 'khung không có / tường chưa có chiều dài → null');
+  const to = P.hinhHoc({ cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], khung: [{ ten: 'TO', tuong: 0, cach: 0, z: 0, rong: 4000, cao: 3000, sau: 600 }] });
+  eq(kq4(P.keoKhung(to, 0, { ds: 700, dz: 700, tam: 30 })), [0, 0, 4000, 3000], 'khung to hơn cả tường: giữ ở đầu tường + sàn (không âm)');
+});
+
+T('Kéo khung — ĐỔI CỠ: nắm mép / góc; mép đối diện đứng yên; bắt điểm; không nhỏ hơn 100; không ra khỏi tường', () => {
+  const H = P.hinhHoc(PH_KEO());
+  let r = P.keoKhung(H, 0, { phai: true, ds: -400, dz: 55, tam: 30 });
+  eq([kq4(r), r.bat_s, r.bat_z], [[1100, 0, 1110, 1190], null, null], 'mép PHẢI kéo vào 400: rộng 1510 → 1110; mép trái, đáy, cao đứng yên (kéo lệch lên 55 không ảnh hưởng)');
+  r = P.keoKhung(H, 0, { phai: true, ds: 670, tam: 30 });
+  eq([kq4(r), r.bat_s], [[1100, 0, 2200, 1190], 3300], 'mép phải tới cách mép cột 20: bám mép cột (3300)');
+  r = P.keoKhung(H, 0, { phai: true, ds: 3000, tam: 30 });
+  eq([kq4(r), r.bat_s], [[1100, 0, 2500, 1190], 3600], 'mép phải kéo quá cuối tường: dừng ở cuối tường');
+  r = P.keoKhung(H, 0, { phai: true, ds: -3000, tam: 30 });
+  eq([kq4(r), r.bat_s], [[1100, 0, 100, 1190], null], 'mép phải kéo lấn qua mép trái: rộng dừng ở 100');
+  r = P.keoKhung(H, 0, { trai: true, ds: -200, tam: 30 });
+  eq(kq4(r), [900, 0, 1710, 1190], 'mép TRÁI kéo ra 200: cách trái 900, rộng 1710 (mép phải đứng yên ở 2610)');
+  r = P.keoKhung(H, 0, { trai: true, ds: -880, tam: 30 });
+  eq([kq4(r), r.bat_s], [[200, 0, 2410, 1190], 200], 'mép trái tới gần mép trái cửa (200): bám');
+  r = P.keoKhung(H, 0, { trai: true, ds: 90, tam: 120 });
+  eq([kq4(r), r.bat_s], [[1100, 0, 1510, 1190], 1100], 'hai mốc cùng trong tầm (1100 cách 90, 1303 cách 113): bám mốc GẦN nhất, không phải mốc xét sau cùng');
+  r = P.keoKhung(H, 0, { trai: true, ds: 3000, tam: 30 });
+  eq(kq4(r), [2510, 0, 100, 1190], 'mép trái kéo lấn qua mép phải: rộng dừng ở 100, mép phải vẫn ở 2610');
+  r = P.keoKhung(H, 0, { trai: true, ds: -3000, tam: 30 });
+  eq([kq4(r), r.bat_s], [[0, 0, 2610, 1190], 0], 'mép trái kéo quá đầu tường: dừng ở đầu tường');
+  r = P.keoKhung(H, 0, { tren: true, dz: 300, tam: 30 });
+  eq([kq4(r), r.bat_z], [[1100, 0, 1510, 1500], 1500], 'mép TRÊN lên 300 (1490): bám đáy khung K2 (1500)');
+  r = P.keoKhung(H, 0, { tren: true, dz: 500, tam: 30 });
+  eq([kq4(r), r.bat_z], [[1100, 0, 1510, 1690], null], 'mép trên lên 500: không gần mốc nào → cao 1690');
+  r = P.keoKhung(H, 0, { tren: true, dz: 5000, tam: 30 });
+  eq([kq4(r), r.bat_z], [[1100, 0, 1510, 2700], 2700], 'mép trên kéo quá trần: dừng ở trần');
+  r = P.keoKhung(H, 1, { duoi: true, dz: -200, tam: 30 });
+  eq([kq4(r), r.bat_z], [[1303, 1300, 600, 800], null], 'mép DƯỚI của K2 xuống 200: đáy 1300, cao 800 (đỉnh đứng yên ở 2100)');
+  r = P.keoKhung(H, 1, { duoi: true, dz: -290, tam: 30 });
+  eq([kq4(r), r.bat_z], [[1303, 1190, 600, 910], 1190], 'mép dưới của K2 xuống gần đỉnh K1 (1190): bám');
+  r = P.keoKhung(H, 1, { duoi: true, dz: 5000, tam: 30 });
+  eq(kq4(r), [1303, 2000, 600, 100], 'mép dưới kéo lấn qua đỉnh: cao dừng ở 100');
+  r = P.keoKhung(H, 0, { phai: true, tren: true, ds: 200, dz: 200, tam: 10 });
+  eq(kq4(r), [1100, 0, 1710, 1390], 'nắm GÓC trên – phải: rộng và cao cùng đổi');
+  r = P.keoKhung(H, 0, { trai: true, duoi: true, ds: 233, dz: 104, tam: 10 });
+  eq(kq4(r), [1330, 100, 1280, 1090], 'nắm góc dưới – trái: hai mép kia đứng yên (mép phải vẫn 2610, đỉnh vẫn 1190)');
+  r = P.keoKhung(H, 0, { trai: true, duoi: true, ds: 205, dz: 104, tam: 10 });
+  eq([kq4(r), r.bat_s], [[1303, 100, 1307, 1090], 1303], '… mép trái tới cách mép khung K2 (1303) có 2: bám đúng số lẻ đó, không làm tròn');
+  r = P.keoKhung(H, 0, { phai: true, tren: true, ds: 200, dz: 26, tam: 10, giu_z: true });
+  eq(kq4(r), [1100, 0, 1710, 1190], 'nắm góc mà chỉ kéo ngang (giu_z): cao giữ nguyên');
+  r = P.keoKhung(H, 0, { phai: true, tren: true, ds: 26, dz: 200, tam: 10, giu_s: true });
+  eq(kq4(r), [1100, 0, 1510, 1390], 'nắm góc mà chỉ kéo đứng (giu_s): rộng giữ nguyên');
+  r = P.keoKhung(H, 0, { phai: true, ds: 26, tam: 85, tu_do: true });
+  eq([kq4(r), r.bat_s], [[1100, 0, 1540, 1190], null], 'giữ Alt khi đổi cỡ: không bắt điểm, làm tròn chẵn 10');
+  const nho = P.hinhHoc({ cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], khung: [{ ten: 'N', tuong: 0, cach: 1000, z: 0, rong: 60, cao: 70, sau: 300 }] });
+  eq(kq4(P.keoKhung(nho, 0, { phai: true, tren: true, ds: -500, dz: -500, tam: 10 })), [1000, 0, 60, 70], 'khung vốn nhỏ hơn 100: không co nhỏ hơn cỡ đang có');
+  eq(kq4(P.keoKhung(nho, 0, { phai: true, ds: 440, tam: 10 })), [1000, 0, 500, 70], '… nhưng vẫn nới rộng ra được');
+});
+
+T('Kéo khung — Ô KỀ khít (vách chia ô): kéo mép chung thì ô kề co / giãn theo, không hở không chồng', () => {
+  const p0 = { cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], khung: [{ ten: 'V', tuong: 0, cach: 0, z: 0, rong: 3000, cao: 2400, sau: 350 }] };
+  const doc = P.chiaKhung(p0, 0, 3, 'doc').p, H = P.hinhHoc(doc);      // 3 ô cạnh nhau: 0…1000, 1000…2000, 2000…3000
+  let r = P.keoKhung(H, 0, { phai: true, ds: 200, tam: 30 });
+  eq([kq4(r), r.ke], [[0, 0, 1200, 2400], [{ j: 1, cach: 1200, z: 0, rong: 800, cao: 2400 }]], 'mép phải ô 1 ra 200: ô 2 lùi mép trái 200, hẹp lại còn 800');
+  r = P.keoKhung(H, 0, { phai: true, ds: 980, tam: 30 });
+  eq([kq4(r), r.ke], [[0, 0, 1950, 2400], [{ j: 1, cach: 1950, z: 0, rong: 50, cao: 2400 }]], 'kéo quá: ô kề không nhỏ hơn 50 → mép chung dừng ở 1950');
+  r = P.keoKhung(H, 1, { trai: true, ds: -300, tam: 30 });
+  eq([kq4(r), r.ke], [[700, 0, 1300, 2400], [{ j: 0, cach: 0, z: 0, rong: 700, cao: 2400 }]], 'mép trái ô 2 sang trái 300: ô 1 hẹp lại còn 700');
+  r = P.keoKhung(H, 1, { trai: true, ds: -990, tam: 30 });
+  eq([kq4(r), r.ke], [[50, 0, 1950, 2400], [{ j: 0, cach: 0, z: 0, rong: 50, cao: 2400 }]], '… kéo quá: ô 1 còn đúng 50');
+  r = P.keoKhung(H, 0, { phai: true, ds: 20, tam: 85 });
+  eq([kq4(r), r.bat_s, r.ke.map(k => k.cach)], [[0, 0, 1020, 2400], null, [1020]], 'nhích mép chung 20 trong tầm bắt 85: KHÔNG bị hút về chỗ cũ (mép của ô kề đang chạy theo không phải mốc)');
+  r = P.keoKhung(H, 0, { phai: true, ds: 200, tam: 30, tu_do: true });
+  eq([kq4(r), r.ke], [[0, 0, 1200, 2400], []], 'giữ Alt: kéo tự do — ô kề đứng yên');
+  r = P.keoKhung(H, 2, { phai: true, ds: 300, tam: 30 });
+  eq([kq4(r), r.ke], [[2000, 0, 1300, 2400], []], 'mép phải ô cuối (không có ô kề bên phải): chỉ ô đó đổi');
+  r = P.keoKhung(H, 0, { phai: true, tren: true, ds: 200, dz: -400, tam: 30 });
+  eq([kq4(r), r.ke], [[0, 0, 1200, 2000], []], 'nắm GÓC: hai chiều cùng đổi thì ô kề không còn khít → không kéo ô kề theo');
+  r = P.keoKhung(H, 0, { ds: 300, dz: 0, tam: 0, giu_z: true });
+  eq([kq4(r), r.ke], [[300, 0, 1000, 2400], []], 'DỜI cả ô: ô kề không chạy theo');
+  const ngang = P.chiaKhung(p0, 0, 2, 'ngang').p, H2 = P.hinhHoc(ngang);      // 2 ô chồng nhau: 0…1200, 1200…2400
+  r = P.keoKhung(H2, 0, { tren: true, dz: 100, tam: 30 });
+  eq([kq4(r), r.ke], [[0, 0, 3000, 1300], [{ j: 1, cach: 0, z: 1300, rong: 3000, cao: 1100 }]], 'mép trên ô dưới lên 100: ô trên nâng đáy, thấp lại');
+  r = P.keoKhung(H2, 1, { duoi: true, dz: -150, tam: 30 });
+  eq([kq4(r), r.ke], [[0, 1050, 3000, 1350], [{ j: 0, cach: 0, z: 0, rong: 3000, cao: 1050 }]], 'mép dưới ô trên xuống 150: ô dưới thấp lại');
+  r = P.keoKhung(H2, 1, { duoi: true, dz: -5000, tam: 30 });
+  eq([kq4(r), r.ke], [[0, 50, 3000, 2350], [{ j: 0, cach: 0, z: 0, rong: 3000, cao: 50 }]], '… kéo quá: ô dưới còn đúng 50');
+  // ô kề KHÔNG khít (cao khác nhau) thì không chạy theo
+  const lech = JSON.parse(JSON.stringify(doc)); lech.khung[1].cao = 2000;
+  r = P.keoKhung(P.hinhHoc(lech), 0, { phai: true, ds: 200, tam: 0 });
+  eq([kq4(r), r.ke], [[0, 0, 1200, 2400], []], 'ô bên cạnh cao khác (không khít): không kéo theo');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

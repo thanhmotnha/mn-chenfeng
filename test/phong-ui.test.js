@@ -899,6 +899,24 @@ async function tPhongDaDo() {
     ok(await cho(async () => (await lay()).tuong[0].dai === 4000), 'lấy lại phòng đã đo');
     eq1([(await lay()).khung.length, (await cat()).nguon], [0, 'ct0000000001/muc000000001'], 'phòng trước đó là phòng KHÁC: khung của nó không bị gán sang phòng vừa lấy');
     await cho(async () => (await H.locator('.thumb').count()) === 1, 4000);
+    // --- ↶ Lùi của thẻ Phòng (bản 1.25) giữ đúng "phòng này lấy từ đâu": lùi một bước sửa TRONG phòng đã đo thì nó vẫn là phòng đã đo đó; lùi QUA lần lấy phòng thì không còn ---
+    await H.locator('[data-act="k-add"]').click(); await page.waitForTimeout(250);
+    await H.locator('[data-act="k-add"]').click(); await page.waitForTimeout(250);
+    eq1((await lay()).khung.length, 2, '(chuẩn bị) hai khung trên phòng đã đo');
+    await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(200);
+    eq1([(await lay()).khung.length, (await cat()).nguon], [1, 'ct0000000001/muc000000001'], '↶ Lùi một bước sửa trong phòng đã đo: còn 1 khung, phòng vẫn được nhớ là phòng lấy từ máy chủ');
+    await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(200);
+    eq1([(await lay()).tuong[0].dai, (await lay()).khung.length, (await cat()).nguon], [4000, 0, 'ct0000000001/muc000000001'], '↶ Lùi thêm bước nữa (về lúc vừa lấy phòng, chưa có khung): vẫn là phòng lấy từ máy chủ');
+    await H.locator('[data-act="k-add"]').click(); await page.waitForTimeout(250);
+    await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click(); await page.waitForTimeout(400);
+    eq1([(await lay()).tuong[0].dai, (await lay()).khung.length], [4000, 1], '… nên lấy lại CÙNG phòng sau khi lùi: khung đã đánh dấu vẫn còn');
+    let veMau = false;
+    for (let i = 0; i < 8 && !veMau; i++) { if (await H.locator('[data-act="p-lui"]').isDisabled()) break; await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(200); veMau = (await lay()).tuong[3].dai === 'auto'; }
+    eq1([veMau, (await lay()).tuong.map(t => t.dai), (await lay()).khung.length, (await cat()).nguon], [true, [3600, 3000, 3600, 'auto'], 1, ''], '↶ Lùi tiếp qua lần "Lấy phòng": về phòng mẫu + khung của nó, và phòng ở thẻ Phòng KHÔNG còn là phòng lấy từ máy chủ');
+    await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click();
+    ok(await cho(async () => (await lay()).tuong[0].dai === 4000), '(lấy lại phòng đã đo)');
+    eq1([(await lay()).khung.length, (await cat()).nguon], [0, 'ct0000000001/muc000000001'], '… nên lấy phòng đã đo về lúc này: khung của phòng mẫu không bị gán sang');
+    await cho(async () => (await H.locator('.thumb').count()) === 1, 4000);
     // --- đang tải ảnh của phòng này (máy chủ chậm) mà lấy sang phòng khác: ảnh của phòng trước không được lẫn vào phòng sau ---
     SX.tre = 500;
     await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click(); await page.waitForTimeout(120);      // phòng ngủ master: 1 ảnh, đang tải…

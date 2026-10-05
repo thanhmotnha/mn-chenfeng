@@ -253,8 +253,10 @@ async function chay() {
     ok(/Tủ tivi 2 \(cánh phủ\)/.test(await H.locator('.pcard[data-kj="2"] .kkho').innerText()) && !(await H.locator('.pcard[data-kj="2"] [data-act="k-ve-kho"]').isDisabled()) && /mẫu: Tủ tivi 2/.test(await H.locator('.pmd').innerText()), 'thẻ khung + mặt đứng ghi tên mẫu; nút vẽ mở');
     ok(/mẫu kho: Tủ tivi 2 \(cánh phủ\)/.test(await H.locator('.psum').innerText()), 'tóm tắt phòng ghi khung nào đặt mẫu kho');
     await H.locator('.tab[data-tab="kho"]').click(); await H.locator('[data-ui="kho-chuan"]').uncheck(); await H.locator('.tab[data-tab="phong"]').click();
+    ok(!(await H.locator('[data-act="p-lui"]').isDisabled()), '(trước khi vẽ: sổ lùi của thẻ Phòng đang có bước)');
     await H.locator('.pcard[data-kj="2"] [data-act="k-ve-kho"]').click();
     await page.waitForFunction(() => /Đã vẽ mẫu kho/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 20000 });
+    ok(await H.locator('[data-act="p-lui"]').isDisabled(), 'vừa vẽ vào Chenfeng: sổ lùi của thẻ Phòng được xoá — không lùi qua lần đã vẽ (lùi thì khung mất dấu “đã vẽ”, bấm vẽ lại sẽ chồng)');
     eq(hop(await tam()), [10600, 13000, 1650, 2000, 450, 2700], 'mẫu nằm đúng ô K1.2.2 trên tường A: rộng 2400, sâu 350 (kể cả cánh), đáy +450, cao tới trần');
     rep = await H.locator('.report').innerText();
     ok(/K1\.2\.2 — tường A/.test(rep) && /Các tấm chiếm\s+2400 × 350 × 2250/.test(rep) && /chỉnh từ 2400 × 350 × 2250 thành 2400 × 332 × 2250/.test(rep), 'báo cáo: đúng khung, đúng kích thước, có ghi chỉnh W vì cánh phủ ngoài', rep);
@@ -309,14 +311,188 @@ async function chay() {
     await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
     const diem = (s, z) => page.evaluate(([s2, z2]) => { const sv = document.getElementById('mncf-host').shadowRoot.querySelector('.pmd svg'), m = sv.getScreenCTM(), q = sv.createSVGPoint(); q.x = s2; q.y = 2700 - z2; const t = q.matrixTransform(m); return [t.x, t.y]; }, [s, z]);
     const a = await diem(1112, 4), b2 = await diem(2607, 1193);      // góc dưới trái sát mép cửa (1100) + sàn; góc trên phải ~ (2610, 1190)
-    await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2); await page.mouse.move(b2[0], b2[1]);
+    await page.mouse.move(a[0] + 30, a[1] - 30); await page.mouse.move(a[0], a[1]); await page.waitForTimeout(60);
+    { const v = await page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('.pmd svg .kbat')].map(l => [l.getAttribute('x1'), l.getAttribute('x2'), l.getAttribute('y1'), l.getAttribute('y2')].map(Number)));
+      ok(v.length === 2 && v.some(l => l[0] === 1100 && l[1] === 1100) && v.some(l => l[2] === 2700 && l[3] === 2700), 'chế độ vẽ khung, mới RÊ chuột tới gần mép cửa + sàn: đã hiện 2 vạch bắt điểm (biết trước góc khung sẽ bám vào đâu)', v); }
+    await page.mouse.down(); await page.mouse.move((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2); await page.mouse.move(b2[0], b2[1]);
     ok(/Khung mới: rộng 1510 × cao 1190 · cách trái 1100 · đáy \+0/.test(await st()) && (await H.locator('.pmd svg rect.kve').count()) === 1, 'đang kéo: có hình xem trước + số đo; mép trái bám mép cửa (1100), số bắt chẵn 10', await st());
+    ok((await H.locator('.pmd svg .kbat').count()) === 0, 'góc đang kéo không gần mốc nào: không còn vạch bắt điểm');
     await page.mouse.up();
     p = await P();
     ok(p.khung.length === truocK + 1 && JSON.stringify([p.khung[truocK].tuong, p.khung[truocK].cach, p.khung[truocK].z, p.khung[truocK].rong, p.khung[truocK].cao]) === '[2,1100,0,1510,1190]', 'nhả chuột: thêm khung đúng chỗ kéo trên tường C', p.khung[truocK]);
     ok(/Đã thêm khung/.test(await st()) && (await H.locator('.pmd svg rect.kve').count()) === 0, 'báo đã thêm khung, hình xem trước được gỡ', await st());
+    ok((await H.locator('[data-act="k-ve-md"]').getAttribute('aria-pressed')) === 'false' && !(await H.locator('.pmd').evaluate(e => e.classList.contains('ve'))), 'vẽ xong MỘT khung: tự thôi chế độ vẽ — kéo tiếp trên hình là dời khung, không vẽ chồng thêm khung');
+    await H.locator('[data-act="k-ve-md"]').click();
+    ok((await H.locator('[data-act="k-ve-md"]').getAttribute('aria-pressed')) === 'true', '(bật lại chế độ vẽ khung)');
     await page.keyboard.press('Escape');
-    ok((await H.locator('[data-act="k-ve-md"]').getAttribute('aria-pressed')) === 'false', 'Esc: thôi chế độ vẽ khung');
+    ok((await H.locator('[data-act="k-ve-md"]').getAttribute('aria-pressed')) === 'false' && (await P()).khung.length === truocK + 1, 'Esc: thôi chế độ vẽ khung (không thêm khung nào)');
+
+    /* ---- bản 1.25 — KÉO KHUNG ĐÃ CÓ trên mặt đứng: dời, đổi cỡ, bắt điểm, lùi
+     * (anh Thanh 05/10/2026 08:19: "vẽ khung nhưng không move được"; 08:20: "với có bắt điểm, có lệnh undo") ---- */
+    console.log('— Giao diện: kéo khung trên mặt đứng (dời, đổi cỡ, bắt điểm, lùi)');
+    const kK = truocK, K = async () => { const q = (await P()).khung[kK]; return [q.cach, q.z, q.rong, q.cao]; };
+    const eqK = async (can, ten) => { const co = await K(); ok(JSON.stringify(co) === JSON.stringify(can), ten, { co, can }); };
+    const keo = async (tu, den, giua, phim) => {
+      const a1 = await diem(tu[0], tu[1]), b1 = await diem(den[0], den[1]);
+      await page.mouse.move(a1[0], a1[1]); if (phim) await page.keyboard.down(phim); await page.mouse.down();
+      await page.mouse.move((a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2); await page.mouse.move(b1[0], b1[1]);
+      if (giua) await giua();
+      await page.mouse.up(); if (phim) await page.keyboard.up(phim); await page.waitForTimeout(140);
+    };
+    const vach = () => H.locator('.pmd svg .kbat').count();
+    await eqK([1100, 0, 1510, 1190], '(khung vừa vẽ: cách trái 1100, đáy 0, 1510 × 1190 — tường C dài 3600, cửa 200 … 1100 cao 2200)');
+    ok((await H.locator('[data-act="p-lui"]').count()) === 1 && !(await H.locator('[data-act="p-lui"]').isDisabled()), 'thẻ Phòng có nút "↶ Lùi" (đang bấm được: vừa thêm một khung)');
+    // 1) nắm THÂN khung kéo đi: khung dời theo, cỡ giữ nguyên, số bắt chẵn 10
+    await keo([1800, 600], [2210, 900], async () => {
+      ok(/cách trái 1510 · đáy \+300/.test(await st()) && /1510 × 1190/.test(await st()), 'đang kéo: dòng trạng thái ghi vị trí mới của khung', await st());
+      ok((await H.locator(`.pmd svg [data-khung="${kK}"]`).getAttribute('x')) === '1510', 'đang kéo: hình khung chạy theo chuột (chưa ghi vào phòng)');
+      ok(JSON.stringify(await K()) === '[1100,0,1510,1190]', 'đang kéo: số của phòng chưa đổi cho tới khi nhả chuột');
+    });
+    await eqK([1510, 300, 1510, 1190], 'nắm thân khung kéo sang phải 410, lên 300: khung dời tới cách trái 1510, đáy +300; cỡ giữ nguyên');
+    ok(/Đã dời khung/.test(await st()) && (await vach()) === 0, 'nhả chuột: báo đã dời; vạch bắt điểm (nếu có) được gỡ', await st());
+    // 2) bấm một cái (không kéo): chỉ chọn khung, không dời
+    await H.locator('.pmb [data-khung="0"]').click({ force: true });      // chọn một khung khác trước, để biết lần bấm dưới đây chọn thật
+    await H.locator('.pmb [data-tuong="2"]').click({ force: true });
+    ok(!(await H.locator(`.pcard[data-kj="${kK}"]`).evaluate(e => e.classList.contains('on'))), '(đang chọn khung khác)');
+    await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+    { const c = await diem(1700, 1300); await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.move(c[0] + 2, c[1] + 1); await page.mouse.up(); await page.waitForTimeout(120); }      // tay hơi rung 2 px: vẫn là một lần bấm
+    await eqK([1510, 300, 1510, 1190], 'bấm một cái vào khung (không kéo): khung đứng yên');
+    ok(await H.locator(`.pcard[data-kj="${kK}"]`).evaluate(e => e.classList.contains('on')), '… và khung đó được chọn');
+    await H.locator('.pmb [data-khung="0"]').click({ force: true }); await H.locator('.pmb [data-tuong="2"]').click({ force: true });      // lại chọn khung khác: kéo khung nào thì khung đó phải thành khung đang chọn
+    await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+    // 3) BẮT ĐIỂM: mép trái tới cách mép cửa 20, đáy cách sàn 20 → bám đúng mép cửa (1100) và sàn (0); có vạch báo chỗ bắt
+    await keo([2200, 800], [1810, 520], async () => {
+      ok((await vach()) === 2 && /bắt/.test(await st()), 'đang kéo gần mép cửa + sàn: hiện 2 vạch bắt điểm (dọc ở mép cửa, ngang ở sàn), dòng trạng thái ghi "bắt"', [await vach(), await st()]);
+      const v = await page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('.pmd svg .kbat')].map(l => [l.getAttribute('x1'), l.getAttribute('x2'), l.getAttribute('y1'), l.getAttribute('y2')].map(Number)));
+      ok(v.some(l => l[0] === 1100 && l[1] === 1100) && v.some(l => l[2] === 2700 && l[3] === 2700), 'vạch dọc nằm đúng mép cửa (s = 1100), vạch ngang nằm đúng sàn', v);
+    });
+    await eqK([1100, 0, 1510, 1190], 'nhả chuột: mép trái khung bám mép cửa (1100), đáy bám sàn (0)');
+    ok(await H.locator(`.pcard[data-kj="${kK}"]`).evaluate(e => e.classList.contains('on')), 'kéo khung nào thì khung đó thành khung đang chọn');
+    await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+    // giữ Alt: không bắt điểm — chỉ làm tròn chẵn 10
+    await keo([1800, 600], [1860, 660], null, 'Alt');
+    await eqK([1160, 60, 1510, 1190], 'giữ Alt lúc kéo: không bắt điểm (dời 60 → 1160 / +60; không giữ Alt thì đã bị hút về mép cửa / sàn)');
+    // kéo ĐỨNG thì cách trái giữ nguyên (mép trái 1160 đang cách mép cửa 60, trong tầm bắt, nhưng chuột không đi ngang → không bị hút về mép cửa)
+    await keo([1800, 600], [1800, 900]);
+    await eqK([1160, 360, 1510, 1190], 'kéo đứng: chỉ đổi cao độ đáy, cách trái giữ nguyên dù đang gần mép cửa');
+    await keo([1800, 900], [1800, 600], null, 'Alt');
+    await eqK([1160, 60, 1510, 1190], '(giữ Alt kéo xuống lại 300: đáy +60)');
+    // kéo NGANG thì cao độ giữ nguyên (đáy +60 đang cách sàn trong tầm bắt nhưng chuột không đi lên xuống → không bị hút xuống sàn)
+    await keo([1800, 600], [2300, 600]);
+    await eqK([1660, 60, 1510, 1190], 'kéo ngang: chỉ đổi cách trái, cao độ đáy giữ nguyên dù đang gần sàn');
+    // mép PHẢI tới cách cuối tường 10 → bám cuối tường (3600): cách trái = 3600 − 1510
+    await keo([2300, 600], [2720, 600]);
+    await eqK([2090, 60, 1510, 1190], 'mép phải khung bám cuối tường (cách trái = 3600 − 1510 = 2090)');
+    // kéo quá mép tường / quá trần: khung dừng ở trong tường
+    await keo([2800, 600], [3950, 3000]);
+    await eqK([2090, 1510, 1510, 1190], 'kéo quá cuối tường và quá trần: khung dừng sát cuối tường, đỉnh sát trần (2700 − 1190 = 1510)');
+    // 4) ĐỔI CỠ: nắm mép phải kéo vào 400; nắm mép trên kéo xuống 300; nắm mép trái kéo ra 200; nắm góc trên – phải
+    await keo([3590, 2000], [3190, 2000]);
+    await eqK([2090, 1510, 1110, 1190], 'nắm MÉP PHẢI kéo vào 400: rộng 1510 → 1110, mép trái đứng yên');
+    await keo([2600, 2690], [2600, 2390]);
+    await eqK([2090, 1510, 1110, 890], 'nắm MÉP TRÊN kéo xuống 300: cao 1190 → 890, đáy đứng yên');
+    await keo([2100, 2000], [1900, 2000]);
+    await eqK([1890, 1510, 1310, 890], 'nắm MÉP TRÁI kéo ra 200: cách trái 2090 → 1890, rộng 1110 → 1310 (mép phải đứng yên)');
+    await keo([2600, 1520], [2600, 1320]);
+    await eqK([1890, 1310, 1310, 1090], 'nắm MÉP DƯỚI kéo xuống 200: đáy 1510 → 1310, cao 890 → 1090 (đỉnh đứng yên)');
+    await keo([3190, 2390], [3390, 2590]);
+    await eqK([1890, 1310, 1510, 1290], 'nắm GÓC trên – phải kéo chéo (+200, +200): rộng và cao cùng tăng');
+    await keo([3390, 2000], [1000, 2000]);
+    await eqK([1890, 1310, 100, 1290], 'kéo mép phải lấn qua mép trái: khung dừng ở rộng tối thiểu 100');
+    await keo([1940, 2000], [2240, 2000]);
+    await eqK([2190, 1310, 100, 1290], 'khung hẹp (rộng 100 ≈ 9 px): nắm GIỮA vẫn là dời — vùng mép không nuốt hết thân khung');
+    await keo([2285, 2000], [3585, 2000]);
+    await eqK([2190, 1310, 1410, 1290], 'đổi cỡ cũng bắt điểm: mép phải tới gần cuối tường thì bám đúng 3600');
+    ok(/Đã đổi cỡ khung/.test(await st()), 'nhả chuột sau khi kéo mép: báo đã đổi cỡ', await st());
+    // 5) LÙI: nút ↶ Lùi trả lại từng bước; Ctrl+Z ngay sau khi kéo cũng là lùi của bảng (không rơi xuống Chenfeng)
+    await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(120);
+    await eqK([2190, 1310, 100, 1290], 'bấm ↶ Lùi: trả lại bước vừa rồi');
+    ok(/Đã lùi/.test(await st()), 'dòng trạng thái báo đã lùi', await st());
+    await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(120);
+    await eqK([1890, 1310, 100, 1290], 'bấm ↶ Lùi lần nữa: lùi thêm một bước');
+    await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(120);
+    await eqK([1890, 1310, 1510, 1290], '… và thêm một bước nữa');
+    await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__zLot = 0; window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'z') window.__zLot++; }); });
+    await page.evaluate(() => { const s = document.getElementById('mncf-host').shadowRoot.activeElement; if (s && s.blur) s.blur(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); });      // tiêu điểm đang ở ngoài bảng (như lúc người dùng vừa bấm vào bản vẽ)
+    await keo([2600, 2000], [2400, 2000]);
+    await eqK([1690, 1310, 1510, 1290], '(dời sang trái 200)');
+    await page.keyboard.press('Control+z'); await page.waitForTimeout(140);
+    await eqK([1890, 1310, 1510, 1290], 'Ctrl+Z ngay sau khi kéo khung: bảng lùi bước vừa kéo');
+    ok((await page.evaluate(() => window.__zLot)) === 0, '… và phím Ctrl+Z đó không lọt xuống Chenfeng (không hoàn tác nhầm bản vẽ)');
+    // xoá khung rồi lùi: khung trở lại
+    const soK = (await P()).khung.length;
+    await H.locator(`.pcard[data-kj="${kK}"] [data-act="k-del"]`).click(); await page.waitForTimeout(120);
+    ok((await P()).khung.length === soK - 1, '(xoá khung)');
+    await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(120);
+    ok((await P()).khung.length === soK && JSON.stringify(await K()) === '[1890,1310,1510,1290]', 'xoá khung rồi ↶ Lùi: khung trở lại đúng chỗ, đúng cỡ', await P().then(q => q.khung.length));
+    // gõ số liền tay trong một ô chỉ là MỘT bước lùi
+    { const sau0 = (await P()).khung[kK].sau, o = H.locator(`.pcard[data-kj="${kK}"] [data-p="khung.${kK}.sau"]`);
+      await o.click(); await o.press('Control+a'); await page.keyboard.type('455', { delay: 260 }); await page.waitForTimeout(400);      // gõ chậm: mỗi chữ số một lần cất
+      ok(sau0 !== 455 && (await P()).khung[kK].sau === 455, '(gõ sâu 455 vào ô của khung)', sau0);
+      await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(140);
+      ok((await P()).khung[kK].sau === sau0, 'gõ liền tay nhiều chữ số trong một ô: ↶ Lùi một lần là về số cũ, không phải lùi từng chữ số', [(await P()).khung[kK].sau, sau0]);
+      // gõ ô này xong sang ngay ô khác: hai bước riêng
+      const o1 = H.locator(`.pcard[data-kj="${kK}"] [data-p="khung.${kK}.sau"]`), o2 = H.locator(`.pcard[data-kj="${kK}"] [data-p="khung.${kK}.z"]`);
+      await o1.click(); await o1.press('Control+a'); await page.keyboard.type('455', { delay: 30 }); await page.waitForTimeout(260);
+      await o2.click(); await o2.press('Control+a'); await page.keyboard.type('1320', { delay: 30 }); await page.waitForTimeout(260);
+      eq([(await P()).khung[kK].sau, (await P()).khung[kK].z], [455, 1320], '(gõ sâu 455 rồi sang ngay ô đáy gõ 1320)');
+      await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(140);
+      eq([(await P()).khung[kK].sau, (await P()).khung[kK].z], [455, 1310], 'gõ hai ô khác nhau liền nhau: ↶ Lùi lần đầu chỉ trả ô gõ sau');
+      await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(140);
+      eq([(await P()).khung[kK].sau, (await P()).khung[kK].z], [sau0, 1310], '… lần nữa mới trả ô gõ trước');
+      // cùng một ô nhưng hai lần gõ cách nhau lâu (quá 1,5 giây): hai bước riêng
+      await o1.click(); await o1.press('Control+a'); await page.keyboard.type('455', { delay: 30 }); await page.waitForTimeout(1900);
+      await o1.press('End'); await page.keyboard.type('0', { delay: 30 }); await page.waitForTimeout(300);
+      eq((await P()).khung[kK].sau, 4550, '(gõ sâu 455, nghỉ gần 2 giây rồi gõ thêm số 0 → 4550)');
+      await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(140);
+      eq((await P()).khung[kK].sau, 455, 'cùng một ô nhưng hai lần gõ cách nhau lâu: ↶ Lùi chỉ trả lần gõ sau');
+      await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(140);
+      eq((await P()).khung[kK].sau, sau0, '… lần nữa mới về số ban đầu'); }
+    // 6) SỐ trong khung: bấm (không kéo) vẫn mở ô gõ số như trước; nắm đúng chỗ có số mà KÉO thì khung dời, không mở ô gõ
+    const mmCua = sel => page.evaluate(q => { const sh = document.getElementById('mncf-host').shadowRoot, e = sh.querySelector(q), sv = sh.querySelector('.pmd svg'), r = e.getBoundingClientRect(), p = sv.createSVGPoint(); p.x = r.left + r.width / 2; p.y = r.top + r.height / 2; const t = p.matrixTransform(sv.getScreenCTM().inverse()); return [t.x, 2700 - t.y]; }, sel);
+    await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+    { const m = await mmCua(`.pmd svg [data-sua="khung.${kK}.rong"]`), c = await diem(m[0], m[1]);
+      await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.move(c[0] + 1.5, c[1] + 1); await page.mouse.up(); await page.waitForTimeout(140);      // tay hơi rung (dưới 4 px): vẫn là một lần bấm
+      ok((await H.locator('#mncf-ui-pdim').count()) === 1 && (await H.locator('#mncf-ui-pdim').inputValue()) === '1510', 'bấm vào số "rộng" trong khung (không kéo): vẫn mở ô gõ số như trước', await H.locator('#mncf-ui-pdim').count());
+      await page.keyboard.press('Escape'); await page.waitForTimeout(100);
+      ok((await H.locator('#mncf-ui-pdim').count()) === 0, '(Esc đóng ô gõ số)');
+      await eqK([1890, 1310, 1510, 1290], '(khung chưa đổi)');
+      const m2 = await mmCua(`.pmd svg [data-sua="khung.${kK}.rong"]`);
+      await keo(m2, [m2[0] - 200, m2[1]]);
+      await eqK([1690, 1310, 1510, 1290], 'nắm đúng chỗ có số trong khung rồi KÉO: khung dời theo (số không chắn chỗ nắm)');
+      ok((await H.locator('#mncf-ui-pdim').count()) === 0, '… và không mở ô gõ số'); }
+    // 7) CON TRỎ báo trước sẽ làm gì: mép = đổi cỡ, thân = dời
+    { const lop = () => H.locator('.pmd').evaluate(e => [...e.classList].filter(c => /^kc-/.test(c)).join(' '));
+      const re = async (s, z) => { const c = await diem(s, z); await page.mouse.move(c[0] + 2, c[1] + 2); await page.mouse.move(c[0], c[1]); await page.waitForTimeout(40); return lop(); };
+      eq(await re(3190, 2000), 'kc-ew', 'rê tới mép phải khung: con trỏ đổi cỡ ngang');
+      ok((await H.locator(`.pmd svg [data-khung="${kK}"]`).evaluate(e => getComputedStyle(e).cursor)) === 'ew-resize', '… con trỏ thật trên khung là ew-resize');
+      eq(await re(2400, 2590), 'kc-ns', 'rê tới mép trên: con trỏ đổi cỡ đứng');
+      eq(await re(3190, 2590), 'kc-nesw', 'rê tới góc trên – phải: con trỏ chéo');
+      eq(await re(1700, 2590), 'kc-nwse', 'rê tới góc trên – trái: con trỏ chéo chiều kia');
+      eq(await re(2000, 2300), 'kc-move', 'rê vào thân khung: con trỏ dời');
+      ok((await H.locator(`.pmd svg [data-khung="${kK}"]`).evaluate(e => getComputedStyle(e).cursor)) === 'grab', '… con trỏ thật trên thân khung là bàn tay nắm');
+      eq(await re(600, 2500), '', 'rê ra chỗ không có khung: con trỏ thường'); }
+    // 8) Esc lúc đang kéo: thôi, khung về chỗ cũ
+    { const a1 = await diem(2000, 2300), b1 = await diem(2250, 2000);
+      await page.mouse.move(a1[0], a1[1]); await page.mouse.down(); await page.mouse.move((a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2); await page.mouse.move(b1[0], b1[1]);
+      ok((await H.locator(`.pmd svg [data-khung="${kK}"]`).getAttribute('x')) === '1940', '(đang kéo: hình khung đã chạy sang 1940)', await H.locator(`.pmd svg [data-khung="${kK}"]`).getAttribute('x'));
+      await page.keyboard.press('Escape'); await page.waitForTimeout(80);
+      ok((await H.locator(`.pmd svg [data-khung="${kK}"]`).getAttribute('x')) === '1690' && /thôi kéo/.test(await st()), 'Esc lúc đang kéo: hình khung về chỗ cũ, báo đã thôi', await st());
+      await page.mouse.move(b1[0] + 20, b1[1]); await page.mouse.up(); await page.waitForTimeout(140);
+      await eqK([1690, 1310, 1510, 1290], '… nhả chuột sau đó không ghi gì'); }
+    // 9) Ô KỀ: chia khung thành 2 ô cạnh nhau rồi kéo mép chung — ô kề co theo, không hở không chồng
+    await H.locator(`.pcard[data-kj="${kK}"] [data-act="k-chia"][data-v="doc"]`).click(); await page.waitForTimeout(150);
+    { const q = (await P()).khung; eq([q[kK], q[kK + 1]].map(k => [k.cach, k.rong]), [[1690, 755], [2445, 755]], '(chia 2 ô cạnh nhau: 1690…2445…3200)');
+      await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+      await keo([2440, 2000], [2235, 2000]);
+      const q2 = (await P()).khung;
+      eq([q2[kK], q2[kK + 1]].map(k => [k.cach, k.rong]), [[1690, 550], [2240, 960]], 'kéo mép chung sang trái 205: ô trái hẹp lại, ô phải rộng ra đúng bằng đó');
+      ok(/ô kề/.test(await st()) && !/chồng lên nhau/.test(await H.locator('.pmsgs').innerText()), 'dòng trạng thái ghi ô kề chạy theo; không có báo chồng khung', await st());
+      await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(120);
+      const q3 = (await P()).khung;
+      eq([q3[kK], q3[kK + 1]].map(k => [k.cach, k.rong]), [[1690, 755], [2445, 755]], '↶ Lùi: cả hai ô về như trước lần kéo (một bước)'); }
+    await page.mouse.move(5, 5);
 
     /* ---- đặt mẫu kho bằng chuột (bấm chân tường) ---- */
     console.log('— Giao diện: đặt mẫu kho bằng chuột');
@@ -358,6 +534,11 @@ async function trangDocLap(browser) {
   const H = page.locator('#mncf-host');
   ok((await H.locator('.tab[data-tab="kho"]').count()) === 0, 'trang độc lập không có thẻ Kho mẫu');
   await H.locator('.tab[data-tab="phong"]').click();
+  ok(await H.locator('[data-act="p-lui"]').isDisabled(), 'mới mở trang: nút ↶ Lùi của thẻ Phòng còn mờ (chưa có gì để lùi)');
+  await H.locator('[data-act="k-add"]').click();
+  ok(!(await H.locator('[data-act="p-lui"]').isDisabled()) && (await page.evaluate(() => window.MNCF.phong.lay().khung.length)) === 1, 'thêm một khung: nút ↶ Lùi sáng lên');
+  await H.locator('[data-act="p-lui"]').click();
+  ok((await page.evaluate(() => window.MNCF.phong.lay().khung.length)) === 0 && (await H.locator('[data-act="p-lui"]').isDisabled()), 'lần sửa ĐẦU TIÊN sau khi mở trang cũng lùi được (khung vừa thêm biến mất); hết bước thì nút mờ lại');
   await H.locator('[data-act="k-add"]').click();
   await H.locator('.pcard[data-kj="0"] [data-p="khung.0.kieu"]').selectOption('kho');
   ok(/mở bảng này trong Chenfeng để chọn mẫu của kho/.test(await H.locator('.pcard[data-kj="0"] .kkho').innerText()) && (await H.locator('[data-act="k-kho"]').count()) === 0 && (await H.locator('[data-act="k-ve-kho"]').count()) === 0, 'khung “mẫu kho” ở trang độc lập: nhắc mở trong Chenfeng, không có nút chọn / vẽ');

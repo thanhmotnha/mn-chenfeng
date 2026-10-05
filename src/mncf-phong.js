@@ -406,6 +406,98 @@
     return { p: chuanHoa(p), ke: ke ? ke.ten : '' };
   }
 
+  /* ---- bản 1.25 — KÉO KHUNG trên mặt đứng (anh Thanh 05/10/2026 08:19: "vẽ khung nhưng không move được"; 08:20: "với có bắt điểm") ---- */
+  // Mốc của tường i: `bo(k, mep)` = true thì bỏ mép đó của khung k (mep: 'trai' | 'phai' | 'duoi' | 'tren').
+  function mocCua(H, i, bo) {
+    const w = H && H.tuong && H.tuong[i]; if (!w || !(w.dai > 0)) return { s: [], z: [] };
+    const L = w.dai, C = w.cao || H.p.cao || 2700, s = [0, L], z = [0, C];
+    for (const k of H.khung || []) {
+      if (k.tuong !== i || !(k.rong > 0) || !(k.cao > 0)) continue;
+      if (!bo(k, 'trai')) s.push(k.cach); if (!bo(k, 'phai')) s.push(k.cach + k.rong);
+      if (!bo(k, 'duoi')) z.push(k.z); if (!bo(k, 'tren')) z.push(k.z + k.cao);
+    }
+    for (const m of H.mo || []) if (m.tuong === i) { s.push(m.cach, m.cach + m.rong); z.push(m.be, m.be + m.cao); }
+    for (const c of H.can || []) if (c.tuong === i) { s.push(c.cach, c.cach + c.rong); z.push(c.z0, c.z1); }
+    const gon = (ds, max) => Array.from(new Set(ds.filter(v => v >= -0.05 && v <= max + 0.05).map(v => rn(Math.min(Math.max(v, 0), max), 1)))).sort((a, b) => a - b);
+    return { s: gon(s, L), z: gon(z, C) };
+  }
+  /**
+   * MỐC BẮT ĐIỂM của tường i trên mặt đứng: s = vị trí dọc tường (đầu / cuối tường, mép cửa, cột, dầm, khung), z = cao độ (sàn, trần, bệ / đỉnh cửa, đáy / đỉnh cột – dầm – khung).
+   * `bo` = chỉ số khung đang kéo (mép của chính nó không phải mốc). Xếp tăng dần, không trùng.
+   */
+  function mocKhung(H, i, bo) { return mocCua(H, i, k => k.j === bo); }
+
+  /**
+   * Chỗ mới của khung j khi người dùng nắm THÂN khung (dời) hoặc nắm MÉP / GÓC (đổi cỡ) rồi kéo đi (ds, dz) mm kể từ lúc bấm chuột. Hàm thuần — giao diện gọi liên tục lúc kéo.
+   * o = { trai, phai, duoi, tren: mép đang nắm (không mép nào = dời cả khung) · ds, dz · tam: tầm bắt điểm (mm) · tu_do: giữ Alt — không bắt điểm, ô kề không chạy theo ·
+   *       giu_s, giu_z: chuột chưa rời trục đó → số của trục đó giữ NGUYÊN (kéo ngang không làm đổi / làm tròn cao độ) }
+   * Mép đang chạy tới gần một mốc (≤ tam) thì bám đúng mốc; không thì số bắt chẵn 10. Khung không ra khỏi tường, không vượt trần, không nhỏ hơn 100 (khung vốn nhỏ hơn thì giữ cỡ đó).
+   * Nắm đúng MỘT mép đang chạm một Ô KỀ khít (cùng quy tắc `doiCoKhung`): ô kề co / giãn theo, không hở không chồng, ô kề không nhỏ hơn 50.
+   * @returns {{ cach, z, rong, cao, bat_s: mốc dọc tường đã bám | null, bat_z: cao độ đã bám | null, ke: [{ j, cach, z, rong, cao }] }} | null
+   */
+  function keoKhung(H, j, o) {
+    const q = H && H.khung && H.khung[j], w = q && q.w;
+    if (!q || !w || !(w.dai > 0) || !(q.rong > 0) || !(q.cao > 0)) return null;
+    o = o || {};
+    const L = w.dai, C = w.cao || H.p.cao || 2700, tuDo = !!o.tu_do, tam = tuDo ? 0 : Math.max(0, num(o.tam, 30));
+    const nam = ['trai', 'phai', 'duoi', 'tren'].filter(c => o[c]), ds = num(o.ds, 0), dz = num(o.dz, 0);
+    // ô kề chạy theo: chỉ khi nắm đúng một mép (nắm góc thì hai chiều cùng đổi, ô kề hết khít) và không kéo tự do
+    let ke = null;
+    if (nam.length === 1 && !tuDo) {
+      const c = nam[0], ngang = c === 'trai' || c === 'phai';
+      const khit = k => (ngang ? Math.abs(k.z - q.z) < 0.5 && Math.abs(k.cao - q.cao) < 0.5 : Math.abs(k.cach - q.cach) < 0.5 && Math.abs(k.rong - q.rong) < 0.5);
+      const ho = k => (c === 'phai' ? k.cach - (q.cach + q.rong) : c === 'trai' ? k.cach + k.rong - q.cach : c === 'tren' ? k.z - (q.z + q.cao) : k.z + k.cao - q.z);
+      ke = H.khung.find(k => k.j !== j && k.tuong === q.tuong && k.rong > 0 && k.cao > 0 && khit(k) && Math.abs(ho(k)) < 0.5) || null;
+    }
+    const DOI = { trai: 'phai', phai: 'trai', duoi: 'tren', tren: 'duoi' };
+    // mép của chính khung đang kéo, và mép của ô kề đang chạy theo, không phải mốc (không thì mép chung bị hút về chỗ cũ)
+    const moc = mocCua(H, q.tuong, (k, c) => k.j === j || (ke && k.j === ke.j && c === DOI[nam[0]]));
+    const gan = (v, dsM) => { let b = null; if (tam > 0) for (const m of dsM) { const d = Math.abs(v - m); if (d <= tam && (b === null || d < Math.abs(v - b))) b = m; } return b; };
+    const tron = v => Math.round(v / 10) * 10;
+    // MỘT mép đang chạy: bám mốc gần nhất trong tầm, không thì chẵn 10; rồi ép vào [lo, hi] → [chỗ mới, mốc đã bám]
+    const mep = (v, dsM, lo, hi) => {
+      if (hi < lo) hi = lo;
+      let a = gan(v, dsM), r = a !== null ? a : tron(v);
+      if (r < lo || r > hi) { r = Math.min(Math.max(r, lo), hi); a = tam > 0 && dsM.some(m => Math.abs(m - r) < 0.05) ? r : null; }
+      return [r, a];
+    };
+    // DỜI cả khung theo một trục: mép đầu / mép cuối, mép nào gần mốc hơn thì bám mép đó
+    const doi = (v0, kt, d, dsM, max) => {
+      const c0 = v0 + d, a = gan(c0, dsM), b = gan(c0 + kt, dsM), hi = Math.max(0, max - kt);
+      let r, bat = null;
+      if (a !== null && (b === null || Math.abs(c0 - a) <= Math.abs(c0 + kt - b))) { r = a; bat = a; }
+      else if (b !== null) { r = b - kt; bat = b; }
+      else r = tron(c0);
+      if (r < 0 || r > hi) { r = Math.min(Math.max(r, 0), hi); bat = tam > 0 ? (r < 0.05 ? 0 : max) : null; }
+      return [r, bat];
+    };
+    let x0 = q.cach, x1 = q.cach + q.rong, y0 = q.z, y1 = q.z + q.cao, bs = null, bz = null;
+    if (!nam.length) {
+      if (!o.giu_s) { [x0, bs] = doi(q.cach, q.rong, ds, moc.s, L); x1 = x0 + q.rong; }
+      if (!o.giu_z) { [y0, bz] = doi(q.z, q.cao, dz, moc.z, C); y1 = y0 + q.cao; }
+    } else {
+      const nhoR = Math.min(100, q.rong), nhoC = Math.min(100, q.cao), nhoKe = ke ? Math.min(50, ke.rong, ke.cao) : 0;
+      if (!o.giu_s) {
+        if (o.phai) [x1, bs] = mep(x1 + ds, moc.s, x0 + nhoR, ke && nam[0] === 'phai' ? Math.min(L, ke.cach + ke.rong - nhoKe) : L);
+        else if (o.trai) [x0, bs] = mep(x0 + ds, moc.s, ke && nam[0] === 'trai' ? Math.max(0, ke.cach + nhoKe) : 0, x1 - nhoR);
+      }
+      if (!o.giu_z) {
+        if (o.tren) [y1, bz] = mep(y1 + dz, moc.z, y0 + nhoC, ke && nam[0] === 'tren' ? Math.min(C, ke.z + ke.cao - nhoKe) : C);
+        else if (o.duoi) [y0, bz] = mep(y0 + dz, moc.z, ke && nam[0] === 'duoi' ? Math.max(0, ke.z + nhoKe) : 0, y1 - nhoC);
+      }
+    }
+    const kq = { cach: rn(x0, 1), z: rn(y0, 1), rong: rn(x1 - x0, 1), cao: rn(y1 - y0, 1), bat_s: bs, bat_z: bz, ke: [] };
+    if (ke) {
+      const n = { j: ke.j, cach: ke.cach, z: ke.z, rong: ke.rong, cao: ke.cao }, c = nam[0];
+      if (c === 'phai') { n.rong = rn(ke.cach + ke.rong - x1, 1); n.cach = rn(x1, 1); }
+      else if (c === 'trai') n.rong = rn(x0 - ke.cach, 1);
+      else if (c === 'tren') { n.cao = rn(ke.z + ke.cao - y1, 1); n.z = rn(y1, 1); }
+      else n.cao = rn(y0 - ke.z, 1);
+      kq.ke.push(n);
+    }
+    return kq;
+  }
+
   /**
    * Thông số tủ vừa khít một khung. Core = MNCFCore, specNen = thông số đang dùng (giữ Chuẩn xưởng), q = khung {rong, cao, sau, mau, ten}.
    * @returns {{spec, mau:string[], ghi_chu:string[]}}
@@ -1293,5 +1385,5 @@
     return ra.map((r, i) => [r, i]).sort((a, b) => (b[0].sua_luc - a[0].sua_luc) || (a[1] - b[1])).map(v => v[0]);
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, docKetNoi, phongDaDo, giao, tenTuong };
+  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, mocKhung, keoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, docKetNoi, phongDaDo, giao, tenTuong };
 });

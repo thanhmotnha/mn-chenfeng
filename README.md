@@ -12,6 +12,14 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Bảng gọn hơn; dời / đổi cỡ khung ngay trên mặt đứng (bản 1.25)
+
+- **Chân thẻ Tủ là hàng nút biểu tượng** — chỉ còn một nút chữ lớn **Vẽ vào Chenfeng**; bên cạnh là **Tường** (đặt tủ theo tường) · **Chuột** (đặt tủ bằng chuột) · **Hình** (tủ theo hình đang chọn trên mặt bằng); hàng dưới: **Cập nhật** · **Sửa tủ** · **Chuẩn hoá** · JSON · CSV · Lưu · Mở. Rê chuột vào nút nào thì dòng ngay trên hàng nút ghi tên đầy đủ và cách dùng. Bảng rộng hơn (560) cho hình to, dễ nắm.
+- **Khung trên mặt đứng kéo được** (thẻ Phòng): *nắm khung kéo* là dời, *nắm mép / góc kéo* là đổi cỡ — con trỏ đổi hình báo trước. Số của khung chỉ đổi khi nhả chuột; Esc lúc đang kéo là thôi.
+- **Bắt điểm** — mép khung tới gần mép tường, sàn, trần, mép cửa, cột, dầm hay mép khung khác thì tự bám vào đó, có vạch báo chỗ bám; không gần gì thì số bắt chẵn 10. Giữ **Alt** = kéo tự do. Kéo mép chung của hai ô đã chia thì ô kề co giãn theo (không hở, không chồng).
+- **↶ Lùi** (Ctrl + Z khi đang ở thẻ Phòng) — trả lại từng bước sửa của thẻ Phòng: dời, đổi cỡ, thêm, xoá khung, sửa số đo, lấy phòng khác. Gõ liền tay trong một ô là một bước. Không lùi qua lần đã vẽ vào Chenfeng — cái đó dùng nút *Hoàn tác* của lần vẽ.
+- **＋ Vẽ khung trên mặt đứng** vẽ xong một khung là tự tắt (trước đây còn bật, nắm khung định dời lại thành vẽ thêm một khung chồng lên); lúc rê chuột đã thấy vạch báo góc khung sẽ bám vào đâu.
+
 ## Phòng đã đo trên điện thoại (bản 1.24)
 
 Xưởng có trang **Đo hiện trạng** riêng (chạy trên máy chủ của xưởng) thì nối bảng với trang đó một lần: thẻ **Phòng** → khối **Phòng đã đo trên điện thoại** → dán *chuỗi kết nối* (địa chỉ kho `#` mã đọc — người có tài khoản đăng nhập trong trang đo rồi bấm *Mã kết nối máy vẽ → Cấp mã → Chép mã*) → **Nối máy chủ**.
@@ -24,7 +32,7 @@ Xưởng có trang **Đo hiện trạng** riêng (chạy trên máy chủ của 
 
 ## Đặt tủ theo tường, hộp chỉnh tủ, vẽ lại phòng (bản 1.23)
 
-- **Đặt tủ theo tường** — thẻ Tủ → nút **Đặt tủ theo tường**: chọn tường → trên mặt đứng của tường đó *chạm* vào đoạn tường trống (lấy cả đoạn, sàn → trần hoặc tới đáy dầm) hoặc *kéo* một ô → **Tiếp**. Chỗ đặt tính từ phòng khai ở thẻ Phòng nên không phải bấm điểm nào trong bản vẽ. Khung đã có, cửa đi, cửa sổ thì chắn; cột / hộp kỹ thuật không chắn — tủ phủ qua và được khấu cột. Bấm *Hoàn tác lần vẽ này* thì chỗ vừa đặt cũng được trả lại (tường trống như trước).
+- **Đặt tủ theo tường** — thẻ Tủ → nút **Tường** (Đặt tủ theo tường): chọn tường → trên mặt đứng của tường đó *chạm* vào đoạn tường trống (lấy cả đoạn, sàn → trần hoặc tới đáy dầm) hoặc *kéo* một ô → **Tiếp**. Chỗ đặt tính từ phòng khai ở thẻ Phòng nên không phải bấm điểm nào trong bản vẽ. Khung đã có, cửa đi, cửa sổ thì chắn; cột / hộp kỹ thuật không chắn — tủ phủ qua và được khấu cột. Bấm *Hoàn tác lần vẽ này* thì chỗ vừa đặt cũng được trả lại (tường trống như trước).
 - **Hộp chỉnh tủ** — đặt xong (bằng chuột hay theo tường) bảng hiện hộp chỉnh tủ: xem lại khoang, đợt, ngăn kéo; bấm **Vẽ vào Chenfeng** thì tủ mới được vẽ. *Chọn lại chỗ* quay về bước đặt; *Đóng* giữ tủ và chỗ đặt ở thẻ Tủ, chưa vẽ gì.
 - **Khấu cột giữa** — cột nằm trong khoang: khoang giữ cân đối như tủ không có cột, đáy / nóc / đợt khoét quanh cột; bảng không tự thêm hay dời vách, đợt. Muốn vách đứng theo mép cột thì bấm *Đặt vách theo mép cột giữa (tuỳ chọn)*. Suốt treo của khoang có cột vẫn nằm giữa chiều sâu khoang (thanh suốt đi trước hộp che cột) — bảng chỉ nhắc đoạn suốt bị cột che; cột quá sâu, thanh suốt không lọt thì suốt mới lùi ra phần nông trước cột và có cảnh báo. Đổi khung không còn làm mất ngăn kéo / suốt treo ở ô sát đáy.
 - **Vẽ lại phòng không vẽ chồng** — bấm *Vẽ phòng vào Chenfeng* lần nữa: bảng đối chiếu với phòng đang có trên bản vẽ, cái đã có đúng chỗ thì giữ, chỉ vẽ phần thay đổi; lỗ cửa / cột / dầm vẽ trùng từ bản trước được dọn; dấu điện – nước không đánh chồng. Tường lạ nằm trong lòng phòng sắp vẽ thì bảng dừng lại hỏi, không tự xoá.
