@@ -929,17 +929,121 @@ T('Kế hoạch vẽ bằng LỆNH GỐC của Chenfeng (bản 1.15 — anh Jaso
   const K2 = C0.keHoachGoc(C0.DEFAULT_SPEC);
   eq(K2.loi, [], 'tủ mặc định: lập được');
   eq(K2.buoc.filter(b => b.lenh === 'LR').map(b => b.than + b.thung + ':' + b.goc[2]), K2.M.info.than.flatMap(t => K2.M.info.thung.map((q, k) => t.ma + k + ':' + t.z0)), 'mỗi thân × mỗi thùng một mẫu gốc 左右侧板模板, thân trên đặt ở cao độ thân trên');
-  ok(K2.chua.some(c => c.ten === 'Ngăn kéo') && K2.chua.some(c => c.loai === 'DEM') && K2.buoc.filter(b => b.lenh === 'DO').length === K2.M.info.khoang.length * K2.M.info.than.length, 'ngăn kéo + khung hộc kéo chưa có lệnh gốc; mỗi khoang mỗi thân một lệnh cánh', K2.chua);
+  ok(K2.chua.some(c => c.loai === 'DEM') && K2.chua.some(c => c.ten === 'Suốt treo') && K2.buoc.filter(b => b.lenh === 'DO').length === K2.M.info.khoang.length * K2.M.info.than.length, 'khung hộc kéo (vách đệm, xà, nẹp) + suốt treo chưa có lệnh gốc; mỗi khoang mỗi thân một lệnh cánh', K2.chua);
+  ok(!K2.chua.some(c => c.ten === 'Ngăn kéo') && K2.nk.length === 1 && K2.nk[0].so === 2, 'ngăn kéo của tủ mặc định: có lệnh gốc (bản 1.26) — không còn nằm trong phần "chưa có lệnh gốc"', [K2.chua, K2.nk]);
   // hậu gộp khổ ván → kế hoạch tự chuyển về mỗi khoang một tấm
   ok(C0.keHoachGoc(Object.assign({}, C0.DEFAULT_SPEC, { hau: Object.assign({}, C0.DEFAULT_SPEC.hau, { chia: 'kho_van' }) })).buoc.filter(b => b.lenh === 'BE').length === K2.buoc.filter(b => b.lenh === 'BE').length, 'hậu chia theo khổ ván → vẫn vẽ mỗi khoang một tấm hậu');
   // chưa làm được: hậu kiểu khác, khấu cột → nêu lý do (bảng sẽ vẽ theo cách nhập tấm)
   eq(C0.keHoachGoc(Object.assign({}, C0.DEFAULT_SPEC, { hau: Object.assign({}, C0.DEFAULT_SPEC.hau, { kieu: 'day' }) })).loi, ['hậu không phải kiểu phủ sau'], 'hậu dày: chưa vẽ bằng lệnh gốc');
   eq(C0.keHoachGoc(Object.assign({}, C0.DEFAULT_SPEC, { khau: { trai: { rong: 300, sau: 200 } } })).loi, ['tủ có khấu cột'], 'khấu cột: chưa vẽ bằng lệnh gốc');
   ok(C0.keHoachGoc({ rong: 100 }).loi.length > 0 && C0.keHoachGoc({ rong: 100 }).buoc.length === 0, 'thiết kế lỗi → trả lỗi thiết kế, không có bước nào');
+  eq(C0.keHoachGoc({ rong: 100 }).nk, [], 'thiết kế lỗi → danh sách bước ngăn kéo vẫn là mảng rỗng (nơi gọi khỏi phải kiểm)');
   // cánh trùm ngoài ngăn kéo (cánh ngắn lại): phần dưới là "hở vào" (âm)
   const K3 = C0.keHoachGoc({ rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] }] });
   const d3 = K3.buoc.find(b => b.lenh === 'DO');
   ok(K3.loi.length === 0 && d3 && d3.ext.duoi < -300, 'cánh phía trên ngăn kéo trùm ngoài: mép dưới cánh hở vào (ext.duoi âm)', d3 && d3.ext);
+});
+
+T('Ngăn kéo bằng LỆNH GỐC `DRAWER` của Chenfeng (bản 1.26 — anh Jason 05/10/2026: "phần ngăn kéo vẽ bằng công cụ của chenfeng như vẽ thùng hậu, cánh")', () => {
+  // Đã đo trên Chenfeng thật 05/10/2026: chọn 4 tấm kẹp → DRAWER → S → hộp "Drawer Design": số ô, lọt lòng / trùm ngoài, `offset` = lưng mặt cách mép trước KHOẢNG TRỐNG,
+  // trùm ra / khe hở 4 phía + khe giữa, mẫu ngăn kéo của kho tài khoản. Khoảng trống sâu tính từ mép trước của tấm kẹp LÙI NHẤT (vách đệm lùi `lùi − dày ván`).
+  const ten = (K, i) => K.M.parts[i].ten + '@' + K.M.parts[i].x0;
+  // 1) ngăn kéo âm sau 2 cánh: kẹp giữa HAI VÁCH ĐỆM, đáy và đợt
+  const K = C0.keHoachGoc({ ma: 'NK', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] });
+  eq([K.loi, K.nk.length], [[], 1], 'một ô ngăn kéo → một bước NK');
+  const n = K.nk[0];
+  eq([n.lenh, n.than, n.khoang, n.kieu, n.so, n.trong], ['NK', 'D', 0, 'nk_am', 2, true], 'bước NK: thân, khoang, kiểu, số ngăn; ngăn kéo âm = lọt lòng');
+  eq(n.kep.map(i => ten(K, i)), ['Vách đệm ngăn kéo@100', 'Vách đệm ngăn kéo@882.5', 'Đáy@67.5', 'Đợt@67.5'], 'kẹp = vách đệm trái, vách đệm phải, đáy, đợt phía trên (đúng thứ tự trái – phải – dưới – trên)');
+  eq([n.lui, n.ext, n.khe, n.day, n.cao, n.sau], [17.5, { trai: -2, phai: -2, duoi: -2, tren: -22.5 }, 22, 17.5, null, 500], 'lưng mặt cách mép trước vách đệm đúng một dày ván (mặt ngang mép vách đệm); khe bên 2, dưới 2, trên 22,5, giữa 22; các mặt bằng nhau → không khoá cao; hộp sâu 500');
+  eq([n.mau, n.ts, n.tp, n.mat], [{ id: C0.DEFAULT_SPEC.ngan_keo.loai[0].mau_id, ten: C0.DEFAULT_SPEC.ngan_keo.loai[0].ten_mau }, { GD: 13, LC: 0, SLK: 30, XLK: 30 }, [0, 1], [0, 1]], 'mẫu của loại ngăn kéo + tham số riêng của loại; các mẫu / mặt của ô xếp từ dưới lên');
+  ok(!K.chua.some(c => c.ten === 'Ngăn kéo') && K.chua.some(c => c.loai === 'DEM') && K.chua.some(c => c.loai === 'XA'), 'ngăn kéo có lệnh gốc; vách đệm, xà, nẹp vẫn là tấm rời', K.chua);
+  // phần dư làm tròn 0,5 của mặt dồn vào khe trên → vẫn chia đều được, không phải khoá cao
+  const Kd = C0.keHoachGoc({ ma: 'NK', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [521], o: [{ tu: 0, kieu: 'nk_am', so: 3 }] }] }), nd = Kd.nk[0], md = Kd.M.mat_ngan_keo;
+  ok(nd.cao === null && Math.abs(nd.ext.tren + (538.5 - 17.5 - (md[2].z + md[2].h))) < 1e-9 && nd.ext.tren < -22.5 && nd.ext.tren >= -23.5, 'mặt làm tròn 0,5: phần dư nằm ở khe TRÊN (trùm ra phía trên âm hơn 22,5 một chút)', [nd.ext, md.map(q => q.h)]);
+  // 2) một cánh (bản lề bên trái): chỉ có vách đệm trái — bên phải kẹp bằng hồi; khoảng trống vẫn sâu từ mép vách đệm
+  const K1 = C0.keHoachGoc({ ma: 'N1', rong: 700, cao: 2200, khoang: [{ rong: 'auto', canh: 1, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] }), n1 = K1.nk[0];
+  eq([n1.kep.map(i => ten(K1, i)), n1.lui, n1.ext.trai, n1.ext.phai], [['Vách đệm ngăn kéo@100', 'Hồi phải@632.5', 'Đáy@67.5', 'Đợt@67.5'], 17.5, -2, -2], 'một cánh: kẹp = vách đệm bên bản lề + hồi bên kia');
+  // 3) khoang không cánh (không có vách đệm): kẹp bằng hai hồi, lưng mặt lùi đúng `lùi`
+  const K0 = C0.keHoachGoc({ ma: 'N0', rong: 700, cao: 2200, khoang: [{ rong: 'auto', canh: 0, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] }), n0 = K0.nk[0];
+  eq([n0.kep.map(i => ten(K0, i)), n0.lui], [['Hồi trái@50', 'Hồi phải@632.5', 'Đáy@67.5', 'Đợt@67.5'], 30], 'không vách đệm: kẹp bằng hồi; lưng mặt cách mép trước thùng đúng "lùi" 30');
+  // 4) ngăn kéo trùm ngoài: mặt ở mặt phẳng cánh, phủ ra ngoài khoảng kẹp như cánh
+  const Kt = C0.keHoachGoc({ ma: 'NT', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] }] }), nt = Kt.nk[0];
+  eq([nt.kieu, nt.trong, nt.lui, nt.kep.map(i => ten(Kt, i)), nt.ext, nt.khe, nt.day, nt.cao, nt.sau], ['nk_trum', false, 0, ['Hồi trái@50', 'Hồi phải@932.5', 'Đáy@67.5', 'Đợt@67.5'], { trai: 15.5, phai: 15.5, duoi: 15.5, tren: 8 }, 2, 17.5, null, 550],
+    'trùm ngoài: kẹp bằng 2 hồi + đáy + đợt; trùm hồi 15,5, trùm đáy 15,5, lên tới tim đợt (8); khe giữa 2; hộp sâu 550');
+  // mặt trùm ngoài không chia đều được ra số chẵn 0,5 → khoá cao từng mặt (từ dưới lên) để ra đúng số của bảng
+  const Kl = C0.keHoachGoc({ ma: 'NL', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_trum', so: 3 }] }] });
+  eq(Kl.nk[0].cao, [141, 140.5, 140.5], 'mặt không bằng nhau: kèm chiều cao từng mặt, từ dưới lên');
+  // 5) trường hợp CHƯA dùng lệnh gốc (vẫn nhập mẫu như bản 1.23): loại có tham số "mat", công thức sâu hộp khác của Chenfeng, loại chưa khai mã mẫu
+  const spec = o => Object.assign({ ma: 'NX', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [Object.assign({ tu: 0, kieu: 'nk_am', so: 2 }, o && o.o)] }] }, o && o.s);
+  const Kc = C0.keHoachGoc(spec({ o: { loai: 'chia_o' } }));
+  ok(Kc.nk.length === 0 && Kc.chua.some(c => c.ten === 'Ngăn kéo' && c.sl === 2), 'ngăn kéo chia ô (tham số CMG = cao mặt): chưa dùng lệnh gốc, vẫn nhập mẫu', [Kc.nk, Kc.chua]);
+  const nkS = o => ({ s: { ngan_keo: Object.assign({}, C0.DEFAULT_SPEC.ngan_keo, o) } });
+  eq([C0.keHoachGoc(spec(nkS({ ho_sau: 10 }))).nk.length, C0.keHoachGoc(spec(nkS({ buoc_sau: 25 }))).nk.length, C0.keHoachGoc(spec(nkS({ ho_sau: 5, buoc_sau: 50 }))).nk.length], [0, 0, 1], 'hở sau ≠ 5 hoặc bước sâu ≠ 50: công thức sâu hộp của Chenfeng (trừ 5, bậc 50) không ra số của bảng → vẫn nhập mẫu');
+  const k0 = C0.keHoachGoc(spec(nkS({ loai: C0.DEFAULT_SPEC.ngan_keo.loai.map(x => Object.assign({}, x, { mau_id: 0 })) })));
+  ok(k0.nk.length === 0, 'loại ngăn kéo chưa khai mã mẫu: không có bước NK (ngăn kéo không được vẽ)', k0.nk);
+  // 6) tủ mặc định (2 thân, tách thùng): mỗi mẫu ngăn kéo thuộc đúng một bước; suốt treo không thuộc bước nào
+  const K2 = C0.keHoachGoc(C0.DEFAULT_SPEC), tp2 = K2.nk.flatMap(b => b.tp);
+  ok(new Set(tp2).size === tp2.length && tp2.length === K2.M.templates.filter(t => t.loai === 'NGAN_KEO').length && tp2.every(j => K2.M.templates[j].loai === 'NGAN_KEO'), 'tủ mặc định: mọi hộp ngăn kéo thuộc đúng một bước NK', [tp2, K2.M.templates.map(t => t.loai)]);
+  ok(K2.nk.every(b => b.kep.length === 4 && b.kep.every(i => K2.M.parts[i]) && b.mat.length === b.so && b.tp.length === b.so), 'bước nào cũng đủ 4 tấm kẹp, đủ số mặt và số mẫu');
+  ok(K2.nk.every(b => b.kep.every(i => K2.M.parts[i].than === b.than)), 'tủ 2 thân: 4 tấm kẹp của một bước đều thuộc đúng thân của ô ngăn kéo', K2.nk.map(b => b.kep.map(i => K2.M.parts[i].than)));
+  eq([K2.nk[0].tp, K2.nk[0].mat, K2.nk[0].mat.map(m => K2.M.mat_ngan_keo[m].khoang)], [[1, 2], [0, 1], [1, 1]], 'tủ còn mẫu khác (suốt treo): `tp` là chỉ số trong M.templates, `mat` là chỉ số trong M.mat_ngan_keo — hai dãy số khác nhau');
+  // 7) một ô chỉ MỘT ngăn kéo: không có "khe giữa hai mặt" để đo → lấy khe của Chuẩn xưởng (âm: khe giữa 22; trùm ngoài: khe cánh 2)
+  eq([C0.keHoachGoc(spec({ o: { so: 1 } })).nk[0].khe, C0.keHoachGoc(spec({ o: { so: 1, kieu: 'nk_trum' } })).nk[0].khe], [22, 2], 'ô một ngăn: khe giữa lấy theo Chuẩn xưởng');
+  // … và số đó đúng là khe giữa hai mặt mà lõi dựng ra, kể cả khi Chuẩn xưởng để số khác mặc định
+  const kheThat = K => { const b = K.nk[0], m = b.mat.map(j => K.M.mat_ngan_keo[j]); return [b.khe, m[1].z - (m[0].z + m[0].h)]; };
+  eq([kheThat(C0.keHoachGoc(spec(nkS({ khe_giua: 30 })))), kheThat(C0.keHoachGoc(spec({ o: { kieu: 'nk_trum' }, s: { canh: Object.assign({}, C0.DEFAULT_SPEC.canh, { khe: 3 }) } })))], [[30, 30], [3, 3]],
+    'khe giữa hai mặt của bước = khe thật giữa hai mặt trong mô hình (âm: "khe giữa" của ngăn kéo; trùm ngoài: khe cánh)');
+  // 8) một khoang có HAI ô ngăn kéo âm chồng nhau: mỗi ô một bước, kẹp bằng vách đệm của CHÍNH ô đó (vách đệm của ô kia cùng vị trí ngang nhưng khác cao độ)
+  const Kh = C0.keHoachGoc({ ma: 'NH', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520, 1000], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'nk_am', so: 2 }] }] });
+  eq(Kh.nk.map(b => [b.so, b.kep.slice(0, 2).map(i => [Kh.M.parts[i].loai, Kh.M.parts[i].z0, Kh.M.parts[i].z1]), Kh.M.parts[b.kep[2]].ten, Kh.M.parts[b.kep[3]].z0]),
+    [[2, [['DEM', 117.5, 520], ['DEM', 117.5, 520]], 'Đáy', 520], [2, [['DEM', 537.5, 1000], ['DEM', 537.5, 1000]], 'Đợt', 1000]],
+    'hai ô ngăn kéo chồng nhau trong một khoang: ô dưới kẹp bằng vách đệm 117,5 … 520 (từ mặt trên đáy) + đáy + đợt 520; ô trên kẹp bằng vách đệm 537,5 … 1000 + đợt 520 + đợt 1000');
+  ok(new Set(Kh.nk.flatMap(b => b.tp)).size === 4 && !Kh.chua.some(c => c.ten === 'Ngăn kéo'), '… đủ 4 hộp ngăn kéo, không cái nào còn nằm ở phần "chưa có lệnh gốc"');
+  // 9) HAI KHOANG cùng có ô ngăn kéo ở cùng cao độ (khoang không cánh → kẹp bằng hồi / vách): mỗi khoang một bước, đáy và đợt là của CHÍNH khoang đó
+  const Kb = C0.keHoachGoc({ ma: 'NB', rong: 1400, cao: 2200, thung: { rong_max: 0 }, khoang: [{ rong: 'auto', canh: 0, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 0, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 3 }] }] });
+  eq(Kb.nk.map(b => [b.khoang, b.so, b.kep.map(i => ten(Kb, i))]), [[0, 2, ['Hồi trái@50', 'Vách@691.5', 'Đáy@67.5', 'Đợt@67.5']], [1, 3, ['Vách@691.5', 'Hồi phải@1332.5', 'Đáy@709', 'Đợt@709']]],
+    'hai khoang, ô ngăn kéo cùng cao độ: hai bước riêng; vách giữa là tấm kẹp của cả hai; đáy / đợt lấy đúng khoang');
+  // 10) trùm ngoài ở khoang thứ hai của tủ 2 khoang: bên vách giữa chỉ trùm tới gần tim vách, bên hồi trùm gần hết hồi
+  const nt2 = C0.keHoachGoc({ ma: 'NT2', rong: 1400, cao: 2200, thung: { rong_max: 0 }, khoang: [{ rong: 'auto', canh: 2, dot: [1100], o: [] }, { rong: 'auto', canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] }] }).nk[0];
+  eq([nt2.khoang, nt2.ext], [1, { trai: 8, phai: 15.5, duoi: 15.5, tren: 8 }], 'trùm ngoài cạnh vách giữa: trùm trái (vách) 8, trùm phải (hồi) 15,5 — không được lẫn hai bên');
+  // 11) ô ngăn kéo sát nóc: tấm kẹp trên là NÓC
+  const Kn = C0.keHoachGoc({ ma: 'NN', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 1800, kieu: 'nk_am', so: 2 }] }] });
+  eq(Kn.nk[0].kep.map(i => ten(Kn, i)), ['Vách đệm ngăn kéo@100', 'Vách đệm ngăn kéo@882.5', 'Đợt@67.5', 'Nóc@67.5'], 'ô ngăn kéo trên cùng: kẹp giữa đợt và nóc');
+  // 12) một cánh bản lề bên PHẢI: vách đệm chỉ có ở bên phải — mép trước khoảng trống vẫn là mép vách đệm
+  const Kp = C0.keHoachGoc({ ma: 'NP', rong: 700, cao: 2200, khoang: [{ rong: 'auto', canh: 1, ban_le: 'phai', dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] });
+  eq([Kp.nk[0].kep.map(i => ten(Kp, i)), Kp.nk[0].lui], [['Hồi trái@50', 'Vách đệm ngăn kéo@582.5', 'Đáy@67.5', 'Đợt@67.5'], 17.5], 'một cánh bản lề phải: kẹp = hồi trái + vách đệm phải; lưng mặt cách mép vách đệm một dày ván');
+  // tủ khấu cột / hậu khác kiểu phủ: cả tủ chưa vẽ bằng lệnh gốc → không có bước NK
+  eq(C0.keHoachGoc(Object.assign({}, C0.DEFAULT_SPEC, { khau: { trai: { rong: 300, sau: 200 } } })).nk, [], 'tủ có khấu cột: không có bước NK');
+});
+
+T('Lệnh DRAWER (bản 1.26): lựa chọn của hộp "Drawer Design" theo một bước NK + mẫu ngăn kéo dựng từ bản ghi kho mẫu', () => {
+  const buoc = o => C0.keHoachGoc({ ma: 'NK', rong: 1000, cao: 2200, khoang: [{ rong: 'auto', canh: 2, dot: [520], o: [Object.assign({ tu: 0, kieu: 'nk_am', so: 2 }, o)] }] }).nk[0];
+  // Đã đo trên Chenfeng thật 05/10/2026: m_Option giữ trùm ra / khe hở / offset dạng CHUỖI; lọt lòng = doorPosType 1, bốn "trùm ra" về 0, khe hở 4 phía + khe giữa; isAuto + isFloor50 để Chenfeng tự tính sâu hộp
+  eq(C0.lcNganKeo(buoc()), { lc: { row: 2, col: 1, isAllSelect: true, topOffset: 0, bottomOffset: 0, doorPosType: 1, offset: '17.5', leftExt: '0', leftSpace: '2', rightExt: '0', rightSpace: '2', topExt: '0', topSpace: '22.5', bottomExt: '0', bottomSpace: '2', midSpace: '22', isAuto: true, isFloor50: true }, cao: null },
+    'ngăn kéo âm: Inner Cover, offset = lưng mặt cách mép trước khoảng trống, không trùm ra, khe hở trái / phải / dưới 2, trên 22,5, giữa 22');
+  eq(C0.lcNganKeo(buoc({ kieu: 'nk_trum' })), { lc: { row: 2, col: 1, isAllSelect: true, topOffset: 0, bottomOffset: 0, doorPosType: 0, offset: '0', leftExt: '15.5', leftSpace: '0', rightExt: '15.5', rightSpace: '0', topExt: '8', topSpace: '0', bottomExt: '15.5', bottomSpace: '0', midSpace: '2', isAuto: true, isFloor50: true }, cao: null },
+    'ngăn kéo trùm ngoài: Outer Cover, trùm ra 4 phía theo thiết kế, không khe hở, khe giữa 2');
+  eq(C0.lcNganKeo(buoc({ kieu: 'nk_trum', so: 3 })).cao, [140.5, 140.5, 141], 'mặt không bằng nhau: cao từng ô xếp từ TRÊN xuống (hộp thoại đánh số ô 0 = trên cùng; bước NK xếp từ dưới lên)');
+  eq(C0.lcNganKeo(buoc({ so: 3 })).lc.row, 3, 'số ô = số ngăn');
+  // mẫu ngăn kéo: bản ghi của CAD-moduleList (mã, tên, hình) + các hàng tham số đã giải nén → đúng thứ hộp "Select Template" của Chenfeng gán vào từng ô
+  const hang = [[3, 'L', '', 600, null, '', 1, null, null], [3, 'GD', '13', 13, null, '滑轨间隙', 1, null, null], [3, 'SLK', '', 30, null, '上留空', 1, 0, 100], [3, 'W', '_W-5', 450, null, '', 1]];
+  const ts0 = { name: '', value: 0, description: '', expr: '', isLock: false, type: 1, option: [], isOptionOnly: false, minCompareType: '>=', maxCompareType: '<=', defaultDir: '', defaultDirId: '', min: null, max: null };
+  const T0 = C0.tempNganKeo({ module_id: 123456, name: 'Ngăn kéo thử', logo: 'thu/a.png', diy_logo: '' }, hang);
+  eq(T0, { id: '123456', name: 'Ngăn kéo thử', logo: 'thu/a.png', title: '选择抽屉', tagName: '', diy_logo: '', isHandle: false, isHinge: false, isKuGan: false, props: [
+    Object.assign({}, ts0, { name: 'L', value: 600 }), Object.assign({}, ts0, { name: 'GD', value: 13, description: '滑轨间隙', expr: '13' }),
+    Object.assign({}, ts0, { name: 'SLK', value: 30, description: '上留空', min: 0, max: 100 }), Object.assign({}, ts0, { name: 'W', value: 450, expr: '_W-5' })] },
+    'mẫu: mã dạng chuỗi, tên, hình, danh sách tham số đủ các trường mặc định (thiếu `props` là Chenfeng ném lỗi lúc dựng)');
+  eq(Object.keys(T0.props[0]), Object.keys(ts0), 'thứ tự trường của một tham số đúng như Chenfeng tự tạo');
+  // tham số riêng của loại ngăn kéo (Chuẩn xưởng) ghi đè giá trị mặc định của mẫu; tham số là công thức thì giữ nguyên; tham số mẫu không có thì không thêm
+  const T1 = C0.tempNganKeo({ module_id: 123456, name: 'Ngăn kéo thử' }, hang, { GD: 21, SLK: 20, W: 400, XLK: 10 });
+  eq(T1.props.map(p => [p.name, p.value, p.expr]), [['L', 600, ''], ['GD', 21, '21'], ['SLK', 20, ''], ['W', 450, '_W-5']], 'ghi đè GD (cả biểu thức số), SLK; W là công thức → giữ; XLK mẫu không có → bỏ qua');
+  eq([T1.logo, T1.diy_logo, hang[1][3]], ['', '', 13], 'bản ghi thiếu hình vẫn dựng được; không sửa vào dữ liệu gốc');
+  // đúng công thức đã đo: ghi chú lấy NGUYÊN trường [5] (kể cả null), biểu thức trống (null / '') thành ''
+  eq(C0.tempNganKeo({ module_id: 7, name: 'x' }, [[3, 'LC', null, 0, null, null, 1, null, null]]).props.map(p => [p.description, p.expr]), [[null, '']], 'ghi chú null giữ null; biểu thức null thành chuỗi rỗng');
+  // hàng tham số lạ (bản khác 3, kiểu khác 1, thiếu tên) → không dựng (bảng sẽ chèn ngăn kéo bằng mẫu như trước, không đưa dữ liệu lạ cho Chenfeng)
+  eq([C0.tempNganKeo({ module_id: 1, name: 'x' }, [[2, 'L', '', 600, null, '', 1]]), C0.tempNganKeo({ module_id: 1, name: 'x' }, [[3, 'L', '', 600, null, '', 2]]), C0.tempNganKeo({ module_id: 1, name: 'x' }, [[3, 5, '', 600, null, '', 1]]),
+    C0.tempNganKeo({ module_id: 1, name: 'x' }, []), C0.tempNganKeo({ module_id: 1, name: 'x' }, null), C0.tempNganKeo({ module_id: 0, name: 'x' }, hang), C0.tempNganKeo(null, hang)], [null, null, null, null, null, null, null],
+    'hàng tham số không đúng dạng đã đo / không có tham số / không có mã mẫu → null');
 });
 
 T('Cả tủ là MỘT module (bản 1.16): biểu thức co giãn cho từng lệnh gốc lấy từ heSo', () => {
