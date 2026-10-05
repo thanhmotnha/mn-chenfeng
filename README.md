@@ -18,6 +18,7 @@ Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.
 - **Khung trên mặt đứng kéo được** (thẻ Phòng): *nắm khung kéo* là dời, *nắm mép / góc kéo* là đổi cỡ — con trỏ đổi hình báo trước. Số của khung chỉ đổi khi nhả chuột; Esc lúc đang kéo là thôi.
 - **Bắt điểm** — mép khung tới gần mép tường, sàn, trần, mép cửa, cột, dầm hay mép khung khác thì tự bám vào đó, có vạch báo chỗ bám; không gần gì thì số bắt chẵn 10. Giữ **Alt** = kéo tự do. Kéo mép chung của hai ô đã chia thì ô kề co giãn theo (không hở, không chồng).
 - **↶ Lùi** (Ctrl + Z khi đang ở thẻ Phòng) — trả lại từng bước sửa của thẻ Phòng: dời, đổi cỡ, thêm, xoá khung, sửa số đo, lấy phòng khác. Gõ liền tay trong một ô là một bước. Không lùi qua lần đã vẽ vào Chenfeng — cái đó dùng nút *Hoàn tác* của lần vẽ.
+- **Ô chọn của khung** (bản 1.25.1) — vẽ xong một khung, hoặc bấm vào một khung trên mặt bằng / mặt đứng, thì ngay dưới mặt đứng hiện ô chọn của khung đó: *Tủ tự chia khoang* (kèm ruột tủ) hoặc *Mẫu kho Chenfeng* (*Chọn mẫu kho…*), rồi **Vẽ vào Chenfeng** — không phải cuộn xuống tìm thẻ của khung. ✕ hoặc Esc để đóng; vẽ xong thì ô tự đóng.
 - **＋ Vẽ khung trên mặt đứng** vẽ xong một khung là tự tắt (trước đây còn bật, nắm khung định dời lại thành vẽ thêm một khung chồng lên); lúc rê chuột đã thấy vạch báo góc khung sẽ bám vào đâu.
 
 ## Phòng đã đo trên điện thoại (bản 1.24)

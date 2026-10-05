@@ -327,6 +327,79 @@ async function chay() {
     await page.keyboard.press('Escape');
     ok((await H.locator('[data-act="k-ve-md"]').getAttribute('aria-pressed')) === 'false' && (await P()).khung.length === truocK + 1, 'Esc: thôi chế độ vẽ khung (không thêm khung nào)');
 
+    /* ---- bản 1.25.1 — Ô CHỌN CỦA KHUNG hiện ngay dưới mặt đứng: vẽ xong một khung là chọn đặt gì rồi vẽ luôn, không phải cuộn xuống tìm thẻ khung
+     * (anh Thanh 05/10/2026 08:21: "giao diện rối rắm khó sử dụng quá, vẽ cái nào thì hiện popup lên chọn là xong thôi") ---- */
+    console.log('— Giao diện: ô chọn của khung ngay dưới mặt đứng');
+    { const KP = H.locator('.kpop'), jK = truocK, tenK = (await P()).khung[jK].ten;
+      const chamKhung = async (s2, z2) => { await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(120); const c = await diem(s2, z2); await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.up(); await page.waitForTimeout(140); };
+      ok(await KP.isVisible() && (await KP.innerText()).includes('Khung ' + tenK) && /1510 × 1190/.test(await KP.innerText()), 'vẽ xong một khung: ô chọn của khung hiện ngay, ghi tên + cỡ khung', await KP.innerText().catch(() => '(không có)'));
+      ok(await page.evaluate(() => { const sh = document.getElementById('mncf-host').shadowRoot, k = sh.querySelector('.kpop').getBoundingClientRect(), m = sh.querySelector('.pmd').getBoundingClientRect(), t = sh.querySelector('.pmsgs').getBoundingClientRect(); return k.height > 40 && k.top >= m.bottom - 1 && k.top - m.bottom < 24 && k.bottom <= t.top + 1; }), 'ô chọn nằm liền dưới mặt đứng (trên phần báo lỗi / tóm tắt) — không phải cuộn xuống tìm thẻ khung');
+      const trongTam = () => page.evaluate(() => { const sh = document.getElementById('mncf-host').shadowRoot, k = sh.querySelector('.kpop').getBoundingClientRect(), r = sh.querySelector('.body').getBoundingClientRect(); return k.height > 40 && k.top >= r.top - 1 && k.bottom <= r.bottom + 1; });
+      ok(await trongTam(), '… và nằm trọn trong phần đang nhìn thấy của bảng');
+      ok((await KP.locator('[data-act="kpop-kieu"][data-v="tu"]').getAttribute('aria-pressed')) === 'true' && (await KP.locator('[data-act="kpop-kieu"][data-v="kho"]').getAttribute('aria-pressed')) === 'false' && (await KP.locator('[data-kp="mau"]').count()) === 1 && (await KP.locator('[data-act="kpop-ve"]').isEnabled()) && (await KP.locator('[data-act="kpop-mo"]').count()) === 1, 'khung mới mặc định là "tủ tự chia": có ô chọn ruột tủ, nút vẽ, nút mở thành tủ');
+      await KP.locator('[data-kp="mau"]').selectOption('TA3-1500');
+      ok((await P()).khung[jK].mau === 'TA3-1500' && await KP.isVisible() && (await KP.locator('[data-kp="mau"]').inputValue()) === 'TA3-1500' && (await H.locator(`.pcard[data-kj="${jK}"] [data-p="khung.${jK}.mau"]`).inputValue()) === 'TA3-1500', 'chọn ruột tủ ngay trong ô chọn: ghi vào khung (thẻ khung bên dưới đổi theo), ô chọn vẫn mở');
+      // đổi sang mẫu kho → chọn mẫu → vẽ, tất cả từ ô chọn
+      await KP.locator('[data-act="kpop-kieu"][data-v="kho"]').click();
+      ok((await P()).khung[jK].kieu === 'kho' && /Chưa chọn mẫu/.test(await KP.innerText()) && (await KP.locator('[data-act="kpop-ve"]').isDisabled()) && (await KP.locator('[data-kp="mau"]').count()) === 0 && (await KP.locator('[data-act="kpop-mo"]').count()) === 0, 'bấm "Mẫu kho": khung thành khung đặt mẫu kho; chưa chọn mẫu thì nút vẽ còn khoá', await KP.innerText());
+      ok(await KP.locator('[data-act="kpop-kho"]').evaluate(e => e.classList.contains('pri') && /Chọn mẫu kho/.test(e.textContent) && e.parentElement.firstElementChild === e), '… và "Chọn mẫu kho…" là nút chính, đứng đầu hàng (việc phải làm kế tiếp)');
+      await KP.locator('[data-act="kpop-kho"]').click();
+      await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelector('.panel').dataset.tabon === 'kho', null, { timeout: 5000 });
+      ok((await H.locator('.khochon').innerText()).includes('Đang chọn mẫu cho khung ' + tenK), '"Chọn mẫu kho…" trong ô chọn: sang thẻ Kho mẫu, đang chọn cho đúng khung đó', await H.locator('.khochon').innerText());
+      await H.locator('.knut[data-v="giay"]').click();
+      await page.waitForFunction(() => { const sh = document.getElementById('mncf-host').shadowRoot; return sh.querySelectorAll('.kmc').length === 1 && /giày/.test(sh.querySelector('.kmc b').textContent); }, null, { timeout: 8000 });
+      await H.locator('.kmc').first().click(); await H.locator('[data-act="kho-khung"]').click();
+      ok((await H.locator('.panel').getAttribute('data-tabon')) === 'phong' && await KP.isVisible() && /Tủ giày/.test(await KP.innerText()) && (await KP.locator('[data-act="kpop-ve"]').isEnabled()), 'chọn mẫu xong quay về thẻ Phòng: ô chọn vẫn mở, ghi tên mẫu, nút vẽ mở', await KP.innerText().catch(() => '(không có)'));
+      ok(await trongTam() && /Vẽ vào Chenfeng/.test(await st()), '… bảng cuộn về đúng ô chọn (không phải xuống thẻ của khung), dòng trạng thái chỉ đúng nút của ô chọn', await st());
+      ok(await KP.locator('[data-act="kpop-kho"]').evaluate(e => e.classList.contains('sec') && /Đổi mẫu kho/.test(e.textContent)) && await KP.locator('[data-act="kpop-ve"]').evaluate(e => e.parentElement.firstElementChild === e), '… đã có mẫu: nút vẽ lên đầu, nút chọn mẫu thành "Đổi mẫu kho…"');
+      const truocP = (await tam()).length;
+      await KP.locator('[data-act="kpop-ve"]').click();
+      await page.waitForFunction(n => window.__MOCK__.ents.filter(e => !e.IsErase && e instanceof window.__MOCK__.Board).length > n && /Đã vẽ mẫu kho/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), truocP, { timeout: 20000 });
+      eq(hop((await tam()).slice(truocP)), [10990, 12500, -1000, -600, 0, 1190], '"Vẽ vào Chenfeng" trong ô chọn: mẫu vào đúng chỗ khung trên tường C (cách trái 1100, rộng 1510, sâu 400, cao 1190)');
+      ok(!!(await P()).khung[jK].tu_id, '… khung được ghi "đã vẽ"');
+      await H.locator('.tab[data-tab="phong"]').click();
+      ok(!(await KP.isVisible()), 'vẽ xong thì ô chọn tự đóng');
+      await H.locator('.tab[data-tab="kq"]').click();
+      await H.locator('.report [data-act="undo"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+      await H.locator('.tab[data-tab="phong"]').click();
+      ok((await tam()).length === truocP && !(await P()).khung[jK].tu_id, '(hoàn tác lần vẽ: mẫu biến mất, khung thôi "đã vẽ")');
+      // bấm vào khung trên mặt đứng: ô chọn mở lại; ✕ đóng; Esc đóng
+      await chamKhung(1300, 1000);
+      ok(await KP.isVisible() && (await KP.innerText()).includes('Khung ' + tenK), 'bấm vào khung trên mặt đứng: ô chọn của khung đó mở ra');
+      await KP.locator('[data-act="kpop-dong"]').click();
+      ok(!(await KP.isVisible()) && await H.locator(`.pcard[data-kj="${jK}"]`).evaluate(e => e.classList.contains('on')), 'nút ✕: đóng ô chọn, khung vẫn là khung đang chọn');
+      await chamKhung(1300, 1000);
+      ok(await KP.isVisible(), '(bấm lại vào khung: mở lại)');
+      await page.keyboard.press('Escape'); await page.waitForTimeout(80);
+      ok(!(await KP.isVisible()), 'Esc: đóng ô chọn');
+      // ô chọn đang mở cho khung này mà khung ĐANG CHỌN đổi sang khung khác (vd bấm "+ Thêm khung"): ô chọn đóng, không nằm lại với khung cũ
+      await chamKhung(1300, 1000);
+      ok(await KP.isVisible(), '(mở lại ô chọn)');
+      { const n0 = (await P()).khung.length;
+        await H.locator('[data-act="k-add"]').click(); await page.waitForTimeout(150);
+        ok((await P()).khung.length === n0 + 1 && !(await KP.isVisible()), 'thêm một khung bằng nút "+ Thêm khung" (khung đang chọn đổi sang khung mới): ô chọn của khung cũ đóng lại');
+        await H.locator(`.pcard[data-kj="${n0}"] [data-act="k-del"]`).click(); await page.waitForTimeout(150);
+        ok((await P()).khung.length === n0, '(bỏ khung vừa thêm)'); }
+      // trả khung về "tủ tự chia, tự chọn ruột" cho phần thử sau; "Mở thành tủ" đưa sang thẻ Tủ
+      await chamKhung(1300, 1000);
+      await KP.locator('[data-act="kpop-kieu"][data-v="tu"]').click();
+      await page.keyboard.press('Escape'); await page.waitForTimeout(80);
+      ok(!(await KP.isVisible()) && ((await P()).khung[jK].kieu || 'tu') === 'tu', 'vừa bấm một nút trong ô chọn (ô được vẽ lại) rồi Esc: vẫn đóng được — tiêu điểm bàn phím không rơi ra ngoài bảng');
+      await chamKhung(1300, 1000);
+      await KP.locator('[data-kp="mau"]').selectOption('');
+      eq([(await P()).khung[jK].kieu || 'tu', (await P()).khung[jK].mau], ['tu', ''], 'bấm "Tủ tự chia" + chọn "Tự chọn theo bề rộng": khung về tủ tự chia');
+      await KP.locator('[data-act="kpop-mo"]').click();
+      ok((await H.locator('.panel').getAttribute('data-tabon')) === 'tu' && /Đã mở khung/.test(await st()), '"Mở thành tủ" trong ô chọn: sang thẻ Tủ với tủ vừa khung', await st());
+      await H.locator('.tab[data-tab="phong"]').click();
+      await H.locator('.pmb [data-tuong="2"]').click({ force: true });
+      // chọn khung ở tường KHÁC trên mặt bằng: ô chọn chuyển sang khung đó (mặt đứng đổi sang tường của nó)
+      await H.locator('.pmb [data-khung="0"]').click({ force: true }); await page.waitForTimeout(120);
+      ok(await KP.isVisible() && (await KP.innerText()).includes('Khung ' + (await P()).khung[0].ten) && /Tường A/.test(await H.locator('.pmd').innerText()) && await trongTam(), 'bấm một khung trên MẶT BẰNG: mặt đứng đổi sang tường của khung đó, ô chọn là của khung đó và nằm trong tầm nhìn', await KP.innerText().catch(() => '(không có)'));
+      await H.locator('.pmb [data-tuong="2"]').click({ force: true }); await page.waitForTimeout(120);
+      ok(!(await KP.isVisible()), 'đổi sang xem tường khác: ô chọn (của khung ở tường cũ) đóng lại');
+      await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150); }
+
     /* ---- bản 1.25 — KÉO KHUNG ĐÃ CÓ trên mặt đứng: dời, đổi cỡ, bắt điểm, lùi
      * (anh Thanh 05/10/2026 08:19: "vẽ khung nhưng không move được"; 08:20: "với có bắt điểm, có lệnh undo") ---- */
     console.log('— Giao diện: kéo khung trên mặt đứng (dời, đổi cỡ, bắt điểm, lùi)');
@@ -350,6 +423,7 @@ async function chay() {
     });
     await eqK([1510, 300, 1510, 1190], 'nắm thân khung kéo sang phải 410, lên 300: khung dời tới cách trái 1510, đáy +300; cỡ giữ nguyên');
     ok(/Đã dời khung/.test(await st()) && (await vach()) === 0, 'nhả chuột: báo đã dời; vạch bắt điểm (nếu có) được gỡ', await st());
+    ok(!(await H.locator('.kpop').isVisible()), 'kéo một khung mà ô chọn đang đóng: ô chọn không tự bật lên');
     // 2) bấm một cái (không kéo): chỉ chọn khung, không dời
     await H.locator('.pmb [data-khung="0"]').click({ force: true });      // chọn một khung khác trước, để biết lần bấm dưới đây chọn thật
     await H.locator('.pmb [data-tuong="2"]').click({ force: true });
@@ -387,8 +461,14 @@ async function chay() {
     await keo([2800, 600], [3950, 3000]);
     await eqK([2090, 1510, 1510, 1190], 'kéo quá cuối tường và quá trần: khung dừng sát cuối tường, đỉnh sát trần (2700 − 1190 = 1510)');
     // 4) ĐỔI CỠ: nắm mép phải kéo vào 400; nắm mép trên kéo xuống 300; nắm mép trái kéo ra 200; nắm góc trên – phải
+    { const c = await diem(2400, 1700); await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.up(); await page.waitForTimeout(140); }      // bấm vào khung: ô chọn mở
+    ok(await H.locator('.kpop').isVisible() && /1510 × 1190/.test(await H.locator('.kpop').innerText()), '(bấm vào khung: ô chọn mở, ghi cỡ 1510 × 1190)');
+    await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
     await keo([3590, 2000], [3190, 2000]);
     await eqK([2090, 1510, 1110, 1190], 'nắm MÉP PHẢI kéo vào 400: rộng 1510 → 1110, mép trái đứng yên');
+    ok(await H.locator('.kpop').isVisible() && /1110 × 1190/.test(await H.locator('.kpop').innerText()), 'kéo khung khi ô chọn của nó đang mở: ô chọn vẫn mở và ghi cỡ mới', await H.locator('.kpop').innerText().catch(() => '(không có)'));
+    await H.locator('.kpop [data-act="kpop-dong"]').click();
+    await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
     await keo([2600, 2690], [2600, 2390]);
     await eqK([2090, 1510, 1110, 890], 'nắm MÉP TRÊN kéo xuống 300: cao 1190 → 890, đáy đứng yên');
     await keo([2100, 2000], [1900, 2000]);
@@ -426,6 +506,14 @@ async function chay() {
     ok((await P()).khung.length === soK - 1, '(xoá khung)');
     await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(120);
     ok((await P()).khung.length === soK && JSON.stringify(await K()) === '[1890,1310,1510,1290]', 'xoá khung rồi ↶ Lùi: khung trở lại đúng chỗ, đúng cỡ', await P().then(q => q.khung.length));
+    // xoá khung từ Ô CHỌN (bản 1.25.1) rồi lùi
+    { const KP = H.locator('.kpop'); await H.locator('.pmd svg').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+      const c = await diem(2100, 1500); await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.up(); await page.waitForTimeout(140);
+      ok(await KP.isVisible(), '(bấm vào khung: ô chọn mở)');
+      await KP.locator('[data-act="kpop-xoa"]').click(); await page.waitForTimeout(120);
+      ok((await P()).khung.length === soK - 1 && !(await KP.isVisible()), '"Xoá khung" trong ô chọn: khung bị bỏ, ô chọn đóng');
+      await H.locator('[data-act="p-lui"]').click(); await page.waitForTimeout(120);
+      ok((await P()).khung.length === soK && JSON.stringify(await K()) === '[1890,1310,1510,1290]' && !(await KP.isVisible()), '↶ Lùi: khung trở lại; ô chọn không tự bật lên'); }
     // gõ số liền tay trong một ô chỉ là MỘT bước lùi
     { const sau0 = (await P()).khung[kK].sau, o = H.locator(`.pcard[data-kj="${kK}"] [data-p="khung.${kK}.sau"]`);
       await o.click(); await o.press('Control+a'); await page.keyboard.type('455', { delay: 260 }); await page.waitForTimeout(400);      // gõ chậm: mỗi chữ số một lần cất
@@ -542,6 +630,13 @@ async function trangDocLap(browser) {
   await H.locator('[data-act="k-add"]').click();
   await H.locator('.pcard[data-kj="0"] [data-p="khung.0.kieu"]').selectOption('kho');
   ok(/mở bảng này trong Chenfeng để chọn mẫu của kho/.test(await H.locator('.pcard[data-kj="0"] .kkho').innerText()) && (await H.locator('[data-act="k-kho"]').count()) === 0 && (await H.locator('[data-act="k-ve-kho"]').count()) === 0, 'khung “mẫu kho” ở trang độc lập: nhắc mở trong Chenfeng, không có nút chọn / vẽ');
+  // ô chọn của khung ở trang độc lập (bản 1.25.1): không có Chenfeng nên không có nút vẽ, không có nút chọn mẫu kho
+  await H.locator('.pmb [data-khung="0"]').click({ force: true }); await page.waitForTimeout(120);
+  ok(await H.locator('.kpop').isVisible() && (await H.locator('.kpop [data-act="kpop-ve"]').count()) === 0 && (await H.locator('.kpop [data-act="kpop-kho"]').count()) === 0 && /mở bảng này trong Chenfeng/.test(await H.locator('.kpop').innerText()), 'trang độc lập: bấm khung trên mặt bằng → ô chọn hiện, khung "mẫu kho" thì nhắc mở trong Chenfeng; không có nút vẽ / chọn mẫu', await H.locator('.kpop').innerText().catch(() => '(không có)'));
+  await H.locator('.kpop [data-act="kpop-kieu"][data-v="tu"]').click();
+  ok((await H.locator('.kpop [data-act="kpop-mo"]').count()) === 1 && (await H.locator('.kpop [data-act="kpop-ve"]').count()) === 0, '… khung "tủ tự chia": có "Mở thành tủ", vẫn không có nút vẽ');
+  await H.locator('.kpop [data-act="kpop-kieu"][data-v="kho"]').click();
+  await H.locator('.kpop [data-act="kpop-dong"]').click();
   await H.locator('.pcard[data-kj="0"] [data-act="k-chia"][data-v="ngang"]').click();
   const p = await page.evaluate(() => window.MNCF.phong.lay());
   eq(p.khung.map(k => [k.ten, k.z, k.cao, k.kieu]), [['K1.1', 0, 1350, 'kho'], ['K1.2', 1350, 1350, 'kho']], 'chia 2 ô chồng nhau: ô con giữ loại “mẫu kho”');
