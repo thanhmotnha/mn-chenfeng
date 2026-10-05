@@ -34,6 +34,7 @@ async function trangDocLap(browser) {
   ok(/Mặt đứng tường A/.test(await H.locator('.pmd svg').getAttribute('aria-label')), 'mặt đứng tường đang chọn (A)');
   ok((await H.locator('[data-p="tuong.3.dai"]').getAttribute('placeholder')) === 'tự tính: 3000' && (await H.locator('[data-p="tuong.3.dai"]').inputValue()) === '', 'tường D để trống, ghi số tự tính');
   ok(!(await H.locator('footer [data-act="json"]').first().isVisible()), 'ở thẻ Phòng: ẩn các nút của thẻ Tủ ở chân bảng');
+  eq1(await H.locator('.pdo').count(), 0, 'trang độc lập (không nằm trong Chenfeng): không có khối "Phòng đã đo" — trang này không gọi máy chủ nào');
 
   // gõ số: phòng hở → báo; sửa lại → khép
   await go('[data-p="tuong.0.dai"]', '4000');
@@ -243,7 +244,13 @@ async function tienIch() {
     await page.goto('https://cfcad.cn/');
     await page.waitForFunction(() => window.MNCF && window.MNCF.app, null, { timeout: 15000 });
     const H = page.locator('#mncf-host'), st = () => H.locator('.status').textContent();
-    await H.locator('.launch').click(); await H.locator('.tab[data-tab="phong"]').click();
+    await H.locator('.launch').click();
+    // bảng thường (chưa mở hộp nào): nút riêng của hộp chỉnh tủ / hộp chọn chỗ KHÔNG được nằm lẫn dưới chân bảng.
+    // (Lỗi bản 1.23, anh Thanh chụp màn hình 05/10/2026 08:21 "giao diện rối rắm": `.frow{display:flex}` viết sau đè mất `.dlgnut{display:none}` → thừa 3 hàng nút
+    //  "Vẽ vào Chenfeng / Chọn lại chỗ", "Đóng — vẽ sau", "Tiếp — chỉnh tủ rồi vẽ / Thôi" ngay ở thẻ Tủ.)
+    const nutHop = () => page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('footer .dlgnut button')].filter(b => b.getClientRects().length > 0).map(b => b.dataset.act));
+    eq1(await nutHop(), [], 'thẻ Tủ, không mở hộp nào: nút của hộp chỉnh tủ / hộp chọn chỗ không hiện dưới chân bảng');
+    await H.locator('.tab[data-tab="phong"]').click();
     await page.evaluate(p => window.MNCF.phong.dat(Object.assign(p, { goc: [10000, 2000, 0] })), PHONG);
     ok((await H.locator('[data-act="k-ve"]').count()) === 2 && !(await H.locator('footer [data-act="draw"]').isVisible()) && await H.locator('[data-act="p-ve"]').isVisible(), 'trong Chenfeng: mỗi khung có nút "Vẽ tủ vào khung", có nút "Vẽ phòng vào Chenfeng"; nút vẽ của thẻ Tủ ẩn');
 
@@ -525,6 +532,7 @@ async function tienIch() {
     await H.locator('[data-act="hop-dong"]').click();
     hp = await hop();
     ok(hp.dlg === '' && !hp.che && hp.tab && hp.nutVe && hp.rong < 700, 'bấm "Đóng — vẽ sau": bảng trở lại bình thường, tủ còn mở ở thẻ Tủ cùng chỗ đặt', hp);
+    eq1(hp.nut, [], '… và các nút của hộp ẩn đi cùng hộp');
     let d = await oDat();
     ok(JSON.stringify(d.goc) === '["500","-597.5","0"]' && d.rong === 2000 && d.bong === 0 && /Đang đặt theo điểm bấm trên mặt bằng: 2000 × 597,5, xoay 0°\. Mặt trước nhận theo tường phía sau/.test(d.hinhcho) && /rộng 2000 × sâu 597,5 × cao 2400, xoay 0°/.test(stDat) && /Đã đóng hộp, chưa vẽ/.test(await sr()) && await H.locator('.panel').isVisible(),
       'Enter: tủ rộng 2000 theo bảng, lưng áp tường A, mặt trước quay vào phòng, góc trái–trước (500; −597,5); bóng mờ đã gỡ, bảng mở lại', [d, stDat, await sr()]);
@@ -753,11 +761,228 @@ async function tienIch() {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ }
 }
 
+/* ---- Phòng đã đo trên điện thoại (bản 1.24): bảng ĐỌC kho đo hiện trạng trên máy chủ của xưởng bằng một mã kết nối ---- */
+const MA_THU = 'mn-' + 'Ab3_-xY9'.repeat(4), GOC_SX = 'https://sx.test/api/do';      // mã giả đúng dạng; máy chủ giả (tên miền .test không có thật)
+// Đúng thứ cửa /phong của kho trả về cho một phòng do trang đo gửi lên (xem test/phong.test.js): số đo thô + gói `gui` máy đo tính sẵn cho máy vẽ.
+const PHONG_DO = () => ({ ct: { id: 'ct0000000001', ten: 'Nhà anh Hùng', dia_chi: 'Chiềng Sinh', ngay: '2026-10-04', nguoi_do: 'Thanh' }, nguoi_gui: 'Thanh', sua_luc: 1791100000000,
+  muc: { id: 'muc000000001', loai: 'phong', ten: 'Phòng ngủ master', xong: true, ghi_chu: '',
+    phong: { ban: 1, ten: 'Phòng ngủ master', cao: 2700, day: 110, tuong: [{ ten: 'A', dai: 3600, re: 90 }, { ten: 'B', dai: 3000, re: 90 }, { ten: 'C', dai: 0, re: 90 }, { ten: 'D', dai: 0, re: 90 }], mo: [], can: [], dn: [], khung: [] },
+    gui: { ban: 1,
+      phong: { ban: 1, ten: 'Phòng ngủ master', cao: 2700, day: 110, tuong: [{ ten: 'A', dai: 3600, re: 90 }, { ten: 'B', dai: 3000, re: 90 }, { ten: 'C', dai: 3600, re: 90 }, { ten: 'D', dai: 3000, re: 90 }],
+        mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200, be: 0 }], can: [{ tuong: 1, loai: 'cot', cach: 1000, rong: 300, nho: 200, z0: 0, z1: 2700 }], dn: [], khung: [] },
+      bo: ['Ổ điện 1 (mặt A)'], loi: [],
+      anh: [{ id: 'anh000000001', tuong: 0, w: 800, h: 600, ghi: 'mặt có cửa sổ', co: 30.8, net: [[80, 300, 720, 300], [80, 286.1, 80, 313.9], [720, 286.1, 720, 313.9]], chu: [{ text: '3600', x: 400, y: 275.4, co: 30.8, goc: 0 }] },
+        { id: 'anh000000002', tuong: null, w: 600, h: 800, ghi: 'toàn cảnh', co: 30.8, net: [], chu: [] }] } },
+  anh_co: ['anh000000001'] });
+
+async function tPhongDaDo() {
+  console.log('— Tiện ích: phòng đã đo trên điện thoại tự hiện ở thẻ Phòng (máy chủ giả)');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mncf-do-'));
+  const ctx = await chromium.launchPersistentContext(dir, { channel: 'chromium', headless: true, viewport: { width: 1500, height: 900 }, args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`] });
+  try {
+    await ctx.route('https://api.cfcad.cn/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"err_code":1,"err_msg":"no"}' }));
+    await require('./kho-gia.js')(ctx);
+    await ctx.route('https://cfcad.cn/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }));
+    // Máy chủ GIẢ của xưởng: chỉ hai cửa ĐỌC mà máy vẽ dùng (/phong, /anh/<mã>), trả lời như kho thật — CORS chỉ mở cho trang Chenfeng, sai mã thì 401.
+    const SX = { goi: [], ma: MA_THU, phong: [], anh: {}, che_do: 'ok', tre: 0, tre_ma: {}, toi: [] };      // tre: chậm mọi lời hỏi (ms) · tre_ma: chậm riêng theo mã trình · toi: lời hỏi ghi lúc vừa TỚI máy chủ (goi ghi lúc trả lời)
+    // trình duyệt đang giữ một cookie của chính máy chủ đó (vd người vẽ từng mở trang đo trên máy này): bảng KHÔNG được gửi nó đi kèm
+    await ctx.addCookies([{ name: 'phien_sx', value: 'bi-mat', domain: 'sx.test', path: '/', secure: true, sameSite: 'None' }]);
+    const cors = { 'access-control-allow-origin': 'https://cfcad.cn', vary: 'Origin' };
+    await ctx.route('https://sx.test/**', async r => {
+      const q = r.request(), u = new URL(q.url()), method = q.method(), hd = await q.allHeaders();
+      if (method === 'OPTIONS') return r.fulfill({ status: 204, headers: Object.assign({ 'access-control-allow-methods': 'GET, OPTIONS', 'access-control-allow-headers': 'authorization' }, cors) });
+      SX.toi.push(u.pathname);
+      const tre = (hd.authorization || '') in SX.tre_ma ? SX.tre_ma[hd.authorization] : SX.tre;
+      if (tre) await new Promise(res => setTimeout(res, tre));      // máy chủ trả lời chậm (mạng xưởng yếu)
+      SX.goi.push([method, u.pathname + u.search, hd.authorization || '', hd.cookie ? 'có cookie' : '']);
+      if (SX.che_do === 'mang') return r.abort('internetdisconnected');
+      if (hd.authorization !== 'Bearer ' + SX.ma) return r.fulfill({ status: 401, contentType: 'application/json', headers: cors, body: JSON.stringify({ error: 'Mã kết nối không đúng hoặc đã bị thu hồi', code: 'UNAUTHENTICATED' }) });
+      if (method === 'GET' && u.pathname === '/api/do/phong') return r.fulfill({ status: 200, contentType: 'application/json', headers: Object.assign({ 'cache-control': 'no-store' }, cors), body: JSON.stringify({ phong: SX.phong }) });
+      const m = /^\/api\/do\/anh\/([a-z0-9]+)$/.exec(u.pathname);
+      if (method === 'GET' && m && SX.anh[m[1]]) return r.fulfill({ status: 200, contentType: 'image/jpeg', headers: cors, body: SX.anh[m[1]] });
+      return r.fulfill({ status: 404, contentType: 'application/json', headers: cors, body: '{"error":"Không tìm thấy","code":"NOT_FOUND"}' });
+    });
+    const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
+    await page.goto('https://cfcad.cn/');
+    await page.waitForFunction(() => window.MNCF && window.MNCF.app, null, { timeout: 15000 });
+    const H = page.locator('#mncf-host'), st = () => H.locator('.status').textContent(), B = H.locator('.pdo');
+    const html = () => page.evaluate(() => document.getElementById('mncf-host').shadowRoot.innerHTML);
+    const cat = () => page.evaluate(() => JSON.parse(localStorage.getItem('mncf.do.v1') || 'null'));
+    const soDT = () => page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length);
+    const lay = () => page.evaluate(() => window.MNCF.phong.lay());
+    const cho = async (fn, ms) => { const het = Date.now() + (ms || 6000); for (;;) { const v = await fn(); if (v || Date.now() > het) return v; await page.waitForTimeout(60); } };
+    // ảnh hiện trạng trên máy chủ: JPEG 800 × 600 một màu (dựng ngay trong trang để khỏi cần thư viện ảnh)
+    SX.anh.anh000000001 = Buffer.from(await page.evaluate(async () => { const c = document.createElement('canvas'); c.width = 800; c.height = 600; const x = c.getContext('2d'); x.fillStyle = '#c9b79c'; x.fillRect(0, 0, 800, 600); const b = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92)); return [...new Uint8Array(await b.arrayBuffer())]; }));
+    SX.phong = [PHONG_DO()];
+    await H.locator('.launch').click(); await H.locator('.tab[data-tab="phong"]').click();
+
+    // thẻ Hướng dẫn có nói tới cách nối (người mới cài bảng không biết khối này để làm gì)
+    eq1(await page.evaluate(() => { const li = [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('[data-pane="hd"] li')].find(x => /Phòng đã đo trên điện thoại/.test(x.textContent)); return li ? [/1\.24/.test(li.textContent), /chuỗi kết nối/i.test(li.textContent), /Lấy & vẽ/.test(li.textContent), /chỉ đọc/i.test(li.textContent)] : null; }), [true, true, true, true], 'thẻ Hướng dẫn: có mục "Phòng đã đo trên điện thoại" (bản 1.24) — nối thế nào, hai nút làm gì, bảng chỉ đọc');
+    // --- chưa nối: có chỗ dán chuỗi kết nối, bảng không gọi đi đâu ---
+    ok((await B.isVisible()) && /Phòng đã đo/i.test(await B.innerText()) && (await B.locator('[data-ui="do-chuoi"]').count()) === 1 && (await B.locator('[data-act="do-noi"]').isVisible()), 'thẻ Phòng có khối "Phòng đã đo trên điện thoại": chưa nối thì có ô dán chuỗi kết nối + nút Nối máy chủ', await B.innerText().catch(() => ''));
+    eq1(await B.locator('[data-ui="do-chuoi"]').evaluate(e => [e.type, getComputedStyle(e).webkitTextSecurity, e.autocomplete]), ['text', 'disc', 'off'], 'ô dán chuỗi che chữ như ô mật khẩu (mã không nằm phơi trên màn hình) nhưng KHÔNG phải ô mật khẩu — trình duyệt khỏi mời "lưu mật khẩu" cho trang Chenfeng');
+    await page.waitForTimeout(400);
+    eq1([SX.goi, await cat()], [[], null], 'chưa nối: không gọi máy chủ nào, chưa cất gì');
+    await B.locator('[data-ui="do-chuoi"]').fill(MA_THU); await B.locator('[data-ui="do-chuoi"]').press('Enter'); await page.waitForTimeout(200);
+    ok(/thiếu địa chỉ máy chủ/i.test(await B.locator('.pdo-bao').innerText()) && SX.goi.length === 0 && (await cat()) === null, 'dán chuỗi thiếu địa chỉ rồi Enter: báo rõ, không gọi đi đâu, không cất gì', await B.locator('.pdo-bao').innerText());
+    eq1(await B.locator('[data-ui="do-chuoi"]').inputValue(), MA_THU, 'chuỗi đang gõ còn nguyên trong ô để sửa');
+
+    // --- nối: hỏi đúng cửa, trình mã trong tiêu đề, danh sách phòng hiện ra ---
+    await B.locator('[data-ui="do-chuoi"]').fill(`${GOC_SX}#${MA_THU}`); await B.locator('[data-act="do-noi"]').click();
+    await B.locator('.pdo-r').first().waitFor({ timeout: 6000 });
+    eq1(SX.goi, [['GET', '/api/do/phong', 'Bearer ' + MA_THU, '']], 'nối: hỏi đúng cửa /phong, trình mã trong tiêu đề Authorization, KHÔNG gửi cookie nào theo');
+    eq1([(await cat()).goc, (await cat()).ma], [GOC_SX, MA_THU], 'chuỗi kết nối được cất trên máy này (lần sau khỏi dán lại)');
+    ok(!(await html()).includes(MA_THU), 'mã không hiện lại ở đâu trên bảng');
+    const R = B.locator('.pdo-r').first(), chuR = await R.innerText();
+    ok(/Phòng ngủ master/.test(chuR) && /Nhà anh Hùng/.test(chuR) && /Thanh/.test(chuR) && /4 tường/.test(chuR) && /10,8 m²/.test(chuR) && /trần 2700/.test(chuR), 'dòng phòng: tên phòng, công trình, người gửi, tóm tắt số đo', chuR);
+    ok((await R.locator('.moi').count()) === 1 && /2 ảnh/.test(chuR) && /1 ảnh chưa lên máy chủ/i.test(chuR) && /chưa đưa sang.*Ổ điện 1 \(mặt A\)/i.test(chuR), 'đánh dấu "mới"; ghi số ảnh, ảnh điện thoại chưa gửi lên, chi tiết máy đo chưa đưa sang', chuR);
+    ok(/sx\.test/.test(await B.locator('.pdo-tt').innerText()) && (await B.locator('[data-act="do-moi"]').isVisible()) && (await B.locator('[data-act="do-ngat"]').isVisible()), 'dòng tình trạng: đang nối máy chủ nào, có nút Làm mới + Ngắt', await B.locator('.pdo-tt').innerText());
+    ok(!(await R.locator('[data-act="do-lay"]').isDisabled()) && !(await R.locator('[data-act="do-ve"]').isDisabled()), 'phòng đủ số: có "Lấy phòng" và "Lấy & vẽ"');
+
+    // --- Lấy phòng: số đo vào thẻ Phòng, ảnh có nét kích thước vào dãy ảnh; KHÔNG vẽ gì ---
+    const n0 = await soDT();
+    await R.locator('[data-act="do-lay"]').click();
+    await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.thumb').length === 1, null, { timeout: 8000 }).catch(() => {});
+    let p = await lay();
+    eq1([p.ten, p.cao, p.tuong.map(t => t.dai), p.mo.map(m => [m.tuong, m.cach, m.rong, m.cao]), p.can.map(c => [c.tuong, c.cach, c.rong, c.nho])], ['Phòng ngủ master', 2700, [3600, 3000, 3600, 3000], [[2, 200, 900, 2200]], [[1, 1000, 300, 200]]], '"Lấy phòng": số đo máy đo đã tính vào đúng thẻ Phòng (4 cạnh là số thật, cửa, cột)');
+    ok(/4 tường · chu vi 13,2 m · diện tích 10,8 m²/.test(await H.locator('.psum').innerText()) && /Phòng ngủ master/.test(await st()), 'mặt bằng vẽ lại theo phòng vừa lấy, dòng trạng thái nói đã lấy phòng nào', await st());
+    eq1(await soDT(), n0, 'lấy phòng KHÔNG vẽ gì vào bản vẽ (chưa ai bấm vẽ)');
+    eq1(SX.goi.filter(g => /\/anh\//.test(g[1])), [['GET', '/api/do/anh/anh000000001', 'Bearer ' + MA_THU, '']], 'ảnh: chỉ tải ảnh máy chủ đã có (ảnh điện thoại chưa gửi thì không hỏi), có trình mã, không cookie');
+    const mau = await page.evaluate(async () => {
+      const img = document.getElementById('mncf-host').shadowRoot.querySelector('.thumb img'), i2 = new Image(); i2.src = img.src; await i2.decode();
+      const c = document.createElement('canvas'); c.width = i2.naturalWidth; c.height = i2.naturalHeight; const x = c.getContext('2d'); x.drawImage(i2, 0, 0);
+      const px = (X, Y) => [...x.getImageData(X, Y, 1, 1).data].slice(0, 3);
+      return { co: [c.width, c.height], net: px(250, 300), nen: px(400, 450), nhan: px(362, 262), ten: img.alt };
+    });
+    const doThat = c => c[0] > 180 && c[1] < 110 && c[2] < 110;
+    ok(mau.co[0] === 800 && mau.co[1] === 600 && doThat(mau.net) && !doThat(mau.nen) && mau.nen[0] > 170 && mau.nen[1] > 150, 'ảnh vào dãy "Ảnh hiện trạng" đã có NÉT kích thước kẻ sẵn, đúng chỗ máy đo ghi (nền ảnh giữ nguyên)', mau);
+    ok(doThat(mau.nhan), 'và nhãn số của nét đó (ô đỏ, chữ trắng)', mau);
+    ok(/Mặt A/.test(mau.ten) && /Phòng ngủ master/.test(mau.ten), 'tên ảnh ghi mặt nào của phòng nào', mau.ten);
+    ok((await R.locator('.moi').count()) === 0 && (await cat()).da_lay['ct0000000001/muc000000001'] === 1791100000000, 'lấy rồi thì hết "mới"; máy này nhớ đã lấy bản nào');
+
+    // --- anh đánh dấu một khung tủ trên phòng vừa lấy; máy đo sửa tiếp → Làm mới thấy "mới" lại → lấy bản mới: số đổi, KHUNG của anh còn, ảnh không chồng thêm ---
+    await H.locator('[data-act="k-add"]').click(); await page.waitForTimeout(250);
+    eq1((await lay()).khung.length, 1, '(chuẩn bị) thêm một khung tủ trên phòng vừa lấy');
+    const moi = PHONG_DO(); moi.sua_luc += 60000; moi.muc.gui.phong.tuong[0].dai = 4000; moi.muc.gui.phong.tuong[2].dai = 4000;
+    const bep = PHONG_DO(); bep.muc.id = 'muc000000002'; bep.muc.ten = 'Bếp <img src=x onerror="window.__xss=1">'; bep.sua_luc -= 5000; bep.muc.gui.phong.tuong[1].dai = 0; bep.muc.gui.phong.tuong[3].dai = 0; bep.muc.gui.phong.can = []; bep.muc.gui.loi = ['Tường B chưa có chiều dài.', 'Tường D chưa có chiều dài.']; bep.muc.gui.anh = []; bep.anh_co = [];
+    const cuKy = PHONG_DO(); cuKy.muc.id = 'muc000000003'; cuKy.muc.ten = 'Phòng thờ'; cuKy.sua_luc -= 9000; delete cuKy.muc.gui;
+    SX.phong = [moi, bep, cuKy]; SX.goi.length = 0;
+    await B.locator('[data-act="do-moi"]').click();
+    ok(await cho(async () => (await B.locator('.pdo-r').count()) === 3 && (await B.locator('.pdo-r').first().locator('.moi').count()) === 1), 'máy đo sửa tiếp: bấm "Làm mới" → 3 phòng, phòng vừa sửa đứng đầu và lại là "mới"', await B.innerText());
+    await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click();
+    ok(await cho(async () => (await lay()).tuong[0].dai === 4000), 'lấy bản mới của cùng phòng: số đo đổi theo (A = 4000)');
+    p = await lay();
+    eq1([p.tuong.map(t => t.dai), p.khung.length], [[4000, 3000, 4000, 3000], 1], 'lấy lại CÙNG phòng: khung tủ anh đã đánh dấu vẫn còn');
+    await page.waitForTimeout(500);
+    eq1(await H.locator('.thumb').count(), 1, 'ảnh của phòng đó được thay bằng bản mới, không chồng thêm');
+    // --- phòng chưa đủ số: lấy về xem được, KHÔNG có "Lấy & vẽ"; tên lạ hiện như chữ ---
+    const RB = B.locator('.pdo-r').nth(1), chuB = await RB.innerText();
+    ok(/Bếp <img/.test(chuB) && (await page.evaluate(() => window.__xss)) === undefined && (await RB.locator('img').count()) === 0, 'tên phòng có ký tự lạ: hiện như chữ, không thành thẻ HTML', chuB);
+    ok(/Tường B chưa có chiều dài/.test(chuB) && (await RB.locator('[data-act="do-ve"]').isDisabled()) && !(await RB.locator('[data-act="do-lay"]').isDisabled()), 'phòng chưa đủ số: nêu thiếu gì, khoá "Lấy & vẽ", vẫn "Lấy phòng" được', chuB);
+    // --- trang đo bản cũ (chưa có gói cho máy vẽ): không đoán ---
+    const RC = B.locator('.pdo-r').nth(2), chuC = await RC.innerText();
+    ok(/Phòng thờ/.test(chuC) && /mở lại phòng này trên điện thoại/i.test(chuC) && (await RC.locator('[data-act="do-lay"]').isDisabled()) && (await RC.locator('[data-act="do-ve"]').isDisabled()), 'phòng gửi từ trang đo bản cũ: nói cách làm (mở lại trên điện thoại), hai nút đều khoá', chuC);
+
+    // --- "Lấy & vẽ": một lần bấm = lấy số đo + vẽ phòng bằng lệnh phòng của Chenfeng ---
+    const n1 = await soDT();
+    await B.locator('.pdo-r').first().locator('[data-act="do-ve"]').click();
+    await page.waitForFunction(() => /Đã vẽ phòng|Chưa vẽ xong/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.pkq').innerText), null, { timeout: 40000 }).catch(() => {});
+    const kq = await H.locator('.pkq').innerText();
+    ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp/.test(kq) && (await soDT()) > n1, '"Lấy & vẽ": phòng vào bản vẽ (4 tường, cửa, cột)', kq);
+    eq1(await page.evaluate(() => { const M = window.__MOCK__, w = M.ents.filter(e => !e.IsErase && e instanceof M.RoomWallLine); return w.length; }), 4, 'bản vẽ có đúng 4 tường của phòng đó');
+
+    // --- người vẽ đổi sang PHÒNG KHÁC ở thẻ Phòng (phòng mẫu) rồi đánh dấu khung trên đó: lấy phòng đã đo về thì KHÔNG mang khung của phòng lạ theo ---
+    await H.locator('[data-act="p-mau"]').click(); await page.waitForTimeout(150);
+    await H.locator('[data-act="k-add"]').click(); await page.waitForTimeout(250);
+    eq1([(await lay()).tuong.map(t => t.dai), (await lay()).khung.length, (await cat()).nguon], [[3600, 3000, 3600, 'auto'], 1, ''], '(chuẩn bị) về phòng mẫu + thêm một khung: phòng ở thẻ Phòng không còn là phòng lấy từ máy chủ');
+    await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click();
+    ok(await cho(async () => (await lay()).tuong[0].dai === 4000), 'lấy lại phòng đã đo');
+    eq1([(await lay()).khung.length, (await cat()).nguon], [0, 'ct0000000001/muc000000001'], 'phòng trước đó là phòng KHÁC: khung của nó không bị gán sang phòng vừa lấy');
+    await cho(async () => (await H.locator('.thumb').count()) === 1, 4000);
+    // --- đang tải ảnh của phòng này (máy chủ chậm) mà lấy sang phòng khác: ảnh của phòng trước không được lẫn vào phòng sau ---
+    SX.tre = 500;
+    await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click(); await page.waitForTimeout(120);      // phòng ngủ master: 1 ảnh, đang tải…
+    await B.locator('.pdo-r').nth(1).locator('[data-act="do-lay"]').click();      // …thì lấy sang Bếp (không có ảnh)
+    await page.waitForTimeout(1300); SX.tre = 0;
+    eq1([(await lay()).ten.slice(0, 3), await H.locator('.thumb').count()], ['Bếp', 0], 'lấy phòng khác giữa lúc ảnh phòng trước còn đang tải: dãy ảnh là của phòng SAU (không có ảnh), ảnh phòng trước không lẫn vào');
+    await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click();
+    await cho(async () => (await H.locator('.thumb').count()) === 1, 4000);
+
+    // --- tự làm mới theo nhịp (không ai bấm) ---
+    SX.goi.length = 0;
+    await page.evaluate(() => window.MNCF.app.datDo({ lap: 250 }));
+    ok(await cho(() => SX.goi.filter(g => g[1] === '/api/do/phong').length >= 2, 3000), 'đang mở thẻ Phòng: bảng tự hỏi lại máy chủ theo nhịp (đo xong là tự thấy, không ai phải bấm)', SX.goi.length);
+    await H.locator('.tab[data-tab="tu"]').click(); await page.waitForTimeout(350); SX.goi.length = 0; await page.waitForTimeout(700);
+    eq1(SX.goi.length, 0, 'sang thẻ khác: thôi hỏi (không gọi máy chủ khi không ai nhìn)');
+    // nhịp 1,5 giây, đã vắng hơn thế (350 + 700 + 600): quay lại là hỏi NGAY — không hẹn thêm một nhịp rồi mới hỏi
+    await page.evaluate(() => window.MNCF.app.datDo({ lap: 1500 })); await page.waitForTimeout(600);
+    await H.locator('.tab[data-tab="phong"]').click(); await page.waitForTimeout(450);
+    eq1(SX.goi.filter(g => g[1] === '/api/do/phong').length, 1, 'quay lại thẻ Phòng sau khi vắng hơn một nhịp: hỏi lại NGAY (không ngồi chờ thêm một nhịp)');
+    await H.locator('.tab[data-tab="tu"]').click(); await H.locator('.tab[data-tab="phong"]').click(); await page.waitForTimeout(350);
+    eq1(SX.goi.filter(g => g[1] === '/api/do/phong').length, 1, 'vừa hỏi xong mà đổi thẻ qua lại: không hỏi dồn');
+    await page.evaluate(() => window.MNCF.app.datDo({ lap: 600000 }));
+
+    // --- mất mạng: giữ danh sách cũ, nói rõ; có mạng lại bấm Làm mới là được ---
+    SX.che_do = 'mang';
+    await B.locator('[data-act="do-moi"]').click();
+    ok(await cho(async () => /không tới được máy chủ/i.test(await B.locator('.pdo-tt').innerText())), 'mất mạng: báo không tới được máy chủ', await B.locator('.pdo-tt').innerText());
+    eq1(await B.locator('.pdo-r').count(), 3, 'danh sách đang có vẫn giữ');
+    SX.che_do = 'ok';
+    await B.locator('[data-act="do-moi"]').click();
+    ok(await cho(async () => /đã nối/i.test(await B.locator('.pdo-tt').innerText())), 'có mạng lại: Làm mới → nối lại bình thường', await B.locator('.pdo-tt').innerText());
+
+    // --- mã bị thu hồi: nói rõ, thôi hỏi; ngắt kết nối thì xoá mã khỏi máy ---
+    SX.ma = 'mn-' + 'Zz9_-aB1'.repeat(4);
+    await B.locator('[data-act="do-moi"]').click();
+    ok(await cho(async () => /không đúng hoặc đã bị thu hồi/i.test(await B.locator('.pdo-tt').innerText())), 'mã bị thu hồi: báo rõ, bảo xin chuỗi mới', await B.locator('.pdo-tt').innerText());
+    eq1(await B.locator('.pdo-r').count(), 0, 'mã hết hiệu lực: không còn bày danh sách phòng (số đo nhà khách)');
+    await page.evaluate(() => window.MNCF.app.datDo({ lap: 200 })); SX.goi.length = 0; await page.waitForTimeout(700);
+    eq1(SX.goi.length, 0, 'mã đã bị từ chối: thôi tự hỏi lại (không gõ cửa máy chủ mãi bằng mã hỏng)');
+    await H.locator('.tab[data-tab="tu"]').click(); await H.locator('.tab[data-tab="phong"]').click(); await page.waitForTimeout(400);
+    eq1(SX.goi.length, 0, 'mã đã bị từ chối: đổi thẻ qua lại cũng không tự hỏi lại (muốn thử lại thì bấm Làm mới)');
+    // nối lại bằng chuỗi đúng, rồi NGẮT giữa lúc máy chủ còn chưa trả lời: câu trả lời tới sau không được dựng lại danh sách
+    await B.locator('[data-act="do-ngat"]').click();
+    await cho(async () => (await B.locator('[data-ui="do-chuoi"]').count()) === 1);
+    SX.tre = 500;
+    await B.locator('[data-ui="do-chuoi"]').fill(`${GOC_SX}#${SX.ma}`); await B.locator('[data-act="do-noi"]').click(); await page.waitForTimeout(120);
+    await B.locator('[data-act="do-ngat"]').click(); await page.waitForTimeout(1100); SX.tre = 0;
+    eq1([await B.locator('.pdo-r').count(), await B.locator('[data-ui="do-chuoi"]').count(), await cat()], [0, 1, null], 'ngắt giữa lúc đang hỏi: câu trả lời tới sau bị bỏ — không bày danh sách, không cất gì');
+    // ngắt giữa lúc đang hỏi rồi NỐI LẠI ngay bằng chuỗi KHÁC: câu trả lời của lần hỏi cũ (mã cũ, 3 phòng) về trước — không được bày ra dưới kết nối mới
+    const MA_KHAC = 'mn-' + 'Qq7_-kL2'.repeat(4);
+    SX.tre_ma = { ['Bearer ' + SX.ma]: 400, ['Bearer ' + MA_KHAC]: 2600 }; SX.toi.length = 0;
+    await B.locator('[data-ui="do-chuoi"]').fill(`${GOC_SX}#${SX.ma}`); await B.locator('[data-act="do-noi"]').click(); await page.waitForTimeout(100);
+    await B.locator('[data-act="do-ngat"]').click();
+    await B.locator('[data-ui="do-chuoi"]').fill(`${GOC_SX}#${MA_KHAC}`); await B.locator('[data-act="do-noi"]').click();
+    await page.waitForTimeout(900);      // lần hỏi cũ đã về (sau 0,4 giây), lần hỏi mới còn chờ (2,6 giây)
+    eq1([await B.locator('.pdo-r').count(), /đang hỏi máy chủ/i.test(await B.locator('.pdo-tt').innerText())], [0, true], 'nối lại bằng chuỗi khác khi lần hỏi cũ chưa về: danh sách của lần hỏi cũ không hiện dưới kết nối mới', await B.locator('.pdo-tt').innerText());
+    await B.locator('[data-act="do-moi"]').click(); await page.waitForTimeout(300);
+    eq1(SX.toi.filter(p => p === '/api/do/phong').length, 2, 'lần hỏi mới còn đang chờ: bấm Làm mới không gửi thêm lời hỏi thứ ba (lần hỏi cũ kết thúc không được xoá dấu "đang hỏi" của lần mới)');
+    ok(await cho(async () => /không đúng hoặc đã bị thu hồi/i.test(await B.locator('.pdo-tt').innerText()), 5000), 'lần hỏi mới về: mã khác đó không đúng → báo rõ', await B.locator('.pdo-tt').innerText());
+    eq1(await B.locator('.pdo-r').count(), 0, 'và không có phòng nào được bày');
+    SX.tre_ma = {};
+    await B.locator('[data-act="do-ngat"]').click();
+    await cho(async () => (await B.locator('[data-ui="do-chuoi"]').count()) === 1);
+    await B.locator('[data-ui="do-chuoi"]').fill(`${GOC_SX}#${SX.ma}`); await B.locator('[data-act="do-noi"]').click();
+    ok(await cho(async () => (await B.locator('.pdo-r').count()) === 3), '(nối lại để thử bước ngắt)');
+    await B.locator('[data-act="do-ngat"]').click();
+    ok(await cho(async () => (await B.locator('[data-ui="do-chuoi"]').count()) === 1), 'bấm "Ngắt": về lại ô dán chuỗi');
+    const sau = await cat();
+    ok(!sau || (!sau.ma && !sau.goc), 'ngắt kết nối: mã và địa chỉ bị xoá khỏi máy này', sau);
+    ok(!/mn-[A-Za-z0-9_-]{20,}/.test(await page.evaluate(() => JSON.stringify(Object.assign({}, localStorage)))), 'không còn mã nào trong bộ nhớ trình duyệt');
+    SX.goi.length = 0; await page.waitForTimeout(600);
+    eq1(SX.goi.length, 0, 'đã ngắt: không gọi máy chủ nữa');
+    ok(errs.length === 0, 'không có lỗi JS lọt ra trang', errs);
+  } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
+  await ctx.close();
+  try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ }
+}
+
 (async () => {
   const browser = await chromium.launch();
   try { await trangDocLap(browser); } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   await tienIch();
+  await tPhongDaDo();
   console.log(`\n${pass} đạt, ${fail} hỏng`);
   process.exit(fail ? 1 : 0);
 })();

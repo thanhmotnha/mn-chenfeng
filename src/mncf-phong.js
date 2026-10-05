@@ -1210,5 +1210,88 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  /* ---------------- phòng đã đo trên điện thoại (bản 1.24) ---------------- */
+  // Trang "Đo hiện trạng" của xưởng gửi số đo lên kho trên máy chủ của xưởng; máy vẽ (bảng này, chạy trong trang Chenfeng) ĐỌC kho đó bằng một mã kết nối
+  // do quản lý cấp. Hai hàm dưới đây chỉ đọc + soát dữ liệu tới từ mạng; việc gọi mạng nằm ở giao diện.
+  const MA_KN = /^mn-[A-Za-z0-9_-]{20,80}$/, ID_DO = /^[a-z0-9]{6,40}$/;
+  /**
+   * Đọc "chuỗi kết nối" trang đo cấp cho máy vẽ: "<địa chỉ kho trên máy chủ>#<mã>". Địa chỉ nằm trong chuỗi nên bảng không ghi cứng máy chủ của xưởng nào.
+   * Máy chủ ngoài bắt buộc https (mã không đi trên đường không mã hoá); http chỉ nhận cho localhost.
+   * @returns {{goc: string, ma: string}} | {{loi: string}}
+   */
+  function docKetNoi(text) {
+    const t = String(text === null || text === undefined ? '' : text).replace(/\s+/g, ''), LAY = ' — chép lại cả chuỗi ở trang đo (Mã kết nối máy vẽ → Chép mã).';
+    if (!t) return { loi: 'Dán chuỗi kết nối vào ô này (lấy ở trang đo: Mã kết nối máy vẽ → Cấp mã → Chép mã).' };
+    const i = t.lastIndexOf('#'), ma = i >= 0 ? t.slice(i + 1) : t, dc = i >= 0 ? t.slice(0, i) : '';
+    if (!MA_KN.test(ma)) return { loi: 'Mã kết nối không đúng dạng' + LAY };
+    if (!dc) return { loi: 'Chuỗi này thiếu địa chỉ máy chủ' + LAY };
+    let u; try { u = new URL(dc); } catch (e) { u = null; }
+    if (!u || !u.hostname || u.username || u.password) return { loi: 'Địa chỉ máy chủ trong chuỗi không đọc được' + LAY };
+    const taiMay = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
+    if (u.protocol !== 'https:' && !(u.protocol === 'http:' && taiMay)) return { loi: 'Địa chỉ máy chủ phải bắt đầu bằng https://' + LAY };
+    return { goc: (u.origin + u.pathname).replace(/\/+$/, ''), ma };
+  }
+
+  /**
+   * Danh sách PHÒNG ĐÃ ĐO máy chủ trả về (cửa /phong của kho đo hiện trạng) → các dòng cho thẻ Phòng, phòng sửa gần nhất đứng đầu.
+   * Mỗi phòng mang gói `muc.gui` do MÁY ĐO tính sẵn (cạnh suy ra đã điền, chỉ gồm chi tiết đủ số, nét + chữ chú thích của từng ảnh theo điểm ảnh):
+   * ở đây CHỈ ĐỌC gói đó, không tính lại số đo, không dựng phòng từ số đo thô. Dữ liệu tới từ mạng nên đọc phòng thủ — trường hỏng thì bỏ / về mặc định, có trần số lượng.
+   * @param ds     mảng `phong` của câu trả lời
+   * @param daLay  { khoá phòng: mốc sửa của bản máy vẽ này đã lấy } — để đánh dấu phòng "mới"
+   * @returns [{ khoa, ten, ct, dia_chi, ngay, nguoi, sua_luc, xong, moi, goi: 'co' | 'khong' (trang đo bản cũ, chưa có gói) | 'la' (gói bản mới hơn),
+   *             phong (null = không có gì để lấy), loi (vì sao chưa "lấy & vẽ" ngay được), ve_duoc (loi trống), bo (chi tiết máy đo chưa đưa sang), tom,
+   *             anh: [{ id, mat, w, h, ghi, co, net, chu, tren_may_chu }], anh_thieu }]
+   */
+  function phongDaDo(ds, daLay) {
+    const chuC = (v, n) => (typeof v === 'string' ? v.slice(0, n) : ''), soT = v => typeof v === 'number' && isFinite(v), doiTuong = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
+    const mang = v => (Array.isArray(v) ? v : []), ra = [];
+    for (const x of mang(ds)) {
+      if (ra.length >= 400) break;
+      const ct = doiTuong(x && x.ct), m = doiTuong(x && x.muc);
+      if (!ct || !m || typeof ct.id !== 'string' || !ID_DO.test(ct.id) || typeof m.id !== 'string' || !ID_DO.test(m.id)) continue;
+      const khoa = ct.id + '/' + m.id, sua = soT(x.sua_luc) && x.sua_luc > 0 ? x.sua_luc : 0, gui = doiTuong(m.gui);
+      const r = { khoa, ten: chuC(m.ten, 60).trim() || 'Phòng', ct: chuC(ct.ten, 80), dia_chi: chuC(ct.dia_chi, 200), ngay: /^\d{4}-\d{2}-\d{2}$/.test(ct.ngay) ? ct.ngay : '', nguoi: chuC(x.nguoi_gui, 60), sua_luc: sua,
+        xong: m.xong === true, moi: !(daLay && daLay[khoa] >= sua && sua > 0), goi: !gui ? 'khong' : gui.ban === 1 ? 'co' : 'la', phong: null, loi: [], bo: [], tom: '', ve_duoc: false, anh: [], anh_thieu: 0 };
+      if (r.goi === 'co') {
+        let p = null;
+        try {
+          const src = doiTuong(gui.phong);
+          if (src && Array.isArray(src.tuong) && src.tuong.length) {
+            // chỉ nhận HÌNH phòng: chỗ đặt trên bản vẽ, bản ghi đã vẽ, khung tủ là việc của máy vẽ này, không lấy từ mạng
+            const sach = { ten: r.ten, cao: src.cao, day: src.day };
+            for (const k of ['tuong', 'mo', 'can', 'dn']) sach[k] = mang(src[k]).filter(doiTuong).slice(0, 200);
+            p = chuanHoa(sach);
+          }
+        } catch (e) { p = null; }
+        r.loi = mang(gui.loi).filter(t => typeof t === 'string' && t).slice(0, 20).map(t => t.slice(0, 200));
+        r.bo = mang(gui.bo).filter(t => typeof t === 'string' && t).slice(0, 60).map(t => t.slice(0, 80));
+        if (!p) r.loi.push('Gói số đo của phòng này không đọc được.');
+        else {
+          const H = hinhHoc(p);
+          for (const t of H.loi) if (r.loi.indexOf(t) < 0) r.loi.push(t);      // máy vẽ tự soát lại hình trước khi cho vẽ
+          // đủ số mà hình không khép kín (số đo lệch nhau): vẫn LẤY về xem được, nhưng không cho "lấy & vẽ" một chạm — phải nhìn mặt bằng trước
+          if (!r.loi.length && !H.khep.kin) { const k = H.luu_y.filter(t => /chưa khép kín/.test(t)); r.loi = k.length ? k.slice(0, 2) : ['Phòng chưa khép kín.']; }
+          r.phong = p; r.tom = tomTat(H)[0] || ''; r.ve_duoc = r.loi.length === 0;
+          const coMC = new Set(mang(x.anh_co).filter(v => typeof v === 'string'));
+          for (const a of mang(gui.anh)) {
+            if (r.anh.length >= 120) break;
+            if (!doiTuong(a) || typeof a.id !== 'string' || !ID_DO.test(a.id)) continue;
+            const co1 = v => (soT(v) && v >= 1 && v <= 20000 ? Math.round(v) : 0), w = co1(a.w), h = co1(a.h), biet = w > 0 && h > 0;      // không biết cỡ ảnh gốc thì không biết đặt chú thích vào đâu
+            const t = Number.isInteger(a.tuong) && a.tuong >= 0 && a.tuong < p.tuong.length ? a.tuong : -1, co = !biet ? 0 : soT(a.co) && a.co > 0 ? a.co : rn(Math.max(w, h) / 26, 1);
+            const q = { id: a.id, mat: t >= 0 ? p.tuong[t].ten : '', w: biet ? w : 0, h: biet ? h : 0, ghi: chuC(a.ghi, 200), co, net: [], chu: [], tren_may_chu: coMC.has(a.id) };
+            if (biet) {
+              for (const d of mang(a.net)) { if (q.net.length >= 800) break; if (Array.isArray(d) && d.length === 4 && d.every(soT)) q.net.push(d.slice()); }
+              for (const c of mang(a.chu)) { if (q.chu.length >= 200) break; if (doiTuong(c) && typeof c.text === 'string' && c.text && soT(c.x) && soT(c.y)) q.chu.push({ text: c.text.slice(0, 80), x: c.x, y: c.y, co: soT(c.co) && c.co > 0 ? c.co : co, goc: soT(c.goc) ? c.goc : 0 }); }
+            }
+            r.anh.push(q);
+          }
+          r.anh_thieu = r.anh.filter(a => !a.tren_may_chu).length;
+        }
+      }
+      ra.push(r);
+    }
+    return ra.map((r, i) => [r, i]).sort((a, b) => (b[0].sua_luc - a[0].sua_luc) || (a[1] - b[1])).map(v => v[0]);
+  }
+
+  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, docKetNoi, phongDaDo, giao, tenTuong };
 });

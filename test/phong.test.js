@@ -781,5 +781,105 @@ T('Mặt đứng cho màn hình hẹp (module Đo trên điện thoại): phóng
   ok(Math.abs(co(d2, tenT) / co(d1, tenT) - 2) < 0.01 && vb(d2)[2] > vb(d1)[2] + 400, 'chu = 2 → chữ gấp đôi so với hình, lề rộng thêm cho chữ', [co(d1, tenT), co(d2, tenT), vb(d1), vb(d2)]);
 });
 
+/* ---------------- phòng đã đo trên điện thoại (bản 1.24): đọc từ kho đo hiện trạng trên máy chủ của xưởng ---------------- */
+const MA_THU = 'mn-' + 'Ab3_-xY9'.repeat(4);      // mã giả đúng dạng (mã thật do máy chủ sinh ngẫu nhiên)
+T('Chuỗi kết nối của máy vẽ: "địa chỉ kho # mã" — dán một lần là biết hỏi ở đâu', () => {
+  eq(P.docKetNoi(`https://sx.thu/api/do#${MA_THU}`), { goc: 'https://sx.thu/api/do', ma: MA_THU }, 'chuỗi đúng: tách ra địa chỉ kho và mã');
+  eq(P.docKetNoi(`  https://sx.thu/api/do/#${MA_THU}\n`), { goc: 'https://sx.thu/api/do', ma: MA_THU }, 'dấu cách, xuống dòng quanh chuỗi và dấu / thừa cuối địa chỉ: bỏ qua');
+  eq(P.docKetNoi(`https://sx.thu:8443/kho/do?x=1#${MA_THU}`), { goc: 'https://sx.thu:8443/kho/do', ma: MA_THU }, 'địa chỉ có cổng, đường dẫn khác: giữ; phần ?… thì bỏ');
+  eq(P.docKetNoi(`http://localhost:8765/api/do#${MA_THU}`), { goc: 'http://localhost:8765/api/do', ma: MA_THU }, 'http chỉ nhận cho máy đang ngồi (localhost) — để thử');
+  const loi = t => (P.docKetNoi(t) || {}).loi || '';
+  ok(/dán chuỗi kết nối/i.test(loi('')) && /dán chuỗi kết nối/i.test(loi('   ')) && /dán chuỗi kết nối/i.test(loi(null)), 'để trống: nhắc dán chuỗi', loi(''));
+  ok(/thiếu địa chỉ máy chủ/i.test(loi(MA_THU)), 'chỉ có mã, thiếu địa chỉ: nói rõ phải chép cả chuỗi', loi(MA_THU));
+  ok(/không đúng dạng/i.test(loi('https://sx.thu/api/do#abc')) && /không đúng dạng/i.test(loi('https://sx.thu/api/do')) && /không đúng dạng/i.test(loi(`https://sx.thu/api/do#${MA_THU}!`)), 'mã sai dạng / không có mã: từ chối', loi('https://sx.thu/api/do#abc'));
+  ok(/https/i.test(loi(`http://sx.thu/api/do#${MA_THU}`)) && /https/i.test(loi(`ftp://sx.thu/api/do#${MA_THU}`)), 'máy chủ ngoài mà không phải https: từ chối (mã không được đi trên đường không mã hoá)', loi(`http://sx.thu/api/do#${MA_THU}`));
+  ok(/không đọc được/i.test(loi(`sx.thu/api/do#${MA_THU}`)), 'địa chỉ không ra địa chỉ: từ chối', loi(`sx.thu/api/do#${MA_THU}`));
+  ok(/không đọc được|https/i.test(loi(`https://ai:matkhau@sx.thu/api/do#${MA_THU}`)) && !('goc' in P.docKetNoi(`https://ai:matkhau@sx.thu/api/do#${MA_THU}`)), 'địa chỉ có kèm tên / mật khẩu: không nhận');
+  eq(Object.keys(P.docKetNoi('x')), ['loi'], 'hỏng thì chỉ trả lời báo, không kèm địa chỉ hay mã dở dang');
+});
+
+// Đúng thứ cửa /phong của kho trả về cho một phòng do trang đo 0.5.0 gửi lên: số đo nguyên văn (`muc.phong`, cạnh chưa đo ghi 0) + gói `muc.gui`
+// do MÁY ĐO tính sẵn cho máy vẽ (cạnh suy ra đã điền, chỉ gồm chi tiết đủ số, nét + chữ chú thích của từng ảnh theo điểm ảnh).
+const PHONG_DO = () => ({ ct: { id: 'ct0000000001', ten: 'Nhà anh Hùng', dia_chi: 'Chiềng Sinh', ngay: '2026-10-04', nguoi_do: 'Thanh' }, nguoi_gui: 'Thanh', sua_luc: 1791100000000,
+  muc: { id: 'muc000000001', loai: 'phong', ten: 'Phòng ngủ master', xong: true, ghi_chu: '',
+    phong: { ban: 1, ten: 'Phòng ngủ master', cao: 2700, day: 110, tuong: [{ ten: 'A', dai: 3600, re: 90 }, { ten: 'B', dai: 3000, re: 90 }, { ten: 'C', dai: 0, re: 90 }, { ten: 'D', dai: 0, re: 90 }], mo: [], can: [], dn: [], khung: [] },
+    gui: { ban: 1,
+      phong: { ban: 1, ten: 'Phòng ngủ master', cao: 2700, day: 110, tuong: [{ ten: 'A', dai: 3600, re: 90 }, { ten: 'B', dai: 3000, re: 90 }, { ten: 'C', dai: 3600, re: 90 }, { ten: 'D', dai: 3000, re: 90 }],
+        mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200, be: 0 }], can: [{ tuong: 1, loai: 'cot', cach: 1000, rong: 300, nho: 200, z0: 0, z1: 2700 }], dn: [], khung: [] },
+      bo: ['Ổ điện 1 (mặt A)'], loi: [],
+      anh: [{ id: 'anh000000001', tuong: 0, w: 800, h: 600, ghi: 'mặt có cửa sổ', co: 30.8, net: [[80, 300, 720, 300], [80, 286.1, 80, 313.9], [720, 286.1, 720, 313.9], [400, 120, 480, 240], [480, 240, 476.2, 212.5], [480, 240, 456.1, 225.9]],
+        chu: [{ text: '3600', x: 400, y: 275.4, co: 30.8, goc: 0 }, { text: 'ổ điện cũ', x: 160, y: 120, co: 30.8, goc: 0 }] },
+      { id: 'anh000000002', tuong: null, w: 600, h: 800, ghi: 'toàn cảnh', co: 30.8, net: [], chu: [] }] } },
+  anh_co: ['anh000000001'] });
+
+T('Phòng đã đo: đọc gói máy đo tính sẵn thành dòng cho thẻ Phòng — không tính lại số đo', () => {
+  const ds = P.phongDaDo([PHONG_DO()], {});
+  eq(ds.length, 1, 'một phòng');
+  const r = ds[0];
+  eq([r.khoa, r.ten, r.ct, r.dia_chi, r.ngay, r.nguoi, r.sua_luc, r.xong, r.moi, r.goi], ['ct0000000001/muc000000001', 'Phòng ngủ master', 'Nhà anh Hùng', 'Chiềng Sinh', '2026-10-04', 'Thanh', 1791100000000, true, true, 'co'], 'tên phòng, công trình, người gửi, mốc sửa; chưa lấy lần nào thì là "mới"');
+  eq([r.phong.ten, r.phong.cao, r.phong.tuong.map(t => t.dai), r.phong.mo.length, r.phong.can.length, r.phong.dn.length], ['Phòng ngủ master', 2700, [3600, 3000, 3600, 3000], 1, 1, 0], 'phòng lấy từ GÓI cho máy vẽ (4 cạnh là số thật), không lấy từ số đo thô (cạnh chưa đo ghi 0)');
+  eq(JSON.stringify(P.chuanHoa(r.phong)), JSON.stringify(r.phong), 'phòng đã ở đúng dạng của thẻ Phòng');
+  eq([r.ve_duoc, r.loi, r.bo], [true, [], ['Ổ điện 1 (mặt A)']], 'đủ số: vẽ được; chi tiết mới phác thì nêu tên là chưa đưa sang');
+  ok(/4 tường/.test(r.tom) && /10,8 m²/.test(r.tom) && /trần 2700/.test(r.tom), 'dòng tóm tắt để nhận ra phòng', r.tom);
+  eq(r.anh.map(a => [a.id, a.mat, a.w, a.h, a.ghi, a.co, a.net.length, a.chu.map(c => c.text), a.tren_may_chu]), [['anh000000001', 'A', 800, 600, 'mặt có cửa sổ', 30.8, 6, ['3600', 'ổ điện cũ'], true], ['anh000000002', '', 600, 800, 'toàn cảnh', 30.8, 0, [], false]],
+    'ảnh: thuộc mặt nào (ảnh chung thì để trống), nét + chữ chú thích nguyên như máy đo tính, ảnh nào máy chủ đã có');
+  eq([r.anh_thieu, r.anh[0].net[0], r.anh[0].chu[0]], [1, [80, 300, 720, 300], { text: '3600', x: 400, y: 275.4, co: 30.8, goc: 0 }], 'một ảnh điện thoại chưa gửi lên; nét và chữ giữ đúng số');
+  // đã lấy bản này rồi thì hết "mới"; máy đo sửa tiếp (mốc lớn hơn) thì "mới" lại
+  eq([P.phongDaDo([PHONG_DO()], { 'ct0000000001/muc000000001': 1791100000000 })[0].moi, P.phongDaDo([PHONG_DO()], { 'ct0000000001/muc000000001': 1791099999999 })[0].moi, P.phongDaDo([PHONG_DO()], null)[0].moi], [false, true, true], 'đánh dấu "mới" theo mốc sửa của bản đã lấy');
+  // xếp: sửa gần nhất lên đầu
+  const cu = PHONG_DO(); cu.sua_luc = 1791000000000; cu.muc.id = 'muc000000009'; cu.muc.ten = 'Bếp';
+  eq(P.phongDaDo([cu, PHONG_DO()], {}).map(x => x.ten), ['Phòng ngủ master', 'Bếp'], 'phòng sửa gần nhất đứng đầu');
+});
+
+T('Phòng đã đo: chưa đủ số, gói lạ, dữ liệu hỏng — không vẽ bừa, không vỡ', () => {
+  // hình còn thiếu cạnh: máy đo ghi rõ thiếu gì → không cho vẽ, nêu lý do
+  const thieu = PHONG_DO(); thieu.muc.gui.phong.tuong[1].dai = 0; thieu.muc.gui.phong.tuong[3].dai = 0; thieu.muc.gui.loi = ['Tường B chưa có chiều dài.', 'Tường D chưa có chiều dài.'];
+  let r = P.phongDaDo([thieu], {})[0];
+  eq([r.ve_duoc, r.loi.slice(0, 2), r.goi, !!r.phong], [false, ['Tường B chưa có chiều dài.', 'Tường D chưa có chiều dài.'], 'co', true], 'thiếu cạnh: chưa vẽ ngay được, giữ lời máy đo nói thiếu gì (phòng vẫn lấy về xem được)');
+  ok(!r.loi.some(t => /khép kín/.test(t)), 'đã nói thiếu cạnh thì không nói thêm "chưa khép kín" (hệ quả của chính việc thiếu cạnh)', r.loi);
+  const thieu1 = PHONG_DO(); thieu1.muc.gui.phong.tuong[1].dai = 0; thieu1.muc.gui.phong.can = []; thieu1.muc.gui.loi = ['Tường B chưa có chiều dài.'];      // thiếu MỘT cạnh: hình hở hẳn 3000
+  r = P.phongDaDo([thieu1], {})[0];
+  eq([P.hinhHoc(r.phong).khep.kin, r.loi, r.ve_duoc], [false, ['Tường B chưa có chiều dài.'], false], 'thiếu một cạnh (hình hở): vẫn chỉ nêu cạnh thiếu, không thay bằng / chồng thêm lời "chưa khép kín"');
+  // máy đo không báo gì mà hình có lỗi (cửa rộng hơn tường): máy vẽ tự soát lại hình, không vẽ bừa
+  const loiHinh = PHONG_DO(); loiHinh.muc.gui.phong.mo[0].rong = 5000;
+  r = P.phongDaDo([loiHinh], {})[0];
+  ok(r.ve_duoc === false && r.loi.length >= 1 && r.loi.some(t => /vượt ra ngoài tường C/.test(t)), 'gói không ghi lỗi nhưng cửa rộng hơn tường: máy vẽ tự soát thấy, không cho "lấy & vẽ"', r.loi);
+  // máy đo bảo đủ nhưng hình không khép kín (số đo lệch): máy vẽ tự soát lại hình trước khi cho vẽ
+  const ho = PHONG_DO(); ho.muc.gui.phong.tuong[2].dai = 3000;
+  r = P.phongDaDo([ho], {})[0];
+  ok(r.ve_duoc === false && r.loi.length === 1 && /chưa khép kín: điểm cuối cách điểm đầu 600 mm/.test(r.loi[0]) && !!r.phong, 'gói nói không lỗi mà hình không khép kín (hở 600): không cho "lấy & vẽ" một chạm, nêu rõ hở bao nhiêu; vẫn lấy về xem được', r.loi);
+  // trang đo bản cũ (chưa có gói): không đoán từ số đo thô
+  const cuKy = PHONG_DO(); delete cuKy.muc.gui;
+  r = P.phongDaDo([cuKy], {})[0];
+  eq([r.goi, r.phong, r.ve_duoc, r.anh, r.ten], ['khong', null, false, [], 'Phòng ngủ master'], 'không có gói cho máy vẽ (trang đo bản cũ): vẫn hiện tên phòng, không dựng phòng từ số đo thô');
+  // gói bản mới hơn tiện ích hiểu được
+  const moiHon = PHONG_DO(); moiHon.muc.gui.ban = 2;
+  r = P.phongDaDo([moiHon], {})[0];
+  eq([r.goi, r.phong, r.ve_duoc], ['la', null, false], 'gói của trang đo bản mới hơn: không đọc bừa (nhắc cập nhật tiện ích)');
+  // dữ liệu hỏng / lạ từ mạng
+  eq([P.phongDaDo(null, {}), P.phongDaDo('abc', {}), P.phongDaDo([null, 5, 'x', {}, { ct: {}, muc: {} }, { ct: { id: '../x' }, muc: { id: 'muc000000001' } }, { ct: { id: 'ct0000000001' }, muc: { id: 'a b' } }], {})], [[], [], []], 'không phải danh sách / phần tử hỏng / mã lạ: bỏ qua');
+  const ban = PHONG_DO();
+  ban.ct.ten = '<img src=x onerror=alert(1)>' + 'x'.repeat(500); ban.nguoi_gui = 7; ban.sua_luc = 'abc'; ban.muc.ten = ''; ban.muc.xong = 'true';
+  ban.muc.gui.bo = 'không phải mảng'; ban.muc.gui.loi = [5, null, 'x'.repeat(900)];
+  ban.muc.gui.phong.goc = [99999, 1, 2]; ban.muc.gui.phong.da_ve = { n: 1 }; ban.muc.gui.phong.khung = [{ ten: 'K', tuong: 0, cach: 0, rong: 1000, cao: 2000, sau: 600, tu_id: 'ABC' }];
+  ban.muc.gui.anh = [
+    { id: 'anh000000001', tuong: 9, w: 800, h: 600, ghi: 12, co: NaN, net: [[1, 2, 3], [1, 2, 3, 'x'], [1, 2, 3, Infinity], [5, 6, 7, 8]], chu: [{ text: 5, x: 1, y: 2, co: 3, goc: 4 }, { text: 'ok', x: NaN, y: 1, co: 3, goc: 0 }, null, { text: 'được', x: 10, y: 20, co: 0, goc: 'x' }] },
+    { id: '../../etc', tuong: 0, w: 10, h: 10 }, null, 'x',
+    { id: 'anh000000003', tuong: 0, w: 'x', h: -5, ghi: 'cỡ ảnh hỏng', co: 30, net: [[5, 6, 7, 8]], chu: [{ text: 'a', x: 1, y: 2, co: 3, goc: 0 }] }];
+  ban.anh_co = 'anh000000001';
+  r = P.phongDaDo([ban], {})[0];
+  eq([r.ct.length <= 80, r.nguoi, r.sua_luc, r.ten, r.xong, r.bo, r.loi.map(t => t.length <= 200)], [true, '', 0, 'Phòng', false, [], [true]], 'chữ dài bị cắt, kiểu sai về mặc định, lời báo không phải chữ thì bỏ');
+  eq([r.phong.goc, r.phong.da_ve, r.phong.khung], [undefined, undefined, []], 'chỗ đặt, bản ghi đã vẽ, khung tủ KHÔNG nhận từ mạng (đó là việc của máy vẽ này)');
+  eq(r.anh.map(a => [a.id, a.mat, a.w, a.h, a.ghi, a.co, a.net, a.chu, a.tren_may_chu]), [
+    ['anh000000001', '', 800, 600, '', 30.8, [[5, 6, 7, 8]], [{ text: 'được', x: 10, y: 20, co: 30.8, goc: 0 }], false],
+    ['anh000000003', 'A', 0, 0, 'cỡ ảnh hỏng', 0, [], [], false]],
+    'ảnh: mã lạ thì bỏ; mặt không có thì coi là ảnh chung; nét / chữ hỏng thì bỏ từng cái, cái lành vẫn giữ (cỡ chữ hỏng thì theo cỡ của ảnh); không biết cỡ ảnh thì bỏ hết chú thích của ảnh đó (không biết đặt vào đâu); danh sách "máy chủ đã có" hỏng thì coi như chưa có');
+  // quá nhiều thứ: có trần
+  const nhieu = PHONG_DO(); nhieu.muc.gui.anh = Array.from({ length: 500 }, (x, i) => ({ id: 'anh' + String(100000000 + i), tuong: 0, w: 10, h: 10, net: Array.from({ length: 5000 }, () => [1, 2, 3, 4]), chu: [] }));
+  r = P.phongDaDo([nhieu], {})[0];
+  ok(r.anh.length <= 120 && r.anh.every(a => a.net.length <= 800), 'số ảnh và số nét có trần (trang không treo vì một gói khổng lồ)', [r.anh.length, r.anh[0].net.length]);
+  ok(P.phongDaDo(Array.from({ length: 2000 }, (x, i) => { const q = PHONG_DO(); q.muc.id = 'muc' + String(100000000 + i); return q; }), {}).length <= 400, 'số phòng cũng có trần');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

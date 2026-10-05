@@ -1,6 +1,6 @@
 # Một Nhà · Vẽ tủ vào Chenfeng
 
-Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → bảng tự dựng tủ vào bản vẽ Chenfeng theo chuẩn kết cấu xưởng Một Nhà, Chenfeng tự khoan lỗ. Cần có tài khoản Chenfeng; tiện ích chỉ chạy trên trang `cfcad.cn` và trang sản xuất của Chenfeng (`sc.leye.site` — tab mở ra khi tách đơn), không gửi dữ liệu đi đâu.
+Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → bảng tự dựng tủ vào bản vẽ Chenfeng theo chuẩn kết cấu xưởng Một Nhà, Chenfeng tự khoan lỗ. Cần có tài khoản Chenfeng; tiện ích chỉ chạy trên trang `cfcad.cn` và trang sản xuất của Chenfeng (`sc.leye.site` — tab mở ra khi tách đơn), không gửi dữ liệu đi đâu. Riêng khi xưởng tự nối bảng với trang đo hiện trạng của mình (bản 1.24, xem dưới) thì bảng **đọc** danh sách phòng đã đo từ địa chỉ máy chủ mà chính người dùng dán vào — chỉ đọc, không gửi gì lên.
 
 ## Cài (mỗi máy một lần)
 
@@ -11,6 +11,16 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 **Máy đã cài bản trước 1.22** — cài lại một lần để có trợ lý ở trang sản xuất: tải zip mới ở trên, giải nén **đè** lên thư mục cũ → `chrome://extensions` → bấm nút tải lại (⟳) trên thẻ tiện ích → F5 trang Chenfeng. Thẻ **Hướng dẫn → Cập nhật tự động** của bảng ghi rõ máy đang có trợ lý hay chưa.
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
+
+## Phòng đã đo trên điện thoại (bản 1.24)
+
+Xưởng có trang **Đo hiện trạng** riêng (chạy trên máy chủ của xưởng) thì nối bảng với trang đó một lần: thẻ **Phòng** → khối **Phòng đã đo trên điện thoại** → dán *chuỗi kết nối* (địa chỉ kho `#` mã đọc — người có tài khoản đăng nhập trong trang đo rồi bấm *Mã kết nối máy vẽ → Cấp mã → Chép mã*) → **Nối máy chủ**.
+
+- Phòng đo xong **tự hiện** trong khối đó — bảng tự hỏi lại mỗi phút khi thẻ Phòng đang mở; không ai phải gửi file hay chép mã phòng.
+- **Lấy phòng** đưa số đo vào thẻ Phòng kèm ảnh hiện trạng đã kẻ sẵn kích thước để soát lại; **Lấy & vẽ** lấy rồi vẽ luôn phòng vào bản vẽ. Bảng không tự vẽ gì khi chưa bấm. Lấy lại cùng phòng (máy đo sửa tiếp) thì khung tủ đã đánh dấu, chỗ đặt và bản ghi lần vẽ trước vẫn giữ.
+- Phòng chưa đủ số (chưa khép kín, thiếu cạnh…) thì bảng nêu thiếu gì và khoá nút vẽ; ảnh điện thoại chưa gửi xong thì bảng nói còn mấy ảnh chưa lên máy chủ.
+- Bảng chỉ **đọc** hai địa chỉ của máy chủ đó (danh sách phòng, ảnh) bằng mã trong chuỗi kết nối: không gửi gì lên, không kèm cookie. Mã bị thu hồi thì bảng bỏ danh sách đang bày và thôi tự hỏi. Chuỗi kết nối cất trong máy vẽ này (localStorage `mncf.do.v1`), bấm **Ngắt** là xoá. Mã nguồn không ghi sẵn địa chỉ máy chủ nào.
+- Mọi phép tính số đo (cạnh tự suy, chỗ đặt số trên ảnh) do máy đo làm sẵn trong gói gửi kèm từng phòng; bảng chỉ đọc gói đó. Phòng gửi từ trang đo bản cũ hơn / mới hơn bảng thì bảng nói rõ phải làm gì chứ không đoán.
 
 ## Đặt tủ theo tường, hộp chỉnh tủ, vẽ lại phòng (bản 1.23)
 

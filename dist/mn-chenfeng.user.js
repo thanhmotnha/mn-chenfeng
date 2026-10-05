@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Một Nhà · Vẽ tủ vào Chenfeng
 // @namespace    https://motnha.vn/
-// @version      1.23.0
+// @version      1.24.0
 // @description  Nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → tự vẽ thùng, hậu, phào, chân, cánh, ngăn kéo, suốt treo vào Chenfeng WebCAD. Chenfeng tự khoan lỗ.
 // @match        https://cfcad.cn/*
 // @match        https://www.cfcad.cn/*
@@ -13,7 +13,7 @@
 // @updateURL    https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // @downloadURL  https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // ==/UserScript==
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.23.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.24.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -29,7 +29,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.23.0';
+  const VERSION = '1.24.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -3289,7 +3289,90 @@
     try { const o = JSON.parse(t.slice(a, b + 1)); return o && Array.isArray(o.tuong) ? chuanHoa(o) : null; } catch (e) { return null; }
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, giao, tenTuong };
+  /* ---------------- phòng đã đo trên điện thoại (bản 1.24) ---------------- */
+  // Trang "Đo hiện trạng" của xưởng gửi số đo lên kho trên máy chủ của xưởng; máy vẽ (bảng này, chạy trong trang Chenfeng) ĐỌC kho đó bằng một mã kết nối
+  // do quản lý cấp. Hai hàm dưới đây chỉ đọc + soát dữ liệu tới từ mạng; việc gọi mạng nằm ở giao diện.
+  const MA_KN = /^mn-[A-Za-z0-9_-]{20,80}$/, ID_DO = /^[a-z0-9]{6,40}$/;
+  /**
+   * Đọc "chuỗi kết nối" trang đo cấp cho máy vẽ: "<địa chỉ kho trên máy chủ>#<mã>". Địa chỉ nằm trong chuỗi nên bảng không ghi cứng máy chủ của xưởng nào.
+   * Máy chủ ngoài bắt buộc https (mã không đi trên đường không mã hoá); http chỉ nhận cho localhost.
+   * @returns {{goc: string, ma: string}} | {{loi: string}}
+   */
+  function docKetNoi(text) {
+    const t = String(text === null || text === undefined ? '' : text).replace(/\s+/g, ''), LAY = ' — chép lại cả chuỗi ở trang đo (Mã kết nối máy vẽ → Chép mã).';
+    if (!t) return { loi: 'Dán chuỗi kết nối vào ô này (lấy ở trang đo: Mã kết nối máy vẽ → Cấp mã → Chép mã).' };
+    const i = t.lastIndexOf('#'), ma = i >= 0 ? t.slice(i + 1) : t, dc = i >= 0 ? t.slice(0, i) : '';
+    if (!MA_KN.test(ma)) return { loi: 'Mã kết nối không đúng dạng' + LAY };
+    if (!dc) return { loi: 'Chuỗi này thiếu địa chỉ máy chủ' + LAY };
+    let u; try { u = new URL(dc); } catch (e) { u = null; }
+    if (!u || !u.hostname || u.username || u.password) return { loi: 'Địa chỉ máy chủ trong chuỗi không đọc được' + LAY };
+    const taiMay = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
+    if (u.protocol !== 'https:' && !(u.protocol === 'http:' && taiMay)) return { loi: 'Địa chỉ máy chủ phải bắt đầu bằng https://' + LAY };
+    return { goc: (u.origin + u.pathname).replace(/\/+$/, ''), ma };
+  }
+
+  /**
+   * Danh sách PHÒNG ĐÃ ĐO máy chủ trả về (cửa /phong của kho đo hiện trạng) → các dòng cho thẻ Phòng, phòng sửa gần nhất đứng đầu.
+   * Mỗi phòng mang gói `muc.gui` do MÁY ĐO tính sẵn (cạnh suy ra đã điền, chỉ gồm chi tiết đủ số, nét + chữ chú thích của từng ảnh theo điểm ảnh):
+   * ở đây CHỈ ĐỌC gói đó, không tính lại số đo, không dựng phòng từ số đo thô. Dữ liệu tới từ mạng nên đọc phòng thủ — trường hỏng thì bỏ / về mặc định, có trần số lượng.
+   * @param ds     mảng `phong` của câu trả lời
+   * @param daLay  { khoá phòng: mốc sửa của bản máy vẽ này đã lấy } — để đánh dấu phòng "mới"
+   * @returns [{ khoa, ten, ct, dia_chi, ngay, nguoi, sua_luc, xong, moi, goi: 'co' | 'khong' (trang đo bản cũ, chưa có gói) | 'la' (gói bản mới hơn),
+   *             phong (null = không có gì để lấy), loi (vì sao chưa "lấy & vẽ" ngay được), ve_duoc (loi trống), bo (chi tiết máy đo chưa đưa sang), tom,
+   *             anh: [{ id, mat, w, h, ghi, co, net, chu, tren_may_chu }], anh_thieu }]
+   */
+  function phongDaDo(ds, daLay) {
+    const chuC = (v, n) => (typeof v === 'string' ? v.slice(0, n) : ''), soT = v => typeof v === 'number' && isFinite(v), doiTuong = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
+    const mang = v => (Array.isArray(v) ? v : []), ra = [];
+    for (const x of mang(ds)) {
+      if (ra.length >= 400) break;
+      const ct = doiTuong(x && x.ct), m = doiTuong(x && x.muc);
+      if (!ct || !m || typeof ct.id !== 'string' || !ID_DO.test(ct.id) || typeof m.id !== 'string' || !ID_DO.test(m.id)) continue;
+      const khoa = ct.id + '/' + m.id, sua = soT(x.sua_luc) && x.sua_luc > 0 ? x.sua_luc : 0, gui = doiTuong(m.gui);
+      const r = { khoa, ten: chuC(m.ten, 60).trim() || 'Phòng', ct: chuC(ct.ten, 80), dia_chi: chuC(ct.dia_chi, 200), ngay: /^\d{4}-\d{2}-\d{2}$/.test(ct.ngay) ? ct.ngay : '', nguoi: chuC(x.nguoi_gui, 60), sua_luc: sua,
+        xong: m.xong === true, moi: !(daLay && daLay[khoa] >= sua && sua > 0), goi: !gui ? 'khong' : gui.ban === 1 ? 'co' : 'la', phong: null, loi: [], bo: [], tom: '', ve_duoc: false, anh: [], anh_thieu: 0 };
+      if (r.goi === 'co') {
+        let p = null;
+        try {
+          const src = doiTuong(gui.phong);
+          if (src && Array.isArray(src.tuong) && src.tuong.length) {
+            // chỉ nhận HÌNH phòng: chỗ đặt trên bản vẽ, bản ghi đã vẽ, khung tủ là việc của máy vẽ này, không lấy từ mạng
+            const sach = { ten: r.ten, cao: src.cao, day: src.day };
+            for (const k of ['tuong', 'mo', 'can', 'dn']) sach[k] = mang(src[k]).filter(doiTuong).slice(0, 200);
+            p = chuanHoa(sach);
+          }
+        } catch (e) { p = null; }
+        r.loi = mang(gui.loi).filter(t => typeof t === 'string' && t).slice(0, 20).map(t => t.slice(0, 200));
+        r.bo = mang(gui.bo).filter(t => typeof t === 'string' && t).slice(0, 60).map(t => t.slice(0, 80));
+        if (!p) r.loi.push('Gói số đo của phòng này không đọc được.');
+        else {
+          const H = hinhHoc(p);
+          for (const t of H.loi) if (r.loi.indexOf(t) < 0) r.loi.push(t);      // máy vẽ tự soát lại hình trước khi cho vẽ
+          // đủ số mà hình không khép kín (số đo lệch nhau): vẫn LẤY về xem được, nhưng không cho "lấy & vẽ" một chạm — phải nhìn mặt bằng trước
+          if (!r.loi.length && !H.khep.kin) { const k = H.luu_y.filter(t => /chưa khép kín/.test(t)); r.loi = k.length ? k.slice(0, 2) : ['Phòng chưa khép kín.']; }
+          r.phong = p; r.tom = tomTat(H)[0] || ''; r.ve_duoc = r.loi.length === 0;
+          const coMC = new Set(mang(x.anh_co).filter(v => typeof v === 'string'));
+          for (const a of mang(gui.anh)) {
+            if (r.anh.length >= 120) break;
+            if (!doiTuong(a) || typeof a.id !== 'string' || !ID_DO.test(a.id)) continue;
+            const co1 = v => (soT(v) && v >= 1 && v <= 20000 ? Math.round(v) : 0), w = co1(a.w), h = co1(a.h), biet = w > 0 && h > 0;      // không biết cỡ ảnh gốc thì không biết đặt chú thích vào đâu
+            const t = Number.isInteger(a.tuong) && a.tuong >= 0 && a.tuong < p.tuong.length ? a.tuong : -1, co = !biet ? 0 : soT(a.co) && a.co > 0 ? a.co : rn(Math.max(w, h) / 26, 1);
+            const q = { id: a.id, mat: t >= 0 ? p.tuong[t].ten : '', w: biet ? w : 0, h: biet ? h : 0, ghi: chuC(a.ghi, 200), co, net: [], chu: [], tren_may_chu: coMC.has(a.id) };
+            if (biet) {
+              for (const d of mang(a.net)) { if (q.net.length >= 800) break; if (Array.isArray(d) && d.length === 4 && d.every(soT)) q.net.push(d.slice()); }
+              for (const c of mang(a.chu)) { if (q.chu.length >= 200) break; if (doiTuong(c) && typeof c.text === 'string' && c.text && soT(c.x) && soT(c.y)) q.chu.push({ text: c.text.slice(0, 80), x: c.x, y: c.y, co: soT(c.co) && c.co > 0 ? c.co : co, goc: soT(c.goc) ? c.goc : 0 }); }
+            }
+            r.anh.push(q);
+          }
+          r.anh_thieu = r.anh.filter(a => !a.tren_may_chu).length;
+        }
+      }
+      ra.push(r);
+    }
+    return ra.map((r, i) => [r, i]).sort((a, b) => (b[0].sua_luc - a[0].sua_luc) || (a[1] - b[1])).map(v => v[0]);
+  }
+
+  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, docKetNoi, phongDaDo, giao, tenTuong };
 });
 
 /*!
@@ -6853,7 +6936,8 @@
 .panel[hidden],.launch[hidden],.chip[hidden]{display:none}
 .manche{position:fixed;inset:0;background:rgba(12,18,15,.52);z-index:2147482999}
 .manche[hidden]{display:none}
-.dlgtieu,.dlgnut{display:none}
+/* nút riêng của hộp: ẩn khi không mở hộp. Phải viết NẶNG hơn luật .frow (display:flex) ở dưới — hàng nút mang cả hai lớp; bản 1.23 chỉ viết .dlgnut nên bị đè, nút của hộp nằm lẫn dưới chân bảng */
+.dlgtieu,footer>.dlgnut{display:none}
 header{background:var(--head);color:var(--head-ink);padding:9px 10px 0 12px}
 .hrow{display:flex;align-items:center;gap:8px}
 .brand{font-weight:700;font-size:14px;letter-spacing:.01em;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -7036,6 +7120,27 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
 .drop:hover,.drop.keo{border-color:var(--accent);background:var(--hover);color:var(--ink)}
 .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .thumbs:empty{display:none}
+.pdo{border:1px solid var(--line);border-radius:10px;padding:8px 9px 4px;margin:0 0 12px;background:var(--card)}
+.pdo legend{float:left;width:100%;margin-bottom:6px}
+.pdo-than{clear:both}
+.pdo-noi{display:flex;gap:8px;margin-bottom:6px}
+.pdo-noi input{flex:1;min-width:0}
+.pdo-noi input.che{-webkit-text-security:disc}
+.pdo-noi .sec{flex:none}
+.pdo-bao:empty{display:none}
+.pdo-tt{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;margin-bottom:6px}
+.pdo-tt span{flex:1 1 170px;min-width:0;overflow-wrap:anywhere}
+.pdo-tt .sec{flex:none}
+.pdo-r{display:flex;gap:8px;align-items:flex-start;border-top:1px solid var(--line);padding:7px 0}
+.pdo-r .t{flex:1;min-width:0;overflow-wrap:anywhere;font-size:12.5px}
+.pdo-r .t b{font-size:13px}
+.pdo-r .t small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+.pdo-r .t small.canh{color:var(--warn)}
+.pdo-r .moi,.pdo-r .dang{display:inline-block;border-radius:9px;padding:0 7px;font-size:11px;font-weight:650;vertical-align:1px}
+.pdo-r .moi{background:var(--accent);color:var(--accent-ink)}
+.pdo-r .dang{background:var(--warn-bg);color:var(--warn)}
+.pdo-r .n{display:flex;flex-direction:column;gap:5px;flex:none}
+.pdo-r .n .sec{white-space:nowrap}
 .thumb{position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--card)}
 .thumb.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
 .thumb button.im{display:block;width:100%;height:100%;padding:0;border:0;background:none;cursor:zoom-in}
@@ -7256,6 +7361,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
       <p class="hint">Dựng <b>phòng hiện trạng</b> theo số đo anh tự điền, rồi đánh dấu các <b>khung không gian</b> (chỗ đặt tủ) và vẽ tủ vào đúng khung. Đi vòng quanh phòng <b>theo chiều kim đồng hồ</b>: đứng trong phòng nhìn vào một tường thì tường kế tiếp nằm bên tay phải. Mọi khoảng "cách trái" đo từ đầu trái của tường. Đơn vị mm.</p>
       <div class="psplit">
         <div class="pview">
+          ${inCF ? '<fieldset class="pdo"><legend>Phòng đã đo trên điện thoại</legend><div class="pdo-than"></div></fieldset>' : ''}
           <fieldset><legend>Ảnh hiện trạng (để nhìn mà điền)</legend>
             <button class="drop" data-act="anh-chon">Kéo ảnh vào đây, dán (Ctrl+V) hoặc bấm để chọn ảnh</button>
             <input type="file" id="mncf-ui-anh" accept="image/*" multiple data-ui="anh-file" hidden>
@@ -7355,6 +7461,7 @@ ${Ph ? '<li>Thẻ <b>Phòng</b>: tự điền số đo hiện trạng (cao trầ
 <li><b>Vách đứng (hồi giữa)</b> — bản 1.12: bấm nút <b>＋ Vách</b> phía trên hình rồi bấm vào chỗ bất kỳ trong tủ → thêm một vách tại đó (khoang chia đôi, đợt chép sang khoang mới). <b>Kéo vách</b> sang trái / phải để chia lại bề rộng hai khoang kề; bấm vào vách để gõ số lọt lòng hoặc <b>Bỏ vách</b> (gộp 2 khoang). ↶ Lùi trả lại được.</li>
 <li><b>Khấu cột</b> — bản 1.13: tủ vướng cột ở góc sau thì gõ kích thước cột lấn vào tủ (ngang × sâu) ở khung <b>Khấu cột</b> của thẻ Tủ. Hồi phía cột nông lại, đáy / nóc / đợt khoét góc chữ L, có vách khấu dọc mặt bên cột và hậu khấu trước mặt cột — từ bản 1.16.1 hậu khấu là <b>ván thùng</b> như vách khấu (lọt giữa 2 tấm đứng hai bên cột, khoan liên kết), chỉ hậu chính sau lưng mới là hậu 6 li; xem hình “Nhìn từ trên xuống” dưới hình đứng. <b>Khe hở quanh cột</b> mặc định <b>15</b> (từ bản 1.17.1; trước là 10) — gõ 10–20 tuỳ công trình để lúc lắp còn chỗ xử lý. Tủ vẽ từ khung của thẻ Phòng thì tự khấu theo cột trùm đầu khung. <b>Cột giữa tủ</b> (bản 1.23): cột nằm <b>trong khoang</b> — bảng không dời, không thêm vách hay đợt nào, các khoang giữ nguyên bề rộng; đáy / nóc / đợt của khoang đó khoét quanh cột, hộp che cột là 2 vách khấu + hậu khấu. Khoang có ngăn kéo mà vướng cột phía sau thì bảng đổi chỗ khoang đó với khoang khác (hoặc bỏ ngăn kéo) và ghi rõ. Nút “Đặt vách theo mép cột giữa” chỉ là tuỳ chọn.</li>
 ${cf ? '<li><b>Vẽ bằng lệnh gốc của Chenfeng, cả tủ là một module</b> — bản 1.15–1.16: hồi, vách, nóc / đáy, hậu, đợt, cánh được dựng bằng chính các lệnh vẽ tấm của Chenfeng (vách chạy suốt, nóc / đáy theo từng khoang); phào, xà chân, khung hộc kéo, ngăn kéo, suốt treo được gom cùng các thùng đó thành <b>một module mang mã tủ</b>. Vẽ xong chọn 1 tấm → thẻ Template (Thông số) của Chenfeng → bấm dòng trên cùng (mã tủ) → đổi L / W / H → Apply: <b>cả tủ chạy theo</b>, Chenfeng khoan lại. Tủ được vẽ ở chỗ trống bên phải bản vẽ rồi tự đưa về chỗ đặt (xoay theo tường được) — trong lúc bảng đang vẽ đừng bấm vào bản vẽ; sang tab khác làm việc thì được (bảng tự chờ Chenfeng dựng hình xong từng bước, chậm hơn một chút). Tủ có khấu cột vẽ theo cách cũ (vẫn là một module). Tắt / bật ở Chuẩn xưởng → Cách vẽ vào Chenfeng.</li>' : ''}
+${cf && Ph && Ph.phongDaDo ? '<li><b>Phòng đã đo trên điện thoại</b> — bản 1.24: xưởng có trang <b>Đo hiện trạng</b> trên máy chủ riêng thì nối bảng với trang đó một lần — thẻ <b>Phòng</b> → khối <b>Phòng đã đo trên điện thoại</b> → dán <b>chuỗi kết nối</b> (trong trang đo: đăng nhập → <b>Mã kết nối máy vẽ</b> → <b>Cấp mã</b> → <b>Chép mã</b>) → <b>Nối máy chủ</b>. Từ đó phòng đo xong <b>tự hiện</b> ở khối này, không ai phải gửi file (bảng tự hỏi lại mỗi phút khi thẻ Phòng đang mở). <b>Lấy phòng</b> = đưa số đo + ảnh đã kẻ sẵn kích thước vào thẻ Phòng để soát lại; <b>Lấy &amp; vẽ</b> = lấy rồi vẽ luôn phòng vào bản vẽ. Phòng chưa đủ số thì bảng nêu thiếu gì và khoá nút vẽ; lấy lại cùng phòng (máy đo sửa tiếp) thì khung tủ đã đánh dấu vẫn giữ. Bảng <b>chỉ đọc</b> danh sách phòng + ảnh, không gửi gì lên máy chủ đó; bấm <b>Ngắt</b> là xoá chuỗi kết nối khỏi máy này.</li>' : ''}
 ${cf && Ph && Ph.choTrong ? '<li><b>Đặt tủ theo tường</b> — bản 1.23, cách chắc tay nhất khi phòng đã khai ở thẻ Phòng: bấm <b>Đặt tủ theo tường</b> (cuối bảng) → chọn <b>tường</b> (dãy nút A · B · C… hoặc bấm vào tường trên mặt bằng nhỏ) → ngay trên <b>mặt đứng</b> của tường đó: <b>chạm</b> vào đoạn tường trống = lấy cả đoạn đó từ sàn tới trần (tới đáy dầm nếu có dầm; cột không chắn — tủ phủ qua và khấu cột), hoặc <b>kéo</b> từ góc này tới góc kia = lấy đúng ô vừa kéo (bám mép tường, cửa, cột, tủ đã có); năm số bên dưới gõ lại được cho chính xác → <b>Tiếp</b>: hiện hộp chỉnh tủ với tủ vừa đúng chỗ đó → <b>Vẽ vào Chenfeng</b>. Không phải bấm điểm nào trong bản vẽ nên không lo bắt điểm lệch; tủ tự quay lưng vào tường. Chỗ đã chọn được ghi thành một khung của phòng (mặt đứng ở thẻ Phòng thấy chỗ đó đã có tủ).</li>' : ''}
 ${cf && Ph && Ph.haiDiemThanhHinh ? '<li><b>Đặt tủ bằng chuột</b> — bản 1.17, đặt tủ ở chỗ chưa khai phòng trong bảng (tường vẽ tay trong Chenfeng): chọn mẫu, gõ rộng × cao × sâu ở thẻ Tủ → bấm <b>Đặt tủ bằng chuột</b> → bấm <b>1 điểm ở chân tường</b> (đầu tủ) → rê chuột dọc tường, bóng mờ của tủ chạy theo (cạnh màu cam là mặt cánh) → chọn một trong ba: <b>Enter</b> = dùng bề rộng đang gõ trong bảng; <b>gõ số + Enter</b> (vd 2400) = tủ rộng đúng số đó; <b>bấm điểm cuối</b> = tủ rộng theo đúng đoạn tường (bấm vào góc tường, mép cột đều được). Tủ tự quay lưng vào tường, tự khấu cột của phòng nằm trong đoạn đó; tủ cao hơn trần thì hạ theo trần. Chỗ không có tường, bảng hỏi thêm 1 điểm phía trước tủ. Từ bản 1.23 đặt xong <b>không vẽ ngay</b>: hiện <b>hộp chỉnh tủ</b> giữa màn hình (hình đứng + các số của tủ) — chỉnh khoang, đợt, ngăn kéo rồi bấm <b>Vẽ vào Chenfeng</b> mới vẽ; <b>Chọn lại chỗ</b> để đặt lại; <b>Đóng — vẽ sau</b> (Esc) thì tủ và chỗ đặt vẫn nằm ở thẻ Tủ.</li>' : ''}
 ${cf && Ph && Ph.hinhThanhKhung ? '<li><b>Tủ theo hình vẽ trên mặt bằng</b> — bản 1.16: trên mặt bằng của Chenfeng (nhìn từ trên xuống) vẽ một <b>hình chữ nhật hoặc đa tuyến kín</b> đúng chỗ tủ đứng — bắt điểm vào tường, cột; hình là phủ bì của tủ (rộng × sâu, kể cả cánh). Chỗ vướng cột: vẽ khuyết góc / khuyết giữa ở mép sau, hoặc cứ vẽ chữ nhật trùm qua cột của phòng (bảng tự khấu theo cột). Chọn hình → bấm <b>Tủ theo hình đang chọn trên mặt bằng</b>: bảng lấy rộng, sâu, vị trí, hướng xoay, khấu cột; cao lấy theo trần của phòng (sửa được ở ô Cao). Mặt trước tự nhận theo tường / chỗ khuyết, không nhận được thì bảng hỏi bấm 1 điểm phía trước tủ; nhận sai thì bấm “Chọn lại mặt trước”. Chia khoang, đợt xong bấm <b>Vẽ vào Chenfeng</b> — tủ dựng đúng chỗ hình, đúng hướng.</li>' : ''}
@@ -7851,9 +7958,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       finally { if (luot === xv.luot) xv.ban = false; }
     }
 
-    function switchTab(name) { panel.dataset.tabon = name; $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name)); $$('.pane').forEach(p => { p.hidden = p.dataset.pane !== name; }); if (name === 'tu' && model) { if (dnTuHT || dnTu()) paint(); else paintView(); } if (name === 'phong') paintPhong(); if (name === 'kho') { veChon(); khoNap(); } if (name === 'mausac') { veO(); veGan(); veDung(); vlNap(); } if (name !== 'phong' && veMD) datVeMD(false); }      // có điện – nước sau tủ: vẽ lại cả dòng báo (phòng có thể vừa sửa ở thẻ Phòng)
-    function open() { panel.hidden = false; launch.hidden = true; if (model) paintView(); }
-    function close() { panel.hidden = true; launch.hidden = !inCF; if (xem) dongXem(); }
+    function switchTab(name) { panel.dataset.tabon = name; $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name)); $$('.pane').forEach(p => { p.hidden = p.dataset.pane !== name; }); if (name === 'tu' && model) { if (dnTuHT || dnTu()) paint(); else paintView(); } if (name === 'phong') paintPhong(); if (name === 'kho') { veChon(); khoNap(); } if (name === 'mausac') { veO(); veGan(); veDung(); vlNap(); } if (name !== 'phong' && veMD) datVeMD(false); doVao(); }      // có điện – nước sau tủ: vẽ lại cả dòng báo (phòng có thể vừa sửa ở thẻ Phòng)
+    function open() { panel.hidden = false; launch.hidden = true; if (model) paintView(); doVao(); }
+    function close() { panel.hidden = true; launch.hidden = !inCF; if (xem) dongXem(); doVao(); }
     // PHÍM TẮT ẩn / hiện bảng: Alt + M (bản 1.20.1 — anh Jason 04/10/2026 09:10). Bắt ở pha "capture" của cửa sổ nên tới trước dòng lệnh của Chenfeng và phím không lọt xuống trang.
     // Chenfeng đang dùng Alt + 1…9, Alt + D / S / F / Q / W / E / R, Alt + ` (đã dò trong mã Chenfeng 04/10/2026) — Alt + M còn trống; Chrome trên Windows cũng không dùng.
     if (inCF) root.addEventListener('keydown', safe(e => {
@@ -9081,8 +9188,149 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       root.addEventListener('drop', safe(e => { if (!trongBang(e) || !coFile(e)) return; e.preventDefault(); e.stopImmediatePropagation(); if (dz()) dz().classList.remove('keo'); switchTab('phong'); return themAnh(e.dataTransfer.files).then(n => { if (!n) setStatus('File vừa thả không phải ảnh.'); }); }), true);
       rootEl.addEventListener('paste', safe(e => { const fs = e.clipboardData && e.clipboardData.files; if (fs && fs.length && [...fs].some(f => /^image\//.test(f.type))) { e.preventDefault(); return themAnh(fs); } }));
       phong = phongStore.load() || Ph.macDinh();
-      khoAnh.tat().then(ds => { for (const r of ds || []) if (r && r.blob) anh.push({ id: r.id, ten: r.ten || 'ảnh', url: URL.createObjectURL(r.blob) }); veAnh(); }).catch(() => {});
+      khoAnh.tat().then(ds => { for (const r of ds || []) if (r && r.blob) anh.push({ id: r.id, ten: r.ten || 'ảnh', url: URL.createObjectURL(r.blob), nguon: typeof r.nguon === 'string' ? r.nguon : '' }); veAnh(); }).catch(() => {});
     }
+
+    /* ---- PHÒNG ĐÃ ĐO TRÊN ĐIỆN THOẠI (bản 1.24) ---- */
+    // Trang "Đo hiện trạng" của xưởng (chạy trên máy chủ của xưởng) giữ số đo trong một kho dùng chung. Bảng ĐỌC kho đó — hai cửa /phong và /anh/<mã> — bằng
+    // "chuỗi kết nối" (địa chỉ kho # mã) quản lý cấp trong trang đo: phòng đo xong tự hiện ở thẻ Phòng, không ai phải gửi file.
+    // Bảng không gửi gì lên máy chủ đó, không kèm cookie, không ghi cứng địa chỉ xưởng nào; và KHÔNG tự vẽ — lấy phòng / vẽ phòng là do người dùng bấm.
+    // Mọi phép tính số đo (cạnh tự suy, chỗ đặt số trên ảnh) do MÁY ĐO làm sẵn trong gói `gui`; ở đây chỉ đọc (Ph.phongDaDo) rồi kẻ lại đúng các nét đó lên ảnh.
+    const LS_DO = 'mncf.do.v1';
+    const doS = { goc: '', ma: '', da_lay: {}, nguon: '' };      // nguon = khoá của phòng đang nằm ở thẻ Phòng nếu nó được lấy từ máy chủ (để lần lấy sau giữ khung tủ đã đánh dấu)
+    const DO = { ds: [], tt: 'chua', luc: 0, lap: 60000, hen: 0, dang: null, luot: 0, luot_anh: 0 };      // tt: chua · dang · xong · mang (không tới được) · tu_choi (mã hết hiệu lực)
+    const doNoi = () => !!(doS.goc && doS.ma);
+    const luuDo = () => {
+      try {
+        if (!doNoi()) return root.localStorage.removeItem(LS_DO);
+        const k = Object.keys(doS.da_lay); if (k.length > 400) { const con = new Set(DO.ds.map(r => r.khoa)); for (const x of k) if (!con.has(x)) delete doS.da_lay[x]; }
+        root.localStorage.setItem(LS_DO, JSON.stringify(doS));
+      } catch (e) { /* không lưu được thì thôi: lần sau dán lại chuỗi */ }
+    };
+    if (inCF && Ph && Ph.docKetNoi) {
+      try {
+        const j = JSON.parse(root.localStorage.getItem(LS_DO) || 'null') || {}, k = Ph.docKetNoi(`${j.goc || ''}#${j.ma || ''}`);
+        if (k.goc) { doS.goc = k.goc; doS.ma = k.ma; if (j.da_lay && typeof j.da_lay === 'object') for (const x of Object.keys(j.da_lay).slice(0, 400)) if (Number(j.da_lay[x]) > 0) doS.da_lay[x] = Number(j.da_lay[x]); doS.nguon = typeof j.nguon === 'string' ? j.nguon : ''; }
+      } catch (e) { /* dữ liệu cũ hỏng: coi như chưa nối */ }
+    }
+    /** Phòng ở thẻ Phòng vừa bị thay bằng phòng khác (mở file, dán mã, phòng mẫu): không còn là phòng lấy từ máy chủ nữa. */
+    function phongKhac() { if (doS.nguon) { doS.nguon = ''; luuDo(); } }
+    const doMay = () => { try { return new URL(doS.goc).host; } catch (e) { return 'máy chủ'; } };
+    const doGoi = duong => root.fetch(doS.goc + duong, { method: 'GET', headers: { authorization: 'Bearer ' + doS.ma }, cache: 'no-store', credentials: 'omit', mode: 'cors' });
+    const gioPhut = ms => { const d = new Date(ms), h2 = v => String(v).padStart(2, '0'); return `${h2(d.getHours())}:${h2(d.getMinutes())}`; };
+    const ngayGio = ms => { const d = new Date(ms), h2 = v => String(v).padStart(2, '0'); return `${h2(d.getDate())}/${h2(d.getMonth() + 1)} ${gioPhut(ms)}`; };
+    function veDo() {
+      const el = $('.pdo-than'); if (!el) return;
+      if (!doNoi()) {
+        if (el.dataset.kieu !== 'chua') {
+          el.dataset.kieu = 'chua';
+          el.innerHTML = `<p class="hint">Đo bằng trang <b>Đo hiện trạng</b> của xưởng trên điện thoại — phòng đo xong <b>tự hiện ở đây</b>, không phải gửi file. Nối một lần: ở trang đo, người có tài khoản đăng nhập rồi bấm <b>Mã kết nối máy vẽ</b> → <b>Cấp mã</b> → <b>Chép mã</b>, rồi dán vào ô dưới.</p>
+<div class="pdo-noi"><input type="text" class="che" data-ui="do-chuoi" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Chuỗi kết nối máy vẽ" placeholder="Dán chuỗi kết nối (https://…#mn-…)"><button class="sec" data-act="do-noi">Nối máy chủ</button></div><div class="pdo-bao"></div>`;
+        }
+        return;
+      }
+      el.dataset.kieu = 'noi';
+      const may = esc(doMay());
+      const tt = DO.tt === 'tu_choi' ? '<b>Mã kết nối không đúng hoặc đã bị thu hồi</b> — xin chuỗi mới ở trang đo (Mã kết nối máy vẽ), bấm Ngắt rồi nối lại.'
+        : DO.tt === 'mang' ? `<b>Không tới được máy chủ ${may}</b> — xem lại mạng rồi bấm Làm mới${DO.luc ? '; danh sách dưới là của lần hỏi trước' : ''}.`
+          : !DO.luc ? `Đang hỏi máy chủ ${may}…`
+            : `● Đã nối ${may} · ${DO.ds.length ? DO.ds.length + ' phòng đã đo' : 'chưa có phòng nào được đo'} · hỏi lúc ${gioPhut(DO.luc)}`;
+      const dong = r => {
+        const phu = [r.ct, r.nguoi ? r.nguoi + ' gửi' : '', r.sua_luc ? ngayGio(r.sua_luc) : ''].filter(Boolean).join(' · ');
+        const soAnh = r.anh.length ? `${r.anh.length} ảnh${r.anh_thieu ? ` (${r.anh_thieu} ảnh chưa lên máy chủ — điện thoại chưa gửi xong)` : ''}` : '';
+        const ghi = r.goi === 'khong' ? '<small class="canh">Phòng này gửi từ trang đo bản cũ — mở lại phòng này trên điện thoại (trang đo tự gửi lại) rồi bấm Làm mới.</small>'
+          : r.goi === 'la' ? '<small class="canh">Phòng này gửi từ trang đo bản mới hơn bảng — tải lại trang Chenfeng (F5) để bảng tự cập nhật.</small>'
+            : (r.loi.length ? `<small class="canh">Chưa vẽ ngay được: ${esc(r.loi.slice(0, 3).join(' '))}</small>` : '') + (r.bo.length ? `<small>Máy đo chưa đưa sang (mới phác / chưa đủ số): ${esc(r.bo.join(', '))}</small>` : '');
+        return `<div class="pdo-r" data-khoa="${esc(r.khoa)}"><div class="t"><b>${esc(r.ten)}</b>${r.moi ? ' <span class="moi">mới</span>' : ''}${r.xong || r.goi !== 'co' ? '' : ' <span class="dang">đang đo</span>'}${phu ? `<small>${esc(phu)}</small>` : ''}${r.tom || soAnh ? `<small>${esc([r.tom, soAnh].filter(Boolean).join(' · '))}</small>` : ''}${ghi}</div>
+<div class="n"><button class="sec mini" data-act="do-lay"${r.phong ? '' : ' disabled'} title="Đưa số đo của phòng này vào thẻ Phòng (kèm ảnh đã ghi kích thước) để xem lại — chưa vẽ gì vào bản vẽ">Lấy phòng</button><button class="sec mini" data-act="do-ve"${r.ve_duoc ? '' : ' disabled'} title="Lấy số đo rồi vẽ ngay phòng này vào bản vẽ bằng lệnh phòng của Chenfeng">Lấy &amp; vẽ</button></div></div>`;
+      };
+      el.innerHTML = `<div class="pdo-tt"><span>${tt}</span><button class="sec mini" data-act="do-moi">Làm mới</button><button class="sec mini" data-act="do-ngat" title="Thôi nối máy chủ này: xoá chuỗi kết nối khỏi máy vẽ này">Ngắt</button></div>` + DO.ds.map(dong).join('');
+    }
+    /** Hỏi máy chủ danh sách phòng đã đo. Lỗi mạng thì giữ danh sách cũ; mã bị từ chối thì bỏ danh sách (số đo nhà khách) và thôi tự hỏi lại. */
+    function doNap() {
+      if (!doNoi()) return Promise.resolve();
+      if (DO.dang) return DO.dang;
+      const luot = ++DO.luot;
+      if (DO.tt !== 'xong') DO.tt = 'dang';
+      // lần hỏi này xong thì gỡ dấu "đang hỏi" và hẹn lần kế — nhưng CHỈ khi nó còn là lần hỏi hiện hành: người dùng đã ngắt / nối lại thì dấu đó là của lần hỏi mới,
+      // lần cũ về sau mà gỡ đi là bấm Làm mới sẽ gửi chồng thêm một lời hỏi nữa
+      const dong = () => { if (DO.dang === hua) { DO.dang = null; doHen(); } };
+      const hua = (async () => {
+        let tt = 'mang', ds = null;
+        try {
+          const r = await doGoi('/phong');
+          if (r.status === 401 || r.status === 403) tt = 'tu_choi';
+          else if (r.ok) { const b = await r.json(); ds = Ph.phongDaDo(b && b.phong, doS.da_lay); tt = 'xong'; }
+        } catch (e) { tt = 'mang'; }
+        if (luot !== DO.luot) return;      // đã ngắt / nối lại trong lúc chờ: bỏ câu trả lời cũ
+        DO.tt = tt;
+        if (tt === 'xong') { DO.ds = ds; DO.luc = Date.now(); } else if (tt === 'tu_choi') DO.ds = [];
+        veDo();
+      })().then(dong, dong);
+      DO.dang = hua;
+      return hua;
+    }
+    const doDangXem = () => inCF && doNoi() && !panel.hidden && panel.dataset.tabon === 'phong' && document.visibilityState !== 'hidden';
+    /** Hẹn lần hỏi kế: chỉ khi thẻ Phòng đang mở trước mắt và mã chưa bị từ chối. */
+    function doHen() { clearTimeout(DO.hen); DO.hen = 0; if (doDangXem() && DO.tt !== 'tu_choi') DO.hen = setTimeout(safe(() => { DO.hen = 0; if (doDangXem()) doNap(); }), DO.lap); }
+    /** Thẻ Phòng vừa hiện ra (đổi thẻ, mở bảng, quay lại cửa sổ): vẽ khối; danh sách cũ quá một nhịp thì hỏi lại ngay. */
+    function doVao() {
+      if (!inCF) return;
+      veDo();
+      if (!doDangXem()) { clearTimeout(DO.hen); DO.hen = 0; return; }
+      if (DO.tt !== 'tu_choi' && Date.now() - DO.luc > Math.min(DO.lap, 5000)) doNap(); else doHen();
+    }
+    /** Kẻ lại lên ảnh đúng các nét + nhãn máy đo đã tính (toạ độ theo điểm ảnh của ảnh gốc a.w × a.h). Không kẻ được thì trả ảnh gốc. */
+    async function anhCoNet(blob, a) {
+      if (!(a.w > 0 && a.h > 0) || (!a.net.length && !a.chu.length)) return blob;
+      const url = URL.createObjectURL(blob);
+      try {
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('ảnh')); i.src = url; });
+        const c = document.createElement('canvas'); c.width = a.w; c.height = a.h;
+        const x = c.getContext('2d'); x.drawImage(img, 0, 0, a.w, a.h); x.lineCap = 'round';
+        for (const [mau, day] of [['#ffffff', a.co / 4.2], ['#e8281e', a.co / 8.5]]) { x.strokeStyle = mau; x.lineWidth = day; for (const d of a.net) { x.beginPath(); x.moveTo(d[0], d[1]); x.lineTo(d[2], d[3]); x.stroke(); } }
+        for (const t of a.chu) {
+          x.save(); x.translate(t.x, t.y); x.rotate(t.goc * Math.PI / 180); x.font = `700 ${t.co}px sans-serif`;
+          const rong = Math.max(x.measureText(t.text).width, t.co * 0.6) + t.co * 0.7, cao = t.co * 1.35;
+          x.fillStyle = '#e8281e'; x.strokeStyle = '#ffffff'; x.lineWidth = t.co / 14; x.beginPath();
+          if (x.roundRect) x.roundRect(-rong / 2, -cao / 2, rong, cao, t.co * 0.25); else x.rect(-rong / 2, -cao / 2, rong, cao);
+          x.fill(); x.stroke(); x.fillStyle = '#ffffff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t.text, 0, t.co * 0.04); x.restore();
+        }
+        return await new Promise(res => c.toBlob(b => res(b || blob), 'image/jpeg', 0.9));
+      } catch (e) { return blob; } finally { URL.revokeObjectURL(url); }
+    }
+    /** Ảnh hiện trạng của phòng vừa lấy → dãy "Ảnh hiện trạng": thay ảnh của lần lấy trước (ảnh người dùng tự kéo vào thì giữ). @returns số ảnh đã thêm */
+    async function doAnh(r) {
+      const luot = ++DO.luot_anh;
+      for (const a of anh.filter(x => x.nguon)) xoaAnh(a.id);
+      let n = 0;
+      for (const a of r.anh) {
+        if (!a.tren_may_chu) continue;
+        let tep = null;
+        try { const q = await doGoi('/anh/' + a.id); if (q.ok) tep = await anhCoNet(await q.blob(), a); } catch (e) { tep = null; }
+        if (luot !== DO.luot_anh) return n;      // người dùng đã lấy phòng khác trong lúc tải
+        if (!tep) continue;
+        const ten = `${a.mat ? 'Mặt ' + a.mat : 'Ảnh chung'} — ${r.ten}${a.ghi ? ' · ' + a.ghi : ''}`;
+        let id = null; try { id = await khoAnh.them({ blob: tep, ten, luc: Date.now(), nguon: r.khoa }); } catch (e) { /* không lưu được: chỉ giữ trong phiên này */ }
+        anh.push({ id: id === null || id === undefined ? 't' + (++soTam) : id, ten, url: URL.createObjectURL(tep), nguon: r.khoa }); n++;
+        veAnh();
+      }
+      return n;
+    }
+    /** Đưa phòng đã đo vào thẻ Phòng. Lấy lại CÙNG phòng (máy đo sửa tiếp) thì giữ khung tủ đã đánh dấu, chỗ đặt và bản ghi lần vẽ trước. */
+    function doLay(khoa, ve) {
+      const r = DO.ds.find(x => x.khoa === khoa); if (!r || !r.phong) return;
+      if (busy) return setStatus('Bảng đang vẽ — chờ xong rồi lấy phòng.');
+      const moi = clone(r.phong);
+      if (doS.nguon === khoa && phong) { const cu = Ph.chuanHoa(phong), n = moi.tuong.length; moi.khung = cu.khung.filter(k => k.tuong < n); if (cu.goc) moi.goc = cu.goc; if (cu.da_ve) moi.da_ve = cu.da_ve; }
+      phong = Ph.chuanHoa(moi); selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong();
+      doS.nguon = khoa; if (r.sua_luc > 0) doS.da_lay[khoa] = r.sua_luc; r.moi = false; luuDo(); veDo();
+      const coAnh = r.anh.filter(a => a.tren_may_chu).length;
+      setStatus(`Đã lấy phòng “${r.ten}”${r.ct ? ` (${r.ct})` : ''}${coAnh ? ` — đang tải ${coAnh} ảnh có ghi kích thước` : ''}${ve ? '' : '. Soát lại trên mặt bằng rồi bấm “Vẽ phòng vào Chenfeng”.'}`);
+      const xongAnh = doAnh(r).then(n => { if (n && !busy && !ve) setStatus(`Đã lấy phòng “${r.ten}” + ${n} ảnh có ghi kích thước. Soát lại trên mặt bằng rồi bấm “Vẽ phòng vào Chenfeng”.`); });
+      return ve && r.ve_duoc ? vePhong(false) : xongAnh;
+    }
+    if (inCF) document.addEventListener('visibilitychange', safe(() => { if (panel.dataset.tabon === 'phong') doVao(); }));
 
     /* ---- sự kiện: ô nhập ---- */
     rootEl.addEventListener('input', safe(e => {
@@ -9144,7 +9392,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (t.dataset.ui === 'file' && t.files && t.files[0]) {
         t.files[0].text().then(txt => { try { const o = JSON.parse(txt), nc = Core.nangCap(o.spec || o, o.spec ? o.mncf : undefined); spec = Core.normalize(nc.spec); renderAll(); setStatus(['Đã mở mẫu tủ.'].concat(nc.doi).join(' ')); } catch (err) { setStatus('File không đọc được.'); } t.value = ''; }).catch(() => setStatus('File không đọc được.'));
       } else if (t.dataset.ui === 'phong-file' && t.files && t.files[0]) {
-        t.files[0].text().then(txt => { const o = Ph.docMa(txt); if (o) { phong = o; selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); setStatus(`Đã mở phòng “${o.ten}”.`); } else setStatus('File không phải file phòng.'); t.value = ''; }).catch(() => setStatus('File không đọc được.'));
+        t.files[0].text().then(txt => { const o = Ph.docMa(txt); if (o) { phongKhac(); phong = o; selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); setStatus(`Đã mở phòng “${o.ten}”.`); } else setStatus('File không phải file phòng.'); t.value = ''; }).catch(() => setStatus('File không đọc được.'));
       } else if (t.dataset.ui === 'anh-file') { const fs = [...(t.files || [])]; t.value = ''; return themAnh(fs); }
       else if (t.dataset.p) { if (t.tagName === 'SELECT') phongInput(t); else if (/\.ten$/.test(t.dataset.p)) { phongStore.save(); renderPhong(); } }
       else if (t.dataset.cs) suaSoCC(t);
@@ -9164,6 +9412,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (e.key === 'Escape' && veMD) { e.preventDefault(); datVeMD(false); setStatus('Đã thôi vẽ khung trên mặt đứng.'); }
       else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ui === 'kho-tim') { e.preventDefault(); clearTimeout(tmrKho); kho.tim = String(e.target.value).trim(); kho.trang = 1; veLuoi(); }
       else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ui === 'vl-tim') { e.preventDefault(); clearTimeout(tmrVL); vl.tim = String(e.target.value).trim(); veDS(); }
+      else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ui === 'do-chuoi') { e.preventDefault(); const nut = $('[data-act="do-noi"]'); if (nut) nut.click(); }
       else if (e.key === 'Escape' && moLoai) { e.preventDefault(); moLoai = false; renderBar(); }
       // Ctrl+Z ngoài ô nhập = lùi thao tác trên hình (trong ô nhập thì để trình duyệt lùi chữ đang gõ)
       else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase() === 'z' && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) { e.preventDefault(); lui(); }
@@ -9349,10 +9598,19 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (act === 'xem-truoc' || act === 'xem-sau') return buocXem(act === 'xem-sau' ? 1 : -1);
       if (act === 'p-luu') return saveFile((Ph.chuanHoa(phong).ten || 'phong').replace(/[^\wÀ-ỹ\-]+/g, '_') + '_phong.json', JSON.stringify(Ph.chuanHoa(phong), null, 1), 'application/json', 'Đã lưu phòng — lần sau bấm “Mở phòng” để dùng lại.');
       if (act === 'p-mo') return $('[data-ui="phong-file"]').click();
-      if (act === 'p-mau') { phong = Ph.macDinh(); selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); return setStatus('Đã về phòng mẫu 3600 × 3000.'); }
+      if (act === 'p-mau') { phongKhac(); phong = Ph.macDinh(); selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); return setStatus('Đã về phòng mẫu 3600 × 3000.'); }
+      if (act === 'do-noi') {
+        const o = $('[data-ui="do-chuoi"]'), bao = $('.pdo-bao'), k = Ph.docKetNoi(o ? o.value : '');
+        if (k.loi) { if (bao) bao.innerHTML = `<div class="msg err">${esc(k.loi)}</div>`; return; }
+        doS.goc = k.goc; doS.ma = k.ma; doS.da_lay = {}; luuDo(); DO.ds = []; DO.luc = 0; DO.tt = 'dang'; DO.luot++; DO.dang = null; veDo();
+        return doNap();
+      }
+      if (act === 'do-ngat') { doS.goc = ''; doS.ma = ''; doS.da_lay = {}; doS.nguon = ''; luuDo(); DO.ds = []; DO.luc = 0; DO.tt = 'chua'; DO.luot++; DO.dang = null; clearTimeout(DO.hen); DO.hen = 0; veDo(); return setStatus('Đã ngắt máy chủ đo — chuỗi kết nối đã xoá khỏi máy này.'); }
+      if (act === 'do-moi') { if (DO.tt === 'tu_choi') DO.tt = 'dang'; DO.luc = DO.tt === 'xong' ? DO.luc : 0; veDo(); return doNap(); }
+      if (act === 'do-lay' || act === 'do-ve') { const d = b.closest('.pdo-r'); return d ? doLay(d.dataset.khoa, act === 'do-ve') : undefined; }
       if (act === 'p-dan') { const d = $('.pdan'); d.hidden = !d.hidden; if (!d.hidden) $('.pma').focus(); return; }
       if (act === 'p-dan-huy') { $('.pdan').hidden = true; return; }
-      if (act === 'p-dan-ok') { const o = Ph.docMa($('.pma').value); if (!o) return setStatus('Không đọc được mã phòng — mã phải là JSON có danh sách "tuong".'); phong = o; selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); $('.pdan').hidden = true; $('.pma').value = ''; return setStatus(`Đã dùng mã phòng “${o.ten}” — soát lại từng số trên mặt bằng.`); }
+      if (act === 'p-dan-ok') { const o = Ph.docMa($('.pma').value); if (!o) return setStatus('Không đọc được mã phòng — mã phải là JSON có danh sách "tuong".'); phongKhac(); phong = o; selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); $('.pdan').hidden = true; $('.pma').value = ''; return setStatus(`Đã dùng mã phòng “${o.ten}” — soát lại từng số trên mặt bằng.`); }
       if (act === 'p-chep') { const txt = JSON.stringify(Ph.chuanHoa(phong)); const xong = () => setStatus('Đã chép mã phòng.'), hong = () => { const d = $('.pdan'); d.hidden = false; $('.pma').value = txt; $('.pma').focus(); $('.pma').select(); setStatus('Không chép tự động được — mã nằm trong ô bên dưới, bấm Ctrl+C.'); }; try { return root.navigator.clipboard.writeText(txt).then(xong, hong); } catch (err) { return hong(); } }
       if (act === 'close') close();
       else if (act === 'lui') lui();
@@ -9427,8 +9685,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
 
     return { host, open, close, toggle: () => (panel.hidden ? open() : close()), getSpec: () => clone(spec), setSpec: s => { spec = Core.normalize(s); renderAll(); return clone(spec); }, getModel: () => model, draw, switchTab, rebuild: () => rebuild(),
       // thẻ Phòng — cũng là chỗ để app hiện trạng (sx.motnha.vn) nối vào sau: đặt phòng, thêm ảnh
-      getPhong: () => (Ph ? Ph.chuanHoa(phong) : null), setPhong: p => { if (!Ph) return null; const o = Ph.docMa(p); if (!o) return null; phong = o; selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); return Ph.chuanHoa(phong); },
-      themAnh: files => themAnh(files), moKhung, veKhung, chuanHoa };
+      getPhong: () => (Ph ? Ph.chuanHoa(phong) : null), setPhong: p => { if (!Ph) return null; const o = Ph.docMa(p); if (!o) return null; phongKhac(); phong = o; selTuong = 0; selKhung = -1; gocKhac.clear(); phongStore.save(); renderPhong(); return Ph.chuanHoa(phong); },
+      themAnh: files => themAnh(files), moKhung, veKhung, chuanHoa,
+      // phòng đã đo (bản 1.24): nhịp tự hỏi lại máy chủ — phép thử chỉnh cho nhanh
+      datDo: o => { if (o && Number(o.lap) >= 100) { DO.lap = Number(o.lap); doVao(); } return { lap: DO.lap }; } };
   }
 
   /* ---- khởi động ---- */
