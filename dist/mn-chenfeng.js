@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.27.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.28.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.27.0';
+  const VERSION = '1.28.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -88,6 +88,8 @@
     //   xa_cao  = cao xà ngang (ván đứng) đặt SAU khe trên mỗi mặt ngăn kéo: xà trên sát mặt dưới đợt + xà giữa 2 ngăn; 0 = không làm xà
     //   xa_ho   = mặt trước xà cách lưng mặt ngăn kéo (chỗ luồn tay vào cạnh vát)
     //   nep_khe = 1: có nẹp đứng che khe giữa hồi/vách và vách đệm, ngang mặt ngăn kéo (bắn đinh); 0 = để hở
+    //   Bản 1.28 (anh Thanh 06/10/2026: "đang lộ hồi tấm rất xấu phải có xà che" — chọn kiểu B): nẹp rộng ra che LUÔN cạnh trước của vách đệm (rộng = dem, mặt nẹp phẳng mặt ngăn kéo),
+    //   vách đệm lùi ra sau nẹp (mép trước = lưng mặt ngăn kéo). Mặt trước chỉ còn: cạnh hồi · nẹp · khe · mặt ngăn kéo. nep_khe = 0 thì vách đệm vẫn ra ngang mặt ngăn kéo như cũ.
     ngan_keo: {
       lui: 30, dem: 50, khe_tren: 22.5, khe_giua: 22, khe_duoi: 2, khe_ben: 2, buoc_sau: 50, ho_sau: 5, xa_cao: 60, xa_ho: 2, nep_khe: 1,
       mac_dinh: 'bi_mong',       // loại dùng cho ô không chọn loại
@@ -838,9 +840,11 @@
         if (L < 300) { err(`Khoang ${i + 1}: quá hẹp cho ngăn kéo âm — sau khi trừ vách đệm tránh bản lề chỉ còn ${g(L)} (cần ≥ 300).`); continue; }
         if (k.canh > 0 && !dem) warn(`Khoang ${i + 1}: ngăn kéo âm chạy sát hồi/vách có bản lề (vách đệm = 0) — ngăn kéo sẽ vướng bản lề khi kéo ra.`);
         else if (k.canh > 0 && dem - t < 25) warn(`Khoang ${i + 1}: khe cho bản lề giữa hồi/vách và vách đệm chỉ ${g(dem - t)} (< 25) — dễ cấn tay bản lề.`);
+        // có nẹp che (bản 1.28): vách đệm bắt đầu ngay sau lưng nẹp — nẹp che kín cạnh trước của nó
+        const coNep = !!nk.nep_khe && dem > 0, yDem = coNep ? nk.lui : nk.lui - t;
         if (dem > 0) {
-          if (demL) P({ loai: 'DEM', ten: NM.dem, than: c.than, tu: c.b.tu, type: 1, x0: x0 - t, x1: x0, y0: nk.lui - t, y1: shelfDepth, z0: za, z1: zb, big: 1, khoang: i });
-          if (demR) P({ loai: 'DEM', ten: NM.dem, than: c.than, tu: c.b.tu, type: 1, x0: x0 + L, x1: x0 + L + t, y0: nk.lui - t, y1: shelfDepth, z0: za, z1: zb, big: 0, khoang: i });
+          if (demL) P({ loai: 'DEM', ten: NM.dem, than: c.than, tu: c.b.tu, type: 1, x0: x0 - t, x1: x0, y0: yDem, y1: shelfDepth, z0: za, z1: zb, big: 1, khoang: i });
+          if (demR) P({ loai: 'DEM', ten: NM.dem, than: c.than, tu: c.b.tu, type: 1, x0: x0 + L, x1: x0 + L + t, y0: yDem, y1: shelfDepth, z0: za, z1: zb, big: 0, khoang: i });
           if (demL || demR) {
             // Đầu vách đệm tì lên mặt dưới của đợt phía trên, đè đúng chỗ lỗ cam của đợt (cam cách đầu đợt 34, vách đệm cách hồi/vách `dem − dày ván`):
             // cam ở mặt dưới sẽ không vặn được → đưa cam của đợt đó lên mặt trên. (Đáy thì cam ở mặt dưới, vách đệm đứng ở mặt trên nên không vướng.)
@@ -880,11 +884,11 @@
           if (ya + t > shelfDepth) err(`${viTri}: thùng quá nông, không đủ chỗ đặt xà ngăn kéo.`);
           if (thieu) note(`${viTri}: ${thieu} khe mặt ngăn kéo không đủ chỗ đặt xà (loại "${lo.ten}": theo tham số mẫu, hộp ngăn kéo cao gần bằng mặt) — khe đó để hở. Muốn có xà: tăng khe hoặc khai SLK / XLK của loại này ở Chuẩn xưởng.`);
         }
-        // Nẹp che khe: ván đứng ngang mặt ngăn kéo, bịt khe giữa hồi/vách và vách đệm (hẹp nên bắn đinh, không khoan cam).
-        if (nk.nep_khe && dem - t >= 10) {
+        // Nẹp che khe: ván đứng ngang mặt ngăn kéo, che từ hồi/vách tới mép trong vách đệm — bịt khe bản lề VÀ cạnh trước vách đệm (hẹp nên bắn đinh, không khoan cam).
+        if (coNep) {
           const nep = (xa, xb) => P({ loai: 'NEP', ten: NM.nep, than: c.than, tu: c.b.tu, type: 2, x0: xa, x1: xb, y0: nk.lui - t, y1: nk.lui, z0: za, z1: zb, big: 0, fd: false, bd: false, khoan: KHONG_KHOAN, khoang: i });
-          if (demL) nep(bayX(i), x0 - t);
-          if (demR) nep(x0 + L + t, bayX(i) + widths[i]);
+          if (demL) nep(bayX(i), x0);
+          if (demR) nep(x0 + L, bayX(i) + widths[i]);
           if ((demL || demR) && k.canh > 0) note(`${viTri}: có nẹp che khe hai bên hộc ngăn kéo — bản lề của cánh KHÔNG đặt trong khoảng cao độ +${g(za)} … +${g(zb)} (đặt ngay trên đợt nóc hộc kéo), nếu không tay bản lề sẽ cấn vào nẹp.`);
         }
         continue;
@@ -1932,6 +1936,21 @@
         }
         o += `<rect data-vach="${i}" x="${f(a - px)}" y="${f(Y(zt))}" width="${f(b - a + 2 * px)}" height="${f(zt - zb)}" fill="${acc}" fill-opacity="0" style="cursor:ew-resize;touch-action:none"><title>Vách giữa khoang ${i} và ${i + 1} — kéo sang trái / phải để chia lại khoang</title></rect>`;
       }
+      // PHÀO (bản 1.28 — anh Thanh 06/10/2026: "chọn trên ảnh thêm phào sửa phào luôn cho nhanh"): bấm vào phào để sửa / bỏ; mép nào chưa có phào thì có dải "+ phào" nét đứt ngay ngoài mép đó
+      const TEN_PHAO = { trai: 'trái', phai: 'phải', tren: 'trên' };
+      for (const ben of ['trai', 'phai', 'tren']) {
+        const on = !!(ch && ch.loai === 'phao' && ch.ben === ben), ds = M.parts.filter(p => p.loai === 'PHAO' && benPhao(p, s) === ben);
+        const tieu = `<title>Phào ${TEN_PHAO[ben]}${ds.length ? ` rộng ${g(s.phao[ben])} — bấm để sửa / bỏ` : ' — chưa có, bấm để thêm'}</title>`;
+        if (ds.length) {
+          for (const p of ds) o += `<rect data-phao="${ben}" x="${f(p.x0)}" y="${f(Y(p.z1))}" width="${f(p.x1 - p.x0)}" height="${f(p.z1 - p.z0)}" fill="${acc}" fill-opacity="${on ? '.28' : '0'}"${on ? ` stroke="${acc}" stroke-width="${f(fs / 5)}"` : ''} style="cursor:pointer">${tieu}</rect>`;
+        } else {
+          const d = fs * 1.3, z0 = s.chan.cao;
+          const r = ben === 'tren' ? [0, Y(H) - d - fs * 0.3, W, d] : [ben === 'trai' ? -d - fs * 0.3 : W + fs * 0.3, Y(H), d, H - z0];
+          o += `<rect data-phao="${ben}" x="${f(r[0])}" y="${f(r[1])}" width="${f(r[2])}" height="${f(r[3])}" fill="${on ? acc : '#fff'}" fill-opacity="${on ? '.2' : '.6'}" stroke="${acc}" stroke-width="${f(fs / 9)}" stroke-dasharray="${f(fs * 0.5)} ${f(fs * 0.35)}" style="cursor:pointer">${tieu}</rect>`;
+          const cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2;
+          o += `<text x="${f(cx)}" y="${f(cy + fs * 0.35)}" font-size="${f(fs * 0.9)}" text-anchor="middle" fill="${acc}" font-weight="700" pointer-events="none"${ben === 'tren' ? '' : ` transform="rotate(-90 ${f(cx)} ${f(cy)})"`}>+ phào</text>`;
+        }
+      }
     }
     if (opts.kich_thuoc) {
       const dim = (x1, y1, x2, y2, txt, side) => {
@@ -1976,11 +1995,127 @@
           const chu = giua ? (k.co_a && k.co_b ? 'khoang nông trước cột' : k.co_a || k.co_b ? '1 vách sẵn + 1 vách khấu' : '2 vách khấu') : (k.vach_co_san ? 'vách làm vách khấu' : 'vách khấu');
           if (giua) o += `<text x="${f((k.xa + k.xb) / 2)}" y="${f(Yp(k.sau_thung) + fs * 1.25)}" font-size="${f(fs * 0.85)}" text-anchor="middle" fill="${mauK}">${chu} · sâu ${g(k.sau_thung)}</text>`;
           else { const trai = k.ben !== 'phai'; o += `<text x="${f(trai ? k.x + s.van.t + fs * 0.5 : k.x - s.van.t - fs * 0.5)}" y="${f(Yp((k.sau_thung + Dk) / 2) + fs * 0.35)}" font-size="${f(fs * 0.85)}" text-anchor="${trai ? 'start' : 'end'}" fill="${mauK}">${chu} · thùng trước cột sâu ${g(k.sau_thung)}</text>`; }
+          // (bản 1.28) bấm vào cột để bỏ khấu — data-cot = "x0:x1" của cây cột (giao diện tìm cột trong thông số theo khoảng này)
+          if (opts.tuong_tac) {
+            const ch = opts.chon, on = !!(ch && ch.loai === 'cot' && Math.abs(ch.x0 - c.x0) < 0.6 && Math.abs(ch.x1 - c.x1) < 0.6), acc = '#1c5fb8';
+            o += `<rect data-cot="${f(c.x0)}:${f(c.x1)}" x="${f(c.x0)}" y="${f(Yp(Dk))}" width="${f(rong)}" height="${f(c.sau)}" fill="${acc}" fill-opacity="${on ? '.25' : '0'}"${on ? ` stroke="${acc}" stroke-width="${f(fs / 5)}"` : ''} style="cursor:pointer"><title>Cột ${g(rong)}×${g(c.sau)} — bấm để bỏ khấu cột này</title></rect>`;
+          }
         });
       }
     }
     return o + '</svg>';
   }
+  /** Phào nằm ở mép nào của tủ: 'trai' | 'phai' | 'tren' (theo chỗ của tấm — tên tấm có thể đã dịch). */
+  function benPhao(p, s) {
+    const W = s.rong, e = 0.6;
+    if (p.x1 <= s.phao.trai + e && p.x0 <= e) return 'trai';
+    if (p.x0 >= W - s.phao.phai - e && p.x1 >= W - e) return 'phai';
+    return 'tren';
+  }
+
+  /**
+   * HÌNH 3D của tủ (bản 1.27.1 — anh Thanh 06/10/2026: "hình minh họa có 3d"): mỗi tấm là một hộp vuông trục, chiếu song song theo góc nhìn
+   * az (độ, 0 = nhìn thẳng mặt cánh, dương = vòng sang bên PHẢI tủ) / el (độ, nhìn từ trên xuống). Hộp xa vẽ trước, hộp gần vẽ sau: hai hộp có hình chồng nhau
+   * thì xếp theo mặt phẳng tách chúng (hộp nằm phía khuất của mặt phẳng đó vẽ trước) — xếp theo tâm hộp sai với tấm mỏng dài (hậu, đợt).
+   * opts: { az, el, canh (vẽ cánh, nửa trong), rong_px, cao_px, tuong_tac (vùng bấm: data-phao = trai | phai | tren trên phào, data-cot = "x0:x1" trên cột) }.
+   * Cột của khấu cột (M.info.khau) vẽ thành khối xám mờ sau lưng tủ. Chạy được trong Node (không đụng DOM).
+   */
+  function hinh3D(M, opts) {
+    opts = Object.assign({ az: 30, el: 22, canh: true, rong_px: 640 }, opts || {});
+    const s = M.spec, rad = Math.PI / 180, az = Math.max(-89, Math.min(89, +opts.az || 0)) * rad, el = Math.max(0, Math.min(80, +opts.el || 0)) * rad;
+    // hướng từ cảnh về phía người nhìn (mặt cánh ở phía y âm), trục ngang và trục đứng của màn hình
+    const d = [Math.sin(az) * Math.cos(el), -Math.cos(az) * Math.cos(el), Math.sin(el)];
+    const r = [Math.cos(az), Math.sin(az), 0], u = [-Math.sin(az) * Math.sin(el), Math.cos(az) * Math.sin(el), Math.cos(el)];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const hop = [];      // { b: [x0,y0,z0,x1,y1,z1], mau, op, attr }
+    const them = (b, mau, op, attr) => { if (b[3] - b[0] > 0.01 && b[4] - b[1] > 0.01 && b[5] - b[2] > 0.01) hop.push({ b, mau, op: op == null ? 1 : op, attr: attr || '' }); };
+    for (const p of M.parts) {
+      if (p.loai === 'CANH' && !opts.canh) continue;
+      const attr = opts.tuong_tac && p.loai === 'PHAO' ? ` data-phao="${benPhao(p, s)}" style="cursor:pointer"` : '';
+      them([p.x0, p.y0, p.z0, p.x1, p.y1, p.z1], MAU[p.loai] || '#ccc', p.loai === 'CANH' ? 0.45 : p.loai === 'HAU' ? 0.9 : 1, attr);
+    }
+    for (const q of M.mat_ngan_keo || []) {
+      if (q.trum && !opts.canh) { /* mặt trùm nằm ở mặt phẳng cánh: vẫn vẽ như hình đứng */ }
+      const y0 = q.y != null ? q.y : (q.trum ? -(q.t || 18) : 0);
+      them([q.x, y0, q.z, q.x + q.w, y0 + (q.t || 18), q.z + q.h], q.trum ? MAU.CHAN : '#d9eed5', 1, '');
+    }
+    for (const tp of M.templates || []) if (tp.loai === 'SUOT') {
+      const z = tp.pos[2] + tp.box[2] - s.suot.cach_dot - 15, yc = tp.pos[1] + tp.box[1] / 2;
+      them([tp.pos[0] + 8, yc - 8, z - 8, tp.pos[0] + tp.box[0] - 8, yc + 8, z + 8], '#59616b', 1, '');
+    }
+    const D = s.sau_thung;
+    for (const k of (M.info && M.info.khau) || []) {
+      const c = k.cot; if (!c) continue;
+      them([c.x0, D - c.sau, 0, c.x1, D, s.cao], '#8d949c', 0.5, opts.tuong_tac ? ` data-cot="${rn(c.x0, 1)}:${rn(c.x1, 1)}" style="cursor:pointer"` : '');
+    }
+    // mặt hướng về người nhìn của từng hộp
+    const MAT = [[0, -1, 'x0'], [0, 1, 'x1'], [1, -1, 'y0'], [1, 1, 'y1'], [2, -1, 'z0'], [2, 1, 'z1']];
+    const dinh = (b, k, mat) => {
+      const v = mat > 0 ? b[k + 3] : b[k], a = (k + 1) % 3, c = (k + 2) % 3, out = [];
+      for (const [i, j] of [[0, 0], [1, 0], [1, 1], [0, 1]]) { const p = [0, 0, 0]; p[k] = v; p[a] = i ? b[a + 3] : b[a]; p[c] = j ? b[c + 3] : b[c]; out.push(p); }
+      return out;
+    };
+    const chieu = p => [dot(p, r), -dot(p, u)];
+    hop.forEach(h => {
+      const c = [0, 1, 2].map(k => (h.b[k] + h.b[k + 3]) / 2);
+      h.sau = dot(c, d);
+      const goc = []; for (let i = 0; i < 8; i++) goc.push(chieu([h.b[(i & 1) ? 3 : 0], h.b[(i & 2) ? 4 : 1], h.b[(i & 4) ? 5 : 2]]));
+      h.k = [Math.min(...goc.map(q => q[0])), Math.min(...goc.map(q => q[1])), Math.max(...goc.map(q => q[0])), Math.max(...goc.map(q => q[1]))];
+    });
+    // a vẽ trước b? (1 = a ở xa hơn, -1 = a ở gần hơn, 0 = không xét). Hai hộp tách nhau theo trục k: hộp nằm phía người nhìn của mặt tách thì gần hơn.
+    const e = 0.5;
+    const truoc = (A, B) => {
+      let tot = 0, chon = 0;
+      for (let k = 0; k < 3; k++) {
+        if (Math.abs(d[k]) < 1e-9) continue;
+        let v = 0;
+        if (A.b[k + 3] <= B.b[k] + e) v = d[k] > 0 ? 1 : -1;
+        else if (B.b[k + 3] <= A.b[k] + e) v = d[k] > 0 ? -1 : 1;
+        if (v && Math.abs(d[k]) > tot) { tot = Math.abs(d[k]); chon = v; }
+      }
+      return chon;
+    };
+    const n = hop.length, sauHon = hop.map(() => []), vao = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const A = hop[i], B = hop[j];
+      if (A.k[2] <= B.k[0] || B.k[2] <= A.k[0] || A.k[3] <= B.k[1] || B.k[3] <= A.k[1]) continue;      // hình không chồng nhau: thứ tự nào cũng được
+      const v = truoc(A, B);
+      if (v > 0) { sauHon[i].push(j); vao[j]++; } else if (v < 0) { sauHon[j].push(i); vao[i]++; }
+    }
+    // xếp theo các quan hệ trên; còn lại / vòng lặp thì theo tâm hộp (xa trước)
+    const xep = [], xong = new Array(n).fill(false);
+    while (xep.length < n) {
+      let pick = -1;
+      for (let i = 0; i < n; i++) if (!xong[i] && vao[i] === 0 && (pick < 0 || hop[i].sau < hop[pick].sau)) pick = i;
+      if (pick < 0) for (let i = 0; i < n; i++) if (!xong[i] && (pick < 0 || hop[i].sau < hop[pick].sau)) pick = i;
+      xong[pick] = true; xep.push(pick);
+      for (const j of sauHon[pick]) vao[j]--;
+    }
+    // khung hình
+    const tatCa = hop.length ? hop.map(h => h.k) : [[0, 0, 1, 1]];
+    const x0 = Math.min(...tatCa.map(q => q[0])), y0 = Math.min(...tatCa.map(q => q[1])), x1 = Math.max(...tatCa.map(q => q[2])), y1 = Math.max(...tatCa.map(q => q[3]));
+    const m = Math.max(x1 - x0, y1 - y0) * 0.05 + 20, vb = [x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m];
+    const rongPx = rn(opts.cao_px > 0 ? Math.min(opts.rong_px, opts.cao_px * vb[2] / vb[3]) : opts.rong_px, 1), f = v => rn(v, 1);
+    const sw = f(Math.max(vb[2], vb[3]) / 900);
+    // sáng tối theo hướng mặt: mặt trên sáng nhất, mặt bên tối hơn
+    const sang = (hex, k) => { const v = parseInt(hex.slice(1), 16), c = [v >> 16, (v >> 8) & 255, v & 255].map(x => Math.max(0, Math.min(255, Math.round(x * k)))); return '#' + c.map(x => x.toString(16).padStart(2, '0')).join(''); };
+    let o = `<svg xmlns="http://www.w3.org/2000/svg" data-3d="1" viewBox="${vb.map(f).join(' ')}" width="${rongPx}" style="max-width:100%;height:auto;touch-action:none;cursor:grab;font-family:system-ui,Segoe UI,Arial,sans-serif" role="img" aria-label="Hình 3D ${esc(s.ten)}">`;
+    o += `<rect x="${f(vb[0])}" y="${f(vb[1])}" width="${f(vb[2])}" height="${f(vb[3])}" fill="#fbfaf7"/>`;
+    for (const i of xep) {
+      const h = hop[i];
+      let g2 = `<g${h.attr}${h.op < 1 ? ` fill-opacity="${h.op}"` : ''}>`;
+      for (const [k, mat] of MAT) {
+        const nn = [0, 0, 0]; nn[k] = mat;
+        if (dot(nn, d) <= 1e-9) continue;
+        const pts = dinh(h.b, k, mat).map(chieu);
+        const ksang = k === 2 ? 1.08 : k === 1 ? 1 : 0.86;
+        g2 += `<polygon points="${pts.map(q => f(q[0]) + ',' + f(q[1])).join(' ')}" fill="${sang(h.mau, ksang)}" stroke="#39424a" stroke-width="${sw}" stroke-opacity=".55" stroke-linejoin="round"/>`;
+      }
+      o += g2 + '</g>';
+    }
+    return o + '</svg>';
+  }
+
   function esc(v) { return String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   /* ------------------------------------------------------------------ *
@@ -2153,7 +2288,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, hinh3D, benPhao };
 });
 
 /*!
@@ -7968,7 +8103,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f
     <div class="pane" data-pane="tu">${inCF ? '' : '<p class="hint">Mở lần đầu là <b>tủ mẫu</b> (tủ áo 3000 × 2800, 3 khoang). Nhập kích thước, rồi <b>kéo đợt ngay trên hình</b> và bấm vào từng ô để đặt ngăn kéo, suốt treo — cảnh báo và bảng kê tự cập nhật.</p>'}<div class="split">
       <fieldset class="dims"><legend>Kích thước phủ bì (mm)</legend><div class="g g3">${numField('rong', 'Rộng (kể cả phào)')}${numField('cao', 'Cao (kể cả phào)')}${numField('sau_thung', 'Sâu thùng (chưa cánh)')}</div></fieldset>
       <div class="colv">
-        <div class="vtools"><label class="row"><input type="checkbox" id="mncf-ui-doors" data-ui="doors" checked> Hiện cánh</label><button class="sec mini" data-act="them-vach" aria-pressed="false" title="Bật rồi bấm vào chỗ bất kỳ trong tủ trên hình: thêm một vách đứng (hồi giữa) tại đó, khoang được chia đôi. Bấm lại nút hoặc Esc để thôi.">＋ Vách</button><button class="sec mini" data-act="lui" disabled title="Lùi lại thao tác vừa làm trên hình (Ctrl+Z)">↶ Lùi</button><span class="hint" style="margin:0 0 0 auto">Hình đứng — kéo thả trực tiếp</span></div>
+        <div class="vtools"><label class="row"><input type="checkbox" id="mncf-ui-doors" data-ui="doors" checked> Hiện cánh</label><button class="sec mini" data-act="them-vach" aria-pressed="false" title="Bật rồi bấm vào chỗ bất kỳ trong tủ trên hình: thêm một vách đứng (hồi giữa) tại đó, khoang được chia đôi. Bấm lại nút hoặc Esc để thôi.">＋ Vách</button><button class="sec mini" data-act="lui" disabled title="Lùi lại thao tác vừa làm trên hình (Ctrl+Z)">↶ Lùi</button><button class="sec mini" data-act="xem-3d" aria-pressed="false" title="Xem tủ dạng 3D — kéo trên hình (hoặc phím ← → ↑ ↓) để xoay; bấm vào phào / cột trên hình 3D để sửa. Bấm lại để về hình đứng.">3D</button><span class="hint" data-ui="vhint" style="margin:0 0 0 auto">Hình đứng — kéo thả trực tiếp · bấm phào / cột để sửa</span></div>
         <div class="view" tabindex="0" role="group" aria-label="Hình đứng của tủ. Kéo đợt để chia ô, bấm vào ô để đặt ngăn kéo hoặc suốt treo. Bàn phím: phím mũi tên để chọn ô."></div>
         <div class="edbar"></div><div class="edprobe" aria-hidden="true"></div>
         <div class="legend" title="Màu theo loại tấm, giống khung nhìn của Chenfeng">${Core.MAU_CHU_GIAI.map(([t, c]) => `<span><i style="background:${c}"></i>${esc(t)}</span>`).join('')}</div>
@@ -8093,6 +8228,7 @@ ${cf && Ph && Ph.hinhThanhKhung ? '<li><b>Tủ theo hình vẽ trên mặt bằn
 ${Ph && Ph.chiaKhung ? `<li><b>Vách tivi, đầu giường: chia ô trên mặt đứng + mẫu kho Chenfeng</b> — bản 1.19: ở thẻ <b>Phòng</b>, mỗi <b>khung</b> là một ô trên mặt tường. Tạo ô bằng <b>+ Thêm khung</b>, hoặc bật <b>＋ Vẽ khung trên mặt đứng</b> rồi kéo chuột ngay trên mặt đứng; ở thẻ của khung bấm <b>Chia khung thành N ô</b> (cạnh nhau / chồng lên nhau). <b>Bấm vào số của ô trên mặt đứng</b> (rộng, cao, sâu, cách trái, đáy) để gõ lại — sửa rộng / cao thì ô kề tự nhận phần bù, không hở không chồng. Mỗi ô chọn <b>Đặt gì vào khung</b>: <b>Tủ tự chia khoang</b> (mở ở thẻ Tủ như trước; ô treo thì tủ không chân) hoặc <b>Mẫu kho Chenfeng</b>.${cf ? ' Với mẫu kho: bấm <b>Chọn mẫu kho…</b> → thẻ <b>Kho mẫu</b> hiện mẫu của tài khoản kèm hình (nhóm nhanh Tủ tivi, Tủ áo, Tủ giày…; chọn thư mục; tìm theo tên) → bấm mẫu → <b>Dùng mẫu này cho khung</b> → về thẻ Phòng bấm <b>Vẽ mẫu vào khung</b>: mẫu được dựng đúng rộng × sâu × cao của ô, quay lưng vào tường, đúng cao độ đáy. Không cần khung cũng được: ở thẻ <b>Kho mẫu</b> chọn mẫu, gõ kích thước rồi bấm <b>Đặt bằng chuột</b> (bấm chân tường → rê → bấm điểm cuối / gõ rộng / Enter) hoặc <b>Vẽ tại 1 điểm bấm</b>. Bảng tự làm thêm: đổi kiểu khoan của cửa hàng (三合一…) sang kiểu khoan của xưởng rồi khoan lại; ô <b>Theo chuẩn xưởng</b> (ván 17,5 + hậu mỏng phủ sau — mẫu nào kết cấu lạ thì giữ nguyên và báo); ô <b>Tên tấm tiếng Việt</b>; mẫu có cánh phủ ngoài thùng thì chỉnh W để cả cánh nằm gọn trong chiều sâu ô. Mẫu vào bản vẽ vẫn là <b>module của Chenfeng</b> — đổi L / W / H và các tham số riêng ở ô Thông số. Mẫu nào không co giãn theo kích thước thì bảng báo rõ cần / thực tế. Thẻ Kết quả có nút <b>Hoàn tác lần vẽ này</b>.' : ' Chọn mẫu trong kho và vẽ vào khung làm trong Chenfeng (bảng tiện ích); ở trang này anh chia ô, đặt kích thước trước rồi “Lưu phòng” / “Chép mã” mang sang.'}</li>` : ''}
 ${Ph && Ph.keoKhung ? '<li><b>Dời, đổi cỡ khung ngay trên mặt đứng</b> — bản 1.25: ở thẻ <b>Phòng</b>, <b>nắm khung kéo</b> là dời, <b>nắm mép / góc kéo</b> là đổi cỡ (con trỏ đổi hình báo trước sẽ làm gì). Mép khung tới gần mép tường, sàn, trần, mép cửa, cột, dầm hay mép khung khác thì <b>tự bám</b> vào đó — có vạch hồng báo chỗ bám; không gần gì thì số bắt chẵn 10; giữ <b>Alt</b> = kéo tự do. Kéo mép chung của hai ô đã chia thì ô kề co giãn theo, không hở không chồng. Esc lúc đang kéo = thôi. Nút <b>↶ Lùi</b> (Ctrl + Z) trả lại từng bước sửa ở thẻ Phòng — dời, đổi cỡ, thêm, xoá khung, sửa số đo — nhưng không lùi qua lần đã vẽ vào Chenfeng (cái đó dùng nút Hoàn tác của lần vẽ). <b>＋ Vẽ khung trên mặt đứng</b> vẽ xong một khung là tự tắt, kéo tiếp trên hình là dời khung.</li>' : ''}
 ${Ph && Ph.keoKhung ? `<li><b>Ô chọn của khung</b> — bản 1.25.1: vẽ xong một khung (hoặc bấm vào một khung trên mặt bằng / mặt đứng) thì <b>ngay dưới mặt đứng</b> hiện ô chọn của khung đó: chọn <b>Tủ tự chia khoang</b> (kèm ruột tủ) hoặc <b>Mẫu kho Chenfeng</b>${cf ? ' (bấm <b>Chọn mẫu kho…</b>) rồi bấm <b>Vẽ vào Chenfeng</b> — không phải cuộn xuống tìm thẻ của khung' : ''}. Có luôn <b>Mở thành tủ</b>, <b>Xoá khung</b>; ✕ hoặc Esc để đóng. Thẻ đầy đủ của từng khung (tên, số đo, chia ô) vẫn ở cuối thẻ Phòng.</li>` : ''}
+<li><b>Sửa ngay trên hình, hình 3D</b> — bản 1.28: <b>bấm phào</b> trên hình để sửa bề rộng / bỏ phào (mép chưa có phào có dải <b>+ phào</b> để thêm); <b>bấm cột</b> ở hình nhìn từ trên xuống → <b>Bỏ cột này</b>. Nút <b>3D</b> trên hình: kéo để xoay. Phím Delete bỏ phào / cột đang chọn, <b>↶ Lùi</b> lấy lại. Đặt tủ ở chỗ không có cột, <b>Về tủ mẫu</b>, <b>Dùng mẫu</b> → tủ không mang khấu cột của chỗ cũ.</li>
 <li><b>Bảng ít chữ, ít nút</b> — bản 1.27: chữ hướng dẫn, chú giải màu, dòng mô tả tủ <b>ẩn sẵn</b>; dòng báo dài thu còn 2 dòng — <b>bấm vào dòng báo</b> để xem hết. Nút <b>?</b> ở góc trên hiện lại đủ chữ (máy nhớ). Thẻ ít dùng (${cf ? 'Màu, ' : ''}Chuẩn xưởng, Hướng dẫn${cf ? ', Đo mạng' : ''}) nằm sau nút <b>⚙</b>.${cf ? ' <b>Đo mạng</b>: hỏi máy chủ Chenfeng 20 lần (khoảng 15 giây) rồi báo <b>tốt / tạm được / kém</b> và mấy lần bị chậm hoặc rớt; đổi đường mạng / VPN rồi đo lại — dòng báo ghi luôn kết quả lần trước để so.' : ''}</li>
 ${cf ? '<li><b>Hàng nút cuối thẻ Tủ</b> — bản 1.27: cạnh nút <b>Vẽ vào Chenfeng</b> chỉ còn <b>Tường</b> = đặt tủ theo tường · <b>Chuột</b> = đặt tủ bằng chuột · <b>Hình</b> = tủ theo hình đang chọn trên mặt bằng · <b>Sửa tủ</b> = sửa tủ đang chọn · <b>⋯ Khác</b> = mở hàng nút ít dùng (<b>Chuẩn hoá</b> mẫu kho đang chọn, JSON, CSV, Lưu, Mở, đặt theo toạ độ). Nút <b>Cập nhật</b> (cập nhật tủ này trên bản vẽ) tự hiện cạnh nút Vẽ khi bảng đang nối với một tủ. Rê chuột vào nút nào thì dòng ngay trên hàng nút ghi tên đầy đủ và cách dùng.</li>' : ''}
 ${Ph && Ph.LOAI_DN ? `<li><b>Điện – nước hiện trạng</b> — bản 1.18: thẻ <b>Phòng</b> → khung <b>Điện – nước</b>: bấm <b>+ Ổ điện / + Công tắc / + Cấp nước / + Thoát nước / + Thoát sàn / + Ống chờ sàn / + Điểm khác</b> (điểm nằm trên tường đang chọn) rồi gõ <b>cách trái</b> (từ đầu trái tường tới tâm điểm) và <b>cao tâm</b> (từ sàn); điểm dưới sàn thì gõ <b>cách tường</b>. Điểm hiện ngay trên mặt bằng và mặt đứng — bấm vào số trên mặt đứng để sửa, bấm vào dấu trên mặt bằng để tới dòng của nó. Khung đặt tủ che điểm nào thì bảng báo dưới mặt bằng. Mở khung thành tủ${cf ? ' (hoặc đặt tủ bằng chuột / theo hình ngay trong phòng đó)' : ''}: hình đứng của tủ có dấu từng điểm — <b>ô nét đứt</b> = chỗ phải khoét hậu, <b>màu đỏ</b> = trúng vách / đợt / hồi (kéo vách, đợt tránh ra là hết đỏ) — kèm dòng ghi khoét tấm nào, tâm cách mép tấm bao nhiêu; công tắc và thoát sàn bị tủ che thì báo riêng.${cf ? ' Bấm <b>Vẽ phòng vào Chenfeng</b> thì các điểm được đánh dấu luôn trên mặt tường / mặt sàn của bản vẽ (nét màu + nhãn như “O1 +300”), nhìn từ trên xuống cũng thấy; thẻ Kết quả của tủ vừa vẽ ghi lại các điểm sau tủ.' : ''}</li>` : ''}
@@ -8201,14 +8337,18 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
 
     /* ---- lùi lại thao tác trên hình: nhớ đợt + nội dung ô của mọi khoang trước mỗi thao tác ---- */
     let hist = [], nhich = null;
-    const chup = () => JSON.stringify(spec.khoang.map(k => ({ rong: k.rong, canh: k.canh, ban_le: k.ban_le, dot: k.dot, o: k.o })));
+    // (bản 1.28) nhớ cả phào + khấu cột: hai thứ này giờ cũng sửa / bỏ được ngay trên hình
+    const chup = () => JSON.stringify({ k: spec.khoang.map(k => ({ rong: k.rong, canh: k.canh, ban_le: k.ban_le, dot: k.dot, o: k.o })), phao: { trai: spec.phao.trai, phai: spec.phao.phai, tren: spec.phao.tren }, khau: spec.khau });
+    // ô số của thẻ Tủ (ngoài Chuẩn xưởng) theo thông số hiện tại — sau khi sửa phào / cột trên hình
+    const napO = () => $$('[data-k]').forEach(i => { if (i.closest('.settings')) return; i.value = fmt(getP(spec, i.dataset.k)); });
     const capNut = () => { const b = $('[data-act="lui"]'); if (b) b.disabled = !hist.length; };
     function nho(s) { s = s || chup(); if (hist[hist.length - 1] !== s) hist.push(s); if (hist.length > 80) hist.shift(); nhich = null; capNut(); }
     function lui() {
       const nay = chup(); let s = null;
       while (hist.length && (s = hist.pop()) === nay) s = null;
       capNut(); if (!s) return;
-      const st = JSON.parse(s);
+      const st0 = JSON.parse(s), st = Array.isArray(st0) ? st0 : st0.k;
+      if (!Array.isArray(st0)) { if (st0.phao) Object.assign(spec.phao, st0.phao); if (st0.khau) spec.khau = st0.khau; napO(); }
       // số khoang khác (vừa thêm / xoá vách trên hình) thì dựng lại cả dãy khoang theo bước đã nhớ
       if (st.length !== spec.khoang.length && spec.thung && Array.isArray(spec.thung.tach)) delete spec.thung.tach;      // chỗ tách thùng đã ghim theo số khoang cũ
       if (st.length !== spec.khoang.length) spec.khoang = st.map(e => ({ rong: e.rong === undefined ? 'auto' : e.rong, canh: e.canh === undefined ? 2 : e.canh, ban_le: e.ban_le || 'trai', dot: e.dot, o: e.o }));
@@ -8322,6 +8462,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     }
     function fixSel() {
       if (!sel) return;
+      if (sel.loai === 'phao') return;
+      if (sel.loai === 'cot') { if (!cotCua(sel.x0, sel.x1).length) sel = null; return; }
       const k = spec.khoang[sel.khoang];
       if (sel.loai === 'vach') { if (!(sel.idx >= 1 && sel.idx < spec.khoang.length)) sel = null; return; }
       if (!k) { sel = null; return; }
@@ -8353,6 +8495,19 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     }
     // → { diem, luu_y, ghi_chu } của MNCFPhong.dienNuocChoTu, hoặc null (phòng chưa khai điểm nào / chưa biết tủ đặt ở đâu / không điểm nào bị tủ che)
     let dnTuHT = null;
+    // (bản 1.28 — anh Thanh 06/10/2026: "hình minh họa có 3d") hình 3D thay hình đứng: kéo để xoay (az: vòng quanh tủ, el: nhìn từ trên xuống)
+    let xem3d = false, xoay = null, xoayXong = 0, cho3d = 0;
+    const goc3d = { az: 30, el: 22 };
+    const veLai3d = () => { if (cho3d) return; const f = () => { cho3d = 0; paintView(); }; cho3d = root.requestAnimationFrame ? root.requestAnimationFrame(f) : setTimeout(f, 16); };
+    function datXem3d(on) {
+      xem3d = !!on;
+      const b = $('[data-act="xem-3d"]'); if (b) { b.setAttribute('aria-pressed', String(xem3d)); b.classList.toggle('on', xem3d); }
+      if (xem3d && cheDoVach) datCheDoVach(false);
+      const tv = $('[data-act="them-vach"]'); if (tv) tv.disabled = xem3d;
+      const hv = $('[data-ui="vhint"]'); if (hv) hv.textContent = xem3d ? 'Hình 3D — kéo để xoay · bấm phào / cột để sửa' : 'Hình đứng — kéo thả trực tiếp · bấm phào / cột để sửa';
+      if (xem3d && sel && sel.loai !== 'phao' && sel.loai !== 'cot') sel = null;
+      paintView(); renderBar();
+    }
     function dnTu() {
       try {
         if (!Ph || !Ph.dienNuocChoTu || !phong || !Array.isArray(phong.dn) || !phong.dn.length || !model || !model.info || !model.info.hop) return null;
@@ -8364,6 +8519,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     function paintView() {
       fixSel();
       dnTuHT = dnTu();
+      if (xem3d && model && model.info.khoang && Core.hinh3D) { view.innerHTML = Core.hinh3D(model, Object.assign({ az: goc3d.az, el: goc3d.el, canh: showDoors, tuong_tac: true }, viewSize())); return; }
       view.innerHTML = model && model.info.khoang ? Core.elevationSVG(model, Object.assign({ canh: showDoors, tuong_tac: true, chon: sel, dien_nuoc: dnTuHT ? dnTuHT.diem : null }, viewSize())) : '';
     }
     // ô chọn loại ngăn kéo (mẫu Chenfeng) cho ô đang chọn; từ bản 1.13 có thêm nút mở bảng CHỌN BẰNG HÌNH
@@ -8381,6 +8537,15 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     probe.innerHTML = cellBarHTML({ khoang: 8, z0: 1888.5, z1: 2788.5, kieu: 'nk_trum', so: 12 }, 'data-x');
     function renderBar() {
       let h = '<p class="hint" title="Kéo đợt lên xuống để chia ô. Bấm đúp vào ô để thêm đợt. Bấm vào ô để đặt ngăn kéo hoặc suốt treo. ＋ Vách: bấm nút rồi bấm vào hình để thêm vách đứng; kéo vách sang trái / phải để chia lại khoang."><b>Bấm vào ô</b> để đặt ngăn kéo / suốt treo · <b>kéo</b> đợt, vách để chia lại · <b>bấm đúp</b> để thêm đợt</p>';
+      if (sel && sel.loai === 'phao') {
+        const ben = sel.ben, v = spec.phao[ben], ten = TEN_PHAO[ben], doc = ben === 'tren';
+        h = `<div class="edh"><b>Phào ${ten}</b> · ${v > 0 ? `rộng ${hien(v)}` : 'chưa có'} · ${doc ? 'cao' : 'rộng'} phủ bì giữ ${hien(doc ? spec.cao : spec.rong)} — thùng ${doc ? 'thấp' : 'hẹp'} lại / ${doc ? 'cao' : 'rộng'} ra theo phào</div>
+<div class="edrow"><label>Rộng phào ${ten}<input type="text" inputmode="decimal" id="mncf-ed-phao" data-ed="phao" value="${esc(fmt(v))}"></label>${v > 0 ? '<button class="sec" data-ed="phao-bo">Bỏ phào</button>' : `<button class="sec" data-ed="phao-them">Thêm phào ${hien(PHAO_MD)}</button>`}<button class="sec" data-ed="phao-ca3" title="Phào trái, phải, trên cùng một bề rộng">Cả 3 phào = ${hien(v > 0 ? v : PHAO_MD)}</button></div>`;
+      } else if (sel && sel.loai === 'cot') {
+        const ds = cotCua(sel.x0, sel.x1), kh = ((model && model.info.khau) || []).find(k => k.cot && Math.abs(k.cot.x0 - sel.x0) < 0.6 && Math.abs(k.cot.x1 - sel.x1) < 0.6), soCot = cotCua(-Infinity, Infinity).length;
+        h = `<div class="edh"><b>Cột ${hien(sel.x1 - sel.x0)}${kh ? ` × ${hien(kh.cot.sau)}` : ''}</b> · tủ đang khấu (khoét) quanh cột này${ds.length > 1 ? ` (${ds.length} cột gộp chung một chỗ khấu)` : ''}</div>
+<div class="edrow"><button class="sec" data-ed="cot-bo">Bỏ cột này — tủ không khấu</button>${soCot > ds.length ? `<button class="sec" data-ed="cot-bo-het">Bỏ hết ${soCot} cột</button>` : ''}</div>`;
+      } else
       if (sel && sel.loai === 'vach') {
         const w = (model && model.info.khoang) || [], i = sel.idx;
         h = `<div class="edh"><b>Vách giữa khoang ${i} và ${i + 1}</b> · lọt lòng trái ${hien(w[i - 1])} · phải ${hien(w[i])}</div>
@@ -8697,7 +8862,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const j = phong.khung.findIndex(k => k.ten === t.ten && !k.tu_id);
       if (j < 0) return;
       phong.khung.splice(j, 1); selKhung = -1;
-      if (khungCho && khungCho.j === j) { khungCho = null; capHinh(); }
+      if (khungCho && khungCho.j === j) boChoDat();
       phongStore.save(); renderPhong();
     }
     function moChonCho(giu) {
@@ -8850,7 +9015,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       try { rep = await Drv.draw(spec, o); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
       if (rep.giai_doan === 'xong') rep.do_mau = await tuDoMau();      // trước lệnh "xem toàn bộ": bước đổ màu phải nối liền lần vẽ thì "Hoàn tác lần vẽ này" mới lùi được cả hai
-      khungCho = null; capHinh();
+      if (kc && rep.giai_doan === 'xong') boChoDat(); else { khungCho = null; capHinh(); }      // (bản 1.28) vẽ xong đúng chỗ đặt: lần Vẽ sau không dựng chồng lên chỗ đó
       if (kc && rep.giai_doan === 'xong') { try { ghiKhung(rep, kc); } catch (e) { /* báo ở kết quả */ } }
       // khung mà lần vẽ này đứng vào (để "Hoàn tác lần vẽ này" trả khung về "chưa vẽ"; khung do "Đặt tủ theo tường" tự tạo thì bỏ hẳn)
       if (kc && rep.giai_doan === 'xong' && kc.j >= 0 && phong && phong.khung[kc.j] && phong.khung[kc.j].tu_id === rep.id) { const tk = phong.khung[kc.j].ten; rep.khung_tu = { j: kc.j, ten: tk, tam: !!(tamTuong && tamTuong.ten === tk) }; if (rep.khung_tu.tam) tamTuong = null; }
@@ -9044,6 +9209,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         const giu = soCanh > 0 && rongCanh >= 330 && rongCanh <= 620 && spec.khoang.every(kk => kk.rong === 'auto' || kk.rong === '' || kk.rong === undefined || kk.rong === null);
         const t = Ph.tuChoKhung(Core, spec, { ten: spec.ma || spec.ten || 'TU', rong: k.rong, cao, sau: k.sau, mau: '', khau: k.khau, giu_ruot: giu }, spec.phong || '', null, -1);
         spec = t.spec; ghi.push(...t.ghi_chu);
+      } else if (coKhauCot(spec.khau)) {      // (bản 1.28) chỗ mới không có cột: khấu là của chỗ đặt trước — bỏ
+        spec.khau = khongKhau(spec.khau.ho); ghi.push('Chỗ này không có cột — đã bỏ khấu cột của lần đặt trước.');
       }
       noi = null; sel = null;
       const d = { goc: [k.goc[0], k.goc[1], z], xoay: k.xoay, tuong: 'điểm bấm' };
@@ -9389,6 +9556,15 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       return { d, q, ghi: r.ghi_chu };
     }
     let chanSan = 0;          // cao chân tủ trước khi mở một khung treo (khung treo đặt chân = 0)
+    // (bản 1.28) khấu cột là của CHỖ ĐẶT (cột của phòng ở đúng chỗ đó): không có chỗ đặt nào đang giữ thì tủ mới không mang khấu của chỗ cũ
+    const coKhauCot = q => !!q && ((q.trai && q.trai.rong > 0) || (q.phai && q.phai.rong > 0) || (Array.isArray(q.giua) && q.giua.some(c => c && c.rong > 0)));
+    const khongKhau = ho => ({ trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: ho >= 0 ? ho : Core.DEFAULT_SPEC.khau.ho });
+    // bỏ chỗ đặt đang giữ; ô "Đặt tại toạ độ" đang mang đúng góc của chỗ đó (bảng tự điền) thì bỏ chọn luôn — không thì lần Vẽ sau dựng tủ mới chồng lên chỗ cũ
+    function boChoDat() {
+      const k = khungCho; khungCho = null; capHinh();
+      const ua = $('[data-ui="useAt"]');
+      if (k && k.d && ua && ua.checked && ['ax', 'ay', 'az'].every((n, i) => Math.abs((parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.')) || 0) - k.d.goc[i]) < 0.01)) ua.checked = false;
+    }
     let khungCho = null;      // khung vừa mở thành tủ: vẽ đúng toạ độ khung thì tự xoay theo tường và ghi "đã vẽ" cho khung
     // Bản 1.23: phòng nhớ lần vẽ gần nhất của nó (phong.da_ve — đi theo phòng, lưu cùng phòng) → bấm "Vẽ phòng" lần nữa là CẬP NHẬT: cái gì đã có đúng chỗ thì giữ,
     // phần của lần vẽ trước không còn đúng thì bỏ, chỉ vẽ phần còn thiếu. Không còn cảnh "Chenfeng chỉ vẽ được 0/4 tường" khi phòng đã có sẵn.
@@ -10199,6 +10375,38 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       clearTimeout(tmr); rebuild();
       if (truoc && truoc !== chup()) nho(truoc);
     }));
+    /* ---- bản 1.28: PHÀO và CỘT sửa ngay trên hình (anh Thanh 06/10/2026: "phải có nút trên hình cho nó nhanh … chọn trên ảnh thêm phào sửa phào luôn") ---- */
+    const TEN_PHAO = { trai: 'trái', phai: 'phải', tren: 'trên' }, PHAO_MD = Core.DEFAULT_SPEC.phao.trai;
+    function datPhao(ben, v) {
+      v = Math.max(0, Math.round(v * 10) / 10);
+      const ds = ben === '*' ? ['trai', 'phai', 'tren'] : [ben];
+      if (ds.every(b => Math.abs(spec.phao[b] - v) < 0.05)) { renderBar(); return; }
+      nho(); ds.forEach(b => { spec.phao[b] = v; }); napO(); rebuild();
+      setStatus(ben === '*' ? `Phào trái, phải, trên đều ${hien(v)}.` : v > 0 ? `Phào ${TEN_PHAO[ben]} rộng ${hien(v)}.` : `Đã bỏ phào ${TEN_PHAO[ben]}.`);
+    }
+    function applyPhao(inp) {
+      if (!sel || sel.loai !== 'phao') return;
+      const v = parseFloat(String(inp.value).replace(',', '.'));
+      if (!isFinite(v) || v < 0) { inp.value = fmt(spec.phao[sel.ben]); return; }
+      datPhao(sel.ben, v);
+    }
+    // các cột trong thông số (khấu cột) nằm trùm khoảng x0 … x1 (toạ độ ngang của cây cột trên hình nhìn từ trên xuống) → [{ ben: 'trai' | 'phai' | 'giua', i }]
+    function cotCua(x0, x1) {
+      const k = spec.khau || {}, W = spec.rong, ds = [];
+      if (k.trai && k.trai.rong > 0 && k.trai.sau > 0 && x0 < k.trai.rong - 0.5) ds.push({ ben: 'trai' });
+      (k.giua || []).forEach((q, i) => { if (q && q.rong > 0 && q.sau > 0 && q.cach < x1 - 0.5 && q.cach + q.rong > x0 + 0.5) ds.push({ ben: 'giua', i }); });
+      if (k.phai && k.phai.rong > 0 && k.phai.sau > 0 && x1 > W - k.phai.rong + 0.5) ds.push({ ben: 'phai' });
+      return ds;
+    }
+    function boCot(ds) {
+      if (!ds.length) return;
+      nho();
+      const k = spec.khau, boGiua = new Set(ds.filter(d => d.ben === 'giua').map(d => d.i));
+      for (const d of ds) if (d.ben !== 'giua') k[d.ben] = { rong: 0, sau: 0 };
+      k.giua = (k.giua || []).filter((q, i) => !boGiua.has(i));
+      sel = null; napO(); rebuild();
+      setStatus(`Đã bỏ khấu ${ds.length > 1 ? ds.length + ' cột' : 'cột'} — tủ không còn khoét quanh ${ds.length > 1 ? 'các cột đó' : 'cột đó'}. ↶ Lùi để lấy lại.`);
+    }
     function applyZ(inp) {
       if (!sel || sel.loai !== 'dot') return;
       const i = sel.khoang, j = sel.idx, cu = spec.khoang[i].dot[j], v = parseFloat(String(inp.value).replace(',', '.'));
@@ -10231,6 +10439,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (t.dataset.ui === 'vl-nhom') { vl.loc = t.value; veDS(); }
       else if (t.dataset.ed === 'z') applyZ(t);
       else if (t.dataset.ed === 'wl') applyWL(t);
+      else if (t.dataset.ed === 'phao') applyPhao(t);
       else if (t.dataset.ed === 'loai') { const c = sel && sel.loai === 'o' ? cellFor(sel.khoang, sel.tu) : null; if (c && c.kieu && c.kieu !== 'suot') setCell(c, c.kieu, c.so, t.value); }
     }));
     rootEl.addEventListener('keydown', safe(e => {
@@ -10238,6 +10447,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (xem && !xem.hidden && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) { e.preventDefault(); buocXem(e.key === 'ArrowRight' ? 1 : -1); }
       else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ed === 'z') { e.preventDefault(); applyZ(e.target); }
       else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ed === 'wl') { e.preventDefault(); applyWL(e.target); }
+      else if (e.key === 'Enter' && e.target.dataset && e.target.dataset.ed === 'phao') { e.preventDefault(); applyPhao(e.target); }
       else if (e.key === 'Escape' && cheDoVach) { e.preventDefault(); datCheDoVach(false); setStatus(''); }
       else if (e.key === 'Escape' && keoK && keoK.dang) { e.preventDefault(); huyKeo(); }
       else if (e.key === 'Escape' && veMD) { e.preventDefault(); datVeMD(false); setStatus('Đã thôi vẽ khung trên mặt đứng.'); }
@@ -10257,6 +10467,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     const xAt = x => { const g = view.querySelector('svg'); if (!g) return 0; const r = g.getBoundingClientRect(), vb = g.viewBox.baseVal; return r.width > 0 ? vb.x + (x - r.left) * vb.width / r.width : 0; };
     view.addEventListener('pointerdown', safe(e => {
       if (e.button || drag) return;
+      // hình 3D: kéo để xoay. Chỉ giữ con trỏ khi đã kéo thật (≥ 4 px) — giữ ngay từ lúc bấm thì lần bấm thường (chọn phào / cột) mất đích
+      if (xem3d) { xoay = { id: e.pointerId, x: e.clientX, y: e.clientY, az: goc3d.az, el: goc3d.el, moved: false }; return; }
       const v = !cheDoVach && e.target.closest && e.target.closest('[data-vach]');
       if (v) {
         const idx = +v.dataset.vach, s = svgScale(), w = (model && model.info.khoang) || [];
@@ -10291,6 +10503,14 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       rebuild(true); return true;
     }
     view.addEventListener('pointermove', safe(e => { if (drag && e.pointerId === drag.id) dragTo(e.clientY, e.clientX); }));
+    view.addEventListener('pointermove', safe(e => {
+      if (!xoay || e.pointerId !== xoay.id) return;
+      const dx = e.clientX - xoay.x, dy = e.clientY - xoay.y;
+      if (!xoay.moved) { if (Math.hypot(dx, dy) < 4) return; xoay.moved = true; try { view.setPointerCapture(e.pointerId); } catch (err) { /* bỏ qua */ } }
+      goc3d.az = clamp(xoay.az + dx * 0.4, -85, 85); goc3d.el = clamp(xoay.el + dy * 0.3, 0, 75); veLai3d();
+    }));
+    const thoiXoay = safe(e => { if (!xoay || e.pointerId !== xoay.id) return; if (xoay.moved) xoayXong = Date.now(); xoay = null; try { view.releasePointerCapture(e.pointerId); } catch (err) { /* bỏ qua */ } });
+    view.addEventListener('pointerup', thoiXoay); view.addEventListener('pointercancel', thoiXoay); view.addEventListener('lostpointercapture', thoiXoay);
     const endDrag = safe(e => {
       if (!drag || e.pointerId !== drag.id) return;
       if (e.type === 'pointerup') dragTo(e.clientY, e.clientX);      // màn hình cảm ứng có thể gộp mất lần di chuyển cuối: lấy vị trí lúc nhấc tay
@@ -10306,6 +10526,13 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (key === 'Escape') { if (sel) { e.preventDefault(); sel = null; paintView(); renderBar(); } return; }
       if (!/^Arrow/.test(key) && key !== 'Delete' && key !== 'Backspace') return;
       e.preventDefault();
+      if (sel && sel.loai === 'phao') { if (key === 'Delete' || key === 'Backspace') datPhao(sel.ben, 0); return; }
+      if (sel && sel.loai === 'cot') { if (key === 'Delete' || key === 'Backspace') boCot(cotCua(sel.x0, sel.x1)); return; }
+      if (xem3d) {      // hình 3D: mũi tên xoay góc nhìn
+        if (key === 'ArrowLeft' || key === 'ArrowRight') goc3d.az = clamp(goc3d.az + (key === 'ArrowRight' ? 10 : -10), -85, 85);
+        else if (key === 'ArrowUp' || key === 'ArrowDown') goc3d.el = clamp(goc3d.el + (key === 'ArrowUp' ? 5 : -5), 0, 75);
+        paintView(); return;
+      }
       if (sel && sel.loai === 'vach') {
         if (key === 'ArrowLeft' || key === 'ArrowRight') {
           const w = (model && model.info.khoang) || [], truoc = chup(), gop = nhich && nhich.v === sel.idx && Date.now() - nhich.t < 2500;
@@ -10347,6 +10574,13 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           else if (a === 'split') { if (addDot(c, (c.z0 + c.z1 - spec.van.t) / 2)) rebuild(); }
           else if (a === 'loai-hinh') { moLoai = !moLoai; renderBar(); }
           else if (a === 'loai-chon') { moLoai = false; barHTML = null; if (c.kieu && c.kieu !== 'suot') setCell(c, c.kieu, c.so, ed.dataset.v); else renderBar(); }
+        } else if (sel && sel.loai === 'phao') {
+          if (a === 'phao-bo') datPhao(sel.ben, 0);
+          else if (a === 'phao-them') datPhao(sel.ben, PHAO_MD);
+          else if (a === 'phao-ca3') datPhao('*', spec.phao[sel.ben] > 0 ? spec.phao[sel.ben] : PHAO_MD);
+        } else if (sel && sel.loai === 'cot') {
+          if (a === 'cot-bo') boCot(cotCua(sel.x0, sel.x1));
+          else if (a === 'cot-bo-het') boCot(cotCua(-Infinity, Infinity));
         } else if (sel && sel.loai === 'dot' && a === 'del') delDot(sel.khoang, sel.idx);
         else if (sel && sel.loai === 'vach' && a === 'del-vach') xoaVach(sel.idx);
         return;
@@ -10360,6 +10594,15 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         themVach(i, x);
         return;
       }
+      // (bản 1.28) bấm vào phào / cột trên hình (hình đứng hoặc 3D): chọn để sửa ở thanh dưới hình
+      { const ph = e.target.closest('.view [data-phao]'), ct = e.target.closest('.view [data-cot]');
+        if (ph || ct) {
+          if (Date.now() - xoayXong < 250 || Date.now() - dragEnd < 250) return;
+          if (ph) sel = { loai: 'phao', ben: ph.dataset.phao };
+          else { const [x0, x1] = ct.dataset.cot.split(':').map(Number); sel = { loai: 'cot', x0, x1 }; }
+          paintView(); renderBar();
+          return;
+        } }
       if (e.target.closest('[data-vach]')) return;      // chọn vách đã làm ở pointerup
       // bấm vào ô trên hình: chọn ô; bấm đúp: thêm đợt tại chỗ bấm
       const o = e.target.closest('[data-o]');
@@ -10468,7 +10711,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'nut-them') { const h = $('.themnut'); if (h) { h.hidden = !h.hidden; b.setAttribute('aria-expanded', h.hidden ? 'false' : 'true'); } }
       else if (act === 'do-mang') { doMang(); }
       else if (act === 'wide') { wide = !wide; panel.classList.toggle('wide', wide); if (xem) xem.classList.toggle('rong', wide); b.textContent = wide ? 'Thu hẹp' : 'Mở rộng'; try { root.localStorage.setItem(LS_WIDE, wide ? '1' : '0'); } catch (err) { /* bỏ qua */ } paintView(); paintPhong(); }
-      else if (act === 'mau') { const ma = $('[data-ui="mau"]').value, moi = Core.apMau(spec, ma); if (moi) { spec = moi; renderAll(); const m = Core.MAU_TU.find(x => x.ma === ma); setStatus(`Đã dùng mẫu "${m.ten}" — ${m.mo_ta}. Sửa tiếp kích thước, đợt, ngăn kéo tuỳ ý.`); } }
+      else if (act === 'mau') { const ma = $('[data-ui="mau"]').value, moi = Core.apMau(spec, ma); if (moi) { if (!khungCho && coKhauCot(moi.khau)) moi.khau = khongKhau(moi.khau.ho); spec = moi; renderAll(); const m = Core.MAU_TU.find(x => x.ma === ma); setStatus(`Đã dùng mẫu "${m.ten}" — ${m.mo_ta}. Sửa tiếp kích thước, đợt, ngăn kéo tuỳ ý.`); } }
       else if (act === 'vach-cot') {
         const r = Core.vachTheoCot(spec);
         if (r.loi) return setStatus('Chưa đặt được vách theo mép cột: ' + r.loi);
@@ -10477,7 +10720,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       }
       else if (act === 'add') { spec.khoang.push({ rong: 'auto', canh: 2, dot: [], o: [] }); sel = null; hist = []; capNut(); renderBays(); rebuild(); }
       else if (act === 'del') { spec.khoang.splice(+b.closest('.bay').dataset.i, 1); sel = null; hist = []; capNut(); renderBays(); rebuild(); }
-      else if (act === 'reset') { const keep = clone(spec); spec = Core.normalize(Object.assign(keep, { rong: Core.DEFAULT_SPEC.rong, cao: Core.DEFAULT_SPEC.cao, sau_thung: Core.DEFAULT_SPEC.sau_thung, khoang: clone(Core.DEFAULT_SPEC.khoang), than: clone(Core.DEFAULT_SPEC.than), chan: clone(Core.DEFAULT_SPEC.chan), phao: Object.assign({}, keep.phao, { trai: 50, phai: 50, tren: 50 }) })); renderAll(); }
+      else if (act === 'reset') { const keep = clone(spec); if (!khungCho) keep.khau = khongKhau(keep.khau && keep.khau.ho); spec = Core.normalize(Object.assign(keep, { rong: Core.DEFAULT_SPEC.rong, cao: Core.DEFAULT_SPEC.cao, sau_thung: Core.DEFAULT_SPEC.sau_thung, khoang: clone(Core.DEFAULT_SPEC.khoang), than: clone(Core.DEFAULT_SPEC.than), chan: clone(Core.DEFAULT_SPEC.chan), phao: Object.assign({}, keep.phao, { trai: 50, phai: 50, tren: 50 }) })); renderAll(); }
       else if (act === 'lk-add') { let n = 1; while (spec.ngan_keo.loai.some(x => x.ma === 'rieng' + n)) n++; spec.ngan_keo.loai.push({ ma: 'rieng' + n, ten: 'Loại mới ' + n, mau_id: 0, ten_mau: '', ts: {} }); renderSettings(); rebuild(); const inp = $(`#${fid('lk' + (spec.ngan_keo.loai.length - 1) + '-ten')}`); if (inp) { inp.focus(); inp.select(); } }
       else if (act === 'lk-del') { const i = +b.closest('.lkr').dataset.li; if (spec.ngan_keo.loai.length <= 1) return setStatus('Phải giữ lại ít nhất một loại ngăn kéo.'); spec.ngan_keo.loai.splice(i, 1); rebuild(); renderSettings(); }
       else if (act === 'lk-do') {
@@ -10502,7 +10745,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'chon-thoi') return escDlg();
       else if (act === 'hinh') return theoHinh(false);
       else if (act === 'hinh-truoc') return theoHinh(true);
-      else if (act === 'hinh-bo') { khungCho = null; capHinh(); setStatus('Đã bỏ hình — bảng trở lại đặt tủ theo điểm bấm / toạ độ.'); }
+      else if (act === 'hinh-bo') { boChoDat(); setStatus('Đã bỏ hình — bảng trở lại đặt tủ theo điểm bấm / toạ độ.'); }
       else if (act === 'chuanhoa') return chuanHoa();
       else if (act === 'undo-ch') { if (Drv && !busy) { const coDV = b.dataset.dv === '1'; setStatus('Đang hoàn tác…'); return Drv.undoChuanHoa().then(r => (r.ok && coDV && Drv.undoDayVan ? Drv.undoDayVan().then(d => (d.ok ? r : { ok: true, luu_y: d.reason })) : r)).then(r => { if (r.ok) { setStatus('Đã hoàn tác lần chuẩn hoá vừa rồi.'); $('.report').innerHTML = `<p class="hint tt">Đã hoàn tác lần chuẩn hoá vừa rồi — module trở lại kết cấu gốc của mẫu${r.luu_y ? ` (riêng dày ván chưa trả lại: ${esc(r.luu_y)})` : ''}.</p>`; } else setStatus(r.reason); }); } }
       else if (act === 'undo-dv') { if (Drv && !busy && Drv.undoDayVan) { setStatus('Đang hoàn tác…'); return Drv.undoDayVan().then(r => { if (r.ok) { setStatus('Đã trả dày ván của module về như mẫu.'); $('.report').innerHTML = '<p class="hint tt">Đã trả dày ván của module về như mẫu gốc.</p>'; } else setStatus(r.reason); }); } }
@@ -10513,6 +10756,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         if (laKho) { if (kv && phong && phong.khung[kv.j] && phong.khung[kv.j].ten === kv.ten && /^kho-/.test(phong.khung[kv.j].tu_id || '')) { delete phong.khung[kv.j].tu_id; phongStore.save(); paintPhong(); } return; } noi = null; const rd = $('[data-act="redraw"]'); if (rd) rd.disabled = true; capNoi(); } else setStatus(r.reason); }); } }
       else if (act === 'zoom') { if (Drv) Drv.zoom(); }
       else if (act === 'xem3d') { if (coNhin) Drv.xem3D().then(ok => setStatus(ok ? 'Chenfeng đang ở góc nhìn 3D.' : 'Chenfeng đang bận một lệnh — xong lệnh đó rồi bấm lại.')); }
+      else if (act === 'xem-3d') datXem3d(!xem3d);
       else if (act === 'xemtren') { if (coNhin) Drv.nhinTren().then(ok => setStatus(ok ? 'Chenfeng đang nhìn từ trên.' : 'Chenfeng đang bận một lệnh — xong lệnh đó rồi bấm lại.')); }
       else if (act === 'doloi') return doLoi();
       else if (act === 'xuatvan') return xuatVan('');

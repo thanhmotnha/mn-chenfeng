@@ -846,6 +846,27 @@ async function tienIch() {
     await H.locator('[data-act="hop-lai"]').click(); await choHoi(h0 + 3);
     ok((await hop()).dlg === '' && /Bấm điểm ĐẦU của tủ/.test(await H.locator('.chip').textContent()), 'Chọn lại chỗ (tủ đặt bằng chuột): hộp đóng, bảng hỏi lại điểm đầu');
     await page.evaluate(() => window.app.Editor.Cancel()); await datXong('Đã huỷ — chưa đặt tủ');
+    // (8) bản 1.28 (anh Thanh 06/10/2026: "vẽ phòng ấy rồi tự khấu cột, giờ muốn vẽ tủ mới vẫn ra tủ khấu cột"): khấu cột là của CHỖ ĐẶT.
+    //     Đặt bằng chuột trùm qua cột → tủ khấu; đặt tủ mới (cùng bề rộng, dưới trần) ở chỗ không có cột → bỏ khấu của lần trước
+    {
+      await page.evaluate(sp => window.MNCF.app.setSpec(sp), TU_DAT);
+      await H.locator('.tab[data-tab="tu"]').click();
+      const iCot = await page.evaluate(() => { const M = window.__MOCK__, c = new M.RoomPillar(); c.box = [1000, 1300, -200, 0, 0, 2700]; M.them(c); return M.ents.indexOf(c); });
+      const khauNay = () => page.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.khau.trai.rong, s.khau.phai.rong, s.khau.giua.length, (window.MNCF.app.getModel().info.khau || []).length]; });
+      const datEnter = async () => { const n = await soHoi(); await H.locator('[data-act="dat"]').click(); await choHoi(n + 1);
+        await page.evaluate(() => window.__MOCK__.clickPoint(500, 0, 0)); await choHoi(n + 2);
+        await page.evaluate(() => { window.__MOCK__.reChuot(1300, -80, 0); window.app.Editor.InputEvent(''); }); await datXong('Đã đặt: rộng 2000'); };
+      await datEnter();
+      eq1(await khauNay(), [0, 0, 1, 1], '(chuẩn bị) tủ 500 → 2500 trùm cột 1000 → 1300: khấu cột giữa');
+      await H.locator('[data-act="hop-dong"]').click();
+      await page.evaluate(i => { window.__MOCK__.ents[i].IsErase = true; }, iCot);      // chỗ đặt lần này không có cột
+      await datEnter();
+      eq1(await khauNay(), [0, 0, 0, 0], 'đặt tủ mới bằng chuột ở chỗ không có cột: bỏ khấu cột của lần đặt trước');
+      ok(/không có cột — đã bỏ khấu cột của lần đặt trước/.test(await sr()) && !/có khấu cột/.test(await sr()), '… dòng báo nói rõ đã bỏ khấu cũ', await sr());
+      await H.locator('[data-act="hop-dong"]').click();
+      await H.locator('[data-act="hinh-bo"]').click();
+      ok(!(await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="useAt"]').checked)), '"Bỏ hình": ô "Đặt tại toạ độ" do bảng tự điền theo chỗ đặt cũng bỏ chọn (lần Vẽ sau không dựng chồng lên chỗ cũ)');
+    }
 
     /* --- bản 1.23: ĐẶT TỦ THEO TƯỜNG — chọn tường, rồi chọn chỗ ngay trên MẶT ĐỨNG của tường đó (anh Jason 04/10/2026 23:08: "chọn tường rồi chọn không gian tủ thì hợp lý hơn làm chuột hay bị chệch",
      *     "chọn mặt cắt đứng rồi chọn luôn trên đó tiện hơn nhiều"). Không phải bấm điểm nào trong bản vẽ: chỗ đặt tính từ phòng trong bảng. --- */

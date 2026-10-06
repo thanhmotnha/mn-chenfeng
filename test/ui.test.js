@@ -42,7 +42,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.27\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.28\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -306,6 +306,89 @@ async function testPage(browser) {
   await ctx.close();
 }
 
+// Bản 1.28 (anh Thanh 06/10/2026: "phải có nút trên hình cho nó nhanh, với hình minh họa có 3d hoặc chọn trên ảnh thêm phào sửa phào luôn";
+// "vẽ phòng ấy rồi tự khấu cột, giờ muốn vẽ tủ mới vẫn ra tủ khấu cột") — phào và cột sửa ngay trên hình, hình 3D xoay được, "Về tủ mẫu" / "Dùng mẫu" không mang khấu cột cũ.
+async function testHinhSua(browser) {
+  console.log('— Sửa phào / bỏ cột ngay trên hình, hình 3D, tủ mới không mang khấu cột cũ (bản 1.28)');
+  const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
+  const sp = () => page.evaluate(inPage.spec), bar = () => page.evaluate(inPage.bar), st = () => page.evaluate(inPage.status);
+  const KHAU = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 600, rong: 300, sau: 200 }], ho: 20 };
+  await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({}, TU_2000, { khau: KHAU }));
+  // PHÀO: bấm phào trái → thanh sửa dưới hình; Bỏ phào → dải "+ phào" nét đứt ngoài mép trái; bấm dải đó → Thêm phào 50
+  ok((await S(page, '.view [data-phao="trai"]').count()) === 2 && (await S(page, '.view [data-phao="tren"]').count()) >= 1, 'hình đứng: phào trái (2 thân), phải, trên đều bấm được');
+  await S(page, '.view [data-phao="trai"]').first().click();
+  ok(/Phào trái · rộng 50/.test(await bar()) && (await S(page, '#mncf-ed-phao').inputValue()) === '50' && (await S(page, '[data-ed="phao-bo"]').isVisible()), 'bấm phào trái: thanh dưới hình hiện "Phào trái · rộng 50", ô số, nút Bỏ phào', await bar());
+  ok((await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.view [data-phao="trai"][stroke]').length)) === 2, '… phào đang chọn được tô viền trên hình');
+  await S(page, '[data-ed="phao-bo"]').click();
+  let s = await sp();
+  ok(s.phao.trai === 0 && s.rong === 2000 && (await S(page, '#mncf-phao-trai').inputValue()) === '0' && /Đã bỏ phào trái/.test(await st()), 'Bỏ phào: phào trái = 0, rộng phủ bì giữ 2000, ô "Phào trái" ở thẻ Tủ cũng về 0', [s.phao, s.rong]);
+  ok(/\+ phào/.test(await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.view').innerHTML)) && /chưa có/.test(await bar()) && (await S(page, '[data-ed="phao-them"]').isVisible()), 'mép trái hiện dải "+ phào"; thanh sửa có nút "Thêm phào 50"', await bar());
+  await S(page, '[data-ed="phao-them"]').click();
+  ok((await sp()).phao.trai === 50, 'Thêm phào: phào trái 50');
+  await S(page, '#mncf-ed-phao').fill('30'); await S(page, '#mncf-ed-phao').press('Enter');
+  ok((await sp()).phao.trai === 30 && /Phào trái rộng 30/.test(await st()), 'gõ 30 + Enter: phào trái 30');
+  await S(page, '[data-ed="phao-ca3"]').click();
+  s = await sp(); ok(s.phao.trai === 30 && s.phao.phai === 30 && s.phao.tren === 30, '"Cả 3 phào = 30": trái, phải, trên đều 30', s.phao);
+  await S(page, '[data-act="lui"]').click(); await S(page, '[data-act="lui"]').click(); await S(page, '[data-act="lui"]').click();
+  s = await sp(); ok(s.phao.trai === 0 && s.phao.phai === 50 && s.phao.tren === 50 && (await S(page, '#mncf-phao-trai').inputValue()) === '0', '↶ Lùi 3 lần: phào trở lại như lúc vừa bỏ phào trái', s.phao);
+  await S(page, '[data-act="lui"]').click();
+  ok((await sp()).phao.trai === 50, '↶ Lùi thêm 1: phào trái 50 như ban đầu');
+  // dải "+ phào" phía trên: bỏ phào trên bằng phím Delete, rồi bấm dải để chọn lại
+  await S(page, '.view [data-phao="tren"]').first().click(); await S(page, '.view').press('Delete');
+  ok((await sp()).phao.tren === 0, 'chọn phào trên + phím Delete: bỏ phào trên');
+  await S(page, '.view [data-phao="tren"]').click();
+  ok(/Phào trên · chưa có/.test(await bar()), 'bấm dải "+ phào" phía trên: chọn phào trên (chưa có)', await bar());
+  await S(page, '[data-ed="phao-them"]').click(); ok((await sp()).phao.tren === 50, '… Thêm phào 50');
+  // CỘT: hình nhìn từ trên xuống có cột bấm được → Bỏ cột này
+  ok((await S(page, '.view [data-cot="600:900"]').count()) === 1, 'hình nhìn từ trên xuống: cột 300 × 200 cách trái 600 bấm được');
+  await S(page, '.view [data-cot="600:900"]').click();
+  ok(/Cột 300 × 200/.test(await bar()) && (await S(page, '[data-ed="cot-bo"]').isVisible()), 'bấm cột: thanh dưới hình "Cột 300 × 200 · tủ đang khấu…", nút Bỏ cột này', await bar());
+  await S(page, '[data-ed="cot-bo"]').click();
+  s = await sp();
+  ok(JSON.stringify(s.khau) === JSON.stringify({ trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: 20 }) && (await page.evaluate(() => window.MNCF.app.getModel().info.khau.length)) === 0
+    && !/Nhìn từ trên xuống/.test(await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.view').innerHTML)) && /Đã bỏ khấu cột/.test(await st()), 'Bỏ cột: tủ không còn khấu (giữ khe hở đã gõ), hình nhìn từ trên xuống biến mất', s.khau);
+  ok((await S(page, '#mncf-khau-giua-0-rong').inputValue()) === '0' || (await S(page, '#mncf-khau-giua-0-rong').inputValue()) === '', '… ô "Cột GIỮA 1: rộng" ở thẻ Tủ cũng trống');
+  await S(page, '[data-act="lui"]').click();
+  ok((await sp()).khau.giua.length === 1 && (await page.evaluate(() => window.MNCF.app.getModel().info.khau.length)) === 1, '↶ Lùi: cột trở lại');
+  // hai cột: nút "Bỏ hết 2 cột"
+  await page.evaluate(s2 => window.MNCF.app.setSpec(s2), Object.assign({}, TU_2000, { khau: { trai: { rong: 150, sau: 150 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 600, rong: 300, sau: 200 }], ho: 15 } }));
+  await S(page, '.view [data-cot="600:900"]').click();
+  ok((await S(page, '[data-ed="cot-bo-het"]').innerText()) === 'Bỏ hết 2 cột', 'có 2 cột: thêm nút "Bỏ hết 2 cột"');
+  await S(page, '[data-ed="cot-bo"]').click();
+  s = await sp(); ok(s.khau.trai.rong === 150 && s.khau.giua.length === 0, 'Bỏ cột này: chỉ bỏ cột giữa, cột trái còn', s.khau);
+  await S(page, '.view [data-cot="0:150"]').click(); await S(page, '.view').press('Delete');
+  ok(!(await sp()).khau.trai.rong, 'chọn cột trái + Delete: bỏ cột trái');
+  // HÌNH 3D: bật nút 3D → hình 3D; kéo để xoay; bấm phào trên hình 3D vẫn sửa được; tắt → hình đứng
+  await S(page, '[data-act="xem-3d"]').click();
+  const svg3 = () => page.evaluate(() => { const g = document.getElementById('mncf-host').shadowRoot.querySelector('.view svg'); return g ? [g.getAttribute('data-3d'), g.innerHTML.length, g.querySelectorAll('polygon').length, g.innerHTML] : null; });
+  let g3 = await svg3();
+  ok(g3 && g3[0] === '1' && g3[2] > 100 && (await S(page, '[data-act="xem-3d"]').getAttribute('aria-pressed')) === 'true' && (await S(page, '[data-act="them-vach"]').isDisabled()), 'bấm 3D: hình 3D (mỗi tấm một khối), nút sáng lên, "＋ Vách" tạm khoá', g3 && g3.slice(0, 3));
+  const bx = await S(page, '.view svg').boundingBox();
+  await page.mouse.move(bx.x + bx.width * 0.15, bx.y + 12); await page.mouse.down(); await page.mouse.move(bx.x + bx.width * 0.15 + 120, bx.y + 40, { steps: 6 }); await page.mouse.up();
+  await page.waitForTimeout(100);
+  const g3b = await svg3();
+  ok(g3b[3] !== g3[3] && g3b[0] === '1', 'kéo trên hình 3D: góc nhìn xoay (hình vẽ lại)');
+  await S(page, '.view').press('ArrowLeft'); const g3c = await svg3();
+  ok(g3c[3] !== g3b[3], 'phím ← trên hình 3D: xoay tiếp');
+  await S(page, '.view svg [data-phao="phai"]').first().click({ force: true });
+  ok(/Phào phải · rộng 50/.test(await bar()), 'bấm phào trên hình 3D: thanh sửa phào hiện như hình đứng', await bar());
+  await S(page, '[data-ed="phao-bo"]').click();
+  ok((await sp()).phao.phai === 0 && (await svg3())[0] === '1', '… Bỏ phào ngay trong 3D, hình vẫn là 3D');
+  await S(page, '[data-act="xem-3d"]').click();
+  ok((await svg3())[0] === null && (await S(page, '.view [data-o]').count()) > 0 && !(await S(page, '[data-act="them-vach"]').isDisabled()), 'bấm 3D lần nữa: về hình đứng (ô bấm được, "＋ Vách" mở lại)');
+  // "Về tủ mẫu" / "Dùng mẫu" khi không có chỗ đặt nào đang giữ: tủ mới không mang khấu cột cũ
+  await page.evaluate(s2 => window.MNCF.app.setSpec(s2), Object.assign({}, TU_2000, { sau_thung: 382.5, khau: KHAU }));
+  await S(page, '[data-act="reset"]').click();
+  s = await sp();
+  ok(JSON.stringify(s.khau) === JSON.stringify({ trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: 20 }) && s.sau_thung === 580 && !(await page.evaluate(() => window.MNCF.app.getModel().errors.length)),
+    '"Về tủ mẫu": bỏ khấu cột (giữ khe hở đã gõ), sâu thùng về 580', [s.khau, s.sau_thung]);
+  await page.evaluate(s2 => window.MNCF.app.setSpec(s2), Object.assign({}, TU_2000, { khau: KHAU }));
+  await S(page, '#mncf-ui-mau').selectOption('TA4-2000'); await S(page, '[data-act="mau"]').click();
+  ok((await sp()).khau.giua.length === 0, '"Dùng mẫu": tủ mẫu không mang khấu cột của tủ trước');
+  ok(errs.length === 0, 'không có lỗi JS trên trang', errs);
+  await ctx.close();
+}
+
 async function testTouchAndThemes(browser) {
   console.log('— Màn hình cảm ứng, sáng/tối, điện thoại');
   for (const [name, opt] of [['điện thoại sáng', { viewport: { width: 390, height: 800 }, colorScheme: 'light', hasTouch: true, isMobile: true }], ['điện thoại tối', { viewport: { width: 390, height: 800 }, colorScheme: 'dark', hasTouch: true, isMobile: true }], ['máy bàn tối', { viewport: { width: 1440, height: 900 }, colorScheme: 'dark' }]]) {
@@ -457,7 +540,7 @@ async function testPhieu(browser) {
 
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);

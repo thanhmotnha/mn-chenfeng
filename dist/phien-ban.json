@@ -1,9 +1,9 @@
 {
- "phien_ban": "1.27.0",
- "sha256": "14316e7ff36142d36d05114adb7b300e8013560999276875e370635c6bb9480c",
- "kich_thuoc": 1083903,
+ "phien_ban": "1.28.0",
+ "sha256": "5f676eda5f2f5ae8713e6212a8665a76a2cd25e59fec882372cddc93bff7f59f",
+ "kich_thuoc": 1106342,
  "sx": {
-  "sha256": "e73a9391925c4cc1f4e1da3c578c64bcf9bd1ab08b011b158242006630fcaf8e",
+  "sha256": "31db5b66b1794761bae0ef3dc620d7bcbe160b248111d0c65f8039d52316bf5c",
   "kich_thuoc": 26347
  }
 }
