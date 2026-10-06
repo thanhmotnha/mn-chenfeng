@@ -12,6 +12,14 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Bảng ít chữ, ít nút; Đo mạng; Xem 3D (bản 1.27)
+
+- **Ít chữ.** Chữ hướng dẫn, chú giải màu, dòng mô tả tủ ẩn sẵn; dòng báo dài thu còn 2 dòng — **bấm vào dòng báo** để xem hết. Nút **?** ở đầu bảng hiện lại đủ chữ (máy nhớ lựa chọn).
+- **Ít thẻ.** Hàng thẻ chỉ còn *Tủ · Phòng · Kho mẫu · Kết quả*; *Màu, Chuẩn xưởng, Hướng dẫn, Đo mạng* nằm sau nút **⚙**.
+- **Ít nút.** Chân thẻ Tủ: *Vẽ vào Chenfeng · Tường · Chuột · Hình · Sửa tủ* · **⋯**. Chuẩn hoá, JSON, CSV, Lưu, Mở và ô toạ độ nằm sau nút ⋯; nút *Cập nhật* chỉ hiện khi bảng đang nối với một tủ trên bản vẽ.
+- **Đo mạng** (⚙ → Đo mạng): bảng hỏi máy chủ Chenfeng 20 lần (chỉ đọc, khoảng 15 giây) rồi báo **tốt / tạm được / kém** và *mấy lần bị chậm hoặc rớt*. Bảng không làm mạng nhanh lên được — nút này để so các đường mạng / VPN: đổi đường rồi bấm đo lại, dòng báo ghi luôn kết quả lần trước. Mất liền 3 lần thì báo *đứt* và dừng.
+- **Xem 3D / Nhìn từ trên.** Vẽ phòng hoặc vẽ tủ xong, cạnh nút *Xem toàn bộ* có nút xoay góc nhìn của Chenfeng sang 3D (ở thẻ Phòng có thêm nút nhìn lại từ trên). Chenfeng đang bận một lệnh thì bảng báo bận và không gửi gì.
+
 ## Vẽ phòng khi mạng tới Chenfeng chậm; tủ có cột giữa (bản 1.26.1)
 
 - **Vẽ phòng không còn báo oan "Chenfeng không nhận lệnh vẽ tường"** khi mạng tới Chenfeng chậm. Đã đo trên Chenfeng: bản vẽ chưa có *vật liệu sàn mặc định* thì lệnh vẽ tường / mở lỗ cửa / dầm của Chenfeng phải **tải vật liệu đó từ máy chủ của nó** rồi mới hỏi điểm. Máy đã từng vẽ phòng thì Chrome nhớ sẵn (0,2 giây); máy mới, hồ sơ Chrome mới hoặc vừa xoá dữ liệu duyệt web thì phải tải — mạng chậm là 4 giây, có lúc hơn 20 giây. Bản trước chỉ chờ 5 giây, quá là bỏ cuộc rồi vẫn gửi tiếp lệnh cửa, cột (ra một chuỗi "chưa mở được… / chưa vẽ được…") trong khi lệnh tường còn chạy ngầm. Giờ bảng **chờ tới 60 giây**, dòng trạng thái ghi rõ đang chờ Chenfeng làm gì; quá hạn thì **dừng hẳn** và nói lý do, lệnh tới trễ được tự huỷ. Bấm **Vẽ phòng vào Chenfeng** lại là vẽ nốt phần còn thiếu — phần đã vẽ được giữ nguyên.

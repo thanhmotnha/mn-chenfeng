@@ -299,6 +299,7 @@ async function tienIch() {
     await H.locator('[data-act="draw"]').click();
     await page.waitForFunction(() => /Đã đặt tủ theo tường/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
     ok((await page.evaluate(() => (window.__MOCK_ROTATE__ || []).length)) === 2, 'vẽ từ thẻ Tủ sau "Mở thành tủ": tự xoay');
+    if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) ô toạ độ nằm sau nút ⋯
     await H.locator('#mncf-ui-ax').fill('500');
     await H.locator('[data-act="draw"]').click();
     await page.waitForFunction(() => window.MNCFDriver.last && Math.abs(window.MNCFDriver.last.offset[0] - 500) < 1 && /Đã vẽ xong/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 }).catch(() => {});
@@ -477,6 +478,46 @@ async function tienIch() {
         ok(ttCho.some(t => /chờ Chenfeng trả lời lệnh vẽ tường/.test(t) && /vật liệu sàn mặc định/.test(t) && /máy chủ/.test(t)), '… lúc chờ lệnh tường, dòng trạng thái nói đúng việc Chenfeng đang làm: tải vật liệu sàn mặc định từ máy chủ của nó', ttCho);
         ok(ttCho.some(t => /chờ Chenfeng trả lời lệnh vẽ cột/i.test(t) && !/vật liệu/.test(t)), '… lúc chờ hộp thông số cột: nói đang chờ lệnh vẽ cột (không đổ cho vật liệu — bản vẽ đã có)', ttCho);
         eq1([await lenhTu(m0), await page.evaluate(() => window.__MOCK_BO_LENH__)], [['DRAWWALLINSIDE', 'DRAWDOORHOLE', 'DRAWPILLAR', 'DRAWGIRDER'], 0], '… mỗi lệnh chỉ gửi đúng một lần, không lệnh nào bị Chenfeng bỏ');
+        // bản 1.27 — XEM 3D (anh Thanh 05/10/2026 21:51: "với mặt bằng cho lên được mô hình 3d thì đỉnh nhỉ"): phòng vẽ vào Chenfeng vốn là khối 3D — ô kết quả có nút xoay góc nhìn của Chenfeng
+        // sang 3D (lệnh SWISO, đã đo: lệnh "trong suốt", không vào lịch sử) rồi thu phóng vừa bản vẽ; và nút nhìn lại từ trên (TOPVIEW)
+        await page.waitForTimeout(300);
+        const xem0 = await page.evaluate(() => { window.__MOCK_NHIN__ = []; window.__MOCK_BO_DS__ = []; return [window.__MOCK_ZOOM__ || 0, window.app.Database.hm.curIndex]; });
+        ok(await H.locator('.pkq [data-act="xem3d"]').isVisible() && await H.locator('.pkq [data-act="xemtren"]').isVisible(), 'vẽ phòng xong: ô kết quả có nút "Xem 3D" và "Nhìn từ trên"');
+        await H.locator('.pkq [data-act="xem3d"]').click();
+        await page.waitForFunction(z => (window.__MOCK_ZOOM__ || 0) > z, xem0[0], { timeout: 5000 }).catch(() => {});
+        eq1(await page.evaluate(() => [window.__MOCK_NHIN__, window.__MOCK_BO_DS__]), [['SWISO'], []], 'bấm "Xem 3D": Chenfeng nhận lệnh SWISO rồi lệnh thu phóng (không lệnh nào bị bỏ vì gửi dồn)');
+        ok((await st()) === 'Chenfeng đang ở góc nhìn 3D.', '… dòng trạng thái báo đã sang góc nhìn 3D', await st());
+        await page.waitForTimeout(300);
+        const xem1 = await page.evaluate(() => window.__MOCK_ZOOM__ || 0);
+        await H.locator('.pkq [data-act="xemtren"]').click();
+        await page.waitForFunction(z => (window.__MOCK_ZOOM__ || 0) > z, xem1, { timeout: 5000 }).catch(() => {});
+        eq1(await page.evaluate(h => [window.__MOCK_NHIN__, window.__MOCK_BO_DS__, window.app.Database.hm.curIndex - h], xem0[1]), [['SWISO', 'TOPVIEW'], [], 0], 'bấm "Nhìn từ trên": lệnh TOPVIEW; đổi góc nhìn không thêm bước nào vào lịch sử bản vẽ');
+        ok((await st()) === 'Chenfeng đang nhìn từ trên.', '… dòng trạng thái báo đang nhìn từ trên', await st());
+        await page.waitForTimeout(300);
+        // Chenfeng đang chạy dở một lệnh khác (lệnh cột của người dùng còn chờ máy chủ, chưa hỏi gì): chữ gửi vào bị lệnh đó nuốt, góc nhìn KHÔNG đổi — lệnh đổi góc nhìn "trong suốt" nên không có
+        // dòng lệnh nào để biết; bảng phải xem chính góc nhìn rồi mới nói, không được báo "đang ở góc nhìn 3D", không gửi tiếp lệnh thu phóng
+        const xem2 = await page.evaluate(() => { window.__MOCK_NHIN__ = []; window.__MOCK_BO_DS__ = []; window.__MOCK_CH_TRE__ = { pillar: 2500 }; window.__MOCK__.quenCH(); window.app.Editor.CommandStore.HandleInput('DRAWPILLAR'); return window.__MOCK_ZOOM__ || 0; });
+        await page.waitForTimeout(200);
+        await H.locator('.pkq [data-act="xem3d"]').click();
+        await page.waitForFunction(() => /bận|3D/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 5000 }).catch(() => {});
+        const ban3d = await page.evaluate(z => [window.__MOCK_NHIN__, (window.__MOCK_BO_DS__ || []).filter(x => x[0] === 'ZOOME').length, (window.__MOCK_ZOOM__ || 0) - z], xem2);
+        ok((await st()) === 'Chenfeng đang bận một lệnh — xong lệnh đó rồi bấm lại.' && JSON.stringify(ban3d) === '[[],0,0]', 'Chenfeng đang chạy dở lệnh khác: "Xem 3D" báo đang bận, không nói đã đổi góc nhìn, không gửi lệnh thu phóng', [await st(), ban3d, await page.evaluate(() => window.__MOCK_BO_DS__)]);
+        // … hộp thông số của lệnh đó hiện ra (Chenfeng đang mở hộp thoại): bấm nữa thì bảng KHÔNG gửi chữ nào vào Chenfeng
+        await page.waitForFunction(() => !!document.querySelector('.bp3-dialog'), null, { timeout: 6000 }).catch(() => {});
+        const bo3d = await page.evaluate(() => { window.__MOCK__.__tt = document.getElementById('mncf-host').shadowRoot.querySelector('.status'); window.__MOCK__.__tt.textContent = ''; return (window.__MOCK_BO_DS__ || []).length; });
+        await H.locator('.pkq [data-act="xem3d"]').click();
+        await page.waitForFunction(() => /bận|3D/.test(window.__MOCK__.__tt.textContent), null, { timeout: 5000 }).catch(() => {});
+        ok((await page.evaluate(() => (window.__MOCK_BO_DS__ || []).length)) === bo3d && /đang bận một lệnh/.test(await st()) && (await page.evaluate(() => !!document.querySelector('.bp3-dialog'))), 'Chenfeng đang mở hộp thông số: "Xem 3D" không gửi gì vào Chenfeng, không đụng hộp', [await st(), await page.evaluate(() => window.__MOCK_BO_DS__)]);
+        await page.evaluate(() => { const d = document.querySelector('.bp3-dialog'); if (d) d.querySelectorAll('button')[1].click(); window.__MOCK_CH_TRE__ = 0; window.__MOCK_VL_TRE__ = 0; window.__MOCK_BO_DS__ = []; window.__MOCK_BO_LENH__ = 0; });      // người dùng bấm Cancel ở hộp cột của mình
+        await page.waitForTimeout(300);
+        // … Chenfeng đang HỎI (lệnh tường của người dùng): chữ gửi lúc này thành câu trả lời cho lời hỏi đó (trả lời bậy là lệnh của người dùng bị kết thúc) → cũng không gửi gì, lệnh của người dùng còn nguyên
+        await page.evaluate(() => { window.__MOCK__.__tt.textContent = ''; window.app.Editor.CommandStore.HandleInput('DRAWWALLINSIDE'); });
+        await page.waitForFunction(() => window.MNCFDriver.busy(), null, { timeout: 5000 }).catch(() => {});
+        await H.locator('.pkq [data-act="xemtren"]').click();
+        await page.waitForFunction(() => /bận|từ trên/.test(window.__MOCK__.__tt.textContent), null, { timeout: 5000 }).catch(() => {});
+        ok(JSON.stringify(await page.evaluate(() => [window.MNCFDriver.busy(), window.__MOCK_BO_DS__, window.__MOCK_NHIN__])) === '[true,[],[]]' && /đang bận một lệnh/.test(await st()), 'Chenfeng đang hỏi người dùng: "Nhìn từ trên" không gửi gì, lệnh của người dùng còn nguyên', [await st(), await page.evaluate(() => [window.MNCFDriver.busy(), window.__MOCK_BO_DS__, window.__MOCK_NHIN__])]);
+        await page.evaluate(() => window.MNCFDriver.cancel());
+        await page.waitForTimeout(300);
 
         // (b) quá hạn chờ ở lệnh TƯỜNG (vật liệu mặc định chưa về): báo đúng nguyên nhân, DỪNG — không gửi lệnh cửa / cột / dầm (trước đây gửi tiếp, Chenfeng bỏ hết, báo thêm 2 dòng "chưa mở được / chưa vẽ được")
         await page.evaluate(p => { const D = window.MNCFDriver; D.lastRoom = null; D.CH.han_lenh = 1500; D.CH.bao_cho = 300; window.__MOCK__.quenCH(); window.__MOCK_VL_TRE__ = 3200; window.__MOCK_CH_TRE__ = 0; window.__MOCK_CH_XONG__ = 0; window.__MOCK_BO_LENH__ = 0; window.MNCF.phong.dat(p); }, PM([140000, 0, 0]));
@@ -608,6 +649,10 @@ async function tienIch() {
         m0 = await mocLenh();
         kq2 = await vePh();
         ok(/Chenfeng chưa trả lời lệnh vẽ tường/.test(kq2) && !/vật liệu/.test(kq2), '(chuẩn bị) lần bấm đầu quá hạn, lệnh tường còn chạy ngầm — bản vẽ đã có vật liệu nên không đổ cho vật liệu', kq2);
+        // (bản 1.27) lúc này Chenfeng không hỏi gì, không mở hộp, D.busy() = false — chỉ còn lệnh trễ của bảng đang chờ máy chủ: "Xem 3D" không được gửi gì (chữ gửi vào bị lệnh đó nuốt,
+        // hoặc thành câu trả lời cho lời hỏi điểm sắp hiện ra của nó)
+        eq1(await page.evaluate(async () => { window.__MOCK_NHIN__ = []; window.__MOCK_BO_DS__ = []; const b = window.MNCFDriver.busy(), r = await window.MNCFDriver.xem3D(); return [b, r, window.__MOCK_NHIN__, window.__MOCK_BO_DS__]; }),
+          [false, false, [], []], 'lệnh tường của lần bấm trước còn chờ máy chủ: "Xem 3D" trả "bận", không gửi chữ nào vào Chenfeng');
         await page.evaluate(() => { window.MNCFDriver.CH.han_lenh = 20000; });
         kq2 = await vePh();
         ok(/Đã vẽ phòng: 4 tường, 1 cửa \/ ô trống, 1 cột \/ hộp, 1 dầm/.test(kq2) && !/Chưa|không nhận|chạy dở/.test(kq2), 'bấm lại ngay khi lệnh tường cũ còn chờ máy chủ: phòng vẫn vẽ đủ', kq2);

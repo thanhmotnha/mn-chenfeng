@@ -8,6 +8,8 @@ const EXT = path.join(__dirname, '..', 'dist', 'extension');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock-chenfeng.html'), 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, name, extra) => { if (c) pass++; else { fail++; console.log('  ✗', name, extra === undefined ? '' : JSON.stringify(extra)); } };
+// thẻ nằm sau nút ⚙ (bản 1.27 — Màu, Chuẩn xưởng, Hướng dẫn): hàng thẻ phụ chưa mở thì bấm ⚙ trước rồi mới bấm thẻ
+const theSau = async (H, t) => { const tab = H.locator('.tab[data-tab="' + t + '"]'); if (!(await tab.isVisible())) await H.locator('[data-act="the-them"]').click(); await tab.click(); };
 const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
   { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
   { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] } ] };
@@ -68,9 +70,77 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     });
     ok(chan.rong >= 540 && chan.rong <= 640, 'bảng mặc định rộng hơn (≈ 560) cho hình đứng và hàng nút đỡ chật', chan.rong);
     ok(JSON.stringify(chan.chu) === '["draw"]', 'chân bảng chỉ còn MỘT nút chữ: Vẽ vào Chenfeng', chan.chu);
-    ok(JSON.stringify(chan.ic) === '["dat-tuong","dat","hinh","redraw","pick","chuanhoa","json","csv","save","open"]', 'các nút còn lại là nút biểu tượng: 3 cách đặt tủ nằm cạnh nút Vẽ; rồi cập nhật / sửa tủ đang chọn / chuẩn hoá; rồi tệp', chan.ic);
+    // bản 1.27 — BẢNG ÍT CHỮ, ÍT NÚT (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen"): cạnh nút Vẽ chỉ còn 3 cách đặt tủ, Sửa tủ và nút ⋯;
+    // Chuẩn hoá / JSON / CSV / Lưu / Mở / ô toạ độ nằm sau nút ⋯; nút Cập nhật chỉ hiện khi bảng đang nối với một tủ trên bản vẽ.
+    ok(JSON.stringify(chan.ic) === '["dat-tuong","dat","hinh","pick","nut-them"]', 'cạnh nút Vẽ chỉ còn: 3 cách đặt tủ, Sửa tủ, nút ⋯', chan.ic);
     ok(chan.du.length === 0 && chan.nho.length === 0, 'nút biểu tượng nào cũng có hình, chú thích ngắn, tên đọc được (aria-label), lời giải thích (title) và đủ to để bấm (≥ 40 × 40)', [chan.du, chan.nho]);
-    ok(chan.cao <= 185 && chan.hang <= 2 && chan.tran.length === 0, 'chân bảng gọn: ngoài dòng trạng thái chỉ còn nửa chiều cao cũ (trước là 7 hàng nút chữ, 363 px), nút biểu tượng nằm trong 2 hàng, không hàng nào tràn ngang', chan);
+    ok(chan.cao <= 110 && chan.hang === 1 && chan.tran.length === 0, 'chân bảng: ngoài dòng trạng thái chỉ còn MỘT hàng nút (bản 1.25: 2 hàng + hàng toạ độ, 185 px), không tràn ngang', chan);
+    const hienAn = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, v = q => { const e = r.querySelector(q); return !!e && e.getClientRects().length > 0; };
+      return ['footer [data-act="redraw"]', '[data-act="chuanhoa"]', 'footer [data-act="json"]', '[data-act="csv"]', '[data-act="save"]', '[data-act="open"]', '#mncf-ui-ax', '#mncf-ui-useat'].map(v).map(Number).join(''); });
+    ok((await hienAn()) === '00000000' && (await H.locator('[data-act="nut-them"]').getAttribute('aria-expanded')) === 'false', 'mặc định: Cập nhật, Chuẩn hoá, JSON, CSV, Lưu, Mở, ô toạ độ đều ẩn', await hienAn());
+    await H.locator('[data-act="nut-them"]').click();
+    ok((await hienAn()) === '01111111' && (await H.locator('[data-act="nut-them"]').getAttribute('aria-expanded')) === 'true', 'bấm ⋯: hiện Chuẩn hoá, JSON, CSV, Lưu, Mở, ô toạ độ (Cập nhật vẫn ẩn — bảng chưa nối tủ nào)', await hienAn());
+    await H.locator('[data-act="nut-them"]').click();
+    ok((await hienAn()) === '00000000', 'bấm ⋯ lần nữa: gọn lại', await hienAn());
+    // thẻ: chỉ còn các thẻ làm việc + nút ⚙; Màu / Chuẩn xưởng / Hướng dẫn / Đo mạng nằm ở hàng thẻ phụ sau nút ⚙
+    const theHien = () => page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('header .tab')].filter(b => b.getClientRects().length > 0).map(b => b.dataset.tab || b.dataset.act).join(' '));
+    ok((await theHien()) === 'tu phong kho kq the-them', 'hàng thẻ: Tủ · Phòng · Kho mẫu · Kết quả · ⚙', await theHien());
+    await H.locator('[data-act="the-them"]').click();
+    ok((await theHien()) === 'tu phong kho kq the-them mausac chuan hd do-mang' && (await H.locator('[data-act="the-them"]').getAttribute('aria-expanded')) === 'true', 'bấm ⚙: hiện hàng thẻ phụ Màu · Chuẩn xưởng · Hướng dẫn · Đo mạng', await theHien());
+    await H.locator('.tab[data-tab="chuan"]').click();
+    ok(await H.locator('.pane[data-pane="chuan"]').isVisible() && /\bon\b/.test(await H.locator('[data-act="the-them"]').getAttribute('class')) && /chuan/.test(await theHien()), 'chọn Chuẩn xưởng: mở thẻ đó, nút ⚙ sáng, hàng thẻ phụ còn hiện');
+    await H.locator('[data-act="the-them"]').click();
+    ok(/chuan/.test(await theHien()) && await H.locator('.pane[data-pane="chuan"]').isVisible(), 'đang ở một thẻ phụ mà bấm ⚙: hàng thẻ phụ không gọn mất (kẻo thẻ đang mở không còn nút)', await theHien());
+    await H.locator('.tab[data-tab="tu"]').click();
+    ok((await theHien()) === 'tu phong kho kq the-them' && await H.locator('.pane[data-pane="tu"]').isVisible(), 'về thẻ Tủ: hàng thẻ phụ tự gọn lại', await theHien());
+    // Đo mạng tới Chenfeng (anh Thanh 05/10/2026 20:14: "làm sao hết lag nhỉ"; 21:56: "làm sao để máy chủ ổn định được" — để anh tự so các đường VPN). Đã đo trên máy anh: đường tới Chenfeng
+    // RỚT GÓI từng đợt (lượt rớt gói lâu gấp 2 – 10 lần, có lúc đứt hẳn) → một lượt làm nóng (mở kết nối, KHÔNG tính) + 20 lượt hỏi máy chủ Chenfeng (chỉ ĐỌC, lần lượt);
+    // dòng trạng thái: xếp loại + SỐ LẦN chậm hoặc rớt (con số để so hai đường mạng) + kết quả lần đo trước.
+    let lanDo = 0, treDo = [300].concat(Array.from({ length: 20 }, (_, i) => (i === 3 || i === 9 || i === 15 ? 900 : i === 12 ? 0 : 40)));      // ms; 0 = rớt (máy chủ không trả lời); lượt đầu = làm nóng
+    await ctx.route('https://api.cfcad.cn/CAD-dirQuery', async r => { const t = treDo[lanDo++ % treDo.length]; if (!t) return r.abort('connectionreset'); await new Promise(q => setTimeout(q, t)); r.fulfill({ status: 200, contentType: 'application/json', body: '{"err_code":1,"err_msg":"no"}' }); });
+    const doMang = async cho => { await H.locator('[data-act="do-mang"]').click(); await page.waitForFunction(c => new RegExp(c).test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), cho, { timeout: 30000 }).catch(() => {}); return H.locator('.status').innerText(); };
+    await page.evaluate(() => { window.MNCFDriver.CH.do_cach = 20; });      // (thật: các lượt cách nhau 0,4 giây)
+    await H.locator('[data-act="the-them"]').click();
+    let dm = await doMang('^Mạng tới Chenfeng: ');
+    ok(/^Mạng tới Chenfeng: tạm được — 4\/20 lần chậm hoặc rớt · bình thường 0,1 s · lâu nhất (0,9|1,0|1,1) s\.$/.test(dm), 'Đo mạng: xếp loại + số lần chậm hoặc rớt trong 20 lượt (3 lượt chậm + 1 lượt rớt), lượt bình thường, lượt lâu nhất', dm);
+    ok(lanDo === 21, '… một lượt làm nóng (không tính — lượt này chậm vì còn mở kết nối) + đúng 20 lượt hỏi máy chủ', lanDo);
+    treDo = [40];
+    dm = await doMang('Lần trước');
+    ok(/^Mạng tới Chenfeng: tốt — 0\/20 lần chậm hoặc rớt · bình thường 0,1 s · lâu nhất 0,[123] s\. Lần trước: 4\/20\.$/.test(dm), 'đo lần nữa (đường khác): kèm kết quả lần đo trước để so', dm);
+    ok(lanDo === 42, '… lại 1 + 20 lượt', lanDo);
+    treDo = [0];
+    dm = await doMang('đứt');
+    ok(/^Mạng tới Chenfeng: đứt — 3 lần liền không trả lời\. Kiểm tra mạng \/ VPN\. Lần trước: 0\/20\.$/.test(dm), 'đường đứt: 3 lần liền không trả lời thì dừng và báo đứt (không bắt chờ đủ 20 lượt × hạn chờ)', dm);
+    ok(lanDo === 45, '… chỉ hỏi 3 lượt', lanDo);
+    treDo = [40];
+    await H.locator('[data-act="do-mang"]').click();      // bấm thêm lần nữa lúc đang đo: không chạy loạt đo thứ hai chồng lên (hai loạt cùng hỏi máy chủ thì số đo sai, lượt nọ chen lượt kia)
+    await page.waitForFunction(() => /Đang đo mạng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 5000 }).catch(() => {});
+    dm = await doMang('^Mạng tới Chenfeng: tốt');
+    await page.waitForTimeout(1500);
+    ok(/^Mạng tới Chenfeng: tốt — 0\/20 lần chậm hoặc rớt · bình thường 0,1 s · lâu nhất 0,[123] s\. Lần trước: đứt\.$/.test(dm) && /Lần trước: đứt\.$/.test(await H.locator('.status').innerText()), 'đo lại sau lần đứt: "Lần trước: đứt"', dm);
+    ok(lanDo === 66, '… bấm "Đo mạng" lần nữa khi đang đo: vẫn chỉ một loạt 1 + 20 lượt', lanDo);
+    // 3 lượt rớt RẢI RÁC (giữa chúng có lượt trả lời): đường rớt gói chứ không đứt — đo đủ 20 lượt, xếp kém, không báo "đứt"
+    lanDo = 0; treDo = [40].concat(Array.from({ length: 20 }, (_, i) => (i === 3 || i === 9 || i === 15 ? 0 : 40)));
+    dm = await doMang('Lần trước: 0/20');
+    ok(/^Mạng tới Chenfeng: kém — 3\/20 lần chậm hoặc rớt · bình thường 0,1 s · lâu nhất 0,[123] s\. Lần trước: 0\/20\.$/.test(dm) && lanDo === 21, '3 lượt rớt rải rác trong 20: kém 3/20, đo đủ 1 + 20 lượt (không coi là đứt)', [dm, lanDo]);
+    await ctx.unroute('https://api.cfcad.cn/CAD-dirQuery');
+    await H.locator('[data-act="the-them"]').click();
+    ok((await theHien()) === 'tu phong kho kq the-them', 'bấm ⚙ lần nữa: hàng thẻ phụ gọn lại', await theHien());
+    // ít chữ: chữ hướng dẫn, chú giải màu, dòng mô tả tủ ẩn sẵn; nút "?" bật lại, máy nhớ lựa chọn
+    const chuHien = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, v = e => !!e && e.getClientRects().length > 0, p = r.querySelector('.pane[data-pane="tu"]');
+      return [[...p.querySelectorAll('.hint:not(.tt)')].filter(v).length > 0, v(p.querySelector('.legend')), v(p.querySelector('.sum')), r.querySelector('[data-act="chu"]').getAttribute('aria-pressed'), localStorage.getItem('mncf.ui.chu')]; });
+    ok(JSON.stringify(await chuHien()) === '[false,false,false,"false",null]', 'mặc định ÍT CHỮ: thẻ Tủ không hiện chữ hướng dẫn, chú giải màu, dòng mô tả tủ', await chuHien());
+    ok((await H.locator('.msgs .msg').count()) > 0 && await H.locator('.msgs .msg').first().isVisible() && await H.locator('[data-ui="phieu"]').isVisible(), '… dòng cảnh báo và phiếu tự kiểm vẫn hiện');
+    await H.locator('[data-act="chu"]').click();
+    ok(JSON.stringify(await chuHien()) === '[true,true,true,"true","1"]', 'bấm "?": hiện lại chữ hướng dẫn + chú giải + mô tả, máy nhớ', await chuHien());
+    await H.locator('[data-act="chu"]').click();
+    ok(JSON.stringify(await chuHien()) === '[false,false,false,"false","0"]', 'bấm "?" lần nữa: ít chữ lại', await chuHien());
+    // dòng báo dài: thu còn 2 dòng, bấm vào thì xổ hết
+    const kep = () => page.evaluate(() => { const m = document.getElementById('mncf-host').shadowRoot.querySelector('.msgs .msg'); return [getComputedStyle(m).webkitLineClamp, m.classList.contains('mo')]; });
+    ok(JSON.stringify(await kep()) === '["2",false]', 'dòng báo ở thẻ Tủ thu còn 2 dòng', await kep());
+    await H.locator('.msgs .msg').first().click();
+    ok(JSON.stringify(await kep()) === '["none",true]', 'bấm vào dòng báo: xổ hết', await kep());
+    await H.locator('[data-act="nut-them"]').click();      // mở sẵn hàng nút phụ cho các phép thử phía sau (ô toạ độ, JSON, Chuẩn hoá…)
     // rê chuột vào nút biểu tượng: dòng gợi ý ngay trên hàng nút nói liền nút đó làm gì (khỏi chờ tooltip của trình duyệt)
     await H.locator('[data-act="pick"]').hover();
     ok(/Sửa tủ đang chọn/.test(await H.locator('footer .goiy').innerText()), 'rê chuột vào nút biểu tượng: dòng gợi ý ghi nút đó làm gì', await H.locator('footer .goiy').innerText());
@@ -154,7 +224,18 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     let b0 = await B();
     const id1 = await page.evaluate(() => window.MNCFDriver.last.id);
     ok(/^[2-9A-Z]{8}$/.test(id1) && b0.tag.includes(id1) && b0.tag.includes('') && b0.tag.length === 2, 'tấm tiện ích vẽ mang ghi chú mã tủ; tấm của mẫu ngăn kéo thì không', b0.tag);
-    ok(!(await H.locator('[data-act="redraw"]').isDisabled()) && /Đang nối với tủ/.test(await H.locator('.tunoi').innerText()), 'vẽ xong → bảng nối với tủ vừa vẽ, nút "Cập nhật tủ này" bật');
+    ok(await H.locator('footer [data-act="redraw"]').isVisible(), 'bản 1.27: bảng nối với tủ vừa vẽ → nút Cập nhật tự hiện cạnh nút Vẽ');
+    // bản 1.27 — thẻ Kết quả có nút "Xem 3D" cạnh "Xem toàn bộ": xoay góc nhìn Chenfeng sang 3D (SWISO) rồi thu phóng
+    await page.waitForTimeout(300);
+    const z0 = await page.evaluate(() => { window.__MOCK_NHIN__ = []; return window.__MOCK_ZOOM__ || 0; });
+    const theTruoc = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.panel').dataset.tabon);
+    await H.locator('.tab[data-tab="kq"]').click();
+    ok(await H.locator('.report [data-act="xem3d"]').isVisible(), 'thẻ Kết quả sau khi vẽ tủ: có nút "Xem 3D"');
+    await H.locator('.report [data-act="xem3d"]').click();
+    await page.waitForFunction(z => (window.__MOCK_ZOOM__ || 0) > z, z0, { timeout: 5000 }).catch(() => {});
+    ok(JSON.stringify(await page.evaluate(() => window.__MOCK_NHIN__)) === '["SWISO"]' && (await page.evaluate(() => window.__MOCK_ZOOM__ || 0)) === z0 + 1, 'bấm "Xem 3D": Chenfeng nhận SWISO rồi thu phóng', await page.evaluate(() => [window.__MOCK_NHIN__, window.__MOCK_ZOOM__]));
+    if (theTruoc && theTruoc !== 'kq') await H.locator('.tab[data-tab="' + theTruoc + '"]').click();      // trả lại thẻ đang mở cho các phép thử sau
+    ok(!(await H.locator('footer [data-act="redraw"]').isDisabled()) && /Đang nối với tủ/.test(await H.locator('.tunoi').innerText()), 'vẽ xong → bảng nối với tủ vừa vẽ, nút "Cập nhật tủ này" bật');
     ok((await page.evaluate(id => { try { return JSON.parse(localStorage.getItem('mncf.tu.' + id)).spec.rong; } catch (e) { return null; } }, id1)) === 2000, 'thông số của tủ được lưu theo mã tủ');
     // người dùng làm việc khác trên bản vẽ (lịch sử đã đổi) + tự gắn thêm 1 tay nắm từ mẫu khác + di chuyển cả tủ 500 theo x
     await page.evaluate(() => {
@@ -178,7 +259,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     /* --- Chọn 1 tấm của tủ đã vẽ → bảng mở lại thông số tủ đó --- */
     await H.locator('.tab[data-tab="tu"]').click();
     await H.locator('[data-act="unlink"]').click();
-    ok(await H.locator('[data-act="redraw"]').isDisabled() && !(await H.locator('.tunoi').isVisible()), 'Bỏ nối → nút cập nhật tắt');
+    ok(await H.locator('footer [data-act="redraw"]').isDisabled() && !(await H.locator('footer [data-act="redraw"]').isVisible()) && !(await H.locator('.tunoi').isVisible()), 'Bỏ nối → nút Cập nhật tắt và ẩn lại (bản 1.27)');
     await page.evaluate(s => window.MNCF.app.setSpec(Object.assign({}, s, { rong: 3000, cao: 2400 })), TU_2000);      // bảng đang mở một tủ khác hẳn
     await H.locator('[data-act="pick"]').click();
     ok(/bấm chọn 1 tấm/.test(await H.locator('.status').innerText()), 'chưa chọn tấm nào → nhắc chọn');
@@ -265,7 +346,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     await page.evaluate(() => { window.__MOCK_FAIL_IMPORT__ = false; });
 
     /* --- các loại ngăn kéo: chọn loại trong bảng nổi, dò mã mẫu từ kho mẫu Chenfeng --- */
-    await H.locator('.tab[data-tab="chuan"]').click();
+    await theSau(H, 'chuan');
     ok(await H.locator('[data-act="lk-do"]').isVisible(), 'trong Chenfeng có nút "Dò mã mẫu từ kho Chenfeng"');
     await H.locator('[data-act="lk-do"]').click();
     await page.waitForFunction(() => /cập nhật mã cho/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
@@ -526,7 +607,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     await page.waitForFunction(() => document.querySelector('.template-params li:nth-child(3) span:nth-child(3)').textContent === 'Dày hậu', null, { timeout: 5000 });
     ok((await page.evaluate(() => { const li = document.querySelectorAll('.template-params li'); return [li[2].children[2].getAttribute('data-mncf-goc'), li[1].children[2].textContent, li[1].children[2].hasAttribute('data-mncf-goc'), li[1].children[2].title]; })).join('|') === '背板厚|Width|false|', 'ô bị ghi chữ mới → dịch lại, chú thích cũ được gỡ');
     // nút tắt / bật ở tab Hướng dẫn
-    await H.locator('.tab[data-tab="hd"]').click();
+    await theSau(H, 'hd');
     ok(/Tắt dịch ghi chú/.test(await H.locator('[data-act="dich"]').innerText()), 'tab Hướng dẫn có nút Tắt dịch ghi chú');
     await H.locator('[data-act="dich"]').click();
     ok(JSON.stringify((await gc()).slice(2, 4)) === JSON.stringify(['背板厚', '左前缩']) && (await page.evaluate(() => [localStorage.getItem('mncf.dich'), document.querySelectorAll('[data-mncf-goc]').length].join('|'))) === '0|0' && /Bật dịch ghi chú/.test(await H.locator('[data-act="dich"]').innerText()), 'tắt → trả lại chữ gốc, ghi nhớ lựa chọn', await gc());

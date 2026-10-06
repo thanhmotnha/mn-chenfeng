@@ -74,6 +74,7 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
     console.log('— Vẽ bằng nút của bảng: thẻ Kết quả có phiếu dò lỗi sau khi vẽ');
     await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({}, TU, { ma: 'DL4' }));
     await H.locator('.tab[data-tab="tu"]').click();
+    if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) ô toạ độ nằm sau nút ⋯
     await H.locator('#mncf-ui-useat').check(); await H.locator('#mncf-ui-ax').fill('9000');
     await H.locator('[data-act="draw"]').click();
     await H.locator('.report [data-ui="phieu-ve"]').waitFor({ timeout: 30000 });
