@@ -108,7 +108,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     eq([r.sau, r.thanh_x, r.thanh_z], [[500], [130.5, 852], ['149.5…267.5', '349.5…467.5']], 'hộp sâu 500, thành cách vách đệm 13, hộp thấp hơn mép mặt 30 trên / 30 dưới');
     eq([r.buoc, r.tai], [1, [555001]], 'một bước lịch sử; Chenfeng gọi máy chủ đúng MỘT lần cho cả lệnh');
     eq(r.nk.map(x => [x.ket, x.mau, x.lc.row, x.lc.col, x.lc.doorPosType, x.lc.offset, x.lc.leftExt, x.lc.leftSpace, x.lc.rightSpace, x.lc.topSpace, x.lc.bottomSpace, x.lc.midSpace, x.lc.isAuto, x.lc.isFloor50]),
-      [['ok', ['555001', '555001'], 2, 1, 1, '17.5', '0', '2', '2', '22.5', '2', '22', true, true]], 'hộp "Drawer Design" nhận: 2 ô, lọt lòng, offset 17,5, khe 2 / 2 / 22,5 / 2 / 22, tự tính sâu bậc 50; cả hai ô có mẫu');
+      [['ok', ['555001', '555001'], 2, 1, 1, '0', '0', '2', '2', '22.5', '2', '22', true, true]], 'hộp "Drawer Design" nhận: 2 ô, lọt lòng, offset 0 (bản 1.28: vách đệm lùi sau nẹp — lưng mặt ngang mép vách đệm), khe 2 / 2 / 22,5 / 2 / 22, tự tính sâu bậc 50; cả hai ô có mẫu');
     eq([r.lc === LC0, r.bao_loi, r.busy, r.hop], [true, 0, false, false], 'lựa chọn của người dùng trong hộp được trả lại nguyên; không lỗi nào tới Chenfeng; lệnh đã xong, hộp đã đóng');
     eq(r.tu, ['NK'], 'tấm ngăn kéo mang tên tủ của tấm chung quanh');
     eq(r.nk.map(x => x.bh), [['$BH', '$BH']], 'mẫu ghi dày ván theo thùng (BH = $BH): bảng giữ nguyên công thức đó');

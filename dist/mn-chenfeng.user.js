@@ -8511,7 +8511,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // → { diem, luu_y, ghi_chu } của MNCFPhong.dienNuocChoTu, hoặc null (phòng chưa khai điểm nào / chưa biết tủ đặt ở đâu / không điểm nào bị tủ che)
     let dnTuHT = null;
     // (bản 1.28 — anh Thanh 06/10/2026: "hình minh họa có 3d") hình 3D thay hình đứng: kéo để xoay (az: vòng quanh tủ, el: nhìn từ trên xuống)
-    let xem3d = false, xoay = null, xoayXong = 0, cho3d = 0;
+    let xem3d = false, xoay = null, boClickXoay = false, cho3d = 0;      // boClickXoay: bỏ đúng cú "click" trình duyệt sinh ra khi nhả chuột sau lần kéo xoay
     const goc3d = { az: 30, el: 22 };
     const veLai3d = () => { if (cho3d) return; const f = () => { cho3d = 0; paintView(); }; cho3d = root.requestAnimationFrame ? root.requestAnimationFrame(f) : setTimeout(f, 16); };
     function datXem3d(on) {
@@ -10483,7 +10483,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     view.addEventListener('pointerdown', safe(e => {
       if (e.button || drag) return;
       // hình 3D: kéo để xoay. Chỉ giữ con trỏ khi đã kéo thật (≥ 4 px) — giữ ngay từ lúc bấm thì lần bấm thường (chọn phào / cột) mất đích
-      if (xem3d) { xoay = { id: e.pointerId, x: e.clientX, y: e.clientY, az: goc3d.az, el: goc3d.el, moved: false }; return; }
+      if (xem3d) { boClickXoay = false; xoay = { id: e.pointerId, x: e.clientX, y: e.clientY, az: goc3d.az, el: goc3d.el, moved: false }; return; }
       const v = !cheDoVach && e.target.closest && e.target.closest('[data-vach]');
       if (v) {
         const idx = +v.dataset.vach, s = svgScale(), w = (model && model.info.khoang) || [];
@@ -10524,7 +10524,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!xoay.moved) { if (Math.hypot(dx, dy) < 4) return; xoay.moved = true; try { view.setPointerCapture(e.pointerId); } catch (err) { /* bỏ qua */ } }
       goc3d.az = clamp(xoay.az + dx * 0.4, -85, 85); goc3d.el = clamp(xoay.el + dy * 0.3, 0, 75); veLai3d();
     }));
-    const thoiXoay = safe(e => { if (!xoay || e.pointerId !== xoay.id) return; if (xoay.moved) xoayXong = Date.now(); xoay = null; try { view.releasePointerCapture(e.pointerId); } catch (err) { /* bỏ qua */ } });
+    const thoiXoay = safe(e => { if (!xoay || e.pointerId !== xoay.id) return; if (xoay.moved) boClickXoay = true; xoay = null; try { view.releasePointerCapture(e.pointerId); } catch (err) { /* bỏ qua */ } });
     view.addEventListener('pointerup', thoiXoay); view.addEventListener('pointercancel', thoiXoay); view.addEventListener('lostpointercapture', thoiXoay);
     const endDrag = safe(e => {
       if (!drag || e.pointerId !== drag.id) return;
@@ -10612,7 +10612,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       // (bản 1.28) bấm vào phào / cột trên hình (hình đứng hoặc 3D): chọn để sửa ở thanh dưới hình
       { const ph = e.target.closest('.view [data-phao]'), ct = e.target.closest('.view [data-cot]');
         if (ph || ct) {
-          if (Date.now() - xoayXong < 250 || Date.now() - dragEnd < 250) return;
+          if (boClickXoay || Date.now() - dragEnd < 250) { boClickXoay = false; return; }
           if (ph) sel = { loai: 'phao', ben: ph.dataset.phao };
           else { const [x0, x1] = ct.dataset.cot.split(':').map(Number); sel = { loai: 'cot', x0, x1 }; }
           paintView(); renderBar();
