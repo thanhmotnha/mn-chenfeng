@@ -300,7 +300,9 @@ async function tienIch() {
     await page.waitForFunction(() => /Đã đặt tủ theo tường/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
     ok((await page.evaluate(() => (window.__MOCK_ROTATE__ || []).length)) === 2, 'vẽ từ thẻ Tủ sau "Mở thành tủ": tự xoay');
     if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) ô toạ độ nằm sau nút ⋯
+    ok(!(await H.locator('#mncf-ui-useat').isChecked()), '(bản 1.28) vẽ xong đúng chỗ khung: ô "Đặt tại toạ độ" bảng tự điền được bỏ chọn — lần Vẽ sau không dựng chồng lên tủ vừa vẽ');
     await H.locator('#mncf-ui-ax').fill('500');
+    ok(await H.locator('#mncf-ui-useat').isChecked(), '… gõ vào ô toạ độ: tự chọn lại "Đặt tại toạ độ"');
     await H.locator('[data-act="draw"]').click();
     await page.waitForFunction(() => window.MNCFDriver.last && Math.abs(window.MNCFDriver.last.offset[0] - 500) < 1 && /Đã vẽ xong/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 }).catch(() => {});
     ok((await page.evaluate(() => (window.__MOCK_ROTATE__ || []).length)) === 2 && (await page.evaluate(() => Math.abs(window.MNCFDriver.last.offset[0] - 500) < 1)), 'đổi toạ độ rồi vẽ: không xoay nữa (không còn là vị trí khung)');

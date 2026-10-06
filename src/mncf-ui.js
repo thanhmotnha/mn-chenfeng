@@ -2809,6 +2809,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     /* ---- sự kiện: ô nhập ---- */
     rootEl.addEventListener('input', safe(e => {
       const t = e.target;
+      // (bản 1.28) gõ vào ô toạ độ = muốn đặt tủ tại toạ độ đó → tự chọn "Đặt tại toạ độ" (vẽ xong đúng chỗ đặt thì bảng đã bỏ chọn ô này)
+      if (t.dataset.ui === 'ax' || t.dataset.ui === 'ay' || t.dataset.ui === 'az') { const ua = $('[data-ui="useAt"]'); if (ua && String(t.value).trim() !== '') ua.checked = true; }
       if (t.dataset.p) { if (t.tagName !== 'SELECT') phongInput(t); return; }      // thẻ Phòng (ô chọn xử lý ở 'change')
       if (t.dataset.lk) {      // bảng loại ngăn kéo
         const i = +t.closest('.lkr').dataset.li, x = spec.ngan_keo.loai[i]; if (!x) return;

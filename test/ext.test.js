@@ -180,7 +180,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok(JSON.stringify(mod.dims) === '[2000,597.5,2800]' && mod.capNhat >= 1, 'kích thước module = phủ bì tủ (2000 × 597,5 × 2800)', mod.dims);
     ok(/Tủ đã là module tham số của Chenfeng/.test(await H.locator('.report .mod').innerText()), 'báo cáo nói rõ cách sửa ngay trong ô Thông số của Chenfeng');
     ok(/L \(rộng\) \/ W \(sâu\) \/ H \(cao\)/.test(await H.locator('.report .mod').innerText()) && !/Riêng /.test(await H.locator('.report .mod').innerText()), 'tủ thường: cả L / W / H đều đổi được ở ô Thông số, không có câu "Riêng … chỉ để xem"', await H.locator('.report .mod').innerText());
-    ok(JSON.stringify(rep.dem) === JSON.stringify([[6041.5, 6059, 30, 591.5, 67.5, 520], [6882.5, 6900, 30, 591.5, 67.5, 520]]), '2 vách đệm nằm đúng chỗ (đã cộng độ dời)', rep.dem);
+    ok(JSON.stringify(rep.dem) === JSON.stringify([[6041.5, 6059, 47.5, 591.5, 67.5, 520], [6882.5, 6900, 47.5, 591.5, 67.5, 520]]), '2 vách đệm nằm đúng chỗ (đã cộng độ dời; bản 1.28: lùi sau nẹp)', rep.dem);
     // hậu chuẩn xưởng: 4 tấm 6 li nằm sau thùng (y 574…580 + độ dời 17,5), không có lỗ khoan nào
     ok(JSON.stringify(rep.hau) === JSON.stringify([[6, 5051, 6000, 591.5, 597.5, 51, 2199], [6, 6000, 6949, 591.5, 597.5, 51, 2199], [6, 5051, 6000, 591.5, 597.5, 2201, 2749], [6, 6000, 6949, 591.5, 597.5, 2201, 2749]]) && rep.loHau === 0, 'hậu 6 li phủ sau lưng thùng: đúng chỗ, không lỗ khoan', [rep.hau, rep.loHau]);
     ok(!/tấm hậu/.test(await H.locator('.report').innerText()), 'hậu không có lỗ → báo cáo không nhắc gì tới hậu');
