@@ -26,7 +26,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     });
     await require('./kho-gia.js')(ctx);      // bộ nạp của tiện ích lấy bản gộp vừa dựng trong máy
     await ctx.route('https://cfcad.cn/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }));
-    await ctx.addInitScript(() => { window.__MOCK_GOC__ = true; });
+    await ctx.addInitScript(() => { window.__MOCK_GOC__ = true; window.__MOCK_NGON__ = 'vi'; });      // (bản 1.29) giao diện Chenfeng tiếng Việt: nút "Xác nhận / Hủy" — bản ≤ 1.28 kẹt ở hộp "Hông tủ trái/phải"
     const page = await ctx.newPage();
     const errs = []; page.on('pageerror', e => errs.push(String(e)));
     await page.goto('https://cfcad.cn/');

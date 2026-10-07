@@ -12,7 +12,10 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
-## Giữ sẵn kết nối tới máy chủ Chenfeng (bản 1.29)
+## Chenfeng giao diện tiếng Việt; giữ sẵn kết nối tới máy chủ Chenfeng (bản 1.29)
+
+- **Sửa lỗi: bấm Vẽ rồi bấm điểm, Chenfeng mở hộp "Hông tủ trái/phải" rồi đứng đó, bảng biến mất.** Bảng tìm nút xác nhận của hộp theo chữ "OK / 确定", nên với giao diện Chenfeng tiếng Việt ("Xác nhận") bảng không thấy hộp. Nay bảng nhận cả chữ Trung, Anh, Việt và nhận theo màu nút.
+- Lúc chờ bấm điểm, dòng nhắc trên cùng có nút **Thôi** — bấm là bỏ lời nhắc, bảng mở lại (như phím Esc).
 
 - Máy chủ dữ liệu của Chenfeng ở Trung Quốc; đường từ Việt Nam sang **rớt gói từng đợt** (nặng nhất khoảng 19 – 22 giờ). Để im vài giây là máy chủ đóng kết nối, lần gọi sau phải mở lại — trên đường đang rớt gói, mở lại có khi mất thêm 1 – 3 giây, đúng lúc Chenfeng tải hộp ngăn kéo / suốt treo.
 - Nay trong lúc bảng đang vẽ tủ, cập nhật tủ, vẽ phòng hay dựng mẫu kho, hễ đường tới máy chủ im quá 2 giây thì bảng hỏi máy chủ một câu chỉ đọc cho kết nối còn mở. Chenfeng đang tự gọi máy chủ thì bảng không hỏi chen. Vẽ xong thì thôi.

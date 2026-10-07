@@ -64,6 +64,12 @@
   };
   /** Gỡ "màn che" của Chenfeng (xem D.editing) trước khi chạy lệnh — chính Chenfeng cũng gọi MaskManage.Clear() trước lệnh chèn mẫu. */
   D.boManChe = () => { try { const m = ed().MaskManage; if (m && typeof m.Clear === 'function') m.Clear(); } catch (e) { /* bỏ qua */ } try { const a = document.activeElement; if (a && a !== document.body && typeof a.blur === 'function' && !(document.getElementById('mncf-host') || { contains() { return false; } }).contains(a) && a.id !== 'mncf-host') a.blur(); } catch (e) { /* bỏ qua */ } };
+  // Chữ trên nút OK / Cancel của hộp thoại Chenfeng theo ngôn ngữ giao diện: tiếng Trung, tiếng Anh, tiếng Việt (ảnh anh Thanh 07/10/2026: "Chèn không gian · Xác nhận · Hủy").
+  // Bảng bản ≤ 1.28 chỉ nhận "OK / 确定" → giao diện tiếng Việt thì không thấy hộp lệnh gốc, lệnh đứng ở hộp "Hông tủ trái/phải". Nút OK còn nhận theo màu (bp3-intent-success).
+  const TEN_OK = /^(OK|确定|確定|确认|確認|Confirm|Xác nhận|Đồng ý)$/i, TEN_HUY = /^(Cancel|取消|Huỷ|Hủy|Hủy bỏ|Huỷ bỏ)$/i;
+  const chuNut = b => { try { return String(b.innerText || b.textContent || '').trim(); } catch (e) { return ''; } };
+  const laNutOK = b => TEN_OK.test(chuNut(b)) || (!!b.classList && b.classList.contains('bp3-intent-success') && !TEN_HUY.test(chuNut(b)));
+  D.dangHoiDiem = () => { try { const g = gp(); return !!(g && g.IsReady); } catch (e) { return false; } };      // Chenfeng đang chờ bấm một điểm (lời nhắc của bảng hoặc của lệnh)
   D.cancel = async () => { try { ed().Cancel(); } catch (e) { /* bỏ qua */ } await sleep(300); };
   // (bản 1.26.1) ĐÃ ĐO trên Chenfeng thật 05/10/2026 + đọc mã CommandStore.HandleInput: (1) đang có lệnh chạy dở thì chữ gửi vào được chuyển cho lời nhắc của lệnh đó — lệnh mới KHÔNG chạy và
   // Chenfeng không báo gì; (2) Chenfeng rảnh nhưng vừa nhận một lệnh chưa tới 88 ms thì lệnh gửi tiếp cũng bị BỎ lặng lẽ (vd bảng vừa gửi ZOOME xong là gửi UNDO).
@@ -1160,13 +1166,13 @@
     });
     await sleep(250);
     const nut = [...d.querySelectorAll('.bp3-dialog-footer button, button')].filter(b => !b.classList.contains('bp3-dialog-close-button'));
-    const ok = nut.find(b => /^(OK|确定|确认|Đồng ý|Xác nhận)$/i.test((b.textContent || '').trim())) || nut[0];
+    const ok = nut.find(b => TEN_OK.test(chuNut(b))) || nut.find(laNutOK) || nut[0];
     if (!ok) return false;
     ok.click();
     await cho(() => !hopThoai(), 4000);
     return ins.length >= vals.length;
   };
-  const dongHopThoai = async () => { const d = hopThoai(); if (!d) return; const c = [...d.querySelectorAll('button')].find(b => /^(Cancel|取消|Huỷ|Hủy)$/i.test((b.textContent || '').trim())) || d.querySelector('.bp3-dialog-close-button'); if (c) { c.click(); await sleep(300); } };
+  const dongHopThoai = async () => { const d = hopThoai(); if (!d) return; const c = [...d.querySelectorAll('button')].find(b => TEN_HUY.test(chuNut(b))) || d.querySelector('.bp3-dialog-close-button'); if (c) { c.click(); await sleep(300); } };
   // Hạn chờ của các lệnh phòng (ms) — phép thử chỉnh thẳng vào D.CH. han_lenh: lệnh đã bắt đầu thì chờ lời nhắc đầu tiên tối đa chừng này; cho_bat_dau: không rõ Chenfeng đã nhận lệnh chưa thì chờ chừng này;
   // bao_cho: chờ quá chừng này thì nói cho người dùng biết đang chờ gì.
   D.CH = { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000, do_cach: 400 };
@@ -2013,7 +2019,7 @@
   D.gocDuoc = () => { try { const e = ed(), V = root.app.Viewer; return !!(e.ModalManage && e.MouseCtrl && e.MouseCtrl._CurMousePointVCS && typeof V.WorldToScreen === 'function' && typeof V.ViewToFront === 'function' && typeof e.GetPoint === 'function'); } catch (e) { return false; } };
   const khoaFiber = e => Object.keys(e).find(k => k.indexOf('__reactFiber') === 0 || k.indexOf('__reactInternalInstance') === 0);
   const hopGoc = () => {
-    const nuts = [...document.querySelectorAll('button')].filter(b => { try { return b.getBoundingClientRect().width > 0 && /^(OK|确定|確定)$/i.test((b.innerText || b.textContent || '').trim()); } catch (e) { return false; } });
+    const nuts = [...document.querySelectorAll('button')].filter(b => { try { return b.getBoundingClientRect().width > 0 && laNutOK(b); } catch (e) { return false; } });
     for (let q = nuts.length - 1; q >= 0; q--) {
       let n = nuts[q];
       for (let i = 0; i < 18 && n; i++, n = n.parentElement) {
@@ -2245,7 +2251,7 @@
   };
   const laHopNK = m => !!(m && m.store && Array.isArray(m.store.doorDrawersInfo) && typeof m.store.InitInfos === 'function' && typeof m.store.SetDrawerDepth === 'function');
   const dongHop = async m => {      // đóng hộp thoại còn mở (bấm nút huỷ của chính hộp đó) rồi thôi lệnh
-    try { const h = m && m.ok && m.ok.isConnected && (m.ok.closest('.bp3-dialog') || m.ok.parentElement); const nut = h && [...h.querySelectorAll('button')].find(x => /^(Cancel|取消)$/i.test((x.innerText || x.textContent || '').trim())); if (nut) nut.click(); } catch (e) { /* bỏ qua */ }
+    try { const h = m && m.ok && m.ok.isConnected && (m.ok.closest('.bp3-dialog') || m.ok.parentElement); const nut = h && [...h.querySelectorAll('button')].find(x => TEN_HUY.test(chuNut(x))); if (nut) nut.click(); } catch (e) { /* bỏ qua */ }
     await sleep(120);
     if (D.busy()) await D.cancel();
   };

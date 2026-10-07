@@ -240,6 +240,15 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     await H.locator('.tab[data-tab="tu"]').click();      // (bản 1.28) nút Hoàn tác nằm ở chân thẻ Kết quả: bấm xong vẫn ở thẻ đó
     if (!(await H.locator('#mncf-ui-useat').isVisible())) await H.locator('[data-act="nut-them"]').click();
     await H.locator('#mncf-ui-useat').uncheck();
+    // (bản 1.29) đang chờ bấm điểm: dòng nhắc có nút "Thôi" — bấm là bỏ lời nhắc bấm điểm, bảng mở lại (anh Thanh 07/10: "bấm vẽ rồi kích vào vị trí là stop lệnh, extension tự tắt")
+    await H.locator('[data-act="draw"]').click();
+    await page.waitForFunction(() => window.app.Editor.GetPointServices.IsReady);
+    await H.locator('.chip [data-act="chip-thoi"]').waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+    ok(await H.locator('.chip [data-act="chip-thoi"]').isVisible(), 'chờ bấm điểm: dòng nhắc có nút "Thôi"');
+    await H.locator('.chip [data-act="chip-thoi"]').click();
+    await H.locator('.panel').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    ok(await H.locator('.panel').isVisible() && !(await H.locator('.chip').isVisible()) && !(await page.evaluate(() => window.app.Editor.GetPointServices.IsReady)), 'bấm "Thôi": Chenfeng thôi hỏi điểm, bảng mở lại, dòng nhắc tắt', await H.locator('.status').innerText());
+    await H.locator('.tab[data-tab="tu"]').click();
     await H.locator('[data-act="draw"]').click();
     await H.locator('.chip').waitFor({ state: 'visible' });
     ok(!(await H.locator('.panel').isVisible()) && /Bấm 1 điểm|đang tải|Đang gửi|Đang chuẩn bị/.test(await H.locator('.chip').innerText()), 'bảng tự thu gọn, hiện lời nhắc bấm điểm', await H.locator('.chip').innerText());
