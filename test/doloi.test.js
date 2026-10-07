@@ -80,7 +80,7 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
     await H.locator('.report [data-ui="phieu-ve"]').waitFor({ timeout: 30000 });
     const tomVe = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.report [data-ui="phieu-ve"]').textContent);
     ok(/không thấy lỗi|đạt/.test(tomVe) && /✓ 9 mục đạt/.test(tomVe), 'phiếu sau khi vẽ: 9 mục đạt (bản 1.28: gom một dòng)', tomVe.slice(0, 200));
-    ok(/Tự kiểm trước khi vẽ/.test(await H.locator('.report').innerText()) || (await H.locator('.report [data-ui="phieu-tk"]').count()) === 1, 'thẻ Kết quả có cả phiếu thiết kế');
+    ok((await H.locator('.report [data-ui="phieu-tk"]').count()) === 0 && (await H.locator('[data-act="tu-kiem"]').count()) === 1, '(bản 1.28) thiết kế không có gì cần xem: thẻ Kết quả không bày phiếu thiết kế (đã có nút ✓ Tự kiểm ở thẻ Tủ)');
 
     console.log('— Kiểu khoan không có trong cấu hình: lần vẽ có lỗi sản xuất; chuyện "tấm không lỗ" không nêu hai lần');
     await page.evaluate(s => window.MNCF.app.setSpec(s), Object.assign({}, TU, { ma: 'KL', khoan: { thung: 'KieuLa' } }));

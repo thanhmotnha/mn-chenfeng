@@ -227,6 +227,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     let b0 = await B();
     const id1 = await page.evaluate(() => window.MNCFDriver.last.id);
     ok(/^[2-9A-Z]{8}$/.test(id1) && b0.tag.includes(id1) && b0.tag.includes('') && b0.tag.length === 2, 'tấm tiện ích vẽ mang ghi chú mã tủ; tấm của mẫu ngăn kéo thì không', b0.tag);
+    await H.locator('.tab[data-tab="tu"]').click();      // (bản 1.28) chân thẻ Kết quả là hàng việc làm tiếp; nút Cập nhật ở chân thẻ Tủ
     ok(await H.locator('footer [data-act="redraw"]').isVisible(), 'bản 1.27: bảng nối với tủ vừa vẽ → nút Cập nhật tự hiện cạnh nút Vẽ');
     { // (bản 1.28) đang nối với tủ đã vẽ — tủ vẫn đứng chỗ cũ, cột vẫn ở đó: "Về tủ mẫu" GIỮ khấu cột (Cập nhật không được vẽ tủ đè vào cột)
       const the0 = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.panel').dataset.tabon), sp0 = await page.evaluate(() => window.MNCF.app.getSpec());
@@ -248,6 +249,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     if (theTruoc && theTruoc !== 'kq') await H.locator('.tab[data-tab="' + theTruoc + '"]').click();      // trả lại thẻ đang mở cho các phép thử sau
     ok(!(await H.locator('footer [data-act="redraw"]').isDisabled()) && /^Cập nhật tủ \S+/.test(await H.locator('footer [data-act="redraw"]').innerText()), 'vẽ xong → bảng nối với tủ vừa vẽ, nút "Cập nhật tủ …" bật');
     // (bản 1.28) đang nối: "Cập nhật tủ X" là nút chính (to nhất, đứng đầu hàng), nút vẽ thu thành "Tủ mới", có nút "Thôi sửa"
+    await H.locator('.tab[data-tab="tu"]').click();
     { const vh = await page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, q = s => r.querySelector('footer ' + s), w = e => Math.round(e.getBoundingClientRect().width), x = e => Math.round(e.getBoundingClientRect().left);
         return { cn: w(q('[data-act="redraw"]')), ve: w(q('[data-act="draw"]')), dau: x(q('[data-act="redraw"]')) < x(q('[data-act="draw"]')), chuVe: q('[data-act="draw"]').textContent, thoi: !!q('[data-act="unlink"]').getClientRects().length }; });
       ok(vh.cn > vh.ve && vh.dau && vh.chuVe === 'Tủ mới' && vh.thoi, 'đang nối: "Cập nhật tủ …" là nút chính, nút vẽ thành "Tủ mới", có "Thôi sửa"', vh); }
