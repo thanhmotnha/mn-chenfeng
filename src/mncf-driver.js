@@ -1912,7 +1912,7 @@
     let het = false; const hen = sleep(60000).then(() => { het = true; if (ac) ac.abort(); });
     let r, j;
     try {
-      danhDauGoi();
+      danhDauGoi(path);
       r = await Promise.race([root.fetch(D.apiHost() + '/' + path, { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify(data), signal: ac ? ac.signal : undefined }), hen.then(() => { throw new Error('qua gio'); })]);
       if (!r.ok) throw new Error('Máy chủ Chenfeng trả lời ' + r.status + '.');
       j = await r.json();
@@ -1933,7 +1933,7 @@
       const ac = typeof AbortController === 'function' ? new AbortController() : null, t0 = Date.now(); let co = false;
       try {
         co = await Promise.race([
-          (danhDauGoi(), root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined })).then(async r => { await r.text(); return true; }),
+          (danhDauGoi('CAD-dirQuery'), root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined })).then(async r => { await r.text(); return true; }),
           sleep(han).then(() => false)]);
       } catch (e) { co = false; }
       if (co) return Date.now() - t0;
@@ -3475,16 +3475,17 @@
    * lời gọi của Chenfeng (cùng máy chủ, cùng kiểu có cookie) dùng lại được kết nối đó. Có lời gọi của Chenfeng thì không hỏi thêm (đã ấm sẵn). am_cach = 0: tắt.
    * Kèm theo: ghi lại các lần CHENFENG gọi máy chủ (tên, initiatorType, giao thức, thời gian) để Đo mạng tóm tắt — số đo cho việc "tự gửi lại khi rớt gói" (chưa làm).
    * ------------------------------------------------------------------ */
-  const goiCF = [], cuaBang = [];
+  // lời gọi của chính bảng: đếm theo tên lời gọi — mỗi mục "fetch" cùng tên thấy sau đó trừ một (so theo thời điểm bắt đầu thì lệch: lời gọi bị huỷ / bị chặn CORS có startTime khác)
+  const goiCF = [], cuaBang = new Map();
   let lanCuoiMang = 0;
-  function danhDauGoi() { try { const t = root.performance.now(); cuaBang.push(t); if (cuaBang.length > 200) cuaBang.splice(0, cuaBang.length - 200); lanCuoiMang = t; } catch (e) { /* bỏ qua */ } }
+  function danhDauGoi(ten) { try { cuaBang.set(ten, (cuaBang.get(ten) || 0) + 1); lanCuoiMang = root.performance.now(); } catch (e) { /* bỏ qua */ } }
   try {
     if (typeof root.PerformanceObserver === 'function') {
       const po = new root.PerformanceObserver(ds => {
         for (const e of ds.getEntries()) {
           const m = /^https:\/\/[^/]+\/(CAD-[A-Za-z]+)/.exec(e.name || ''); if (!m) continue;
           lanCuoiMang = Math.max(lanCuoiMang, e.responseEnd || e.startTime || 0);
-          if (e.initiatorType === 'fetch' && cuaBang.some(t => Math.abs(t - e.startTime) < 5)) continue;      // lời gọi của chính bảng
+          if (e.initiatorType === 'fetch' && cuaBang.get(m[1]) > 0) { cuaBang.set(m[1], cuaBang.get(m[1]) - 1); continue; }      // lời gọi của chính bảng
           goiCF.push({ ten: m[1], kieu: e.initiatorType || '', gt: e.nextHopProtocol || '', ms: Math.round(e.duration) });
           if (goiCF.length > 300) goiCF.splice(0, goiCF.length - 300);
         }
@@ -3507,7 +3508,7 @@
             const cach = D.CH.am_cach; if (!(cach > 0) || giu <= 0) continue;
             let bay; try { bay = root.performance.now(); } catch (e) { break; }
             if (bay - lanCuoiMang < cach) continue;
-            danhDauGoi();
+            danhDauGoi('CAD-dirQuery');
             const ac = typeof AbortController === 'function' ? new AbortController() : null;
             try {
               await Promise.race([root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined }).then(r => r.text()), sleep(8000)]);
