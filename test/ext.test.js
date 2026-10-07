@@ -185,7 +185,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     // hậu chuẩn xưởng: 4 tấm 6 li nằm sau thùng (y 574…580 + độ dời 17,5), không có lỗ khoan nào
     ok(JSON.stringify(rep.hau) === JSON.stringify([[6, 5051, 6000, 591.5, 597.5, 51, 2199], [6, 6000, 6949, 591.5, 597.5, 51, 2199], [6, 5051, 6000, 591.5, 597.5, 2201, 2749], [6, 6000, 6949, 591.5, 597.5, 2201, 2749]]) && rep.loHau === 0, 'hậu 6 li phủ sau lưng thùng: đúng chỗ, không lỗ khoan', [rep.hau, rep.loHau]);
     ok(!/tấm hậu/.test(await H.locator('.report').innerText()), 'hậu không có lỗ → báo cáo không nhắc gì tới hậu');
-    ok(/đổi sang Cam3Tp cho 10 tấm/.test(await H.locator('.report').innerText()), 'báo cáo nêu việc đổi kiểu khoan của mẫu');
+    ok(/Đã sửa kiểu khoan cho 10 tấm ngăn kéo/.test(await H.locator('.report').innerText()) && /đã đổi sang Cam3Tp/.test(await H.locator('.report .msg.note[title*="kiểu khoan"]').first().getAttribute('title')), 'báo cáo nêu việc đổi kiểu khoan của mẫu (chi tiết ở title)');
     ok((await page.evaluate(() => window.__MOCK_ZOOM__)) >= 1, 'vẽ xong gọi xem toàn bộ');
 
     // bản 1.15: trang giả lập không có lệnh gốc của Chenfeng → bảng tự vẽ theo cách nhập tấm (không báo lỗi)
@@ -209,6 +209,8 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'hoàn tác lần vẽ đó: bản vẽ sạch');
 
     /* --- bấm điểm trên bản vẽ --- */
+    await H.locator('.tab[data-tab="tu"]').click();      // (bản 1.28) nút Hoàn tác nằm ở chân thẻ Kết quả: bấm xong vẫn ở thẻ đó
+    if (!(await H.locator('#mncf-ui-useat').isVisible())) await H.locator('[data-act="nut-them"]').click();
     await H.locator('#mncf-ui-useat').uncheck();
     await H.locator('[data-act="draw"]').click();
     await H.locator('.chip').waitFor({ state: 'visible' });

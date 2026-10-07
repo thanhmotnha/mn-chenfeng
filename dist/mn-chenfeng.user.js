@@ -9175,7 +9175,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // (bản 1.28) đang nối với một tủ trên bản vẽ: nút xanh to là "Cập nhật tủ X" (sửa tủ đó tại chỗ), nút vẽ thu thành ô "Tủ mới", có nút "Thôi sửa".
     // Không nối mà ô "Đặt tại toạ độ" đang tích: nút xanh ghi rõ "Vẽ tại x, y, z" (ô đó nằm sau ⋯, dễ quên là đang tích).
     function capNoi() {
-      const vh = $('.vehang'); if (!vh) return;
+      const vh = $('.vehang:not(.phonghang)'); if (!vh) return;
       vh.classList.toggle('noi', !!noi);
       const rd = $('footer [data-act="redraw"]'), nh = rd && rd.querySelector('.nh'), th = $('footer [data-act="unlink"]'), dv = $('footer [data-act="draw"]');
       if (nh) nh.textContent = noi ? `Cập nhật tủ ${noi.ten || ''}`.trim() : 'Cập nhật';

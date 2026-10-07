@@ -299,6 +299,7 @@ async function tienIch() {
     await H.locator('[data-act="draw"]').click();
     await page.waitForFunction(() => /Đã đặt tủ theo tường/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
     ok((await page.evaluate(() => (window.__MOCK_ROTATE__ || []).length)) === 2, 'vẽ từ thẻ Tủ sau "Mở thành tủ": tự xoay');
+    await H.locator('.tab[data-tab="tu"]').click();
     if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) ô toạ độ nằm sau nút ⋯
     ok(!(await H.locator('#mncf-ui-useat').isChecked()), '(bản 1.28) vẽ xong đúng chỗ khung: ô "Đặt tại toạ độ" bảng tự điền được bỏ chọn — lần Vẽ sau không dựng chồng lên tủ vừa vẽ');
     await H.locator('#mncf-ui-ax').fill('500');
