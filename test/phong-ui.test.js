@@ -283,7 +283,7 @@ async function tienIch() {
     r = await page.evaluate(() => { const D = window.MNCFDriver, a = D.last.added.filter(e => !e.IsErase && D.isBoard(e)).map(D.boxOf), mn = i => Math.min(...a.map(b => b[i])), mx = i => Math.max(...a.map(b => b[i])); return { hop: [mn(0), mx(1), mn(2), mx(3), mn(4), mx(5)].map(v => Math.round(v * 10) / 10), rot: window.__MOCK_ROTATE__, steps: D.last.steps, n: D.last.added.length }; });
     ok(JSON.stringify(r.hop) === JSON.stringify([13050, 13600, 300, 1300, 0, 2400]), 'tủ K2 sau khi xoay: lưng sát tường B (x = 13600), chiếm y 300…1300, sâu 550', r.hop);
     ok(r.rot && r.rot.length === 1 && r.rot[0].do === -90 && JSON.stringify(r.rot[0].goc) === JSON.stringify([13050, 1300, 0]) && r.rot[0].n === r.n, 'lệnh ROTATE: xoay TẤT CẢ đối tượng của tủ, −90° quanh góc trái–trước', r.rot);
-    ok(await H.locator('.tunoi').isVisible(), 'tủ đã xoay là module (bản 1.16): bảng vẫn nối để "Cập nhật tủ này"');
+    ok(await H.locator('footer [data-act="unlink"]').isVisible() && /^Cập nhật tủ/.test(await H.locator('footer [data-act="redraw"]').innerText()), 'tủ đã xoay là module (bản 1.16): bảng vẫn nối để "Cập nhật tủ …"');
     const soTruoc = await page.evaluate(() => window.__MOCK__.ents.filter(e => !e.IsErase).length);
     await H.locator('[data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
@@ -868,6 +868,29 @@ async function tienIch() {
       await H.locator('[data-act="hop-dong"]').click();
       await H.locator('[data-act="hinh-bo"]').click();
       ok(!(await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="useAt"]').checked)), '"Bỏ hình": ô "Đặt tại toạ độ" do bảng tự điền theo chỗ đặt cũng bỏ chọn (lần Vẽ sau không dựng chồng lên chỗ cũ)');
+      // khấu GÕ TAY (cột không vẽ thành cột của phòng trong Chenfeng): đặt bằng chuột ở chỗ không có cột thì GIỮ — chỉ khấu do lần đặt tự sinh mới bỏ
+      const KH_TAY = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 700, rong: 250, sau: 200 }], ho: 15 };
+      await page.evaluate(([sp, kh]) => window.MNCF.app.setSpec(Object.assign({}, sp, { khau: kh })), [TU_DAT, KH_TAY]);
+      await datEnter();
+      eq1(await khauNay(), [0, 0, 1, 1], 'khấu cột gõ tay: đặt bằng chuột ở chỗ không có cột vẫn giữ');
+      await H.locator('[data-act="hop-dong"]').click(); await H.locator('[data-act="hinh-bo"]').click();
+      // vẽ xong tủ ở chỗ có cột rồi bấm Vẽ một tủ KHÁC bằng điểm bấm: khấu tự sinh của chỗ cũ không theo sang
+      await page.evaluate(sp => window.MNCF.app.setSpec(sp), TU_DAT);
+      await page.evaluate(i => { window.__MOCK__.ents[i].IsErase = false; }, iCot);
+      await datEnter();
+      eq1(await khauNay(), [0, 0, 1, 1], '(chuẩn bị) đặt lại trùm cột: khấu cột giữa tự sinh');
+      await H.locator('[data-act="hop-dong"]').click();
+      await page.evaluate(() => { document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="useAt"]').checked = false; });      // vẽ chỗ khác: bấm điểm
+      await H.locator('footer [data-act="draw"]').click();
+      await page.waitForFunction(() => window.app.Editor.GetPointServices.IsReady && /Bấm 1 điểm/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.chip').textContent), null, { timeout: 15000 });
+      await page.evaluate(() => window.__MOCK__.clickPoint(9000, 0, 0));
+      await page.waitForFunction(() => /Đã vẽ xong|Có lỗi/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 }).catch(() => {});
+      ok((await page.evaluate(() => window.MNCF.app.getSpec().khau.giua.length)) === 0 && /Đã bỏ khấu cột của chỗ đặt trước/.test(await H.locator('.report').innerText()),
+        'vẽ tủ ở chỗ khác (bấm điểm, không phải chỗ đặt đang giữ): bỏ khấu cột tự sinh của chỗ cũ, thẻ Kết quả nói rõ', await H.locator('.report').innerText());
+      await H.locator('[data-act="undo"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+      await page.evaluate(i => { window.__MOCK__.ents[i].IsErase = true; }, iCot);
+      await H.locator('.tab[data-tab="tu"]').click();
     }
 
     /* --- bản 1.23: ĐẶT TỦ THEO TƯỜNG — chọn tường, rồi chọn chỗ ngay trên MẶT ĐỨNG của tường đó (anh Jason 04/10/2026 23:08: "chọn tường rồi chọn không gian tủ thì hợp lý hơn làm chuột hay bị chệch",
@@ -1074,6 +1097,9 @@ async function tPhongDaDo() {
     // thẻ Hướng dẫn có nói tới cách nối (người mới cài bảng không biết khối này để làm gì)
     eq1(await page.evaluate(() => { const li = [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('[data-pane="hd"] li')].find(x => /Phòng đã đo trên điện thoại/.test(x.textContent)); return li ? [/1\.24/.test(li.textContent), /chuỗi kết nối/i.test(li.textContent), /Lấy & vẽ/.test(li.textContent), /chỉ đọc/i.test(li.textContent)] : null; }), [true, true, true, true], 'thẻ Hướng dẫn: có mục "Phòng đã đo trên điện thoại" (bản 1.24) — nối thế nào, hai nút làm gì, bảng chỉ đọc');
     // --- chưa nối: có chỗ dán chuỗi kết nối, bảng không gọi đi đâu ---
+    // (bản 1.28) chưa nối thì khối máy đo gập sẵn (mặt bằng lên sát đầu thẻ) — bấm tiêu đề mới hiện ô dán chuỗi
+    ok(!(await B.evaluate(d => d.open)) && !(await B.locator('[data-act="do-noi"]').isVisible()), 'chưa nối: khối "Phòng đã đo trên điện thoại" gập sẵn');
+    await B.locator('summary').click();
     ok((await B.isVisible()) && /Phòng đã đo/i.test(await B.innerText()) && (await B.locator('[data-ui="do-chuoi"]').count()) === 1 && (await B.locator('[data-act="do-noi"]').isVisible()), 'thẻ Phòng có khối "Phòng đã đo trên điện thoại": chưa nối thì có ô dán chuỗi kết nối + nút Nối máy chủ', await B.innerText().catch(() => ''));
     eq1(await B.locator('[data-ui="do-chuoi"]').evaluate(e => [e.type, getComputedStyle(e).webkitTextSecurity, e.autocomplete]), ['text', 'disc', 'off'], 'ô dán chuỗi che chữ như ô mật khẩu (mã không nằm phơi trên màn hình) nhưng KHÔNG phải ô mật khẩu — trình duyệt khỏi mời "lưu mật khẩu" cho trang Chenfeng');
     await page.waitForTimeout(400);
@@ -1147,7 +1173,8 @@ async function tPhongDaDo() {
     eq1(await page.evaluate(() => { const M = window.__MOCK__, w = M.ents.filter(e => !e.IsErase && e instanceof M.RoomWallLine); return w.length; }), 4, 'bản vẽ có đúng 4 tường của phòng đó');
 
     // --- người vẽ đổi sang PHÒNG KHÁC ở thẻ Phòng (phòng mẫu) rồi đánh dấu khung trên đó: lấy phòng đã đo về thì KHÔNG mang khung của phòng lạ theo ---
-    await H.locator('[data-act="p-mau"]').click(); await page.waitForTimeout(150);
+    ok(!(await H.locator('[data-act="p-mau"]').isVisible()), '(bản 1.28) trong Chenfeng hàng nút file phòng nằm sau nút "Khác"');
+    await H.locator('[data-act="p-them"]').click(); await H.locator('[data-act="p-mau"]').click(); await page.waitForTimeout(150);
     await H.locator('[data-act="k-add"]').click(); await page.waitForTimeout(250);
     eq1([(await lay()).tuong.map(t => t.dai), (await lay()).khung.length, (await cat()).nguon], [[3600, 3000, 3600, 'auto'], 1, ''], '(chuẩn bị) về phòng mẫu + thêm một khung: phòng ở thẻ Phòng không còn là phòng lấy từ máy chủ');
     await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click();

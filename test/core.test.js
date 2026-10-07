@@ -1222,11 +1222,38 @@ T('Hình đứng: phào và cột bấm được; hình 3D (bản 1.28)', () => 
   // HÌNH 3D
   const h = C.hinh3D(M, { tuong_tac: true }), soKhoi = M.parts.length + M.mat_ngan_keo.length + M.templates.filter(t => t.loai === 'SUOT').length + M.info.khau.length;
   ok(/^<svg[^>]*data-3d="1"/.test(h) && !/NaN|Infinity/.test(h), 'hình 3D: một thẻ svg, không có số hỏng');
-  eq(dem(h, /<g[ >]/g), soKhoi, 'mỗi tấm / mặt ngăn kéo / suốt treo / cột là một khối');
-  ok(dem(h, /<polygon/g) >= soKhoi * 2 && dem(h, /<polygon/g) <= soKhoi * 3, 'mỗi khối vẽ 2 – 3 mặt hướng về người nhìn');
+  const nKhoi = dem(h, /<g[ >]/g);
+  ok(nKhoi > soKhoi, 'mỗi tấm / mặt ngăn kéo / suốt treo / cột ít nhất một khối; tấm khoét quanh cột chia thành nhiều khối', [nKhoi, soKhoi]);
+  ok(dem(h, /<polygon/g) >= nKhoi * 2 && dem(h, /<polygon/g) <= nKhoi * 3, 'mỗi khối vẽ 2 – 3 mặt hướng về người nhìn');
   eq([dem(h, /data-phao="trai"/g), dem(h, /data-cot=/g)], [2, 2], 'hình 3D: phào và cột bấm được như hình đứng');
   ok(!/data-phao|data-cot/.test(C.hinh3D(M, {})), 'không tương tác: không vùng bấm');
-  ok(dem(C.hinh3D(M, { canh: false }), /<g[ >]/g) === soKhoi - M.parts.filter(p => p.loai === 'CANH').length, 'tắt "Hiện cánh": bỏ các khối cánh');
+  ok(dem(C.hinh3D(M, { canh: false }), /<g[ >]/g) === nKhoi - M.parts.filter(p => p.loai === 'CANH').length, 'tắt "Hiện cánh": bỏ các khối cánh');
+  // tấm khoét quanh cột: phần nằm trong dải khoét chỉ sâu tới chỗ khoét (không vẽ xuyên qua cột) — một đáy 1000 × 500, khoét 200 ngang × từ y 300 ra sau → 2 khối
+  const Bk = { parts: [{ loai: 'DAY', x0: 0, x1: 1000, y0: 0, y1: 500, z0: 0, z1: 18, khau: [{ x0: 0, x1: 200, y0: 300, y1: 500 }] }], mat_ngan_keo: [], templates: [], info: {}, spec: Object.assign({}, s, { rong: 1000, cao: 18 }) };
+  const hk = C.hinh3D(Bk, { az: 0, el: 89 }), hk0 = C.hinh3D(Object.assign({}, Bk, { parts: [Object.assign({}, Bk.parts[0], { khau: [] })] }), { az: 0, el: 89 });
+  eq([dem(hk, /<g[ >]/g), dem(hk0, /<g[ >]/g)], [2, 1], 'đáy có một chỗ khoét: 2 khối (phần trước chỗ khoét sâu 300 + phần còn lại sâu 500); không khoét: 1 khối');
+  // thứ tự vẽ không vòng lặp: các khối hậu (xa) luôn vẽ trước mọi khối cánh (gần) ở các góc nhìn hay dùng
+  // thứ tự vẽ đúng — kiểm bằng cách BẮN TIA: ở chỗ hai khối chồng nhau trên hình, tia từ mắt người nhìn gặp khối nào trước thì khối đó phải được vẽ SAU
+  const vaoHop = (b, o, v) => { let t0 = -Infinity, t1 = Infinity; for (let k = 0; k < 3; k++) { if (Math.abs(v[k]) < 1e-12) { if (o[k] < b[k] || o[k] > b[k + 3]) return null; continue; } let a = (b[k] - o[k]) / v[k], c = (b[k + 3] - o[k]) / v[k]; if (a > c) [a, c] = [c, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, c); } return t1 > t0 + 1e-6 ? t0 : null; };
+  const saiThuTu = (Mx, az, el) => {
+    const { hop, xep, d, r, u } = C.hinh3D(Mx, { az, el, du_lieu: true }), pos = []; xep.forEach((i, k) => { pos[i] = k; });
+    const v = d.map(x => -x); let sai = 0;
+    for (let i = 0; i < hop.length; i++) for (let j = i + 1; j < hop.length; j++) {
+      const A = hop[i], B = hop[j], x0 = Math.max(A.k[0], B.k[0]), x1 = Math.min(A.k[2], B.k[2]), y0 = Math.max(A.k[1], B.k[1]), y1 = Math.min(A.k[3], B.k[3]);
+      if (x1 <= x0 || y1 <= y0) continue;
+      let gA = 0, gB = 0;
+      for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) {
+        const sx = x0 + (x1 - x0) * (a + 0.5) / 6, sy = y0 + (y1 - y0) * (b + 0.5) / 6, o = [0, 1, 2].map(k => sx * r[k] - sy * u[k] + 1e5 * d[k]);
+        const ta = vaoHop(A.b, o, v), tb = vaoHop(B.b, o, v); if (ta === null || tb === null) continue;
+        if (ta < tb - 0.6) gA++; else if (tb < ta - 0.6) gB++;
+      }
+      if ((gA && !gB && pos[i] < pos[j]) || (gB && !gA && pos[j] < pos[i])) sai++;
+    }
+    return sai;
+  };
+  const M2 = C.build(C.normalize(C.DEFAULT_SPEC));
+  for (const [ten, Mx] of [['tủ mặc định', M2], ['tủ khấu cột', M]]) for (const [az, el] of [[30, 22], [-30, 22], [60, 10], [-85, 0], [85, 75], [0, 40]])
+    eq(saiThuTu(Mx, az, el), 0, `${ten}, góc ${az}° / ${el}°: khối gần người nhìn luôn vẽ sau khối nó che (bắn tia)`);
   // thứ tự vẽ: khối gần người nhìn vẽ SAU khối xa mà hình chồng lên nhau — hậu (sau lưng) trước, cánh (trước mặt) sau
   const iHau = h.indexOf('fill="#eef3ec"'), iCanh = h.indexOf('fill-opacity="0.45"');      // mặt trước của hậu (màu hậu nguyên) · khối cánh đầu tiên
   ok(iHau >= 0 && iCanh > iHau, 'hậu (sau lưng) vẽ trước, cánh (trước mặt) vẽ sau', [iHau, iCanh]);

@@ -18,7 +18,10 @@ Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.
 - **Bấm cột** trên hình *nhìn từ trên xuống* → **Bỏ cột này** (tủ thôi khoét quanh cột), hoặc *Bỏ hết* khi có nhiều cột. Phím Delete cũng bỏ được phào / cột đang chọn; **↶ Lùi** lấy lại.
 - **Hình 3D**: nút **3D** trên hình. Kéo trên hình (hoặc phím mũi tên) để xoay; bấm phào / cột trên hình 3D vẫn sửa được. Bấm lại nút để về hình đứng.
 - **Ngăn kéo âm sau cánh: nẹp che kín.** Nẹp hai bên hộc kéo rộng ra bằng khoảng đệm (50) và che luôn cạnh trước của vách đệm; vách đệm lùi ra sau nẹp. Mặt trước chỉ còn: cạnh hồi · nẹp · khe · mặt ngăn kéo — không còn lộ cạnh ván. Tắt nẹp ở Chuẩn xưởng → Ngăn kéo thì vách đệm ra lại ngang mặt ngăn kéo như cũ.
-- **Khấu cột là của chỗ đặt.** Đặt tủ bằng chuột ở chỗ không có cột thì bỏ khấu cột của lần đặt trước; *Về tủ mẫu* và *Dùng mẫu* (khi không giữ chỗ đặt nào) cho tủ không khấu; vẽ xong đúng chỗ đặt hoặc *Bỏ hình* thì ô *Đặt tại toạ độ* do bảng tự điền cũng bỏ chọn — lần Vẽ sau không dựng chồng lên chỗ cũ.
+- **Khấu cột là của chỗ đặt.** Đặt tủ bằng chuột ở chỗ không có cột thì bỏ khấu cột của lần đặt trước; *Tủ có sẵn → Dùng* (khi không giữ chỗ đặt nào) cho tủ không khấu; vẽ xong đúng chỗ đặt hoặc *Bỏ hình* thì ô *Đặt tại toạ độ* do bảng tự điền cũng bỏ chọn — lần Vẽ sau không dựng chồng lên chỗ cũ.
+- **Bảng gọn hơn.** Thẻ Tủ: hình tủ to hơn; bấm một ô trên hình hiện hàng nút *Trống · NK âm · NK trùm · Suốt*; ô chọn *Tủ có sẵn* + nút *Dùng* thay cho khung mẫu tủ và nút *Về tủ mẫu* (↶ Lùi lấy lại tủ đang làm). Ghi chú kiểm tra gom vào nút **✓ Tự kiểm** trên hình (đỏ khi có chỗ cần xem). Đang nối với tủ trên bản vẽ thì nút xanh là **Cập nhật tủ**, *Thôi sửa* nằm cạnh.
+- **Thẻ Kết quả:** chân bảng là việc làm tiếp — *Hoàn tác · Dò lỗi · Vừa màn · 3D · Xuất ván*. Phiếu dò lỗi gom theo mục (mục đạt gom một dòng), bỏ chữ Trung / chữ kỹ thuật, *Số liệu* thu gọn.
+- **Thẻ Phòng:** nút *Vẽ phòng vào Chenfeng* + *Hoàn tác* ở chân bảng; *Phòng đã đo trên điện thoại* thu gọn khi chưa nối; lưu / mở / dán mã / phòng mẫu nằm sau nút *Khác*.
 
 ## Bảng ít chữ, ít nút; Đo mạng; Xem 3D (bản 1.27)
 
