@@ -159,8 +159,15 @@ async function chay() {
     await page.waitForFunction(() => /chưa có mẫu/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.kluoi').textContent), null, { timeout: 8000 });
     eq(await H.locator('.knhom .knut').allTextContents(), ['Tủ áo', 'Tủ tivi', 'Tủ giày – sảnh'], 'nhóm nhanh: chỉ hiện nhóm có thư mục khớp tên trong kho của tài khoản');
     // nhóm đầu (Tủ áo) được mở sẵn — ở kho giả thư mục đó rỗng → báo; bấm Tủ tivi: bỏ qua thư mục trùng tên mà rỗng
-    ok((await H.locator('.knut.on').textContent()) === 'Tủ áo' && (await H.locator('[data-ui="kho-dir"]').inputValue()) === '33' && (await H.locator('[data-ui="kho-dir"] option').count()) === 7, 'mở thẻ lần đầu: đọc cây thư mục (7 thư mục), mở sẵn nhóm đầu tiên', await H.locator('[data-ui="kho-dir"]').inputValue());
-    eq(goiAPI.map(g => g[0]), ['/CAD-dirQuery', '/CAD-moduleList'], 'chỉ gọi lệnh ĐỌC kho: cây thư mục + danh sách mẫu');
+    ok((await H.locator('.knut.on').textContent()) === 'Tủ áo' && (await H.locator('[data-ui="kho-dir"]').inputValue()) === '33', 'mở thẻ lần đầu: đọc cây thư mục, mở sẵn nhóm đầu tiên', await H.locator('[data-ui="kho-dir"]').inputValue());
+    // (bản 1.29.1 — anh Thanh 07/10/2026: "thư mục phụ kiện và tủ lẫn nhau khó sắp xếp"; "những cái chưa có mẫu thì bỏ đi"): ô Thư mục chia nhóm Tủ / Phụ kiện / Khác theo TÊN,
+    // và sau khi đếm ngầm (1 lần CAD-moduleList 1 mẫu / trang cho mỗi thư mục — chỉ ĐỌC) thì thư mục không có mẫu (cả cây con) biến mất: "Tủ tivi" rỗng (21) đi, "Kho Chenfeng (store)" / "Shop mẫu" ở lại vì con có mẫu
+    await page.waitForFunction(() => { const r = document.getElementById('mncf-host').shadowRoot; return !r.querySelector('[data-ui="kho-dir"] option[value="21"]') && r.querySelectorAll('[data-ui="kho-dir"] option').length > 0; }, null, { timeout: 8000 });
+    eq(await page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('[data-ui="kho-dir"] optgroup')].map(g => g.label + ':' + [...g.children].map(o => o.textContent.trim() + '=' + o.value).join('|'))),
+      ['Tủ:Tủ tivi=31|Tủ giày - sảnh=32|Tủ áo - phòng thay đồ=33', 'Khác:Kho Chenfeng (store)=20|Shop mẫu=30'],
+      'ô Thư mục: nhóm Tủ / Khác (thư mục gốc của kho), thứ tự cây giữ nguyên; thư mục rỗng "抽屉" (11) và "Tủ tivi" (21) đã ẩn; "Tủ áo" (33) rỗng nhưng đang mở nên còn');
+    { const dem = goiAPI.filter(g => g[0] === '/CAD-moduleList' && g[1].page_count === 1);
+      ok(dem.length === 6 && new Set(dem.map(g => g[1].dir_id)).size === 6 && !dem.some(g => g[1].dir_id === '33') && goiAPI.every(g => g[0] === '/CAD-dirQuery' || g[0] === '/CAD-moduleList'), 'đếm ngầm: mỗi thư mục chưa đọc đúng 1 lần hỏi 1 mẫu (thư mục đã đọc thì không hỏi lại); vẫn chỉ lệnh ĐỌC', dem.map(g => g[1].dir_id)); }
     await H.locator('.knut[data-v="tivi"]').click();
     await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.kmc').length === 12, null, { timeout: 8000 });
     ok((await H.locator('.knut.on').textContent()) === 'Tủ tivi' && (await H.locator('[data-ui="kho-dir"]').inputValue()) === '31', 'nhóm Tủ tivi: bỏ qua thư mục “Tủ tivi” rỗng, mở thư mục có mẫu', await H.locator('[data-ui="kho-dir"]').inputValue());
@@ -182,9 +189,9 @@ async function chay() {
     ok(true, 'tìm không ra: báo rõ');
     // thư mục con + lên thư mục chứa
     await H.locator('[data-ui="kho-dir"]').selectOption('30');
-    await page.waitForFunction(() => { const sr = document.getElementById('mncf-host').shadowRoot; return sr.querySelectorAll('.kcon .knut').length === 4 && /không có mẫu trực tiếp/.test(sr.querySelector('.kluoi').textContent); }, null, { timeout: 8000 });
+    await page.waitForFunction(() => { const sr = document.getElementById('mncf-host').shadowRoot; return sr.querySelectorAll('.kcon .knut').length === 3 && /không có mẫu trực tiếp/.test(sr.querySelector('.kluoi').textContent); }, null, { timeout: 8000 });
     ok(/không có mẫu trực tiếp/.test(await H.locator('.kluoi').innerText()) && (await H.locator('[data-ui="kho-tim"]').inputValue()) === '', 'chọn thư mục mẹ: báo chọn thư mục con, ô tìm được xoá');
-    eq(await H.locator('.kcon .knut').allTextContents(), ['↑ lên', 'Tủ tivi ›', 'Tủ giày - sảnh ›', 'Tủ áo - phòng thay đồ ›'], 'có nút lên + các thư mục con');
+    eq(await H.locator('.kcon .knut').allTextContents(), ['↑ lên', 'Tủ tivi ›', 'Tủ giày - sảnh ›'], 'có nút lên + các thư mục con có mẫu (bản 1.29.1: "Tủ áo" rỗng không còn hiện khi đã rời nó)');
     await H.locator('.kcon .knut', { hasText: 'Tủ giày' }).click();
     await page.waitForFunction(() => { const s = document.getElementById('mncf-host').shadowRoot; return s.querySelectorAll('.kmc').length === 1 && /giày/.test(s.querySelector('.kmc b').textContent); }, null, { timeout: 8000 });
     await H.locator('.kmc').first().click();

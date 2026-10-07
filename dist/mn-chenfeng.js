@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.29.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.29.1 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.29.0';
+  const VERSION = '1.29.1';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -1430,6 +1430,15 @@
     return { muc, x, n, nhanh, cham, tre, rot };
   }
 
+  /** Nhóm của một thư mục kho mẫu theo TÊN (bản 1.29.1 — kho của tài khoản bày lẫn tủ với phụ kiện): 'pk' phụ kiện | 'tu' tủ và thành phần của tủ (cánh, ngăn kéo) | 'khac'.
+   *  Xét phụ kiện trước ("Tủ phụ kiện" là phụ kiện). Thư mục con thì theo thư mục gốc của nó (giao diện lo). */
+  function nhomThuMuc(ten) {
+    const t = String(ten == null ? '' : ten).toLowerCase();
+    if (/phụ kiện|bản lề|tay nắm|tay co|ray|ke |^ke$|chân|đèn|led|kho[áa]|suốt|pát|bát|móc|rổ|giá treo|vít|nẹp|gioăng|giảm chấn|nâng|五金|铰链|拉手|滑轨|导轨|脚|灯|锁|挂衣|衣杆|配件|拉篮|hardware|hinge|handle|rail/.test(t)) return 'pk';
+    if (/tủ|cánh|ngăn kéo|hộc|kệ|giường|bàn|vách|lavabo|thùng|柜|门|抽屉|床|桌|架|cabinet|door|drawer/.test(t)) return 'tu';
+    return 'khac';
+  }
+
   /** Tóm tắt các lần Chenfeng gọi máy chủ của nó (bản 1.29). ds = [{ ten: tên lời gọi ("CAD-moduleDetail"…), kieu: initiatorType của trình duyệt, gt: nextHopProtocol ('' = trình duyệt không cho biết), ms }].
    *  Để làm "tự gửi lại khi rớt gói" phải biết Chenfeng gọi bằng XHR hay fetch, có đi HTTP/2 (một kết nối dùng chung) không, và mỗi mẫu tải lâu bao nhiêu khi mạng rớt gói — chưa đo trên bản thật.
    *  Trả { n, kieu: [[loại, số lần]], gt: [[giao thức, số lần]], mau: { n, giua, cham } (CAD-moduleDetail), cham: 3 lần lâu nhất [{ ten, ms }] }. */
@@ -2375,7 +2384,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, hinh3D, benPhao };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
 
 /*!
@@ -7647,6 +7656,87 @@
     }
   } catch (e) { /* trình duyệt không có thì thôi: không tóm tắt được, vẫn giữ kết nối được */ }
   D.goiCF = () => goiCF.slice();
+
+  /* ------------------------------------------------------------------ *
+   * THĂM DÒ LÕI CHENFENG (bản 1.29.1 — anh Thanh 07/10/2026: "lâu dài bảng gọi thẳng vào phần lõi của Chenfeng thay vì giả bấm hộp và rê chuột"; "lõi thì ít sửa đổi lắm").
+   * Chỉ ĐỌC: gom MÃ NGUỒN (Function.prototype.toString) của các lớp lệnh vẽ tấm / mẫu / dò khoảng trống / hộp thông số của Chenfeng thành một tệp chữ để người dùng gửi cho Claude
+   * (máy làm việc của Claude không vào được cfcad.cn). Không đọc dữ liệu bản vẽ, không đọc phiên đăng nhập / localStorage, không gọi hàm nào của Chenfeng ngoài toString.
+   * Tìm lớp: (1) qua bộ nạp module của trang (webpack: đẩy một gói rỗng vào mảng webpackChunk… để lấy hàm require — gói đó không có module nào), duyệt exports;
+   * (2) qua đối tượng đang có: app, app.Editor và các trường của nó, mẫu (Template) của tấm trên bản vẽ. Lớp cha của lớp tìm được thì lấy luôn (cả chuỗi kế thừa).
+   * Trả { noi_dung, so_lop, nguon: { webpack, ...}, ten: [...] }.
+   * ------------------------------------------------------------------ */
+  D.thamDoLoi = (opt) => {
+    opt = opt || {};
+    const LA = opt.mau || /(LeftRight|Vertial|Vertical|TopBottom|Behind|Layer|Door|Drawer|Space|Template|BoardOption|BoardProcess|DrawBoard|CommandMachine|CommandStore|CommandReactor|PointSelect|Modal|Board$|Wall|Pillar|Girder|Hole|Room|Module|Hinge|Handle)/;
+    const lop = new Map(), seen = new Set(), dangKy = [];
+    const them = (f, ep) => {
+      if (typeof f !== 'function' || seen.has(f)) return;
+      const n = String(f.name || '');
+      if (!ep && !(n && LA.test(n))) return;
+      seen.add(f);
+      lop.set(lop.has(n) ? `${n}#${lop.size}` : (n || `(không tên)#${lop.size}`), f);
+      let p = null; try { p = Object.getPrototypeOf(f); } catch (e) { p = null; }
+      if (p && p !== Function.prototype) them(p, true);      // lớp cha: lấy cả chuỗi
+    };
+    const quaDT = (o, sau) => {      // các giá trị của một đối tượng: hàm → xét; đối tượng → lớp của nó
+      if (!o || (typeof o !== 'object' && typeof o !== 'function')) return;
+      let ks = []; try { ks = Object.getOwnPropertyNames(o); } catch (e) { ks = []; }
+      for (const k of ks.slice(0, 400)) {
+        let v; try { const d = Object.getOwnPropertyDescriptor(o, k); v = d && 'value' in d ? d.value : undefined; } catch (e) { continue; }
+        if (typeof v === 'function') them(v);
+        else if (v && typeof v === 'object') {
+          try { if (v.constructor && v.constructor !== Object) them(v.constructor); } catch (e) { /* bỏ qua */ }
+          if (sau > 0) quaDT(v, sau - 1);
+          // sổ đăng ký lệnh: Map / đối tượng có khoá LEFTRIGHTBOARD → ghi tên lệnh → tên lớp, lấy lớp của mọi lệnh
+          try {
+            const laMap = v instanceof Map, coKhoa = laMap ? v.has('LEFTRIGHTBOARD') : Object.prototype.hasOwnProperty.call(v, 'LEFTRIGHTBOARD');
+            if (coKhoa && !dangKy.some(x => x.o === v)) {
+              const ds = laMap ? [...v.entries()] : Object.keys(v).map(x => [x, v[x]]);
+              dangKy.push({ o: v, ds: ds.slice(0, 3000).map(([kk, vv]) => { let tl = ''; try { const c = typeof vv === 'function' ? vv : vv && vv.constructor; tl = c && c.name || ''; if (c && c !== Object) them(c, true); } catch (e) { /* bỏ qua */ } return `${kk} → ${tl}`; }) });
+            }
+          } catch (e) { /* bỏ qua */ }
+        }
+      }
+    };
+    const nguon = { webpack: '', so_module: 0 };
+    // (1) webpack
+    try {
+      let req = null;
+      for (const k of Object.keys(root)) {
+        if (req) break;
+        if (!/^webpackChunk|^webpackJsonp/.test(k) || !Array.isArray(root[k])) continue;
+        try {
+          if (/^webpackChunk/.test(k)) root[k].push([[`mncf-tham-do-${Date.now()}`], {}, r => { req = r; }]);
+          else { const mid = `mncf-tham-do-${Date.now()}`; root[k].push([[mid], { [mid]: (m, e, r) => { req = r; } }, [[mid]]]); }
+          if (req) nguon.webpack = k;
+        } catch (e) { /* thử mảng khác */ }
+      }
+      const cache = req && (req.c || req.cache);
+      if (cache) for (const id of Object.keys(cache)) {
+        nguon.so_module++;
+        const ex = cache[id] && cache[id].exports; if (!ex) continue;
+        if (typeof ex === 'function') them(ex);
+        if (typeof ex === 'object' || typeof ex === 'function') { let ks = []; try { ks = Object.keys(ex); } catch (e) { ks = []; } for (const k of ks.slice(0, 500)) { let v; try { v = ex[k]; } catch (e) { continue; } if (typeof v === 'function') them(v); else if (v && typeof v === 'object') quaDT(v, 0); } }
+      }
+    } catch (e) { nguon.loi_webpack = String(e && e.message || e); }
+    // (2) đối tượng đang có
+    try { const app = root.app; if (app) { quaDT(app, 1); try { quaDT(app.Editor, 1); } catch (e) { /* bỏ qua */ } } } catch (e) { /* bỏ qua */ }
+    try { for (const e of D.all().slice(0, 400)) { try { const T = e.Template && e.Template.Object; if (T && T.constructor) them(T.constructor, true); if (e.constructor) them(e.constructor, true); } catch (er) { /* bỏ qua */ } } } catch (e) { /* bỏ qua */ }
+    // tệp chữ
+    const toiDa = opt.toi_da || 8e6, motLop = 300000, ra = [];
+    let tong = 0;
+    const sc = []; try { for (const s of root.document.scripts) if (s.src) sc.push(s.src.replace(/[?#].*$/, '')); } catch (e) { /* bỏ qua */ }
+    ra.push(`// Một Nhà — thăm dò lõi Chenfeng (chỉ mã nguồn các lớp, không có dữ liệu bản vẽ / tài khoản)\n// ${new Date().toISOString()} · bảng ${Core.VERSION}\n// script: ${sc.join(' ')}\n// webpack: ${nguon.webpack || 'không thấy'} · ${nguon.so_module} module · ${lop.size} lớp`);
+    for (const r of dangKy) ra.push(`\n// ==== SỔ ĐĂNG KÝ LỆNH (${r.ds.length}) ====\n${r.ds.join('\n')}`);
+    ra.push(`\n// ==== DANH SÁCH LỚP ====\n${[...lop.keys()].join('\n')}`);
+    for (const [n, f] of lop) {
+      let t = ''; try { t = Function.prototype.toString.call(f); } catch (e) { t = '(không đọc được)'; }
+      if (t.length > motLop) t = t.slice(0, motLop) + '\n/* … cắt bớt */';
+      if (tong + t.length > toiDa) { ra.push(`\n// (đã đủ ${toiDa} ký tự — bỏ các lớp còn lại)`); break; }
+      tong += t.length; ra.push(`\n// ==== ${n} ====\n${t}`);
+    }
+    return { noi_dung: ra.join('\n'), so_lop: lop.size, nguon, ten: [...lop.keys()], so_lenh: dangKy.reduce((a, r) => a + r.ds.length, 0) };
+  };
   D.CH.am_cach = 2000;
   let giu = 0, dangGiu = false;
   /** Giữ kết nối trong lúc làm một việc cần máy chủ. Trả hàm thả (gọi đúng một lần). Lồng nhau được. */
@@ -8369,7 +8459,7 @@ footer>.kqhang{display:none}
     <div class="pane" data-pane="chuan" hidden><p class="hint">Số chuẩn của xưởng — chốt một lần, máy này tự nhớ. Đơn vị mm.</p><div class="settings"></div>
       <div class="frow"><button class="sec" data-act="defaults">Khôi phục mặc định</button></div><datalist id="drill"></datalist></div>
     <div class="pane" data-pane="kq" hidden>${inCF && Drv && typeof Drv.xuatVan === 'function' ? '<div class="xvan" data-ui="xuatvan"></div>' : ''}${inCF ? '<div class="dlsx" data-ui="doloi"></div>' : ''}<div class="report"><p class="hint tt">Chưa vẽ lần nào.</p></div></div>
-    <div class="pane" data-pane="hd" hidden>${guideHTML(inCF)}</div>
+    <div class="pane" data-pane="hd" hidden>${guideHTML(inCF)}${inCF && Drv && typeof Drv.thamDoLoi === 'function' ? '<fieldset><legend>Gửi mã lõi Chenfeng cho Claude</legend><p class="hint tt">Gom mã nguồn các lệnh vẽ tấm của Chenfeng (chỉ đọc — không có bản vẽ, không có tài khoản) thành một tệp chữ. Gửi tệp đó cho Claude để bảng gọi thẳng vào lõi Chenfeng thay vì giả bấm hộp, rê chuột.</p><div class="frow"><button class="sec" data-act="tham-do">Thăm dò lõi → tải tệp</button></div></fieldset>' : ''}</div>
     ${inCF && Ph && Ph.choTrong ? `<div class="pane" data-pane="chon" hidden>
       <div class="chontuong" role="group" aria-label="Chọn tường đặt tủ"></div>
       <div class="chonsplit"><div class="chonmb" title="Bấm vào một tường trên mặt bằng để chọn tường đó"></div><div class="chonmd" title="Chạm vào đoạn tường trống: lấy cả đoạn đó, sàn → trần. Kéo từ góc này tới góc kia: lấy đúng ô vừa kéo."></div></div>
@@ -10017,7 +10107,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     const NHOM_KHO = [['ao', 'Tủ áo', /tủ áo|quần áo|thay đồ|衣柜|衣帽/i], ['tivi', 'Tủ tivi', /ti ?vi|电视/i], ['sach', 'Tủ sách – bàn', /sách|书柜|书桌|bàn học|bàn làm/i], ['giay', 'Tủ giày – sảnh', /giày|sảnh|鞋柜|玄关/i],
       ['bep', 'Tủ bếp', /bếp|橱柜/i], ['an', 'Tủ rượu – tủ ăn', /rượu|tủ ăn|酒柜|餐边/i], ['lavabo', 'Lavabo', /lavabo|浴室|卫浴/i], ['bancong', 'Ban công', /ban công|阳台/i], ['giuong', 'Giường – tab', /giường|床|榻榻米|tatami/i], ['roi', 'Đồ rời', /đồ rời/i]];
     const MOI_TRANG = 12;
-    const kho = { dirs: null, dangDirs: false, loiDirs: '', dir: '', nhom: '', tim: '', trang: 1, tat: null, cho: false, lan: 0, loi: '', chon: null, choKhung: -1, nho: new Map() };
+    const kho = { dirs: null, dangDirs: false, loiDirs: '', dir: '', nhom: '', tim: '', trang: 1, tat: null, cho: false, lan: 0, loi: '', chon: null, choKhung: -1, nho: new Map(), dem: new Map(), dangDem: false };
     const boDau = t => String(t == null ? '' : t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
     // TOÀN BỘ mẫu của một thư mục: đọc một lần rồi nhớ. Tìm theo tên + chia trang làm ngay trong bảng — máy chủ Chenfeng lọc tên kiểu "trúng một từ là được"
     // (đo 04/10/2026: gõ "Tủ giày 10" trả về mọi mẫu có chữ "Tủ") nên không dùng bộ lọc của máy chủ.
@@ -10025,10 +10115,26 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (kho.nho.has(id)) return kho.nho.get(id);
       let mau = [];
       for (let tr = 1; tr <= 6; tr++) { const r = await Drv.khoMau(id, { trang: tr, moi_trang: 100 }); mau = mau.concat(r.mau); if (!r.mau.length || mau.length >= r.tong) break; }
-      const o = { mau }; kho.nho.set(id, o); return o;
+      const o = { mau }; kho.nho.set(id, o); kho.dem.set(id, mau.length); return o;
     }
     const locKho = () => { const all = kho.tat ? kho.tat.mau : [], tu = boDau(kho.tim).split(/\s+/).filter(Boolean); return tu.length ? all.filter(m => { const t = boDau(m.ten); return tu.every(x => t.includes(x)); }) : all; };
-    const dirCon = id => (kho.dirs || []).filter(d => d.cha === id);
+    // (bản 1.29.1 — anh Thanh: "những cái chưa có mẫu thì bỏ đi") thư mục KHÔNG có mẫu (và không thư mục con nào có) thì ẩn khỏi ô Thư mục + hàng thư mục con (`dirCoMau` — `coMau` là cờ thẻ Màu);
+    // số mẫu đếm ngầm sau khi có cây (khoDem — CAD-moduleList 1 mẫu / trang, chỉ ĐỌC); chưa đếm xong thì còn hiện; thư mục đang mở luôn hiện
+    const dirCoMau = (d, n) => { if (!d) return false; if (d.id === kho.dir) return true; const c = kho.dem.get(d.id); if (c === undefined || c > 0) return true; return (n || 0) < 10 && (kho.dirs || []).some(x => x.cha === d.id && dirCoMau(x, (n || 0) + 1)); };
+    const dirCon = id => (kho.dirs || []).filter(d => d.cha === id && dirCoMau(d));
+    async function khoDem() {
+      if (!kho.dirs || kho.dangDem || !Drv || typeof Drv.khoMau !== 'function') return;
+      kho.dangDem = true; const dirs = kho.dirs;
+      try {
+        for (const d of dirs) {
+          if (kho.dirs !== dirs) return;      // đã đọc lại cây
+          if (kho.dem.has(d.id)) continue;
+          try { const r = await Drv.khoMau(d.id, { trang: 1, moi_trang: 1 }); if (kho.dirs !== dirs) return; kho.dem.set(d.id, +r.tong || 0); } catch (e) { /* không đếm được: giữ thư mục */ }
+          await new Promise(r => setTimeout(r, 150));      // lần lượt, thưa — kho có hàng chục thư mục, máy chủ Chenfeng hay rớt gói
+        }
+      } finally { kho.dangDem = false; }
+      if (kho.dirs === dirs && panel.dataset.tabon === 'kho') renderKho();      // một lần vẽ lại duy nhất khi đếm xong (đang chọn ở ô Thư mục thì ô không bị đóng giữa chừng)
+    }
     const oKT = () => ['kho-rong', 'kho-sau', 'kho-cao'].map(n => $(`[data-ui="${n}"]`));
     const datKTKho = kt => { const o = oKT(); if (o[0]) kt.forEach((v, i) => { o[i].value = fmt(v); }); };
     const docKTKho = () => {
@@ -10069,7 +10175,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!kho.dirs) { nh.innerHTML = ''; selDir.innerHTML = '<option value="">—</option>'; con.innerHTML = ''; veLuoi(); veChon(); return; }
       nh.innerHTML = NHOM_KHO.filter(N => kho.dirs.some(d => N[2].test(d.ten))).map(N => `<button class="knut${kho.nhom === N[0] ? ' on' : ''}" data-act="kho-nhom" data-v="${N[0]}">${esc(N[1])}</button>`).join('');
       const sau = d => { let n = 0; while (d && d.cha && n < 10) { n++; const c = d.cha; d = kho.dirs.find(x => x.id === c); } return n; };
-      selDir.innerHTML = kho.dirs.map(d => `<option value="${esc(d.id)}"${d.id === kho.dir ? ' selected' : ''}>${'   '.repeat(sau(d))}${esc(d.ten)}</option>`).join('');
+      // (bản 1.29.1) chia Tủ / Phụ kiện / Khác theo TÊN (Core.nhomThuMuc) — kho của tài khoản bày lẫn hai loại. Tên mình không nói lên gì ("Khác", "Blum") thì theo thư mục chứa; giữ thứ tự cây.
+      const nhomCua = d => { let n = 0; while (d && n < 10) { const k = Core.nhomThuMuc(d.ten); if (k !== 'khac') return k; if (!d.cha) break; n++; d = kho.dirs.find(x => x.id === d.cha); } return 'khac'; };
+      const opt = d => `<option value="${esc(d.id)}"${d.id === kho.dir ? ' selected' : ''}>${'   '.repeat(sau(d))}${esc(d.ten)}</option>`;
+      selDir.innerHTML = [['tu', 'Tủ'], ['pk', 'Phụ kiện'], ['khac', 'Khác']].map(([k, ten]) => { const ds = kho.dirs.filter(d => nhomCua(d) === k && dirCoMau(d)); return ds.length ? `<optgroup label="${ten}">${ds.map(opt).join('')}</optgroup>` : ''; }).join('');
       const cs = dirCon(kho.dir), cha = (kho.dirs.find(d => d.id === kho.dir) || {}).cha;
       con.innerHTML = (cha ? `<button class="knut" data-act="kho-dir" data-v="${esc(cha)}" title="Lên thư mục chứa">↑ lên</button>` : '') + cs.map(d => `<button class="knut" data-act="kho-dir" data-v="${esc(d.id)}">${esc(d.ten)} ›</button>`).join('');
       veLuoi(); veChon();
@@ -10104,6 +10213,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       try { kho.dirs = await Drv.templateDirs(); } catch (e) { kho.loiDirs = String(e && e.message || e); kho.dirs = null; }
       kho.dangDirs = false;
       if (!kho.dirs) return renderKho();
+      khoDem();      // đếm ngầm, không chờ
       const nhomDau = kho.nhom || (NHOM_KHO.find(N => kho.dirs.some(d => N[2].test(d.ten))) || [])[0];
       if (nhomDau) return khoNhom(nhomDau);
       kho.dir = kho.dirs.length ? kho.dirs[0].id : ''; renderKho(); return khoTai();
@@ -10940,6 +11050,11 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'the-them') { if (THE_PHU.indexOf(panel.dataset.tabon) < 0) hangThePhu($('.tabs2').hidden); }      // đang ở một thẻ phụ thì hàng thẻ phụ luôn mở
       else if (act === 'nut-them') { const h = $('.themnut'); if (h) { h.hidden = !h.hidden; b.setAttribute('aria-expanded', h.hidden ? 'false' : 'true'); } }
       else if (act === 'do-mang') { doMang(); }
+      else if (act === 'tham-do') {      // (bản 1.29.1) chỉ đọc mã các lớp lệnh của Chenfeng → tải tệp chữ về máy để gửi cho Claude
+        let r = null; try { r = Drv.thamDoLoi(); } catch (e) { r = null; }
+        if (!r || !r.so_lop) { setStatus('Chưa gom được mã lệnh của Chenfeng trong trang này.'); return; }
+        download(`chenfeng-loi-${new Date().toISOString().slice(0, 10)}.txt`, r.noi_dung, 'text/plain').then(kq => setStatus(kq === 'saved' ? `Đã tải tệp mã lõi Chenfeng (${r.so_lop} lớp${r.so_lenh ? `, ${r.so_lenh} lệnh` : ''}, ${Math.round(r.noi_dung.length / 1024)} KB) — gửi tệp đó cho Claude.` : 'Chưa tải được tệp.'));
+      }
       else if (act === 'wide') { wide = !wide; panel.classList.toggle('wide', wide); if (xem) xem.classList.toggle('rong', wide); b.textContent = wide ? 'Thu hẹp' : 'Mở rộng'; try { root.localStorage.setItem(LS_WIDE, wide ? '1' : '0'); } catch (err) { /* bỏ qua */ } paintView(); paintPhong(); }
       else if (act === 'vach-cot') {
         const r = Core.vachTheoCot(spec);
