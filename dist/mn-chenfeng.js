@@ -7844,6 +7844,7 @@ input::placeholder{color:var(--ph)}
 .xvan{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}
 .xvan .frow{align-items:center;margin-bottom:8px}
 .xvan .hint{margin:0;flex:1 1 180px}
+.xvan:empty,.dlsx:empty{display:none}
 .sum{margin:0 0 10px;padding:0 0 0 16px;color:var(--ink);font-size:12.5px}
 .sum li{margin-bottom:2px}
 .hint{color:var(--muted);font-size:12px;margin:0 0 8px}
