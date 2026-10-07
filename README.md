@@ -15,7 +15,7 @@ Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.
 ## Kho mẫu gọn hơn; thăm dò lõi Chenfeng (bản 1.29.1)
 
 - **Thẻ Kho mẫu:** ô *Thư mục* chia ba nhóm **Tủ / Phụ kiện / Khác** theo tên thư mục (bản lề, tay nắm, ray, chân, đèn, khoá… là phụ kiện). Thư mục **không có mẫu** (kể cả thư mục con) tự ẩn: sau khi đọc cây thư mục, bảng đếm ngầm số mẫu từng thư mục (chỉ đọc, mỗi thư mục một lần hỏi) rồi dọn danh sách một lần. Thư mục đang mở luôn hiện.
-- **⚙ → Thăm dò lõi:** gom mã nguồn các lệnh vẽ tấm của Chenfeng (chỉ đọc — không có bản vẽ, không có tài khoản) thành tệp `chenfeng-loi-<ngày>.txt` tải về máy. Gửi tệp đó cho Claude để bước sau bảng gọi thẳng vào lõi Chenfeng thay vì giả bấm hộp và rê chuột (máy của Claude không vào được cfcad.cn).
+- **⚙ → Hướng dẫn → Thăm dò lõi:** gom mã nguồn các lệnh vẽ tấm của Chenfeng (chỉ đọc — không có bản vẽ, không có tài khoản) thành tệp `chenfeng-loi-<ngày>.txt` tải về máy. Gửi tệp đó cho Claude để bước sau bảng gọi thẳng vào lõi Chenfeng thay vì giả bấm hộp và rê chuột (máy của Claude không vào được cfcad.cn).
 
 ## Chenfeng giao diện tiếng Việt; giữ sẵn kết nối tới máy chủ Chenfeng (bản 1.29)
 
