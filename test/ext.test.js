@@ -130,7 +130,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     const chuHien = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, v = e => !!e && e.getClientRects().length > 0, p = r.querySelector('.pane[data-pane="tu"]');
       return [[...p.querySelectorAll('.hint:not(.tt)')].filter(v).length > 0, v(p.querySelector('.legend')), v(p.querySelector('.sum')), r.querySelector('[data-act="chu"]').getAttribute('aria-pressed'), localStorage.getItem('mncf.ui.chu')]; });
     ok(JSON.stringify(await chuHien()) === '[false,false,false,"false",null]', 'mặc định ÍT CHỮ: thẻ Tủ không hiện chữ hướng dẫn, chú giải màu, dòng mô tả tủ', await chuHien());
-    ok((await H.locator('.msgs .msg').count()) > 0 && await H.locator('.msgs .msg').first().isVisible() && await H.locator('[data-ui="phieu"]').isVisible(), '… dòng cảnh báo và phiếu tự kiểm vẫn hiện');
+    ok((await H.locator('.msgs .msg').count()) > 0 && await H.locator('.msgs .msg').first().isVisible() && (await H.locator('[data-ui="phieu"]').isVisible() || await H.locator('[data-act="tu-kiem"]').isVisible()), '(bản 1.28: phiếu đạt hết thì thu thành nút ✓ Tự kiểm) … dòng cảnh báo và phiếu tự kiểm vẫn hiện');
     await H.locator('[data-act="chu"]').click();
     ok(JSON.stringify(await chuHien()) === '[true,true,true,"true","1"]', 'bấm "?": hiện lại chữ hướng dẫn + chú giải + mô tả, máy nhớ', await chuHien());
     await H.locator('[data-act="chu"]').click();
@@ -158,6 +158,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     /* --- vẽ tại toạ độ --- */
     await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
     await H.locator('#mncf-ui-useat').check(); await H.locator('#mncf-ui-ax').fill('5000');
+    ok(/^Vẽ tại 5000, \S+, \S+$/.test(await H.locator('footer [data-act="draw"]').innerText()), '(bản 1.28) "Đặt tại toạ độ" đang tích: nút xanh ghi rõ "Vẽ tại 5000, …"', await H.locator('footer [data-act="draw"]').innerText());
     await H.locator('[data-act="draw"]').click();
     await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
     let rep = await page.evaluate(() => { const L = window.MNCFDriver.last; const a = L.added; const D = window.MNCFDriver; return { n: a.length, boards: a.filter(D.isBoard).length, holes: a.filter(D.isHole).length, hw: a.filter(D.isHardware).length, off: L.offset, steps: L.steps,
@@ -180,11 +181,11 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok(JSON.stringify(mod.dims) === '[2000,597.5,2800]' && mod.capNhat >= 1, 'kích thước module = phủ bì tủ (2000 × 597,5 × 2800)', mod.dims);
     ok(/Tủ đã là module tham số của Chenfeng/.test(await H.locator('.report .mod').innerText()), 'báo cáo nói rõ cách sửa ngay trong ô Thông số của Chenfeng');
     ok(/L \(rộng\) \/ W \(sâu\) \/ H \(cao\)/.test(await H.locator('.report .mod').innerText()) && !/Riêng /.test(await H.locator('.report .mod').innerText()), 'tủ thường: cả L / W / H đều đổi được ở ô Thông số, không có câu "Riêng … chỉ để xem"', await H.locator('.report .mod').innerText());
-    ok(JSON.stringify(rep.dem) === JSON.stringify([[6041.5, 6059, 30, 591.5, 67.5, 520], [6882.5, 6900, 30, 591.5, 67.5, 520]]), '2 vách đệm nằm đúng chỗ (đã cộng độ dời)', rep.dem);
+    ok(JSON.stringify(rep.dem) === JSON.stringify([[6041.5, 6059, 47.5, 591.5, 67.5, 520], [6882.5, 6900, 47.5, 591.5, 67.5, 520]]), '2 vách đệm nằm đúng chỗ (đã cộng độ dời; bản 1.28: lùi sau nẹp)', rep.dem);
     // hậu chuẩn xưởng: 4 tấm 6 li nằm sau thùng (y 574…580 + độ dời 17,5), không có lỗ khoan nào
     ok(JSON.stringify(rep.hau) === JSON.stringify([[6, 5051, 6000, 591.5, 597.5, 51, 2199], [6, 6000, 6949, 591.5, 597.5, 51, 2199], [6, 5051, 6000, 591.5, 597.5, 2201, 2749], [6, 6000, 6949, 591.5, 597.5, 2201, 2749]]) && rep.loHau === 0, 'hậu 6 li phủ sau lưng thùng: đúng chỗ, không lỗ khoan', [rep.hau, rep.loHau]);
     ok(!/tấm hậu/.test(await H.locator('.report').innerText()), 'hậu không có lỗ → báo cáo không nhắc gì tới hậu');
-    ok(/đổi sang Cam3Tp cho 10 tấm/.test(await H.locator('.report').innerText()), 'báo cáo nêu việc đổi kiểu khoan của mẫu');
+    ok(/Đã sửa kiểu khoan cho 10 tấm ngăn kéo/.test(await H.locator('.report').innerText()) && /đã đổi sang Cam3Tp/.test(await H.locator('.report .msg.note[title*="kiểu khoan"]').first().getAttribute('title')), 'báo cáo nêu việc đổi kiểu khoan của mẫu (chi tiết ở title)');
     ok((await page.evaluate(() => window.__MOCK_ZOOM__)) >= 1, 'vẽ xong gọi xem toàn bộ');
 
     // bản 1.15: trang giả lập không có lệnh gốc của Chenfeng → bảng tự vẽ theo cách nhập tấm (không báo lỗi)
@@ -208,6 +209,8 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'hoàn tác lần vẽ đó: bản vẽ sạch');
 
     /* --- bấm điểm trên bản vẽ --- */
+    await H.locator('.tab[data-tab="tu"]').click();      // (bản 1.28) nút Hoàn tác nằm ở chân thẻ Kết quả: bấm xong vẫn ở thẻ đó
+    if (!(await H.locator('#mncf-ui-useat').isVisible())) await H.locator('[data-act="nut-them"]').click();
     await H.locator('#mncf-ui-useat').uncheck();
     await H.locator('[data-act="draw"]').click();
     await H.locator('.chip').waitFor({ state: 'visible' });
@@ -224,18 +227,32 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     let b0 = await B();
     const id1 = await page.evaluate(() => window.MNCFDriver.last.id);
     ok(/^[2-9A-Z]{8}$/.test(id1) && b0.tag.includes(id1) && b0.tag.includes('') && b0.tag.length === 2, 'tấm tiện ích vẽ mang ghi chú mã tủ; tấm của mẫu ngăn kéo thì không', b0.tag);
+    await H.locator('.tab[data-tab="tu"]').click();      // (bản 1.28) chân thẻ Kết quả là hàng việc làm tiếp; nút Cập nhật ở chân thẻ Tủ
     ok(await H.locator('footer [data-act="redraw"]').isVisible(), 'bản 1.27: bảng nối với tủ vừa vẽ → nút Cập nhật tự hiện cạnh nút Vẽ');
+    { // (bản 1.28) đang nối với tủ đã vẽ — tủ vẫn đứng chỗ cũ, cột vẫn ở đó: "Về tủ mẫu" GIỮ khấu cột (Cập nhật không được vẽ tủ đè vào cột)
+      const the0 = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.panel').dataset.tabon), sp0 = await page.evaluate(() => window.MNCF.app.getSpec());
+      await page.evaluate(sp => window.MNCF.app.setSpec(Object.assign({}, sp, { khau: { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 300, rong: 200, sau: 150 }], ho: 15 } })), sp0);
+      await H.locator('.tab[data-tab="tu"]').click(); await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();
+      ok((await page.evaluate(() => window.MNCF.app.getSpec().khau.giua.length)) === 1 && await H.locator('footer [data-act="unlink"]').isVisible(), 'đang nối với tủ đã vẽ: "Tủ mặc định" giữ khấu cột');
+      await page.evaluate(sp => window.MNCF.app.setSpec(sp), sp0);
+      if (the0 && the0 !== 'tu') await H.locator('.tab[data-tab="' + the0 + '"]').click();
+    }
     // bản 1.27 — thẻ Kết quả có nút "Xem 3D" cạnh "Xem toàn bộ": xoay góc nhìn Chenfeng sang 3D (SWISO) rồi thu phóng
     await page.waitForTimeout(300);
     const z0 = await page.evaluate(() => { window.__MOCK_NHIN__ = []; return window.__MOCK_ZOOM__ || 0; });
     const theTruoc = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.panel').dataset.tabon);
     await H.locator('.tab[data-tab="kq"]').click();
-    ok(await H.locator('.report [data-act="xem3d"]').isVisible(), 'thẻ Kết quả sau khi vẽ tủ: có nút "Xem 3D"');
-    await H.locator('.report [data-act="xem3d"]').click();
+    ok(await H.locator('footer [data-act="xem3d"]').isVisible() && await H.locator('footer [data-act="undo"]').isVisible() && await H.locator('footer [data-act="xuatvan"]').isVisible() && !(await H.locator('footer [data-act="draw"]').isVisible()), '(bản 1.28) thẻ Kết quả: chân bảng là hàng Hoàn tác · Dò lại · Vừa màn · Chenfeng 3D · Xuất ván (không còn hàng vẽ tủ)');
+    await H.locator('footer [data-act="xem3d"]').click();
     await page.waitForFunction(z => (window.__MOCK_ZOOM__ || 0) > z, z0, { timeout: 5000 }).catch(() => {});
     ok(JSON.stringify(await page.evaluate(() => window.__MOCK_NHIN__)) === '["SWISO"]' && (await page.evaluate(() => window.__MOCK_ZOOM__ || 0)) === z0 + 1, 'bấm "Xem 3D": Chenfeng nhận SWISO rồi thu phóng', await page.evaluate(() => [window.__MOCK_NHIN__, window.__MOCK_ZOOM__]));
     if (theTruoc && theTruoc !== 'kq') await H.locator('.tab[data-tab="' + theTruoc + '"]').click();      // trả lại thẻ đang mở cho các phép thử sau
-    ok(!(await H.locator('footer [data-act="redraw"]').isDisabled()) && /Đang nối với tủ/.test(await H.locator('.tunoi').innerText()), 'vẽ xong → bảng nối với tủ vừa vẽ, nút "Cập nhật tủ này" bật');
+    ok(!(await H.locator('footer [data-act="redraw"]').isDisabled()) && /^Cập nhật tủ \S+/.test(await H.locator('footer [data-act="redraw"]').innerText()), 'vẽ xong → bảng nối với tủ vừa vẽ, nút "Cập nhật tủ …" bật');
+    // (bản 1.28) đang nối: "Cập nhật tủ X" là nút chính (to nhất, đứng đầu hàng), nút vẽ thu thành "Tủ mới", có nút "Thôi sửa"
+    await H.locator('.tab[data-tab="tu"]').click();
+    { const vh = await page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, q = s => r.querySelector('footer ' + s), w = e => Math.round(e.getBoundingClientRect().width), x = e => Math.round(e.getBoundingClientRect().left);
+        return { cn: w(q('[data-act="redraw"]')), ve: w(q('[data-act="draw"]')), dau: x(q('[data-act="redraw"]')) < x(q('[data-act="draw"]')), chuVe: q('[data-act="draw"]').textContent, thoi: !!q('[data-act="unlink"]').getClientRects().length }; });
+      ok(vh.cn > vh.ve && vh.dau && vh.chuVe === 'Tủ mới' && vh.thoi, 'đang nối: "Cập nhật tủ …" là nút chính, nút vẽ thành "Tủ mới", có "Thôi sửa"', vh); }
     ok((await page.evaluate(id => { try { return JSON.parse(localStorage.getItem('mncf.tu.' + id)).spec.rong; } catch (e) { return null; } }, id1)) === 2000, 'thông số của tủ được lưu theo mã tủ');
     // người dùng làm việc khác trên bản vẽ (lịch sử đã đổi) + tự gắn thêm 1 tay nắm từ mẫu khác + di chuyển cả tủ 500 theo x
     await page.evaluate(() => {
@@ -259,7 +276,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     /* --- Chọn 1 tấm của tủ đã vẽ → bảng mở lại thông số tủ đó --- */
     await H.locator('.tab[data-tab="tu"]').click();
     await H.locator('[data-act="unlink"]').click();
-    ok(await H.locator('footer [data-act="redraw"]').isDisabled() && !(await H.locator('footer [data-act="redraw"]').isVisible()) && !(await H.locator('.tunoi').isVisible()), 'Bỏ nối → nút Cập nhật tắt và ẩn lại (bản 1.27)');
+    ok(await H.locator('footer [data-act="redraw"]').isDisabled() && !(await H.locator('footer [data-act="redraw"]').isVisible()) && !(await H.locator('footer [data-act="unlink"]').isVisible()) && /^Vẽ /.test(await H.locator('footer [data-act="draw"]').innerText()), 'Thôi sửa → nút Cập nhật tắt và ẩn lại, nút xanh trở lại vẽ tủ mới');
     await page.evaluate(s => window.MNCF.app.setSpec(Object.assign({}, s, { rong: 3000, cao: 2400 })), TU_2000);      // bảng đang mở một tủ khác hẳn
     await H.locator('[data-act="pick"]').click();
     ok(/bấm chọn 1 tấm/.test(await H.locator('.status').innerText()), 'chưa chọn tấm nào → nhắc chọn');

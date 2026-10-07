@@ -204,7 +204,7 @@ async function chay() {
     let rep = await H.locator('.report').innerText();
     ok(/Đã vẽ mẫu kho “Tủ giày thấp 2” — 1500 × 350 × 1000 \(rộng × sâu × cao\): 7 tấm, 1 phụ kiện, 42 lỗ khoan/.test(rep) && /Đã ghi tên tiếng Việt cho 7 tấm/.test(rep) && /module tham số của Chenfeng/.test(rep) && /Kiểu khoan của mẫu \(三合一\)/.test(rep), 'báo cáo ở thẻ Kết quả', rep);
     ok((await H.locator('.panel').getAttribute('data-tabon')) === 'kq' && !/Dày ván|Hậu:/.test(rep), 'tắt “theo chuẩn xưởng”: không đổi dày ván, không chuyển hậu');
-    await H.locator('.report [data-act="undo"]').click();
+    await H.locator('footer [data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     eq(await dem(), { tam: 0, lo: 0, pk: 0 }, 'nút “Hoàn tác lần vẽ này” bỏ sạch mẫu vừa vẽ');
 
@@ -281,7 +281,7 @@ async function chay() {
     await page.waitForFunction(n => window.__MOCK__.ents.filter(e => !e.IsErase && e instanceof window.__MOCK__.Board).length > n && /Đã vẽ mẫu kho/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), truocB, { timeout: 20000 });
     eq(hop((await tam()).slice(truocB)), [13250, 13600, 300, 1500, 0, 1000], 'khung trên tường B: mẫu xoay −90°, lưng áp tường B (x = 13600), chạy từ cách đầu tường 500 tới 1700');
     ok(/Xoay\s*-90°/.test((await H.locator('.report').innerText()).replace(/\n/g, ' ')), 'báo cáo ghi góc xoay');
-    await H.locator('.report [data-act="undo"]').click();
+    await H.locator('footer [data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     p = await P();
     ok((await tam()).length === truocB && !p.khung[jB].tu_id && p.khung[2].tu_id === 'kho-9002', 'hoàn tác lần vẽ: mẫu trên tường B biến mất, bỏ dấu “đã vẽ” của ĐÚNG khung đó (khung K1.2.2 vẽ trước vẫn giữ)', p.khung.map(k => k.tu_id));
@@ -361,7 +361,7 @@ async function chay() {
       await H.locator('.tab[data-tab="phong"]').click();
       ok(!(await KP.isVisible()), 'vẽ xong thì ô chọn tự đóng');
       await H.locator('.tab[data-tab="kq"]').click();
-      await H.locator('.report [data-act="undo"]').click();
+      await H.locator('footer [data-act="undo"]').click();
       await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
       await H.locator('.tab[data-tab="phong"]').click();
       ok((await tam()).length === truocP && !(await P()).khung[jK].tu_id, '(hoàn tác lần vẽ: mẫu biến mất, khung thôi "đã vẽ")');

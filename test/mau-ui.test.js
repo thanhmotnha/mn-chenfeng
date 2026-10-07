@@ -277,7 +277,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     m = await xem('D4');
     eq(Object.keys(m).sort(), ['103T/MDF/MDF/103T', 'LUX279PRL/Acrylic/Acrylic/LUX279PRL'], 'tủ vừa vẽ đã mang màu thùng + màu cánh');
     ok(/thùng \d+ tấm → 103T/.test(await H.locator('.report').innerText()), 'thẻ Kết quả ghi đã tự đổ màu');
-    await H.locator('.report [data-act="undo"]').click();
+    await H.locator('footer [data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác lần vẽ/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     eq(await page.evaluate(() => window.MNCFDriver.all().length), truocVe, '"Hoàn tác lần vẽ này" lùi cả bước đổ màu lẫn bước vẽ: bản vẽ trở lại như trước');
 
@@ -320,7 +320,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     m = await xem('E5'); kqm = await H.locator('.report').innerText(); e1 = await E5();
     ok(e1.rong === 1400 && m['201MD/MDF/MDF/201MD'] === 'Hậu' && /Đợt/.test(m['388EV/MDF/MDF/388EV']) && Object.keys(m).length === 3 && /hậu 2 tấm → 201MD/.test(kqm) && dem('/CAD-materialDetail') === taiTruoc, 'hậu đổ màu riêng (201MD) được giữ khi cập nhật; đợt lẻ 103T về màu chung của thùng', [e1, m, kqm.slice(0, 300)]);
     ok(/Thùng của tủ cũ có nhiều màu/.test(kqm), 'nhóm lẫn màu: thẻ Kết quả nhắc đổ lại tấm đổ riêng', kqm.slice(0, 400));
-    await H.locator('.report [data-act="undo"]').click();
+    await H.locator('footer [data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác lần vẽ/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     m = await xem('E5'); e1 = await E5();
     ok(e1.rong === 1300 && m['201MD/MDF/MDF/201MD'] === 'Hậu' && /Hồi trái/.test(m['388EV/MDF/MDF/388EV']) && m['103T/MDF/MDF/103T'] === 'Đợt' && Object.keys(m).length === 4, 'hoàn tác lần cập nhật (lùi cả bước đổ lại màu): tủ 1300 trở lại nguyên màu cũ, kể cả đợt đổ riêng', [e1, m]);
@@ -360,7 +360,7 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     eq(await xem('TV'), { '103T/MDF/MDF/103T': 'Hậu, Hồi phải, Hồi trái, Nóc, Xà chân sau, Đáy', 'LUX279PRL/Acrylic/Acrylic/LUX279PRL': 'Xà chân' }, 'mẫu kho: thùng + hậu theo màu ô Thùng, xà chân trước theo màu ô Cánh + phào');
     kqm = await H.locator('.report').innerText();
     ok(/Đã tự đổ màu/.test(kqm) && /thùng 5 tấm → 103T/.test(kqm) && /cánh \+ phào 1 tấm → LUX279PRL/.test(kqm) && /hậu 1 tấm → 103T/.test(kqm), 'thẻ Kết quả của mẫu kho ghi đã tự đổ màu', kqm.slice(0, 300));
-    await H.locator('.report [data-act="undo"]').click();
+    await H.locator('footer [data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác lần vẽ/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     eq(await page.evaluate(() => window.MNCFDriver.all().length), truocKho, 'hoàn tác lần vẽ mẫu kho: lùi cả bước đổ màu, bản vẽ trở lại như trước');
 
