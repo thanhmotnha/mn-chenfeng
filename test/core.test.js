@@ -1206,6 +1206,21 @@ T('Đo mạng: xếp loại theo số lượt chậm hoặc rớt (bản 1.27)',
   eq(dg([533, 314, 314, 5572, 308, 310, 309, 883, 1462, 292, 290, 289, 902, 301, 301, 302, 304, 1336, 1607], 1), ['kem', 7, 20, 301, 5572], 'loạt đo thật tối 05/10: 7/20 lượt chậm hoặc rớt → kém');
 });
 
+// Bản 1.29: tóm tắt các lần CHENFENG gọi máy chủ (để biết nó gọi bằng gì, có dùng lại kết nối không, mẫu tải lâu bao nhiêu) — số đo để làm "tự gửi lại khi rớt gói"
+T('Tóm tắt lời gọi máy chủ của Chenfeng (bản 1.29)', () => {
+  const g = (ten, kieu, gt, ms) => ({ ten, kieu, gt, ms });
+  const r = C.tomTatGoi([g('CAD-moduleDetail', 'xmlhttprequest', 'h2', 300), g('CAD-moduleDetail', 'xmlhttprequest', 'h2', 4200), g('CAD-moduleDetail', 'xmlhttprequest', 'h2', 350),
+    g('CAD-dirQuery', 'fetch', 'http/1.1', 280), g('CAD-materialDetail', 'xmlhttprequest', '', 900)]);
+  eq(r.n, 5, 'đếm mọi lần gọi');
+  eq(r.kieu, [['xmlhttprequest', 4], ['fetch', 1]], 'gọi bằng gì: xếp nhiều trước');
+  eq(r.gt, [['h2', 3], ['http/1.1', 1], ['?', 1]], 'giao thức: trình duyệt không cho biết thì ghi "?"');
+  eq([r.mau.n, r.mau.giua, r.mau.cham], [3, 350, 4200], 'mẫu (CAD-moduleDetail): số lần, lần giữa, lần lâu nhất');
+  eq(r.cham.map(x => [x.ten, x.ms]), [['CAD-moduleDetail', 4200], ['CAD-materialDetail', 900], ['CAD-moduleDetail', 350]], 'ba lần lâu nhất');
+  const o = C.tomTatGoi([]); eq([o.n, o.mau.n, o.kieu.length, o.cham.length], [0, 0, 0, 0], 'chưa có lần gọi nào: không ném lỗi');
+  eq(C.tomTatGoi(null).n, 0, 'không có dữ liệu: không ném lỗi');
+  eq(C.tomTatGoi([g('CAD-moduleDetail', 'fetch', 'h2', -5), g('x', 'fetch', 'h2', NaN)]).n, 0, 'số đo hỏng (âm, NaN) thì bỏ');
+});
+
 // Bản 1.28 (anh Thanh 06/10/2026: "phải có nút trên hình cho nó nhanh, với hình minh họa có 3d hoặc chọn trên ảnh thêm phào sửa phào luôn")
 T('Hình đứng: phào và cột bấm được; hình 3D (bản 1.28)', () => {
   const C = require('../src/mncf-core.js');

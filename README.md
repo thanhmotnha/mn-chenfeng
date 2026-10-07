@@ -12,6 +12,13 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Giữ sẵn kết nối tới máy chủ Chenfeng (bản 1.29)
+
+- Máy chủ dữ liệu của Chenfeng ở Trung Quốc; đường từ Việt Nam sang **rớt gói từng đợt** (nặng nhất khoảng 19 – 22 giờ). Để im vài giây là máy chủ đóng kết nối, lần gọi sau phải mở lại — trên đường đang rớt gói, mở lại có khi mất thêm 1 – 3 giây, đúng lúc Chenfeng tải hộp ngăn kéo / suốt treo.
+- Nay trong lúc bảng đang vẽ tủ, cập nhật tủ, vẽ phòng hay dựng mẫu kho, hễ đường tới máy chủ im quá 2 giây thì bảng hỏi máy chủ một câu chỉ đọc cho kết nối còn mở. Chenfeng đang tự gọi máy chủ thì bảng không hỏi chen. Vẽ xong thì thôi.
+- **⚙ → Đo mạng** nay kèm một dòng về các lần *chính Chenfeng* gọi máy chủ từ lúc mở trang (gọi bằng gì, giao thức, mẫu tải thường mất bao lâu, lâu nhất bao lâu). Vẽ vài tủ có ngăn kéo rồi bấm Đo mạng, chụp dòng đó gửi lại: đó là số đo để làm bước sau — *bảng tự gửi lại khi rớt gói* (chưa có).
+- Đổi đường mạng (nhà mạng khác, 4G, VPN) rồi bấm Đo mạng để so — vẫn là cách rẻ nhất.
+
 ## Sửa ngay trên hình, hình 3D; nẹp che kín hộc ngăn kéo; tủ mới không mang khấu cột cũ (bản 1.28)
 
 - **Bấm phào trên hình** để sửa bề rộng, *Bỏ phào*, hoặc *Cả 3 phào* cùng một số. Mép chưa có phào có dải **+ phào** nét đứt ngay ngoài mép, bấm vào để thêm. Rộng / cao phủ bì giữ nguyên, thùng tự hẹp lại hoặc rộng ra theo phào.

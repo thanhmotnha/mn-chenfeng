@@ -12,7 +12,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.28.0';
+  const VERSION = '1.29.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -1428,6 +1428,18 @@
     return { muc, x, n, nhanh, cham, tre, rot };
   }
 
+  /** Tóm tắt các lần Chenfeng gọi máy chủ của nó (bản 1.29). ds = [{ ten: tên lời gọi ("CAD-moduleDetail"…), kieu: initiatorType của trình duyệt, gt: nextHopProtocol ('' = trình duyệt không cho biết), ms }].
+   *  Để làm "tự gửi lại khi rớt gói" phải biết Chenfeng gọi bằng XHR hay fetch, có đi HTTP/2 (một kết nối dùng chung) không, và mỗi mẫu tải lâu bao nhiêu khi mạng rớt gói — chưa đo trên bản thật.
+   *  Trả { n, kieu: [[loại, số lần]], gt: [[giao thức, số lần]], mau: { n, giua, cham } (CAD-moduleDetail), cham: 3 lần lâu nhất [{ ten, ms }] }. */
+  function tomTatGoi(ds) {
+    const a = (Array.isArray(ds) ? ds : []).filter(x => x && Number.isFinite(x.ms) && x.ms >= 0);
+    const dem = f => { const m = new Map(); for (const x of a) { const k = f(x); m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((p, q) => q[1] - p[1]); };
+    const mau = a.filter(x => x.ten === 'CAD-moduleDetail').map(x => x.ms).sort((p, q) => p - q);
+    return { n: a.length, kieu: dem(x => String(x.kieu || '?')), gt: dem(x => String(x.gt || '?')),
+      mau: { n: mau.length, giua: mau.length ? mau[Math.floor((mau.length - 1) / 2)] : 0, cham: mau.length ? mau[mau.length - 1] : 0 },
+      cham: a.slice().sort((p, q) => q.ms - p.ms).slice(0, 3).map(x => ({ ten: String(x.ten || ''), ms: Math.round(x.ms) })) };
+  }
+
   /* ------------------------------------------------------------------ *
    * XUẤT CHO CHENFENG (晨丰导入)
    * ------------------------------------------------------------------ */
@@ -2361,5 +2373,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, hinh3D, benPhao };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, hinh3D, benPhao };
 });

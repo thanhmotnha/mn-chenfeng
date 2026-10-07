@@ -1147,6 +1147,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     let dangDoMang = false, doTruoc = '';
     const giayVN = ms => (Math.max(0.1, Math.round(ms / 100) / 10)).toFixed(1).replace('.', ',');
     const TEN_MANG = { tot: 'tốt', tam: 'tạm được', kem: 'kém' };
+    // (bản 1.29) các lần CHÍNH Chenfeng gọi máy chủ từ lúc mở trang: gọi bằng gì, giao thức, mẫu tải lâu bao nhiêu — anh chụp dòng này gửi lại là đủ số đo để làm "tự gửi lại khi rớt gói"
+    function goiCuaCF() {
+      if (typeof Drv.goiCF !== 'function' || typeof Core.tomTatGoi !== 'function') return '';
+      const t = Core.tomTatGoi(Drv.goiCF()); if (!t.n) return '';
+      return ` Chenfeng đã gọi máy chủ ${t.n} lần (${t.kieu.map(x => x[0] + ' ' + x[1]).join(', ')} · ${t.gt.map(x => x[0] + ' ' + x[1]).join(', ')})${t.mau.n ? ` — tải mẫu ${t.mau.n} lần: thường ${giayVN(t.mau.giua)} s, lâu nhất ${giayVN(t.mau.cham)} s` : ''}.`;
+    }
     function doMang() {
       if (dangDoMang || !Drv || typeof Drv.doMang !== 'function') return;
       dangDoMang = true; setStatus('Đang đo mạng tới Chenfeng… 0/20');
@@ -1154,7 +1160,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         const g = Core.danhGiaMang(r), truoc = doTruoc ? ` Lần trước: ${doTruoc}.` : '';
         if (g.muc === 'dut') { doTruoc = 'đứt'; return setStatus(`Mạng tới Chenfeng: đứt — ${r.dut ? 3 : g.n} lần liền không trả lời. Kiểm tra mạng / VPN.${truoc}`); }
         doTruoc = `${g.x}/${g.n}`;
-        setStatus(`Mạng tới Chenfeng: ${TEN_MANG[g.muc]} — ${g.x}/${g.n} lần chậm hoặc rớt · bình thường ${giayVN(g.nhanh)} s · lâu nhất ${giayVN(g.cham)} s.${truoc}`);
+        setStatus(`Mạng tới Chenfeng: ${TEN_MANG[g.muc]} — ${g.x}/${g.n} lần chậm hoặc rớt · bình thường ${giayVN(g.nhanh)} s · lâu nhất ${giayVN(g.cham)} s.${truoc}${goiCuaCF()}`);
       }).catch(() => setStatus('Chưa đo được mạng tới Chenfeng.')).then(() => { dangDoMang = false; });
     }
 
