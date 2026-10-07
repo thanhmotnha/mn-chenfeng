@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Một Nhà · Vẽ tủ vào Chenfeng
 // @namespace    https://motnha.vn/
-// @version      1.28.0
+// @version      1.29.0
 // @description  Nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → tự vẽ thùng, hậu, phào, chân, cánh, ngăn kéo, suốt treo vào Chenfeng WebCAD. Chenfeng tự khoan lỗ.
 // @match        https://cfcad.cn/*
 // @match        https://www.cfcad.cn/*
@@ -13,7 +13,7 @@
 // @updateURL    https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // @downloadURL  https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // ==/UserScript==
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.28.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.29.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -29,7 +29,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.28.0';
+  const VERSION = '1.29.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -1445,6 +1445,18 @@
     return { muc, x, n, nhanh, cham, tre, rot };
   }
 
+  /** Tóm tắt các lần Chenfeng gọi máy chủ của nó (bản 1.29). ds = [{ ten: tên lời gọi ("CAD-moduleDetail"…), kieu: initiatorType của trình duyệt, gt: nextHopProtocol ('' = trình duyệt không cho biết), ms }].
+   *  Để làm "tự gửi lại khi rớt gói" phải biết Chenfeng gọi bằng XHR hay fetch, có đi HTTP/2 (một kết nối dùng chung) không, và mỗi mẫu tải lâu bao nhiêu khi mạng rớt gói — chưa đo trên bản thật.
+   *  Trả { n, kieu: [[loại, số lần]], gt: [[giao thức, số lần]], mau: { n, giua, cham } (CAD-moduleDetail), cham: 3 lần lâu nhất [{ ten, ms }] }. */
+  function tomTatGoi(ds) {
+    const a = (Array.isArray(ds) ? ds : []).filter(x => x && Number.isFinite(x.ms) && x.ms >= 0);
+    const dem = f => { const m = new Map(); for (const x of a) { const k = f(x); m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((p, q) => q[1] - p[1]); };
+    const mau = a.filter(x => x.ten === 'CAD-moduleDetail').map(x => x.ms).sort((p, q) => p - q);
+    return { n: a.length, kieu: dem(x => String(x.kieu || '?')), gt: dem(x => String(x.gt || '?')),
+      mau: { n: mau.length, giua: mau.length ? mau[Math.floor((mau.length - 1) / 2)] : 0, cham: mau.length ? mau[mau.length - 1] : 0 },
+      cham: a.slice().sort((p, q) => q.ms - p.ms).slice(0, 3).map(x => ({ ten: String(x.ten || ''), ms: Math.round(x.ms) })) };
+  }
+
   /* ------------------------------------------------------------------ *
    * XUẤT CHO CHENFENG (晨丰导入)
    * ------------------------------------------------------------------ */
@@ -2378,7 +2390,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, hinh3D, benPhao };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, hinh3D, benPhao };
 });
 
 /*!
@@ -4214,6 +4226,12 @@
   };
   /** Gỡ "màn che" của Chenfeng (xem D.editing) trước khi chạy lệnh — chính Chenfeng cũng gọi MaskManage.Clear() trước lệnh chèn mẫu. */
   D.boManChe = () => { try { const m = ed().MaskManage; if (m && typeof m.Clear === 'function') m.Clear(); } catch (e) { /* bỏ qua */ } try { const a = document.activeElement; if (a && a !== document.body && typeof a.blur === 'function' && !(document.getElementById('mncf-host') || { contains() { return false; } }).contains(a) && a.id !== 'mncf-host') a.blur(); } catch (e) { /* bỏ qua */ } };
+  // Chữ trên nút OK / Cancel của hộp thoại Chenfeng theo ngôn ngữ giao diện: tiếng Trung, tiếng Anh, tiếng Việt (ảnh anh Thanh 07/10/2026: "Chèn không gian · Xác nhận · Hủy").
+  // Bảng bản ≤ 1.28 chỉ nhận "OK / 确定" → giao diện tiếng Việt thì không thấy hộp lệnh gốc, lệnh đứng ở hộp "Hông tủ trái/phải". Nút OK còn nhận theo màu (bp3-intent-success).
+  const TEN_OK = /^(OK|确定|確定|确认|確認|Confirm|Xác nhận|Đồng ý)$/i, TEN_HUY = /^(Cancel|取消|Huỷ|Hủy|Hủy bỏ|Huỷ bỏ)$/i;
+  const chuNut = b => { try { return String(b.innerText || b.textContent || '').trim(); } catch (e) { return ''; } };
+  const laNutOK = b => TEN_OK.test(chuNut(b)) || (!!b.classList && b.classList.contains('bp3-intent-success') && !TEN_HUY.test(chuNut(b)));
+  D.dangHoiDiem = () => { try { const g = gp(); return !!(g && g.IsReady); } catch (e) { return false; } };      // Chenfeng đang chờ bấm một điểm (lời nhắc của bảng hoặc của lệnh)
   D.cancel = async () => { try { ed().Cancel(); } catch (e) { /* bỏ qua */ } await sleep(300); };
   // (bản 1.26.1) ĐÃ ĐO trên Chenfeng thật 05/10/2026 + đọc mã CommandStore.HandleInput: (1) đang có lệnh chạy dở thì chữ gửi vào được chuyển cho lời nhắc của lệnh đó — lệnh mới KHÔNG chạy và
   // Chenfeng không báo gì; (2) Chenfeng rảnh nhưng vừa nhận một lệnh chưa tới 88 ms thì lệnh gửi tiếp cũng bị BỎ lặng lẽ (vd bảng vừa gửi ZOOME xong là gửi UNDO).
@@ -5310,13 +5328,13 @@
     });
     await sleep(250);
     const nut = [...d.querySelectorAll('.bp3-dialog-footer button, button')].filter(b => !b.classList.contains('bp3-dialog-close-button'));
-    const ok = nut.find(b => /^(OK|确定|确认|Đồng ý|Xác nhận)$/i.test((b.textContent || '').trim())) || nut[0];
+    const ok = nut.find(b => TEN_OK.test(chuNut(b))) || nut.find(laNutOK) || nut[0];
     if (!ok) return false;
     ok.click();
     await cho(() => !hopThoai(), 4000);
     return ins.length >= vals.length;
   };
-  const dongHopThoai = async () => { const d = hopThoai(); if (!d) return; const c = [...d.querySelectorAll('button')].find(b => /^(Cancel|取消|Huỷ|Hủy)$/i.test((b.textContent || '').trim())) || d.querySelector('.bp3-dialog-close-button'); if (c) { c.click(); await sleep(300); } };
+  const dongHopThoai = async () => { const d = hopThoai(); if (!d) return; const c = [...d.querySelectorAll('button')].find(b => TEN_HUY.test(chuNut(b))) || d.querySelector('.bp3-dialog-close-button'); if (c) { c.click(); await sleep(300); } };
   // Hạn chờ của các lệnh phòng (ms) — phép thử chỉnh thẳng vào D.CH. han_lenh: lệnh đã bắt đầu thì chờ lời nhắc đầu tiên tối đa chừng này; cho_bat_dau: không rõ Chenfeng đã nhận lệnh chưa thì chờ chừng này;
   // bao_cho: chờ quá chừng này thì nói cho người dùng biết đang chờ gì.
   D.CH = { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000, do_cach: 400 };
@@ -6062,6 +6080,7 @@
     let het = false; const hen = sleep(60000).then(() => { het = true; if (ac) ac.abort(); });
     let r, j;
     try {
+      danhDauGoi(path);
       r = await Promise.race([root.fetch(D.apiHost() + '/' + path, { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify(data), signal: ac ? ac.signal : undefined }), hen.then(() => { throw new Error('qua gio'); })]);
       if (!r.ok) throw new Error('Máy chủ Chenfeng trả lời ' + r.status + '.');
       j = await r.json();
@@ -6082,7 +6101,7 @@
       const ac = typeof AbortController === 'function' ? new AbortController() : null, t0 = Date.now(); let co = false;
       try {
         co = await Promise.race([
-          root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined }).then(async r => { await r.text(); return true; }),
+          (danhDauGoi('CAD-dirQuery'), root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined })).then(async r => { await r.text(); return true; }),
           sleep(han).then(() => false)]);
       } catch (e) { co = false; }
       if (co) return Date.now() - t0;
@@ -6162,7 +6181,7 @@
   D.gocDuoc = () => { try { const e = ed(), V = root.app.Viewer; return !!(e.ModalManage && e.MouseCtrl && e.MouseCtrl._CurMousePointVCS && typeof V.WorldToScreen === 'function' && typeof V.ViewToFront === 'function' && typeof e.GetPoint === 'function'); } catch (e) { return false; } };
   const khoaFiber = e => Object.keys(e).find(k => k.indexOf('__reactFiber') === 0 || k.indexOf('__reactInternalInstance') === 0);
   const hopGoc = () => {
-    const nuts = [...document.querySelectorAll('button')].filter(b => { try { return b.getBoundingClientRect().width > 0 && /^(OK|确定|確定)$/i.test((b.innerText || b.textContent || '').trim()); } catch (e) { return false; } });
+    const nuts = [...document.querySelectorAll('button')].filter(b => { try { return b.getBoundingClientRect().width > 0 && laNutOK(b); } catch (e) { return false; } });
     for (let q = nuts.length - 1; q >= 0; q--) {
       let n = nuts[q];
       for (let i = 0; i < 18 && n; i++, n = n.parentElement) {
@@ -6394,7 +6413,7 @@
   };
   const laHopNK = m => !!(m && m.store && Array.isArray(m.store.doorDrawersInfo) && typeof m.store.InitInfos === 'function' && typeof m.store.SetDrawerDepth === 'function');
   const dongHop = async m => {      // đóng hộp thoại còn mở (bấm nút huỷ của chính hộp đó) rồi thôi lệnh
-    try { const h = m && m.ok && m.ok.isConnected && (m.ok.closest('.bp3-dialog') || m.ok.parentElement); const nut = h && [...h.querySelectorAll('button')].find(x => /^(Cancel|取消)$/i.test((x.innerText || x.textContent || '').trim())); if (nut) nut.click(); } catch (e) { /* bỏ qua */ }
+    try { const h = m && m.ok && m.ok.isConnected && (m.ok.closest('.bp3-dialog') || m.ok.parentElement); const nut = h && [...h.querySelectorAll('button')].find(x => TEN_HUY.test(chuNut(x))); if (nut) nut.click(); } catch (e) { /* bỏ qua */ }
     await sleep(120);
     if (D.busy()) await D.cancel();
   };
@@ -7616,6 +7635,65 @@
   D.undo = async (steps) => { for (let i = 0; i < (steps || 1); i++) { try { if (D.busy()) await D.cancel(); await guiLenh('UNDO'); } catch (e) { /* bỏ qua */ } await sleep(400); await D.settle(600, 20000); } };
   D.sleep = sleep;
 
+  /* ------------------------------------------------------------------ *
+   * GIỮ SẴN KẾT NỐI TỚI MÁY CHỦ CHENFENG (bản 1.29 — anh Thanh 07/10/2026: "nghiên cứu phương án kết nối máy chủ chenfeng nhanh hơn").
+   * Đã đo (Đo mạng, 05/10/2026): để quá vài giây máy chủ đóng kết nối, lần gọi sau phải mở lại (bắt tay TCP + TLS = thêm 2 – 3 lượt đi về; đường đang rớt gói
+   * thì mất gói lúc bắt tay là chờ thêm 1 – 3 giây). Lúc vẽ, phần tấm không cần máy chủ nên tới lượt tải mẫu thì kết nối đã nguội.
+   * Cách làm: trong lúc bảng đang vẽ / cập nhật / vẽ phòng / dựng mẫu kho, hễ đường tới máy chủ im quá `D.CH.am_cach` ms thì hỏi một câu CHỈ ĐỌC (CAD-dirQuery) cho kết nối còn mở —
+   * lời gọi của Chenfeng (cùng máy chủ, cùng kiểu có cookie) dùng lại được kết nối đó. Có lời gọi của Chenfeng thì không hỏi thêm (đã ấm sẵn). am_cach = 0: tắt.
+   * Kèm theo: ghi lại các lần CHENFENG gọi máy chủ (tên, initiatorType, giao thức, thời gian) để Đo mạng tóm tắt — số đo cho việc "tự gửi lại khi rớt gói" (chưa làm).
+   * ------------------------------------------------------------------ */
+  // lời gọi của chính bảng: đếm theo tên lời gọi — mỗi mục "fetch" cùng tên thấy sau đó trừ một (so theo thời điểm bắt đầu thì lệch: lời gọi bị huỷ / bị chặn CORS có startTime khác)
+  const goiCF = [], cuaBang = new Map();
+  let lanCuoiMang = 0;
+  function danhDauGoi(ten) { try { cuaBang.set(ten, (cuaBang.get(ten) || 0) + 1); lanCuoiMang = root.performance.now(); } catch (e) { /* bỏ qua */ } }
+  try {
+    if (typeof root.PerformanceObserver === 'function') {
+      const po = new root.PerformanceObserver(ds => {
+        for (const e of ds.getEntries()) {
+          const m = /^https:\/\/[^/]+\/(CAD-[A-Za-z]+)/.exec(e.name || ''); if (!m) continue;
+          lanCuoiMang = Math.max(lanCuoiMang, e.responseEnd || e.startTime || 0);
+          if (e.initiatorType === 'fetch' && cuaBang.get(m[1]) > 0) { cuaBang.set(m[1], cuaBang.get(m[1]) - 1); continue; }      // lời gọi của chính bảng
+          goiCF.push({ ten: m[1], kieu: e.initiatorType || '', gt: e.nextHopProtocol || '', ms: Math.round(e.duration) });
+          if (goiCF.length > 300) goiCF.splice(0, goiCF.length - 300);
+        }
+      });
+      po.observe({ type: 'resource', buffered: true });
+    }
+  } catch (e) { /* trình duyệt không có thì thôi: không tóm tắt được, vẫn giữ kết nối được */ }
+  D.goiCF = () => goiCF.slice();
+  D.CH.am_cach = 2000;
+  let giu = 0, dangGiu = false;
+  /** Giữ kết nối trong lúc làm một việc cần máy chủ. Trả hàm thả (gọi đúng một lần). Lồng nhau được. */
+  D.giuKetNoi = () => {
+    giu++; let tha = false;
+    if (!dangGiu) {
+      dangGiu = true;
+      (async () => {
+        try {
+          while (giu > 0) {
+            await sleep(250);
+            const cach = D.CH.am_cach; if (!(cach > 0) || giu <= 0) continue;
+            let bay; try { bay = root.performance.now(); } catch (e) { break; }
+            if (bay - lanCuoiMang < cach) continue;
+            danhDauGoi('CAD-dirQuery');
+            const ac = typeof AbortController === 'function' ? new AbortController() : null;
+            try {
+              await Promise.race([root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined }).then(r => r.text()), sleep(8000)]);
+            } catch (e) { /* rớt thì lượt sau hỏi lại */ }
+            if (ac) { try { ac.abort(); } catch (e) { /* bỏ qua */ } }
+            try { lanCuoiMang = root.performance.now(); } catch (e) { /* bỏ qua */ }
+          }
+        } finally { dangGiu = false; }
+      })();
+    }
+    return () => { if (!tha) { tha = true; giu--; } };
+  };
+  for (const k of ['draw', 'update', 'drawRoom', 'veKho']) {
+    const f = D[k]; if (typeof f !== 'function') continue;
+    D[k] = async function () { const tha = D.giuKetNoi(); try { return await f.apply(this, arguments); } finally { tha(); } };
+  }
+
   root.MNCFDriver = D;
 })(typeof self !== 'undefined' ? self : this);
 
@@ -7736,6 +7814,7 @@
   font:13px/1.45 var(--font);color:var(--ink)}
 .panel{position:fixed;top:10px;right:10px;bottom:10px;width:560px;max-width:calc(100vw - 20px);display:flex;flex-direction:column;background:var(--bg);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.5);border:1px solid rgba(0,0,0,.25);overflow:hidden;z-index:2147483000}
 .panel[hidden],.launch[hidden],.chip[hidden]{display:none}
+.chipthoi{flex:0 0 auto;border:1px solid rgba(255,255,255,.5);background:transparent;color:inherit;border-radius:999px;padding:3px 12px;font:600 12.5px var(--font);cursor:pointer}.chipthoi:hover{background:rgba(255,255,255,.15)}.chipthoi[hidden]{display:none}
 .manche{position:fixed;inset:0;background:rgba(12,18,15,.52);z-index:2147482999}
 .manche[hidden]{display:none}
 /* nút riêng của hộp: ẩn khi không mở hộp. Phải viết NẶNG hơn luật .frow (display:flex) ở dưới — hàng nút mang cả hai lớp; bản 1.23 chỉ viết .dlgnut nên bị đè, nút của hộp nằm lẫn dưới chân bảng */
@@ -7904,7 +7983,7 @@ footer{border-top:1px solid var(--line);padding:10px 12px;background:var(--foot)
 .hinhcho button{font:inherit;font-size:12px;background:none;border:0;color:inherit;text-decoration:underline;cursor:pointer;padding:2px 4px;min-height:28px}
 .tunoi button{font:inherit;font-size:12px;background:none;border:0;color:inherit;text-decoration:underline;cursor:pointer;padding:2px 4px;min-height:28px}
 .launch{position:fixed;right:16px;bottom:92px;height:44px;padding:0 16px;border-radius:22px;background:var(--accent);color:var(--accent-ink);font:700 13px var(--font);border:0;box-shadow:0 8px 22px rgba(0,0,0,.45);cursor:pointer;z-index:2147483000}
-.chip{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--head);color:var(--head-ink);padding:9px 16px;border-radius:999px;box-shadow:0 8px 22px rgba(0,0,0,.45);z-index:2147483001;font-size:13px;max-width:80vw}
+.chip{position:fixed;top:132px;display:flex;align-items:center;gap:12px;left:50%;transform:translateX(-50%);background:var(--head);color:var(--head-ink);padding:9px 16px;border-radius:999px;box-shadow:0 8px 22px rgba(0,0,0,.45);z-index:2147483001;font-size:13px;max-width:80vw}
 table{border-collapse:collapse;width:100%;font-size:12px}
 td,th{padding:3px 6px;border-bottom:1px solid var(--line);text-align:left}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--font-data)}
@@ -8212,7 +8291,7 @@ footer>.kqhang{display:none}
 
     rootEl.innerHTML = `
 <button class="launch" ${inCF ? '' : 'hidden'} title="Mở bảng vẽ tủ (Alt + M)">Một Nhà · Vẽ tủ</button>
-<div class="chip" hidden></div>
+<div class="chip" hidden><span class="chipchu"></span><button class="chipthoi" data-act="chip-thoi" hidden title="Bỏ lời nhắc bấm điểm của bảng (như phím Esc) và mở lại bảng">Thôi</button></div>
 <div class="manche" hidden></div>
 <section class="panel${wide ? ' wide' : ''}${chuDay ? '' : ' itchu'}" ${inCF ? 'hidden' : ''} aria-label="Một Nhà — vẽ tủ vào Chenfeng">
   <header>
@@ -8331,7 +8410,7 @@ footer>.kqhang{display:none}
 <div class="xem${wide ? ' rong' : ''}" hidden role="dialog" aria-label="Ảnh hiện trạng"><div class="xemh"><span></span><button class="ibtn" data-act="xem-truoc" title="Ảnh trước">◂</button><button class="ibtn" data-act="xem-sau" title="Ảnh sau">▸</button><button class="ibtn" data-act="xem-dong" title="Đóng ảnh">✕</button></div><div class="xemb"><img alt="Ảnh hiện trạng đang xem"></div></div>`;
 
     const $ = q => rootEl.querySelector(q), $$ = q => [...rootEl.querySelectorAll(q)];
-    const panel = $('.panel'), launch = $('.launch'), chip = $('.chip'), view = $('.view'), bar = $('.edbar'), probe = $('.edprobe');
+    const panel = $('.panel'), launch = $('.launch'), chip = $('.chip'), chipChu = $('.chipchu'), chipThoi = $('.chipthoi'), view = $('.view'), bar = $('.edbar'), probe = $('.edprobe');
 
     function guideHTML(cf) {
       return `<fieldset><legend>Cách dùng</legend><ol class="sum">
@@ -8762,12 +8841,20 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     }
     const saveFile = (name, text, mime, okMsg) => download(name, text, mime).then(r => setStatus(r === 'saved' ? okMsg : r === 'declined' ? 'Đã huỷ lưu file.' : 'Không lưu được file ở đây — mở trang này trong Claude (đã đăng nhập) hoặc dùng file mn-chenfeng.html.'));
     const fileBase = () => (spec.ma || 'tu').replace(/[^\w\-]+/g, '_') + '_' + Math.round(spec.rong) + 'x' + Math.round(spec.cao);
-    const setStatus = t => { $('.status').textContent = t || ''; if (!chip.hidden) chip.textContent = t || ''; };
+    // nút Thôi chỉ hiện khi Chenfeng đang chờ bấm điểm cho bảng — lúc lệnh đang dựng tấm thì Esc làm tủ dở dang
+    setInterval(() => { try { if (chip.hidden) { if (!chipThoi.hidden) chipThoi.hidden = true; return; } const h = !!(Drv && typeof Drv.dangHoiDiem === 'function' && Drv.dangHoiDiem()); if (chipThoi.hidden === h) chipThoi.hidden = !h; } catch (e) { /* bỏ qua */ } }, 300);
+    const setStatus = t => { $('.status').textContent = t || ''; if (!chip.hidden) chipChu.textContent = t || ''; };
     // (bản 1.27) Đo mạng tới Chenfeng — anh Thanh 05/10/2026 20:14: "làm sao hết lag nhỉ"; 21:56: "làm sao để máy chủ ổn định được". Bảng không làm mạng nhanh lên được; nút này để anh tự so
     // các đường mạng / VPN: 20 lượt hỏi máy chủ Chenfeng (chỉ ĐỌC), xếp loại bằng hàm thuần Core.danhGiaMang — con số để so là SỐ LẦN chậm hoặc rớt; kèm kết quả lần đo trước.
     let dangDoMang = false, doTruoc = '';
     const giayVN = ms => (Math.max(0.1, Math.round(ms / 100) / 10)).toFixed(1).replace('.', ',');
     const TEN_MANG = { tot: 'tốt', tam: 'tạm được', kem: 'kém' };
+    // (bản 1.29) các lần CHÍNH Chenfeng gọi máy chủ từ lúc mở trang: gọi bằng gì, giao thức, mẫu tải lâu bao nhiêu — anh chụp dòng này gửi lại là đủ số đo để làm "tự gửi lại khi rớt gói"
+    function goiCuaCF() {
+      if (typeof Drv.goiCF !== 'function' || typeof Core.tomTatGoi !== 'function') return '';
+      const t = Core.tomTatGoi(Drv.goiCF()); if (!t.n) return '';
+      return ` Chenfeng đã gọi máy chủ ${t.n} lần (${t.kieu.map(x => x[0] + ' ' + x[1]).join(', ')} · ${t.gt.map(x => x[0] + ' ' + x[1]).join(', ')})${t.mau.n ? ` — tải mẫu ${t.mau.n} lần: thường ${giayVN(t.mau.giua)} s, lâu nhất ${giayVN(t.mau.cham)} s` : ''}.`;
+    }
     function doMang() {
       if (dangDoMang || !Drv || typeof Drv.doMang !== 'function') return;
       dangDoMang = true; setStatus('Đang đo mạng tới Chenfeng… 0/20');
@@ -8775,7 +8862,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         const g = Core.danhGiaMang(r), truoc = doTruoc ? ` Lần trước: ${doTruoc}.` : '';
         if (g.muc === 'dut') { doTruoc = 'đứt'; return setStatus(`Mạng tới Chenfeng: đứt — ${r.dut ? 3 : g.n} lần liền không trả lời. Kiểm tra mạng / VPN.${truoc}`); }
         doTruoc = `${g.x}/${g.n}`;
-        setStatus(`Mạng tới Chenfeng: ${TEN_MANG[g.muc]} — ${g.x}/${g.n} lần chậm hoặc rớt · bình thường ${giayVN(g.nhanh)} s · lâu nhất ${giayVN(g.cham)} s.${truoc}`);
+        setStatus(`Mạng tới Chenfeng: ${TEN_MANG[g.muc]} — ${g.x}/${g.n} lần chậm hoặc rớt · bình thường ${giayVN(g.nhanh)} s · lâu nhất ${giayVN(g.cham)} s.${truoc}${goiCuaCF()}`);
       }).catch(() => setStatus('Chưa đo được mạng tới Chenfeng.')).then(() => { dangDoMang = false; });
     }
 
@@ -8886,7 +8973,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
           let daThu = false;
           try {
             const h = typeof Drv.hopXuat === 'function' ? Drv.hopXuat() : null, a = h && h.getBoundingClientRect(), b = panel.getBoundingClientRect();
-            if (a && !panel.hidden && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom) { daThu = true; panel.hidden = true; chip.textContent = 'Xuất ván: bấm 打开 trong khung nhỏ “Order Splitting”'; chip.hidden = false; }
+            if (a && !panel.hidden && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom) { daThu = true; panel.hidden = true; chipChu.textContent = 'Xuất ván: bấm 打开 trong khung nhỏ “Order Splitting”'; chip.hidden = false; }
           } catch (e) { /* không đo được thì để nguyên bảng */ }
           r.da_mo.then(safe(kq => {
             if (daThu) { chip.hidden = true; if (panel.hidden && launch.hidden) panel.hidden = false; }
@@ -9138,7 +9225,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (opt && opt.at) o.at = opt.at;
       else if (opt && opt.corner) o.corner = opt.corner;
       else if ($('[data-ui="useAt"]') && $('[data-ui="useAt"]').checked) o.corner = ['ax', 'ay', 'az'].map(n => parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.')) || 0);
-      if (!o.at && !o.corner) { panel.hidden = true; chip.textContent = 'Đang chuẩn bị…'; chip.hidden = false; }
+      if (!o.at && !o.corner) { panel.hidden = true; chipChu.textContent = 'Đang chuẩn bị…'; chip.hidden = false; }
       // vẽ đúng vị trí của khung đang mở (thẻ Phòng) hoặc của hình vừa lấy trên mặt bằng → tủ quay theo tường / theo hình (bản 1.16: driver tự đặt + xoay, cả tủ lệnh gốc)
       const kc = khungCho && khungCho.d && o.corner && o.corner.every((v, i) => Math.abs(v - khungCho.d.goc[i]) < 0.01) ? khungCho : null;
       if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
@@ -9241,7 +9328,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const tuong = ph.tuong.filter(w => Math.abs((w.z || 0) - z) < 1 || !w.z), cot = ph.cot.filter(c => c.z1 > z + 1);
       let k = hoiTruoc ? null : Ph.hinhThanhKhung(dinh, { tuong, cot });
       if (hoiTruoc || (!k.ok && k.can_diem)) {
-        const an = !panel.hidden; panel.hidden = true; chip.textContent = 'Bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh)…'; chip.hidden = false;
+        const an = !panel.hidden; panel.hidden = true; chipChu.textContent = 'Bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh)…'; chip.hidden = false;
         let p = null; try { p = await Drv.hoiDiem('Một Nhà: bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh):'); } catch (e) { p = null; }
         chip.hidden = true; if (an) panel.hidden = false;
         if (!p) { setStatus('Đã huỷ — chưa lấy hình.'); return; }
@@ -9283,7 +9370,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       try { ph = Drv.tuongPhong(); } catch (e) { ph = { tuong: [], cot: [] }; }
       const an = !panel.hidden; panel.hidden = true; chip.hidden = false;
       const dong = () => { try { Drv.bongMo(null); } catch (e) { /* bỏ qua */ } chip.hidden = true; if (an) panel.hidden = false; };
-      chip.textContent = `Bấm điểm ĐẦU của ${vat} ở chân tường… (Esc = thôi)`;
+      chipChu.textContent = `Bấm điểm ĐẦU của ${vat} ở chân tường… (Esc = thôi)`;
       let r1 = null; try { r1 = await Drv.hoiDiem2(`Một Nhà: bấm điểm ĐẦU của ${vat} (chân tường):`); } catch (e) { r1 = null; }
       if (!r1 || !r1.diem) { dong(); setStatus(`Đã huỷ — chưa đặt ${vat}.`); return null; }
       const p1 = r1.diem, p12 = [p1[0], p1[1]];
@@ -9309,7 +9396,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         if (hE.ok) net.push(...netHop(hE.dinh, hB.ok ? 'dut' : 'lien'));
         Drv.bongMo(net.length ? net : [{ diem: [p1, c], kieu: 'dut' }], hB.ok ? `bấm: rộng ${hien(hB.rong)} · Enter: rộng ${hien(rongBang)} · sâu ${hien(sau)}${hB.tam ? ' · chưa rõ phía trước — sẽ hỏi' : ''}` : `Enter: rộng ${hien(rongBang)} · sâu ${hien(sau)} — hoặc rê tiếp rồi bấm điểm cuối`);
       };
-      chip.textContent = `Rê chuột dọc tường: bấm điểm CUỐI · gõ bề rộng + Enter · Enter = rộng ${hien(rongBang)} ${vat === 'tủ' ? 'đang gõ trong bảng' : 'ở ô Rộng'}`;
+      chipChu.textContent = `Rê chuột dọc tường: bấm điểm CUỐI · gõ bề rộng + Enter · Enter = rộng ${hien(rongBang)} ${vat === 'tủ' ? 'đang gõ trong bảng' : 'ở ô Rộng'}`;
       let r2 = null; try { r2 = await Drv.hoiDiem2(`Một Nhà: điểm CUỐI / gõ rộng / Enter = rộng ${fmt(rongBang)}:`, { goc: p1, cho_enter: true, khi_re: khiRe }); } catch (e) { r2 = null; }
       try { Drv.bongMo(null); } catch (e) { /* bỏ qua */ }
       if (!r2) { dong(); setStatus(`Đã huỷ — chưa đặt ${vat}.`); return null; }
@@ -9320,7 +9407,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (!c2) { dong(); setStatus(`Chưa rõ ${vat} chạy về phía nào — bấm lại nút, bấm điểm đầu rồi rê chuột dọc tường trước khi Enter.`); return null; }
       let h = Ph.haiDiemThanhHinh(p12, [c2[0], c2[1]], sau, { tuong, rong });
       if (!h.ok && h.can_diem) {
-        chip.textContent = 'Bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh)…';
+        chipChu.textContent = 'Bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh)…';
         let p3 = null; try { p3 = await Drv.hoiDiem('Một Nhà: bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh):'); } catch (e) { p3 = null; }
         if (!p3) { dong(); setStatus(`Đã huỷ — chưa đặt ${vat}.`); return null; }
         h = Ph.haiDiemThanhHinh(p12, [c2[0], c2[1]], sau, { tuong, rong, truoc: [p3[0], p3[1]] });
@@ -10097,7 +10184,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const bat = n => { const el = $(`[data-ui="${n}"]`); return !el || el.checked; }, chuan = bat('kho-chuan');
       const opt = Object.assign({ onStatus: setStatus, khoan: spec.khoan.thung, ten_viet: bat('kho-ten'), day: chuan ? spec.van.t : 0, hau: chuan && spec.hau.kieu === 'phu' ? (spec.hau.t || 6) : 0, mep: spec.hau.mep, kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }, o);
       busy = true; paint(); veChon(); if (Ph) paintPhong();
-      if (!opt.corner) { panel.hidden = true; chip.textContent = 'Bấm 1 điểm trên bản vẽ để đặt mẫu (góc trái – trước – dưới)… Esc = thôi'; chip.hidden = false; }
+      if (!opt.corner) { panel.hidden = true; chipChu.textContent = 'Bấm 1 điểm trên bản vẽ để đặt mẫu (góc trái – trước – dưới)… Esc = thôi'; chip.hidden = false; }
       let rep;
       try { rep = await Drv.veKho(opt); }
       catch (e) { rep = { ok: false, kho: true, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [], notes: [], mau: { id: o.id, ten: o.ten } }; }
@@ -10790,6 +10877,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (b.classList.contains('launch')) return open();
       if (b.dataset.tab) return switchTab(b.dataset.tab);
       const act = b.dataset.act;
+      // (bản 1.29) nút "Thôi" trên dòng nhắc bấm điểm: như Esc — lệnh hỏi điểm của bảng dừng, bảng mở lại với "Đã huỷ" (anh Thanh 07/10: "bấm vẽ rồi kích vào vị trí là stop lệnh, extension tự tắt")
+      if (act === 'chip-thoi') { if (Drv && typeof Drv.cancel === 'function') Drv.cancel(); chipThoi.hidden = true; return; }
       if (/^[tmckd]-(add|del)$/.test(act)) return phongAct(act, b);
       if (act === 'kpop-dong') { kpop = -1; return veKpop(); }
       if (act === 'kpop-kieu') { if (kpop < 0 || !phong.khung[kpop]) return; setP(phong, `khung.${kpop}.kieu`, b.dataset.v === 'kho' ? 'kho' : 'tu'); phongStore.save(); return renderPhong(); }

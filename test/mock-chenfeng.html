@@ -280,8 +280,8 @@
     if (!state || state.kind !== 'dialog' || state.lenh !== 'DRAWER') return;      // Esc trước khi hộp kịp mở
     const st = nkSt; st.kh = kh; st.InitInfos(); st.SetDrawerDepth();      // (isAuto đang tắt thì SetDrawerDepth không đổi gì: sâu hộp vẫn là số người dùng gõ)
     const dl = document.createElement('div'); dl.className = 'bp3-dialog mock-nk'; dl.style.cssText = 'position:fixed;left:60px;top:60px;width:420px;padding:10px;background:#fff;z-index:6';
-    dl.innerHTML = '<div class="bp3-dialog-header"><h4 class="bp3-heading">Drawer Design</h4></div><div class="bp3-dialog-footer"><button>OK</button><button>Cancel</button></div>';
-    const [ok, huy] = dl.querySelectorAll('button');
+    dl.innerHTML = '<div class="bp3-dialog-header"><h4 class="bp3-heading">Drawer Design</h4></div><div class="bp3-dialog-footer">' + NUT_HOP(false) + '</div>';
+    const ok = dl.querySelector('.nut-ok'), huy = dl.querySelector('.nut-huy');
     ok['__reactFiber$mock'] = { memoizedProps: {}, return: { memoizedProps: { store: st }, return: null } };
     state.dl = dl;
     huy.onclick = () => { dl.remove(); state = null; setTimeout(() => fireEnd('DRAWER', [], []), 10); };
@@ -523,6 +523,10 @@
    *   xà chân / thanh giằng của hộp nóc đáy (bật các ô đó thì trang ghi window.__MOCK_GOC_THUA__ để phép thử thấy).
    *   window.__MOCK_GOC_LOG__ = nhật ký từng lệnh: { lenh, khoang: [x0, x1, z0, z1] | null, so_tam } ---- */
   const GOC = !!window.__MOCK_GOC__;
+  // Giao diện Chenfeng có tiếng Việt (ảnh của anh Thanh 07/10/2026, hộp "Hông tủ trái/phải"): nút chân hộp là "Chèn không gian" (xanh dương) · "Xác nhận" (xanh lá) · "Hủy" (đỏ).
+  // window.__MOCK_NGON__ = 'vi' (đặt TRƯỚC khi trang tải) → các hộp thông số dùng đúng chữ + màu đó; mặc định chữ tiếng Anh OK / Cancel như cũ.
+  const VI = window.__MOCK_NGON__ === 'vi';
+  const NUT_HOP = (chen) => VI ? `${chen ? '<button class="bp3-button bp3-intent-primary">Chèn không gian</button>' : ''}<button class="bp3-button bp3-intent-success nut-ok">Xác nhận</button><button class="bp3-button bp3-intent-danger nut-huy">Hủy</button>` : '<button class="nut-ok">OK</button><button class="nut-huy">Cancel</button>';
   const cam = { x0: 0, z1: 10000, k: 20 }, scene = { children: [], add(o) { if (o && o.parent !== scene) { o.parent = scene; scene.children.push(o); } } };
   const vaoScene = es => setTimeout(() => { for (const e of es) scene.add(e.DrawObject); }, window.__MOCK_GOC_TRE__ || 0);
   const mkSt = (m, them) => { const ui = {}; for (const k of Object.keys(m)) if (typeof m[k] !== 'boolean') ui[k] = String(m[k]);
@@ -563,8 +567,8 @@
   const hopXem = kh => { const P = (x, y, z) => new V3(x, y, z); window.app.MoveTool._DrawDimPoints = [[P(kh.x0, kh.y0, kh.z0), P(kh.x1, kh.y0, kh.z0)], [P(kh.x0, kh.y0, kh.z0), P(kh.x0, kh.y0, kh.z1)], [P(kh.x1, kh.y1, kh.z1), P(kh.x1, kh.y0, kh.z1)]]; };
   const moHopGoc = (lenh, st, khiOk) => {
     const dl = document.createElement('div'); dl.className = 'bp3-dialog mock-goc'; dl.style.cssText = 'position:fixed;left:60px;top:60px;width:420px;padding:10px;background:#fff;z-index:6';
-    dl.innerHTML = '<div class="bp3-dialog-header"><h4 class="bp3-heading"></h4></div><div class="bp3-dialog-footer"><button>OK</button><button>Cancel</button></div>'; dl.querySelector('h4').textContent = lenh;
-    const [ok, huy] = dl.querySelectorAll('button');
+    dl.innerHTML = '<div class="bp3-dialog-header"><h4 class="bp3-heading"></h4></div><div class="bp3-dialog-footer">' + NUT_HOP(true) + '</div>'; dl.querySelector('h4').textContent = lenh;
+    const ok = dl.querySelector('.nut-ok'), huy = dl.querySelector('.nut-huy');
     ok['__reactFiber$mock'] = { memoizedProps: {}, return: { memoizedProps: { store: st }, return: null } };
     state = { kind: 'dialog', lenh, dl };
     huy.onclick = () => { dl.remove(); state = null; setTimeout(() => fireEnd(lenh, [], []), 10); };

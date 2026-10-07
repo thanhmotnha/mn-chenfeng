@@ -123,6 +123,34 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     lanDo = 0; treDo = [40].concat(Array.from({ length: 20 }, (_, i) => (i === 3 || i === 9 || i === 15 ? 0 : 40)));
     dm = await doMang('Lần trước: 0/20');
     ok(/^Mạng tới Chenfeng: kém — 3\/20 lần chậm hoặc rớt · bình thường 0,1 s · lâu nhất 0,[123] s\. Lần trước: 0\/20\.$/.test(dm) && lanDo === 21, '3 lượt rớt rải rác trong 20: kém 3/20, đo đủ 1 + 20 lượt (không coi là đứt)', [dm, lanDo]);
+    // (bản 1.29) GIỮ SẴN KẾT NỐI: lúc bảng đang vẽ mà đường tới máy chủ im quá D.CH.am_cach thì hỏi một câu chỉ đọc cho kết nối còn mở; vẽ xong thì thôi hỏi.
+    lanDo = 0; treDo = [10];
+    await page.evaluate(() => { window.MNCFDriver.CH.am_cach = 300; });
+    const tha = await page.evaluate(() => { window.__thaGiu = window.MNCFDriver.giuKetNoi(); window.__thaGiu2 = window.MNCFDriver.giuKetNoi(); return 1; });
+    await page.waitForTimeout(1600);
+    const lanGiu = lanDo;
+    ok(tha && lanGiu >= 3 && lanGiu <= 6, 'đang giữ kết nối (hai việc lồng nhau): đường im quá 0,3 s thì hỏi máy chủ một câu — 1,6 giây được 3 – 6 câu, không dồn dập', lanGiu);
+    await page.evaluate(() => window.__thaGiu());
+    await page.waitForTimeout(800);
+    ok(lanDo > lanGiu, 'còn một việc đang giữ: vẫn hỏi tiếp', [lanGiu, lanDo]);
+    await page.evaluate(() => { window.__thaGiu2(); window.__thaGiu2(); });      // thả hai lần cũng chỉ tính một
+    await page.waitForTimeout(400); const lanTha = lanDo; await page.waitForTimeout(1000);
+    ok(lanDo === lanTha, 'thả hết: thôi hỏi máy chủ', [lanTha, lanDo]);
+    // Chenfeng tự gọi máy chủ (XHR, như khi tải mẫu): đường không im → bảng không hỏi chen; Đo mạng tóm tắt các lần gọi của CHENFENG (không đếm lời gọi của bảng)
+    await ctx.route('https://api.cfcad.cn/CAD-moduleDetail', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' }, body: '{"err_code":0}' }));
+    lanDo = 0;
+    await page.evaluate(async () => {
+      const goi = () => new Promise(q => { const x = new XMLHttpRequest(); x.open('POST', 'https://api.cfcad.cn/CAD-moduleDetail'); x.withCredentials = true; x.onloadend = q; x.send('{}'); });
+      const tha = window.MNCFDriver.giuKetNoi(); for (let i = 0; i < 8; i++) { await goi(); await new Promise(q => setTimeout(q, 150)); } tha();
+    });
+    ok(lanDo === 0, 'Chenfeng đang gọi máy chủ dồn dập (cách nhau dưới 0,3 s): bảng không hỏi chen', lanDo);
+    const gcf = await page.evaluate(() => window.MNCFDriver.goiCF().filter(g => g.ten === 'CAD-moduleDetail').map(g => g.kieu));
+    ok(gcf.length === 8 && gcf.every(k => k === 'xmlhttprequest') && !(await page.evaluate(() => window.MNCFDriver.goiCF().some(g => g.ten === 'CAD-dirQuery'))), 'ghi lại đúng 8 lần Chenfeng gọi mẫu (XHR); lời gọi của chính bảng không lẫn vào', gcf);
+    treDo = [40];
+    dm = await doMang('Chenfeng đã gọi');
+    ok(/Chenfeng đã gọi máy chủ 8 lần \(xmlhttprequest 8 · [^)]*\) — tải mẫu 8 lần: thường \d+,\d s, lâu nhất \d+,\d s\.$/.test(dm), 'Đo mạng kèm tóm tắt các lần Chenfeng gọi máy chủ (gọi bằng gì, giao thức, mẫu tải lâu bao nhiêu)', dm);
+    await ctx.unroute('https://api.cfcad.cn/CAD-moduleDetail');
+    await page.evaluate(() => { window.MNCFDriver.CH.am_cach = 0; });      // các phép thử sau đếm đúng số lời gọi đọc kho
     await ctx.unroute('https://api.cfcad.cn/CAD-dirQuery');
     await H.locator('[data-act="the-them"]').click();
     ok((await theHien()) === 'tu phong kho kq the-them', 'bấm ⚙ lần nữa: hàng thẻ phụ gọn lại', await theHien());
@@ -212,6 +240,15 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     await H.locator('.tab[data-tab="tu"]').click();      // (bản 1.28) nút Hoàn tác nằm ở chân thẻ Kết quả: bấm xong vẫn ở thẻ đó
     if (!(await H.locator('#mncf-ui-useat').isVisible())) await H.locator('[data-act="nut-them"]').click();
     await H.locator('#mncf-ui-useat').uncheck();
+    // (bản 1.29) đang chờ bấm điểm: dòng nhắc có nút "Thôi" — bấm là bỏ lời nhắc bấm điểm, bảng mở lại (anh Thanh 07/10: "bấm vẽ rồi kích vào vị trí là stop lệnh, extension tự tắt")
+    await H.locator('[data-act="draw"]').click();
+    await page.waitForFunction(() => window.app.Editor.GetPointServices.IsReady);
+    await H.locator('.chip [data-act="chip-thoi"]').waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+    ok(await H.locator('.chip [data-act="chip-thoi"]').isVisible(), 'chờ bấm điểm: dòng nhắc có nút "Thôi"');
+    await H.locator('.chip [data-act="chip-thoi"]').click();
+    await H.locator('.panel').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    ok(await H.locator('.panel').isVisible() && !(await H.locator('.chip').isVisible()) && !(await page.evaluate(() => window.app.Editor.GetPointServices.IsReady)), 'bấm "Thôi": Chenfeng thôi hỏi điểm, bảng mở lại, dòng nhắc tắt', await H.locator('.status').innerText());
+    await H.locator('.tab[data-tab="tu"]').click();
     await H.locator('[data-act="draw"]').click();
     await H.locator('.chip').waitFor({ state: 'visible' });
     ok(!(await H.locator('.panel').isVisible()) && /Bấm 1 điểm|đang tải|Đang gửi|Đang chuẩn bị/.test(await H.locator('.chip').innerText()), 'bảng tự thu gọn, hiện lời nhắc bấm điểm', await H.locator('.chip').innerText());
