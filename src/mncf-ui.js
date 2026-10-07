@@ -601,7 +601,7 @@ footer>.kqhang{display:none}
       <button class="ibtn chu" data-act="chu" aria-pressed="${chuDay ? 'true' : 'false'}" aria-label="Hiện / ẩn chữ hướng dẫn" title="Bảng mặc định ÍT CHỮ: chữ hướng dẫn, chú giải màu, dòng mô tả được ẩn bớt; dòng báo dài thu còn 2 dòng (bấm vào dòng báo để xem hết). Bấm nút này để hiện đủ chữ / ẩn lại — máy nhớ lựa chọn.">?</button>
       ${inCF ? `<button class="ibtn" data-act="wide" title="Đổi bề rộng bảng — bảng rộng thì hình đứng to, kéo đợt dễ hơn">${wide ? 'Thu hẹp' : 'Mở rộng'}</button><button class="ibtn" data-act="close" title="Thu gọn (Alt + M)">—</button>` : ''}</div>
     <div class="tabs"><button class="tab on" data-tab="tu">Tủ</button>${Ph ? '<button class="tab" data-tab="phong">Phòng</button>' : ''}${coKho ? '<button class="tab" data-tab="kho">Kho mẫu</button>' : ''}<button class="tab" data-tab="kq">Kết quả</button><button class="tab them" data-act="the-them" aria-expanded="false" aria-label="Thẻ khác: ${coMau ? 'Màu, ' : ''}Chuẩn xưởng, Hướng dẫn${coDoMang ? ', Đo mạng' : ''}" title="Thẻ ít dùng: ${coMau ? 'Màu · ' : ''}Chuẩn xưởng · Hướng dẫn${coDoMang ? ' · Đo mạng tới Chenfeng' : ''}">⚙</button></div>
-    <div class="tabs tabs2" hidden>${coMau ? '<button class="tab" data-tab="mausac">Màu</button>' : ''}<button class="tab" data-tab="chuan">Chuẩn xưởng</button><button class="tab" data-tab="hd">Hướng dẫn</button>${coDoMang ? '<button class="tab viec" data-act="do-mang" title="Hỏi máy chủ Chenfeng 20 lần (chỉ đọc, khoảng 15 giây) rồi báo ở dòng trạng thái: tốt / tạm được / kém và mấy lần bị chậm hoặc rớt — đổi đường mạng / VPN rồi đo lại để so">Đo mạng</button>' : ''}</div>
+    <div class="tabs tabs2" hidden>${coMau ? '<button class="tab" data-tab="mausac">Màu</button>' : ''}<button class="tab" data-tab="chuan">Chuẩn xưởng</button><button class="tab" data-tab="hd">Hướng dẫn</button>${coDoMang ? '<button class="tab viec" data-act="do-mang" title="Hỏi máy chủ Chenfeng 20 lần (chỉ đọc, khoảng 15 giây) rồi báo ở dòng trạng thái: tốt / tạm được / kém và mấy lần bị chậm hoặc rớt — đổi đường mạng / VPN rồi đo lại để so">Đo mạng</button>' : ''}${coDoMang && typeof Drv.thamDoLoi === 'function' ? '<button class="tab viec" data-act="tham-do" title="Gom MÃ NGUỒN các lệnh vẽ tấm của Chenfeng (chỉ đọc — không có bản vẽ, không có tài khoản) thành một tệp chữ để gửi cho Claude: để bảng gọi thẳng vào lõi Chenfeng thay vì giả bấm hộp, rê chuột">Thăm dò lõi</button>' : ''}</div>
   </header>
   <div class="body">
     <div class="pane" data-pane="tu">${inCF ? '' : '<p class="hint">Mở lần đầu là <b>tủ mẫu</b> (tủ áo 3000 × 2800, 3 khoang). Nhập kích thước, rồi <b>kéo đợt ngay trên hình</b> và bấm vào từng ô để đặt ngăn kéo, suốt treo — cảnh báo và bảng kê tự cập nhật.</p>'}<div class="split">
@@ -2333,7 +2333,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     const NHOM_KHO = [['ao', 'Tủ áo', /tủ áo|quần áo|thay đồ|衣柜|衣帽/i], ['tivi', 'Tủ tivi', /ti ?vi|电视/i], ['sach', 'Tủ sách – bàn', /sách|书柜|书桌|bàn học|bàn làm/i], ['giay', 'Tủ giày – sảnh', /giày|sảnh|鞋柜|玄关/i],
       ['bep', 'Tủ bếp', /bếp|橱柜/i], ['an', 'Tủ rượu – tủ ăn', /rượu|tủ ăn|酒柜|餐边/i], ['lavabo', 'Lavabo', /lavabo|浴室|卫浴/i], ['bancong', 'Ban công', /ban công|阳台/i], ['giuong', 'Giường – tab', /giường|床|榻榻米|tatami/i], ['roi', 'Đồ rời', /đồ rời/i]];
     const MOI_TRANG = 12;
-    const kho = { dirs: null, dangDirs: false, loiDirs: '', dir: '', nhom: '', tim: '', trang: 1, tat: null, cho: false, lan: 0, loi: '', chon: null, choKhung: -1, nho: new Map() };
+    const kho = { dirs: null, dangDirs: false, loiDirs: '', dir: '', nhom: '', tim: '', trang: 1, tat: null, cho: false, lan: 0, loi: '', chon: null, choKhung: -1, nho: new Map(), dem: new Map(), dangDem: false };
     const boDau = t => String(t == null ? '' : t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
     // TOÀN BỘ mẫu của một thư mục: đọc một lần rồi nhớ. Tìm theo tên + chia trang làm ngay trong bảng — máy chủ Chenfeng lọc tên kiểu "trúng một từ là được"
     // (đo 04/10/2026: gõ "Tủ giày 10" trả về mọi mẫu có chữ "Tủ") nên không dùng bộ lọc của máy chủ.
@@ -2341,10 +2341,26 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (kho.nho.has(id)) return kho.nho.get(id);
       let mau = [];
       for (let tr = 1; tr <= 6; tr++) { const r = await Drv.khoMau(id, { trang: tr, moi_trang: 100 }); mau = mau.concat(r.mau); if (!r.mau.length || mau.length >= r.tong) break; }
-      const o = { mau }; kho.nho.set(id, o); return o;
+      const o = { mau }; kho.nho.set(id, o); kho.dem.set(id, mau.length); return o;
     }
     const locKho = () => { const all = kho.tat ? kho.tat.mau : [], tu = boDau(kho.tim).split(/\s+/).filter(Boolean); return tu.length ? all.filter(m => { const t = boDau(m.ten); return tu.every(x => t.includes(x)); }) : all; };
-    const dirCon = id => (kho.dirs || []).filter(d => d.cha === id);
+    // (bản 1.29.1 — anh Thanh: "những cái chưa có mẫu thì bỏ đi") thư mục KHÔNG có mẫu (và không thư mục con nào có) thì ẩn khỏi ô Thư mục + hàng thư mục con (`dirCoMau` — `coMau` là cờ thẻ Màu);
+    // số mẫu đếm ngầm sau khi có cây (khoDem — CAD-moduleList 1 mẫu / trang, chỉ ĐỌC); chưa đếm xong thì còn hiện; thư mục đang mở luôn hiện
+    const dirCoMau = (d, n) => { if (!d) return false; if (d.id === kho.dir) return true; const c = kho.dem.get(d.id); if (c === undefined || c > 0) return true; return (n || 0) < 10 && (kho.dirs || []).some(x => x.cha === d.id && dirCoMau(x, (n || 0) + 1)); };
+    const dirCon = id => (kho.dirs || []).filter(d => d.cha === id && dirCoMau(d));
+    async function khoDem() {
+      if (!kho.dirs || kho.dangDem || !Drv || typeof Drv.khoMau !== 'function') return;
+      kho.dangDem = true; const dirs = kho.dirs;
+      try {
+        for (const d of dirs) {
+          if (kho.dirs !== dirs) return;      // đã đọc lại cây
+          if (kho.dem.has(d.id)) continue;
+          try { const r = await Drv.khoMau(d.id, { trang: 1, moi_trang: 1 }); if (kho.dirs !== dirs) return; kho.dem.set(d.id, +r.tong || 0); } catch (e) { /* không đếm được: giữ thư mục */ }
+          await new Promise(r => setTimeout(r, 150));      // lần lượt, thưa — kho có hàng chục thư mục, máy chủ Chenfeng hay rớt gói
+        }
+      } finally { kho.dangDem = false; }
+      if (kho.dirs === dirs && panel.dataset.tabon === 'kho') renderKho();      // một lần vẽ lại duy nhất khi đếm xong (đang chọn ở ô Thư mục thì ô không bị đóng giữa chừng)
+    }
     const oKT = () => ['kho-rong', 'kho-sau', 'kho-cao'].map(n => $(`[data-ui="${n}"]`));
     const datKTKho = kt => { const o = oKT(); if (o[0]) kt.forEach((v, i) => { o[i].value = fmt(v); }); };
     const docKTKho = () => {
@@ -2385,7 +2401,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!kho.dirs) { nh.innerHTML = ''; selDir.innerHTML = '<option value="">—</option>'; con.innerHTML = ''; veLuoi(); veChon(); return; }
       nh.innerHTML = NHOM_KHO.filter(N => kho.dirs.some(d => N[2].test(d.ten))).map(N => `<button class="knut${kho.nhom === N[0] ? ' on' : ''}" data-act="kho-nhom" data-v="${N[0]}">${esc(N[1])}</button>`).join('');
       const sau = d => { let n = 0; while (d && d.cha && n < 10) { n++; const c = d.cha; d = kho.dirs.find(x => x.id === c); } return n; };
-      selDir.innerHTML = kho.dirs.map(d => `<option value="${esc(d.id)}"${d.id === kho.dir ? ' selected' : ''}>${'   '.repeat(sau(d))}${esc(d.ten)}</option>`).join('');
+      // (bản 1.29.1) chia Tủ / Phụ kiện / Khác theo TÊN (Core.nhomThuMuc) — kho của tài khoản bày lẫn hai loại. Tên mình không nói lên gì ("Khác", "Blum") thì theo thư mục chứa; giữ thứ tự cây.
+      const nhomCua = d => { let n = 0; while (d && n < 10) { const k = Core.nhomThuMuc(d.ten); if (k !== 'khac') return k; if (!d.cha) break; n++; d = kho.dirs.find(x => x.id === d.cha); } return 'khac'; };
+      const opt = d => `<option value="${esc(d.id)}"${d.id === kho.dir ? ' selected' : ''}>${'   '.repeat(sau(d))}${esc(d.ten)}</option>`;
+      selDir.innerHTML = [['tu', 'Tủ'], ['pk', 'Phụ kiện'], ['khac', 'Khác']].map(([k, ten]) => { const ds = kho.dirs.filter(d => nhomCua(d) === k && dirCoMau(d)); return ds.length ? `<optgroup label="${ten}">${ds.map(opt).join('')}</optgroup>` : ''; }).join('');
       const cs = dirCon(kho.dir), cha = (kho.dirs.find(d => d.id === kho.dir) || {}).cha;
       con.innerHTML = (cha ? `<button class="knut" data-act="kho-dir" data-v="${esc(cha)}" title="Lên thư mục chứa">↑ lên</button>` : '') + cs.map(d => `<button class="knut" data-act="kho-dir" data-v="${esc(d.id)}">${esc(d.ten)} ›</button>`).join('');
       veLuoi(); veChon();
@@ -2420,6 +2439,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       try { kho.dirs = await Drv.templateDirs(); } catch (e) { kho.loiDirs = String(e && e.message || e); kho.dirs = null; }
       kho.dangDirs = false;
       if (!kho.dirs) return renderKho();
+      khoDem();      // đếm ngầm, không chờ
       const nhomDau = kho.nhom || (NHOM_KHO.find(N => kho.dirs.some(d => N[2].test(d.ten))) || [])[0];
       if (nhomDau) return khoNhom(nhomDau);
       kho.dir = kho.dirs.length ? kho.dirs[0].id : ''; renderKho(); return khoTai();
@@ -3256,6 +3276,11 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'the-them') { if (THE_PHU.indexOf(panel.dataset.tabon) < 0) hangThePhu($('.tabs2').hidden); }      // đang ở một thẻ phụ thì hàng thẻ phụ luôn mở
       else if (act === 'nut-them') { const h = $('.themnut'); if (h) { h.hidden = !h.hidden; b.setAttribute('aria-expanded', h.hidden ? 'false' : 'true'); } }
       else if (act === 'do-mang') { doMang(); }
+      else if (act === 'tham-do') {      // (bản 1.29.1) chỉ đọc mã các lớp lệnh của Chenfeng → tải tệp chữ về máy để gửi cho Claude
+        let r = null; try { r = Drv.thamDoLoi(); } catch (e) { r = null; }
+        if (!r || !r.so_lop) { setStatus('Chưa gom được mã lệnh của Chenfeng trong trang này.'); return; }
+        download(`chenfeng-loi-${new Date().toISOString().slice(0, 10)}.txt`, r.noi_dung, 'text/plain').then(kq => setStatus(kq === 'saved' ? `Đã tải tệp mã lõi Chenfeng (${r.so_lop} lớp${r.so_lenh ? `, ${r.so_lenh} lệnh` : ''}, ${Math.round(r.noi_dung.length / 1024)} KB) — gửi tệp đó cho Claude.` : 'Chưa tải được tệp.'));
+      }
       else if (act === 'wide') { wide = !wide; panel.classList.toggle('wide', wide); if (xem) xem.classList.toggle('rong', wide); b.textContent = wide ? 'Thu hẹp' : 'Mở rộng'; try { root.localStorage.setItem(LS_WIDE, wide ? '1' : '0'); } catch (err) { /* bỏ qua */ } paintView(); paintPhong(); }
       else if (act === 'vach-cot') {
         const r = Core.vachTheoCot(spec);

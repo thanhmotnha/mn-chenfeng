@@ -3500,6 +3500,87 @@
     }
   } catch (e) { /* trình duyệt không có thì thôi: không tóm tắt được, vẫn giữ kết nối được */ }
   D.goiCF = () => goiCF.slice();
+
+  /* ------------------------------------------------------------------ *
+   * THĂM DÒ LÕI CHENFENG (bản 1.29.1 — anh Thanh 07/10/2026: "lâu dài bảng gọi thẳng vào phần lõi của Chenfeng thay vì giả bấm hộp và rê chuột"; "lõi thì ít sửa đổi lắm").
+   * Chỉ ĐỌC: gom MÃ NGUỒN (Function.prototype.toString) của các lớp lệnh vẽ tấm / mẫu / dò khoảng trống / hộp thông số của Chenfeng thành một tệp chữ để người dùng gửi cho Claude
+   * (máy làm việc của Claude không vào được cfcad.cn). Không đọc dữ liệu bản vẽ, không đọc phiên đăng nhập / localStorage, không gọi hàm nào của Chenfeng ngoài toString.
+   * Tìm lớp: (1) qua bộ nạp module của trang (webpack: đẩy một gói rỗng vào mảng webpackChunk… để lấy hàm require — gói đó không có module nào), duyệt exports;
+   * (2) qua đối tượng đang có: app, app.Editor và các trường của nó, mẫu (Template) của tấm trên bản vẽ. Lớp cha của lớp tìm được thì lấy luôn (cả chuỗi kế thừa).
+   * Trả { noi_dung, so_lop, nguon: { webpack, ...}, ten: [...] }.
+   * ------------------------------------------------------------------ */
+  D.thamDoLoi = (opt) => {
+    opt = opt || {};
+    const LA = opt.mau || /(LeftRight|Vertial|Vertical|TopBottom|Behind|Layer|Door|Drawer|Space|Template|BoardOption|BoardProcess|DrawBoard|CommandMachine|CommandStore|CommandReactor|PointSelect|Modal|Board$|Wall|Pillar|Girder|Hole|Room|Module|Hinge|Handle)/;
+    const lop = new Map(), seen = new Set(), dangKy = [];
+    const them = (f, ep) => {
+      if (typeof f !== 'function' || seen.has(f)) return;
+      const n = String(f.name || '');
+      if (!ep && !(n && LA.test(n))) return;
+      seen.add(f);
+      lop.set(lop.has(n) ? `${n}#${lop.size}` : (n || `(không tên)#${lop.size}`), f);
+      let p = null; try { p = Object.getPrototypeOf(f); } catch (e) { p = null; }
+      if (p && p !== Function.prototype) them(p, true);      // lớp cha: lấy cả chuỗi
+    };
+    const quaDT = (o, sau) => {      // các giá trị của một đối tượng: hàm → xét; đối tượng → lớp của nó
+      if (!o || (typeof o !== 'object' && typeof o !== 'function')) return;
+      let ks = []; try { ks = Object.getOwnPropertyNames(o); } catch (e) { ks = []; }
+      for (const k of ks.slice(0, 400)) {
+        let v; try { const d = Object.getOwnPropertyDescriptor(o, k); v = d && 'value' in d ? d.value : undefined; } catch (e) { continue; }
+        if (typeof v === 'function') them(v);
+        else if (v && typeof v === 'object') {
+          try { if (v.constructor && v.constructor !== Object) them(v.constructor); } catch (e) { /* bỏ qua */ }
+          if (sau > 0) quaDT(v, sau - 1);
+          // sổ đăng ký lệnh: Map / đối tượng có khoá LEFTRIGHTBOARD → ghi tên lệnh → tên lớp, lấy lớp của mọi lệnh
+          try {
+            const laMap = v instanceof Map, coKhoa = laMap ? v.has('LEFTRIGHTBOARD') : Object.prototype.hasOwnProperty.call(v, 'LEFTRIGHTBOARD');
+            if (coKhoa && !dangKy.some(x => x.o === v)) {
+              const ds = laMap ? [...v.entries()] : Object.keys(v).map(x => [x, v[x]]);
+              dangKy.push({ o: v, ds: ds.slice(0, 3000).map(([kk, vv]) => { let tl = ''; try { const c = typeof vv === 'function' ? vv : vv && vv.constructor; tl = c && c.name || ''; if (c && c !== Object) them(c, true); } catch (e) { /* bỏ qua */ } return `${kk} → ${tl}`; }) });
+            }
+          } catch (e) { /* bỏ qua */ }
+        }
+      }
+    };
+    const nguon = { webpack: '', so_module: 0 };
+    // (1) webpack
+    try {
+      let req = null;
+      for (const k of Object.keys(root)) {
+        if (req) break;
+        if (!/^webpackChunk|^webpackJsonp/.test(k) || !Array.isArray(root[k])) continue;
+        try {
+          if (/^webpackChunk/.test(k)) root[k].push([[`mncf-tham-do-${Date.now()}`], {}, r => { req = r; }]);
+          else { const mid = `mncf-tham-do-${Date.now()}`; root[k].push([[mid], { [mid]: (m, e, r) => { req = r; } }, [[mid]]]); }
+          if (req) nguon.webpack = k;
+        } catch (e) { /* thử mảng khác */ }
+      }
+      const cache = req && (req.c || req.cache);
+      if (cache) for (const id of Object.keys(cache)) {
+        nguon.so_module++;
+        const ex = cache[id] && cache[id].exports; if (!ex) continue;
+        if (typeof ex === 'function') them(ex);
+        if (typeof ex === 'object' || typeof ex === 'function') { let ks = []; try { ks = Object.keys(ex); } catch (e) { ks = []; } for (const k of ks.slice(0, 500)) { let v; try { v = ex[k]; } catch (e) { continue; } if (typeof v === 'function') them(v); else if (v && typeof v === 'object') quaDT(v, 0); } }
+      }
+    } catch (e) { nguon.loi_webpack = String(e && e.message || e); }
+    // (2) đối tượng đang có
+    try { const app = root.app; if (app) { quaDT(app, 1); try { quaDT(app.Editor, 1); } catch (e) { /* bỏ qua */ } } } catch (e) { /* bỏ qua */ }
+    try { for (const e of D.all().slice(0, 400)) { try { const T = e.Template && e.Template.Object; if (T && T.constructor) them(T.constructor, true); if (e.constructor) them(e.constructor, true); } catch (er) { /* bỏ qua */ } } } catch (e) { /* bỏ qua */ }
+    // tệp chữ
+    const toiDa = opt.toi_da || 8e6, motLop = 300000, ra = [];
+    let tong = 0;
+    const sc = []; try { for (const s of root.document.scripts) if (s.src) sc.push(s.src.replace(/[?#].*$/, '')); } catch (e) { /* bỏ qua */ }
+    ra.push(`// Một Nhà — thăm dò lõi Chenfeng (chỉ mã nguồn các lớp, không có dữ liệu bản vẽ / tài khoản)\n// ${new Date().toISOString()} · bảng ${Core.VERSION}\n// script: ${sc.join(' ')}\n// webpack: ${nguon.webpack || 'không thấy'} · ${nguon.so_module} module · ${lop.size} lớp`);
+    for (const r of dangKy) ra.push(`\n// ==== SỔ ĐĂNG KÝ LỆNH (${r.ds.length}) ====\n${r.ds.join('\n')}`);
+    ra.push(`\n// ==== DANH SÁCH LỚP ====\n${[...lop.keys()].join('\n')}`);
+    for (const [n, f] of lop) {
+      let t = ''; try { t = Function.prototype.toString.call(f); } catch (e) { t = '(không đọc được)'; }
+      if (t.length > motLop) t = t.slice(0, motLop) + '\n/* … cắt bớt */';
+      if (tong + t.length > toiDa) { ra.push(`\n// (đã đủ ${toiDa} ký tự — bỏ các lớp còn lại)`); break; }
+      tong += t.length; ra.push(`\n// ==== ${n} ====\n${t}`);
+    }
+    return { noi_dung: ra.join('\n'), so_lop: lop.size, nguon, ten: [...lop.keys()], so_lenh: dangKy.reduce((a, r) => a + r.ds.length, 0) };
+  };
   D.CH.am_cach = 2000;
   let giu = 0, dangGiu = false;
   /** Giữ kết nối trong lúc làm một việc cần máy chủ. Trả hàm thả (gọi đúng một lần). Lồng nhau được. */

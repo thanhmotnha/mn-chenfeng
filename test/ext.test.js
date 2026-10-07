@@ -86,7 +86,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     const theHien = () => page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('header .tab')].filter(b => b.getClientRects().length > 0).map(b => b.dataset.tab || b.dataset.act).join(' '));
     ok((await theHien()) === 'tu phong kho kq the-them', 'hàng thẻ: Tủ · Phòng · Kho mẫu · Kết quả · ⚙', await theHien());
     await H.locator('[data-act="the-them"]').click();
-    ok((await theHien()) === 'tu phong kho kq the-them mausac chuan hd do-mang' && (await H.locator('[data-act="the-them"]').getAttribute('aria-expanded')) === 'true', 'bấm ⚙: hiện hàng thẻ phụ Màu · Chuẩn xưởng · Hướng dẫn · Đo mạng', await theHien());
+    ok((await theHien()) === 'tu phong kho kq the-them mausac chuan hd do-mang tham-do' && (await H.locator('[data-act="the-them"]').getAttribute('aria-expanded')) === 'true', 'bấm ⚙: hiện hàng thẻ phụ Màu · Chuẩn xưởng · Hướng dẫn · Đo mạng', await theHien());
     await H.locator('.tab[data-tab="chuan"]').click();
     ok(await H.locator('.pane[data-pane="chuan"]').isVisible() && /\bon\b/.test(await H.locator('[data-act="the-them"]').getAttribute('class')) && /chuan/.test(await theHien()), 'chọn Chuẩn xưởng: mở thẻ đó, nút ⚙ sáng, hàng thẻ phụ còn hiện');
     await H.locator('[data-act="the-them"]').click();
@@ -151,6 +151,15 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     ok(/Chenfeng đã gọi máy chủ 8 lần \(xmlhttprequest 8 · [^)]*\) — tải mẫu 8 lần: thường \d+,\d s, lâu nhất \d+,\d s\.$/.test(dm), 'Đo mạng kèm tóm tắt các lần Chenfeng gọi máy chủ (gọi bằng gì, giao thức, mẫu tải lâu bao nhiêu)', dm);
     await ctx.unroute('https://api.cfcad.cn/CAD-moduleDetail');
     await page.evaluate(() => { window.MNCFDriver.CH.am_cach = 0; });      // các phép thử sau đếm đúng số lời gọi đọc kho
+    // (bản 1.29.1) Thăm dò lõi: chỉ ĐỌC mã nguồn các lớp lệnh của Chenfeng → tải một tệp chữ; bản vẽ không đổi, không lỗi JS
+    {
+      const truoc = await page.evaluate(() => window.__MOCK__.ents.length);
+      const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }).catch(() => null), H.locator('[data-act="tham-do"]').click()]);
+      const txt = dl ? fs.readFileSync(await dl.path(), 'utf8') : '';
+      ok(dl && /^chenfeng-loi-\d{4}-\d\d-\d\d\.txt$/.test(dl.suggestedFilename()) && /==== DANH SÁCH LỚP ====/.test(txt) && /\n\/\/ ==== HandleInput ====\n\S/.test(txt) && (await page.evaluate(() => window.__MOCK__.ents.length)) === truoc,
+        'Thăm dò lõi: tải tệp chữ có mã nguồn các lớp / hàm lệnh (vd HandleInput của CommandStore), bản vẽ không đổi', dl && dl.suggestedFilename());
+      ok(/Đã tải tệp mã lõi Chenfeng \(\d+ lớp/.test(await H.locator('.status').innerText()), '… dòng báo nói số lớp + bảo gửi tệp cho Claude', await H.locator('.status').innerText());
+    }
     await ctx.unroute('https://api.cfcad.cn/CAD-dirQuery');
     await H.locator('[data-act="the-them"]').click();
     ok((await theHien()) === 'tu phong kho kq the-them', 'bấm ⚙ lần nữa: hàng thẻ phụ gọn lại', await theHien());

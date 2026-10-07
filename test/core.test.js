@@ -1206,6 +1206,16 @@ T('Đo mạng: xếp loại theo số lượt chậm hoặc rớt (bản 1.27)',
   eq(dg([533, 314, 314, 5572, 308, 310, 309, 883, 1462, 292, 290, 289, 902, 301, 301, 302, 304, 1336, 1607], 1), ['kem', 7, 20, 301, 5572], 'loạt đo thật tối 05/10: 7/20 lượt chậm hoặc rớt → kém');
 });
 
+// Bản 1.29.1 (anh Thanh 07/10/2026: "các thư mục này phân loại lại phần phụ kiện và phần tủ là khác nhau mà sao lẫn khó sắp xếp quá")
+T('Nhóm thư mục kho mẫu: Tủ / Phụ kiện / Khác (bản 1.29.1)', () => {
+  const n = t => C.nhomThuMuc(t);
+  eq(['Tủ trên', 'Tủ dưới', 'Tủ hở', 'Tủ liền dãy', 'Cánh', 'Tủ thành phẩm', 'Ngăn kéo', '衣柜', '抽屉', 'Kệ tivi', 'Giường'].map(n), Array(11).fill('tu'), 'tủ và thành phần của tủ (cánh, ngăn kéo) → Tủ');
+  eq(['Bản lề', 'Bản lề Blum', 'Tay nắm', 'Tay nắm 2 lỗ - kiểu Âu', 'Ray trượt', 'Chân tủ', 'Đèn LED', 'Khoá', 'Phụ kiện', '五金', '铰链', '拉手', 'Suốt treo', 'Pát đỡ', 'Rổ kéo'].map(n), Array(15).fill('pk'), 'phụ kiện (bản lề, tay nắm, ray, chân, đèn, khoá, suốt, pát, rổ…) → Phụ kiện');
+  eq(['Mẫu thử', '', null].map(n), ['khac', 'khac', 'khac'], 'không đoán được → Khác');
+  eq(n('Tủ phụ kiện'), 'pk', 'có chữ "phụ kiện" thì là phụ kiện dù có chữ "tủ"');
+  eq(n('TAY NẮM'), 'pk', 'không phân biệt hoa thường');
+});
+
 // Bản 1.29: tóm tắt các lần CHENFENG gọi máy chủ (để biết nó gọi bằng gì, có dùng lại kết nối không, mẫu tải lâu bao nhiêu) — số đo để làm "tự gửi lại khi rớt gói"
 T('Tóm tắt lời gọi máy chủ của Chenfeng (bản 1.29)', () => {
   const g = (ten, kieu, gt, ms) => ({ ten, kieu, gt, ms });
