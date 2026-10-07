@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Một Nhà · Vẽ tủ vào Chenfeng
 // @namespace    https://motnha.vn/
-// @version      1.28.0
+// @version      1.29.0
 // @description  Nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → tự vẽ thùng, hậu, phào, chân, cánh, ngăn kéo, suốt treo vào Chenfeng WebCAD. Chenfeng tự khoan lỗ.
 // @match        https://cfcad.cn/*
 // @match        https://www.cfcad.cn/*
@@ -13,7 +13,7 @@
 // @updateURL    https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // @downloadURL  https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // ==/UserScript==
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.28.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.29.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -29,7 +29,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.28.0';
+  const VERSION = '1.29.0';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -1445,6 +1445,18 @@
     return { muc, x, n, nhanh, cham, tre, rot };
   }
 
+  /** Tóm tắt các lần Chenfeng gọi máy chủ của nó (bản 1.29). ds = [{ ten: tên lời gọi ("CAD-moduleDetail"…), kieu: initiatorType của trình duyệt, gt: nextHopProtocol ('' = trình duyệt không cho biết), ms }].
+   *  Để làm "tự gửi lại khi rớt gói" phải biết Chenfeng gọi bằng XHR hay fetch, có đi HTTP/2 (một kết nối dùng chung) không, và mỗi mẫu tải lâu bao nhiêu khi mạng rớt gói — chưa đo trên bản thật.
+   *  Trả { n, kieu: [[loại, số lần]], gt: [[giao thức, số lần]], mau: { n, giua, cham } (CAD-moduleDetail), cham: 3 lần lâu nhất [{ ten, ms }] }. */
+  function tomTatGoi(ds) {
+    const a = (Array.isArray(ds) ? ds : []).filter(x => x && Number.isFinite(x.ms) && x.ms >= 0);
+    const dem = f => { const m = new Map(); for (const x of a) { const k = f(x); m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((p, q) => q[1] - p[1]); };
+    const mau = a.filter(x => x.ten === 'CAD-moduleDetail').map(x => x.ms).sort((p, q) => p - q);
+    return { n: a.length, kieu: dem(x => String(x.kieu || '?')), gt: dem(x => String(x.gt || '?')),
+      mau: { n: mau.length, giua: mau.length ? mau[Math.floor((mau.length - 1) / 2)] : 0, cham: mau.length ? mau[mau.length - 1] : 0 },
+      cham: a.slice().sort((p, q) => q.ms - p.ms).slice(0, 3).map(x => ({ ten: String(x.ten || ''), ms: Math.round(x.ms) })) };
+  }
+
   /* ------------------------------------------------------------------ *
    * XUẤT CHO CHENFENG (晨丰导入)
    * ------------------------------------------------------------------ */
@@ -2378,7 +2390,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, hinh3D, benPhao };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, hinh3D, benPhao };
 });
 
 /*!
@@ -6062,6 +6074,7 @@
     let het = false; const hen = sleep(60000).then(() => { het = true; if (ac) ac.abort(); });
     let r, j;
     try {
+      danhDauGoi();
       r = await Promise.race([root.fetch(D.apiHost() + '/' + path, { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify(data), signal: ac ? ac.signal : undefined }), hen.then(() => { throw new Error('qua gio'); })]);
       if (!r.ok) throw new Error('Máy chủ Chenfeng trả lời ' + r.status + '.');
       j = await r.json();
@@ -6082,7 +6095,7 @@
       const ac = typeof AbortController === 'function' ? new AbortController() : null, t0 = Date.now(); let co = false;
       try {
         co = await Promise.race([
-          root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined }).then(async r => { await r.text(); return true; }),
+          (danhDauGoi(), root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined })).then(async r => { await r.text(); return true; }),
           sleep(han).then(() => false)]);
       } catch (e) { co = false; }
       if (co) return Date.now() - t0;
@@ -7616,6 +7629,64 @@
   D.undo = async (steps) => { for (let i = 0; i < (steps || 1); i++) { try { if (D.busy()) await D.cancel(); await guiLenh('UNDO'); } catch (e) { /* bỏ qua */ } await sleep(400); await D.settle(600, 20000); } };
   D.sleep = sleep;
 
+  /* ------------------------------------------------------------------ *
+   * GIỮ SẴN KẾT NỐI TỚI MÁY CHỦ CHENFENG (bản 1.29 — anh Thanh 07/10/2026: "nghiên cứu phương án kết nối máy chủ chenfeng nhanh hơn").
+   * Đã đo (Đo mạng, 05/10/2026): để quá vài giây máy chủ đóng kết nối, lần gọi sau phải mở lại (bắt tay TCP + TLS = thêm 2 – 3 lượt đi về; đường đang rớt gói
+   * thì mất gói lúc bắt tay là chờ thêm 1 – 3 giây). Lúc vẽ, phần tấm không cần máy chủ nên tới lượt tải mẫu thì kết nối đã nguội.
+   * Cách làm: trong lúc bảng đang vẽ / cập nhật / vẽ phòng / dựng mẫu kho, hễ đường tới máy chủ im quá `D.CH.am_cach` ms thì hỏi một câu CHỈ ĐỌC (CAD-dirQuery) cho kết nối còn mở —
+   * lời gọi của Chenfeng (cùng máy chủ, cùng kiểu có cookie) dùng lại được kết nối đó. Có lời gọi của Chenfeng thì không hỏi thêm (đã ấm sẵn). am_cach = 0: tắt.
+   * Kèm theo: ghi lại các lần CHENFENG gọi máy chủ (tên, initiatorType, giao thức, thời gian) để Đo mạng tóm tắt — số đo cho việc "tự gửi lại khi rớt gói" (chưa làm).
+   * ------------------------------------------------------------------ */
+  const goiCF = [], cuaBang = [];
+  let lanCuoiMang = 0;
+  function danhDauGoi() { try { const t = root.performance.now(); cuaBang.push(t); if (cuaBang.length > 200) cuaBang.splice(0, cuaBang.length - 200); lanCuoiMang = t; } catch (e) { /* bỏ qua */ } }
+  try {
+    if (typeof root.PerformanceObserver === 'function') {
+      const po = new root.PerformanceObserver(ds => {
+        for (const e of ds.getEntries()) {
+          const m = /^https:\/\/[^/]+\/(CAD-[A-Za-z]+)/.exec(e.name || ''); if (!m) continue;
+          lanCuoiMang = Math.max(lanCuoiMang, e.responseEnd || e.startTime || 0);
+          if (e.initiatorType === 'fetch' && cuaBang.some(t => Math.abs(t - e.startTime) < 5)) continue;      // lời gọi của chính bảng
+          goiCF.push({ ten: m[1], kieu: e.initiatorType || '', gt: e.nextHopProtocol || '', ms: Math.round(e.duration) });
+          if (goiCF.length > 300) goiCF.splice(0, goiCF.length - 300);
+        }
+      });
+      po.observe({ type: 'resource', buffered: true });
+    }
+  } catch (e) { /* trình duyệt không có thì thôi: không tóm tắt được, vẫn giữ kết nối được */ }
+  D.goiCF = () => goiCF.slice();
+  D.CH.am_cach = 2000;
+  let giu = 0, dangGiu = false;
+  /** Giữ kết nối trong lúc làm một việc cần máy chủ. Trả hàm thả (gọi đúng một lần). Lồng nhau được. */
+  D.giuKetNoi = () => {
+    giu++; let tha = false;
+    if (!dangGiu) {
+      dangGiu = true;
+      (async () => {
+        try {
+          while (giu > 0) {
+            await sleep(250);
+            const cach = D.CH.am_cach; if (!(cach > 0) || giu <= 0) continue;
+            let bay; try { bay = root.performance.now(); } catch (e) { break; }
+            if (bay - lanCuoiMang < cach) continue;
+            danhDauGoi();
+            const ac = typeof AbortController === 'function' ? new AbortController() : null;
+            try {
+              await Promise.race([root.fetch(D.apiHost() + '/CAD-dirQuery', { method: 'POST', mode: 'cors', credentials: 'include', body: JSON.stringify({ dir_type: '5' }), signal: ac ? ac.signal : undefined }).then(r => r.text()), sleep(8000)]);
+            } catch (e) { /* rớt thì lượt sau hỏi lại */ }
+            if (ac) { try { ac.abort(); } catch (e) { /* bỏ qua */ } }
+            try { lanCuoiMang = root.performance.now(); } catch (e) { /* bỏ qua */ }
+          }
+        } finally { dangGiu = false; }
+      })();
+    }
+    return () => { if (!tha) { tha = true; giu--; } };
+  };
+  for (const k of ['draw', 'update', 'drawRoom', 'veKho']) {
+    const f = D[k]; if (typeof f !== 'function') continue;
+    D[k] = async function () { const tha = D.giuKetNoi(); try { return await f.apply(this, arguments); } finally { tha(); } };
+  }
+
   root.MNCFDriver = D;
 })(typeof self !== 'undefined' ? self : this);
 
@@ -8768,6 +8839,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     let dangDoMang = false, doTruoc = '';
     const giayVN = ms => (Math.max(0.1, Math.round(ms / 100) / 10)).toFixed(1).replace('.', ',');
     const TEN_MANG = { tot: 'tốt', tam: 'tạm được', kem: 'kém' };
+    // (bản 1.29) các lần CHÍNH Chenfeng gọi máy chủ từ lúc mở trang: gọi bằng gì, giao thức, mẫu tải lâu bao nhiêu — anh chụp dòng này gửi lại là đủ số đo để làm "tự gửi lại khi rớt gói"
+    function goiCuaCF() {
+      if (typeof Drv.goiCF !== 'function' || typeof Core.tomTatGoi !== 'function') return '';
+      const t = Core.tomTatGoi(Drv.goiCF()); if (!t.n) return '';
+      return ` Chenfeng đã gọi máy chủ ${t.n} lần (${t.kieu.map(x => x[0] + ' ' + x[1]).join(', ')} · ${t.gt.map(x => x[0] + ' ' + x[1]).join(', ')})${t.mau.n ? ` — tải mẫu ${t.mau.n} lần: thường ${giayVN(t.mau.giua)} s, lâu nhất ${giayVN(t.mau.cham)} s` : ''}.`;
+    }
     function doMang() {
       if (dangDoMang || !Drv || typeof Drv.doMang !== 'function') return;
       dangDoMang = true; setStatus('Đang đo mạng tới Chenfeng… 0/20');
@@ -8775,7 +8852,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         const g = Core.danhGiaMang(r), truoc = doTruoc ? ` Lần trước: ${doTruoc}.` : '';
         if (g.muc === 'dut') { doTruoc = 'đứt'; return setStatus(`Mạng tới Chenfeng: đứt — ${r.dut ? 3 : g.n} lần liền không trả lời. Kiểm tra mạng / VPN.${truoc}`); }
         doTruoc = `${g.x}/${g.n}`;
-        setStatus(`Mạng tới Chenfeng: ${TEN_MANG[g.muc]} — ${g.x}/${g.n} lần chậm hoặc rớt · bình thường ${giayVN(g.nhanh)} s · lâu nhất ${giayVN(g.cham)} s.${truoc}`);
+        setStatus(`Mạng tới Chenfeng: ${TEN_MANG[g.muc]} — ${g.x}/${g.n} lần chậm hoặc rớt · bình thường ${giayVN(g.nhanh)} s · lâu nhất ${giayVN(g.cham)} s.${truoc}${goiCuaCF()}`);
       }).catch(() => setStatus('Chưa đo được mạng tới Chenfeng.')).then(() => { dangDoMang = false; });
     }
 
