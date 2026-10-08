@@ -12,7 +12,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.30.0';
+  const VERSION = '1.30.1';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -75,7 +75,7 @@
     // Bản lề (bản 1.30 — anh Thanh 08/10/2026: "tìm bản lề Kolity K53 và bản lề Imundex thép của An Cường cho vào, số bản lề theo tiêu chuẩn"):
     //   loai_ban_le = mã trong LOAI_BAN_LE (khác khoang[i].ban_le = bản lề bên trái / phải của khoang 1 cánh) — chọn loại thì sâu chén / K lấy theo loại (chen.sau, chen.tam_mep = K + Ø/2), dày cánh ngoài khoảng cho phép thì cảnh báo;
     //   số bản lề mỗi cánh theo chiều cao (≤ 900: 2 · ≤ 1600: 3 · ≤ 2000: 4 · còn lại: 5) + 1 khi cánh rộng hơn 600 (Blum, Hettich, Häfele và các xưởng VN cùng mốc);
-    //   bản lề đầu / cuối cách đầu cánh `cach_dau` (tâm chén), các bản lề giữa chia đều; tránh vùng nẹp hộc kéo âm (dời lên ngay trên nóc hộc kéo).
+    //   bản lề đầu / cuối cách đầu cánh `cach_dau` (tâm chén), các bản lề giữa chia đều; tránh đợt cố định (đế bản lề trên hồi cấn đợt). Vùng hộc kéo âm có vách đệm 50 không cấn (bản 1.30.1).
     //   chen_ban_le: có thì khoét chén Ø35 vào cánh khi xuất sang Chenfeng (thử nghiệm); không thì chỉ vẽ vị trí + kê số bản lề.
     canh: { khe: 2, khe_bien: 1, loai_ban_le: 'k53', chen_ban_le: false, chen: { d: 35, sau: 12, tam_mep: 21.5, cach_dau: 100 } },
     // Mỗi khoang: dot = cao độ MẶT DƯỚI từng đợt (tính từ sàn). Các đợt chia khoang thành các ô; o = nội dung ô:
@@ -152,12 +152,17 @@
   ];
   /** Số bản lề + toạ độ tâm (tính từ mép DƯỚI cánh) cho một cánh cao `cao`, rộng `rong` (bản 1.30, hàm thuần).
    *  Số: cao ≤ 900 → 2, ≤ 1600 → 3, ≤ 2000 → 4, còn lại 5; rộng > 600 thêm 1. Bản lề đầu / cuối cách đầu cánh `cach_dau` (cánh thấp: cao / 4), giữa chia đều.
-   *  tranh = [[a, b]…] khoảng (từ mép dưới cánh) chén không được chạm (nẹp hộc kéo): bản lề chạm thì dời ra phía gần hơn (cách mép vùng 5), rồi các bản lề
+   *  tranh = [[a, b]…] khoảng (từ mép dưới cánh) chén không được chạm (đợt cố định, đã nới thêm cho đế bản lề): bản lề chạm thì dời ra phía gần hơn (cách mép vùng 5), rồi các bản lề
    *  không bị dời chia đều lại giữa các bản lề đã chốt. Không xếp được (chồng nhau / vẫn chạm vùng) → ket = true để báo.
    *  @returns {{ so: number, z: number[], ket: boolean }} */
   function banLeCanh(cao, rong, opt) {
     opt = opt || {};
-    const r = num(opt.r, 17.5), tranh = (opt.tranh || []).filter(v => v && v[1] > v[0]);
+    const r = num(opt.r, 17.5), tranh = [];
+    // gộp các vùng sát nhau (khe giữa không lọt một chén): nẹp hộc kéo + đợt nóc hộc kéo là một vùng liền
+    for (const v of (opt.tranh || []).filter(v => v && v[1] > v[0]).map(v => [v[0], v[1]]).sort((p, q) => p[0] - q[0])) {
+      const cu = tranh[tranh.length - 1];
+      if (cu && v[0] - cu[1] < 2 * r + 10) cu[1] = Math.max(cu[1], v[1]); else tranh.push(v);
+    }
     let so = cao <= 900 ? 2 : cao <= 1600 ? 3 : cao <= 2000 ? 4 : 5;
     if (rong > 600) so++;
     const dau = Math.min(num(opt.cach_dau, 100), cao / 4);
@@ -181,6 +186,7 @@
     for (let q = 1; q < so; q++) if (z[q] - z[q - 1] < 2 * r + 10) ket = true;
     return { so, z, ket };
   }
+  const DE_BL = 50;      // (bản 1.30) chiều cao đế bản lề chữ thập (lấy dư) — vùng đế không được đè lên đợt cố định
   const KHOA_NK_CU = ['mau_id', 'ten_mau', 'GD', 'SLK', 'XLK', 'LC'];      // bản 1.0–1.1 khai một mẫu ngăn kéo duy nhất bằng các khoá này
   const TS_LOI_TINH = ['BH', 'SYS', 'XYS', 'ZYS', 'YYS'];                   // tham số do lõi tính, không nhận từ "tham số riêng"
 
@@ -948,7 +954,7 @@
           const nep = (xa, xb) => P({ loai: 'NEP', ten: NM.nep, than: c.than, tu: c.b.tu, type: 2, x0: xa, x1: xb, y0: nk.lui - t, y1: nk.lui, z0: za, z1: zb, big: 0, fd: false, bd: false, khoan: KHONG_KHOAN, khoang: i });
           if (demL) nep(bayX(i), x0);
           if (demR) nep(x0 + L, bayX(i) + widths[i]);
-          if ((demL || demR) && k.canh > 0) { (M.info.tranh_bl = M.info.tranh_bl || []).push({ khoang: i, z0: za, z1: zb, trai: !!demL, phai: !!demR }); note(`${viTri}: bản lề của cánh KHÔNG đặt trong +${g(za)} … +${g(zb)} (cấn nẹp hộc kéo) — vị trí bản lề trên hình đã tránh vùng này.`); }
+          // (bản 1.30.1 — anh Thanh 08/10/2026: "vùng hộc thụt vào 5 cm sẽ không bị ảnh hưởng gì cả") vùng hộc kéo âm có vách đệm không cấn bản lề → không dời bản lề, không ghi chú
         }
         continue;
       }
@@ -1004,10 +1010,12 @@
               khoan: KHONG_KHOAN, big: 0, fd: false, bd: false, open: dc.open, khoang: dc.khoang });
             { // (bản 1.30) bản lề: số + vị trí cho MỌI cánh (vẽ trên hình, kê trong bảng); khoét chén chỉ khi bật chen_ban_le
               const ch = s.canh.chen, hh = z1 - z0, r = ch.d / 2, benTrai = dc.open !== 2;      // cánh mở trái = bản lề bên trái
-              const tranh = (M.info.tranh_bl || []).filter(v => v.khoang === dc.khoang && (benTrai ? v.trai : v.phai) && v.z1 > z0 && v.z0 < z1).map(v => [rn(v.z0 - z0), rn(v.z1 - z0)]);
+              const tranh = [];
+              // đợt cố định của khoang chạy suốt tới hồi / vách → đế bản lề (chữ thập, cao ~40–50) bắt trên hồi / vách cấn đợt: tâm bản lề cách mặt đợt ít nhất DE_BL / 2
+              for (const d of M.parts) if (d.loai === 'DOT' && d.khoang === dc.khoang && d.z1 > z0 && d.z0 < z1) tranh.push([rn(d.z0 - z0 - (DE_BL / 2 - r)), rn(d.z1 - z0 + (DE_BL / 2 - r))]);
               const bl = banLeCanh(hh, dc.w, { cach_dau: ch.cach_dau, r, tranh });
               p.ban_le = { so: bl.so, z: bl.z, ben: benTrai ? 'trai' : 'phai', loai: s.canh.loai_ban_le };
-              if (bl.ket) warn(`Cánh khoang ${dc.khoang + 1} cao ${g(hh)}: không đủ chỗ đặt ${bl.so} bản lề ngoài vùng nẹp hộc kéo — xem lại vị trí bản lề trên hình.`);
+              if (bl.ket) warn(`Cánh khoang ${dc.khoang + 1} cao ${g(hh)}: không đủ chỗ đặt ${bl.so} bản lề tránh đợt cố định — xem lại vị trí bản lề trên hình.`);
               if (s.canh.chen_ban_le) { const u = benTrai ? ch.tam_mep : dc.w - ch.tam_mep; for (const v of bl.z) p.holes.push({ kieu: 'tron', u, v, r, z: 0, sau: ch.sau }); }
             }
           }
@@ -2309,6 +2317,38 @@
   }
 
   /**
+   * (bản 1.30.1 — anh Thanh 08/10/2026: "rất hay báo lỗi bị vượt khổ ván rất mệt") Khoang quá rộng so với khổ ván — hậu, đáy / nóc, cánh hay thanh ngang
+   * mặt trước dài hơn khổ (thường gặp: chọn "Tủ có sẵn" rồi kéo rộng ra, vd 4 cánh 2000 đặt rộng 2600 → khoang 1280, hậu 1290 > 1220) → chia đôi khoang TỰ CHIA
+   * rộng nhất đang có tấm vượt, lặp tới khi hết. Mỗi nửa giữ số cánh, đợt và nội dung ô của khoang cũ (khoang 1 cánh: bản lề quay ra hai bên).
+   * Khoang gõ số rộng cố định thì không đụng. Hàm thuần.
+   * @returns {{ spec, doi: string[], truoc: number, con: number }} truoc / con = số tấm vượt khổ vì bề ngang trước / sau khi chia
+   */
+  function vuaKhoVan(specIn) {
+    let s = normalize(specIn);
+    const vuot = M => {
+      const kd = M.spec.van.kho_dai, kr = M.spec.van.kho_rong, tam = M.parts.filter(p => { const c = cutSize(p); return (c.dai > kd + TOL || c.rong > kr + TOL) && p.x1 - p.x0 > kr + TOL; });
+      return { tam, ngang: M.errors.filter(e => /^Thanh ngang mặt trước dài/.test(e)).length };
+    };
+    const M0 = build(s), L0 = vuot(M0), truoc = L0.tam.length + L0.ngang, n0 = s.khoang.length;
+    let M = M0, L = L0;
+    for (let lan = 0; lan < 12 && (L.tam.length || L.ngang); lan++) {
+      const w = M.info.khoang || [], co = new Set(L.tam.map(p => p.khoang)), chung = L.ngang > 0 || L.tam.some(p => p.khoang === undefined);
+      let i = -1;
+      s.khoang.forEach((k, j) => { if (k.rong === 'auto' && (chung || co.has(j)) && w[j] > 2 * 150 + s.van.t && (i < 0 || w[j] > w[i])) i = j; });
+      if (i < 0) break;
+      const k = s.khoang[i], a = clone(k), b = clone(k);
+      if (k.canh === 1) { a.ban_le = 'trai'; b.ban_le = 'phai'; }
+      const c = clone(s); c.khoang.splice(i, 1, a, b);
+      const s2 = normalize(c), M2 = build(s2), L2 = vuot(M2);
+      if (L2.tam.length + L2.ngang > L.tam.length + L.ngang) break;      // chia mà còn tệ hơn thì thôi
+      s = s2; M = M2; L = L2;
+    }
+    const doi = [], con = L.tam.length + L.ngang;
+    if (s.khoang.length > n0) doi.push(`Đã thêm ${s.khoang.length - n0} vách cho vừa khổ ván ${g(s.van.kho_dai)} × ${g(s.van.kho_rong)}: ${n0} → ${s.khoang.length} khoang, lọt lòng ${[...new Set((M.info.khoang || []).map(v => g(v)))].join(' / ')} (khoang mới giữ số cánh, đợt, ngăn kéo / suốt treo của khoang cũ).`);
+    return { spec: s, doi, truoc, con };
+  }
+
+  /**
    * Thông số / mẫu tủ lưu từ bản cũ → chuẩn xưởng hiện tại. `ban` = phiên bản đã lưu ra dữ liệu đó (vd '1.2.0'); không rõ phiên bản thì không đổi gì.
    * @returns {{spec: object, doi: string[]}} doi = các thay đổi đã làm, để báo cho người dùng
    */
@@ -2470,5 +2510,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });

@@ -577,6 +577,17 @@ async function testPhieu(browser) {
   const mucLoi = await S(page, '[data-ui="phieu"] li.loi').allTextContents();
   ok(/mục lỗi/.test(await tom()) && mucLoi.some(t => /Phủ bì/.test(t)), 'tổng khoang lệch: mục phủ bì lỗi', [await tom(), mucLoi]);
   ok(!(await S(page, '.pri[data-act="json"]').isEnabled()), 'có lỗi thì khoá nút xuất');
+  ok((await S(page, '[data-act="vua-kho"]').count()) === 0, 'lỗi không phải khổ ván: không có nút "Thêm vách cho vừa khổ ván"');
+  // (bản 1.30.1 — anh Thanh: "rất hay báo lỗi bị vượt khổ ván rất mệt") tủ 4 cánh 2 khoang kéo rộng 2600 → khoang 1280, hậu > 1220: một nút tự thêm vách
+  await page.evaluate(s => window.MNCF.app.setSpec(s), { ma: 'T', rong: 2600, cao: 2400, hau: { t: 6 }, khoang: [{ rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] }, { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] }] });
+  ok((await page.evaluate(() => window.MNCF.app.getModel().errors.filter(t => /khổ ván/.test(t)).length)) === 2 && await S(page, '[data-act="vua-kho"]').isVisible() && !(await S(page, '[data-act="draw"], .pri[data-act="json"]').first().isEnabled()), 'khoang 1280: 2 dòng đỏ khổ ván (hậu), nút Vẽ khoá, có nút "Thêm vách cho vừa khổ ván"');
+  await S(page, '[data-act="vua-kho"]').click();
+  await page.waitForFunction(() => window.MNCF.app.getSpec().khoang.length === 3);
+  const sp = await page.evaluate(() => window.MNCF.app.getSpec()), md = await page.evaluate(() => ({ e: window.MNCF.app.getModel().errors, w: window.MNCF.app.getModel().info.khoang }));
+  ok(md.e.length === 0 && sp.khoang.every(k => k.rong === 'auto' && k.canh === 2) && JSON.stringify(sp.khoang[0].o) === JSON.stringify(sp.khoang[1].o) && sp.khoang[2].o.length === 2 && (await S(page, '[data-act="vua-kho"]').count()) === 0, 'bấm: 3 khoang 2 cánh, khoang tách giữ nội dung ô, hết lỗi, nút biến mất', [md, sp.khoang]);
+  ok(/Đã thêm 1 vách cho vừa khổ ván/.test(await page.evaluate(inPage.status)) && await S(page, '.pri[data-act="json"]').isEnabled(), 'dòng báo nói đã thêm vách; nút xuất mở lại', await page.evaluate(inPage.status));
+  await S(page, '[data-act="lui"]').click();
+  ok((await page.evaluate(() => window.MNCF.app.getSpec().khoang.length)) === 2, '↶ Lùi: trả lại 2 khoang');
   ok(errs.length === 0, 'không lỗi JS', errs);
   await ctx.close();
 }

@@ -171,6 +171,9 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     const chuHien = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, v = e => !!e && e.getClientRects().length > 0, p = r.querySelector('.pane[data-pane="tu"]');
       return [[...p.querySelectorAll('.hint:not(.tt)')].filter(v).length > 0, v(p.querySelector('.legend')), v(p.querySelector('.sum')), r.querySelector('[data-act="chu"]').getAttribute('aria-pressed'), localStorage.getItem('mncf.ui.chu')]; });
     ok(JSON.stringify(await chuHien()) === '[false,false,false,"false",null]', 'mặc định ÍT CHỮ: thẻ Tủ không hiện chữ hướng dẫn, chú giải màu, dòng mô tả tủ', await chuHien());
+    // (bản 1.30.1) tủ mặc định không còn dòng ghi chú nào (dòng "bản lề không đặt trong vùng hộc kéo" đã bỏ) → hạ ngưỡng nhịp đợt cho tủ có dòng cảnh báo để thử, xong trả lại
+    const spTruocMsg = await page.evaluate(() => window.MNCF.app.getSpec());
+    await page.evaluate(sp => window.MNCF.app.setSpec(Object.assign({}, sp, { kiem: Object.assign({}, sp.kiem, { dot_max: 500 }) })), spTruocMsg);
     ok((await H.locator('.msgs .msg').count()) > 0 && await H.locator('.msgs .msg').first().isVisible() && (await H.locator('[data-ui="phieu"]').isVisible() || await H.locator('[data-act="tu-kiem"]').isVisible()), '(bản 1.28: phiếu đạt hết thì thu thành nút ✓ Tự kiểm) … dòng cảnh báo và phiếu tự kiểm vẫn hiện');
     await H.locator('[data-act="chu"]').click();
     ok(JSON.stringify(await chuHien()) === '[true,true,true,"true","1"]', 'bấm "?": hiện lại chữ hướng dẫn + chú giải + mô tả, máy nhớ', await chuHien());
@@ -181,6 +184,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     ok(JSON.stringify(await kep()) === '["2",false]', 'dòng báo ở thẻ Tủ thu còn 2 dòng', await kep());
     await H.locator('.msgs .msg').first().click();
     ok(JSON.stringify(await kep()) === '["none",true]', 'bấm vào dòng báo: xổ hết', await kep());
+    await page.evaluate(sp => window.MNCF.app.setSpec(sp), spTruocMsg);
     await H.locator('[data-act="nut-them"]').click();      // mở sẵn hàng nút phụ cho các phép thử phía sau (ô toạ độ, JSON, Chuẩn hoá…)
     // rê chuột vào nút biểu tượng: dòng gợi ý ngay trên hàng nút nói liền nút đó làm gì (khỏi chờ tooltip của trình duyệt)
     await H.locator('[data-act="pick"]').hover();
