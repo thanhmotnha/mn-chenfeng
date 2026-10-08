@@ -180,6 +180,19 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     ht = await page.evaluate(() => window.__thu.hoanTac());
     eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
 
+    // (bản 1.31 — anh Thanh: "phải vẽ đúng theo của Chenfeng") nút ĐO lệnh nóc / đáy bọc hồi: vẽ thử 3 lượt ở chỗ trống, ghi lại, hoàn tác sạch, trả tệp chữ
+    console.log('— Đo lệnh nóc / đáy bọc hồi (Hướng dẫn → Đo bọc hồi): vẽ thử, ghi lại, hoàn tác');
+    {
+      ok((await page.locator('#mncf-host').locator('.pane[data-pane="hd"] [data-act="do-boc-hoi"]').count()) === 1, 'thẻ Hướng dẫn có nút Đo bọc hồi');
+      const truoc = await page.evaluate(() => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length);
+      const d = await page.evaluate(async () => { const r = await window.MNCFDriver.doBocHoi(); return { ok: r.ok, so: r.so_luot, nd: r.noi_dung || '', busy: window.MNCFDriver.busy(), lc: window.__thu.lc() === window.__thu.lc0, con: window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length }; });
+      ok(d.ok && d.so === 3 && ['=== Lượt A', '=== Lượt B', '=== Lượt C', 'Sau LEFTRIGHTBOARD (2 hồi):', 'Sau TOPBOTTOMBOARD', 'Lựa chọn hộp nóc / đáy của người dùng'].every(k => d.nd.includes(k)), 'đo đủ 3 lượt; tệp ghi tấm sau lệnh hồi, sau lệnh nóc đáy và cấu hình hộp của người dùng', d.nd.slice(0, 600));
+      ok((d.nd.match(/Đã hoàn tác lượt này/g) || []).length === 3 && d.con === truoc && !d.busy, 'mỗi lượt hoàn tác sạch: bản vẽ như trước, Chenfeng rảnh', [d.con, truoc]);
+      ok(d.lc, 'lựa chọn hộp thoại của người dùng được trả lại nguyên');
+      if (process.env.MNCF_IN) console.log(d.nd);
+      ok(/Nóc \(đo\) \| dày 17,5|Nóc \(đo\) \| dày 17.5/.test(d.nd) && /x 0 … 17.5/.test(d.nd), 'tệp ghi tên, dày, hộp từng tấm (toạ độ tính từ góc thùng thử)', d.nd.split('\n').filter(l => /Nóc|Hồi/.test(l)).slice(0, 4));
+    }
+
     eq(errs, [], 'không có lỗi JS nào lọt ra trang');
   } finally { await ctx.close(); try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ } }
   console.log(`\n${pass} đạt, ${fail} hỏng`);

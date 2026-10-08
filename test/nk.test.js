@@ -52,7 +52,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
         spec(o) {
           o = o || {};
           const nk = JSON.parse(JSON.stringify(C.DEFAULT_SPEC.ngan_keo));
-          if (o.mau) nk.loai[0].mau_id = o.mau; if (o.ten_mau) nk.loai[0].ten_mau = o.ten_mau; if (o.ts) nk.loai[0].ts = o.ts;
+          if (o.mau) nk.loai[0].mau_id = o.mau; if (o.ten_mau) nk.loai[0].ten_mau = o.ten_mau; if (o.ts) nk.loai[0].ts = o.ts; if (o.khung !== undefined) nk.khung_mat = o.khung;
           return { ma: o.ma || 'NK', rong: 1000, cao: 2200, ngan_keo: nk, khoang: o.khoang || [{ rong: 'auto', canh: o.canh === undefined ? 2 : o.canh, dot: [520], o: [{ tu: 0, kieu: o.kieu || 'nk_am', so: o.so || 2 }] }] };
         },
         // nhập phần TẤM của tủ ở x0 rồi ghép tấm thiết kế ↔ tấm thật (việc D.veGoc làm trước khi tới bước ngăn kéo)
@@ -116,6 +116,12 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     eq(r.nk.map(x => x.bh), [['$BH', '$BH']], 'mẫu ghi dày ván theo thùng (BH = $BH): bảng giữ nguyên công thức đó');
     eq(api, [['/CAD-dirQuery', '5'], ['/CAD-moduleList', '12']], 'chỉ ĐỌC kho mẫu: danh sách thư mục + danh sách mẫu của thư mục ngăn kéo');
 
+    console.log('— (bản 1.31) Khung mặt hộc kéo (thanh ngang phẳng mặt): lệnh DRAWER nhận khe theo mặt thật');
+    c = await T.chuanBi({ mau: 555001, ma: 'NKM', khung: 1 }, 58000);
+    eq([c.loi, c.nk, c.tam === c.tong], [[], 1, true], 'khung mặt: kế hoạch có 1 bước ngăn kéo; tấm của tủ (cả thanh ngang khung mặt) đã có đủ');
+    r = await T.ve();
+    eq([r.so, r.xong, r.hong, r.ban, r.mat], [1, [0, 1], [], false, [true, true]], 'khung mặt: vẽ xong 1 ô bằng lệnh gốc, hai mặt ngăn kéo đúng hộp thiết kế');
+    eq(r.nk.map(x => [x.ket, x.lc.topSpace, x.lc.midSpace, x.lc.bottomSpace, x.lc.leftSpace, x.lc.rightSpace]), [['ok', '52.5', '54', '2', '2', '2']], 'hộp "Drawer Design" nhận khe trên 52,5 (thanh 50 + khe 2 + dư làm tròn 0,5), khe giữa 54 (thanh 50 + 2 × 2), dưới / hai bên 2');
     console.log('— Kho mẫu chỉ đọc một lần trong phiên');
     c = await T.chuanBi({ mau: 555001, ma: 'NK2' }, 3000);
     r = await T.ve();

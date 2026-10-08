@@ -321,7 +321,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     await page.waitForFunction(() => /Đã cập nhật|Chưa cập nhật/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
     let b1 = await B();
     rep = await page.evaluate(() => ({ off: window.MNCFDriver.last.offset, tn: !window.__TAY_NAM__.IsErase, id: window.MNCFDriver.last.id, kq: document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText }));
-    ok(JSON.stringify(rep.off) === '[1500,0,0]' && b1.n === 68 && Math.abs(b1.x1 - b1.x0 - 2200) < 0.6 && Math.abs(b1.x0 - 1500) < 0.6, 'tủ đã bị dời 500 + bản vẽ đã có thao tác khác → vẫn cập nhật đúng chỗ MỚI của tủ, rộng 2000 → 2200', [rep.off, b1]);
+    ok(JSON.stringify(rep.off) === '[1500,0,0]' && b1.n === 60 && Math.abs(b1.x1 - b1.x0 - 2200) < 0.6 && Math.abs(b1.x0 - 1500) < 0.6, 'tủ đã bị dời 500 + bản vẽ đã có thao tác khác → vẫn cập nhật đúng chỗ MỚI của tủ, rộng 2000 → 2200', [rep.off, b1]);
     ok(rep.id === id1 && b1.tag.includes(id1) && b1.tag.length === 2, 'tủ sau cập nhật giữ nguyên mã', b1.tag);
     ok(b1.hw === b0.hw + 1 && rep.tn, 'hộp ngăn kéo, suốt treo cũ được bỏ và vẽ lại (không nhân đôi); tay nắm người dùng tự gắn được giữ', [b0.hw, b1.hw, rep.tn]);
     ok(/Đã cập nhật tủ tại chỗ/.test(rep.kq) && /Đã bỏ \d+ đối tượng của tủ cũ/.test(rep.kq), 'báo cáo nêu rõ đã cập nhật tại chỗ', rep.kq.slice(0, 200));
@@ -347,12 +347,12 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     await H.locator('[data-act="redraw"]').click();
     await page.waitForFunction(() => /Đã cập nhật|Chưa cập nhật/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
     let b2 = await B();
-    ok(b2.n === 69 && Math.abs(b2.x0 - 1500) < 0.6 && Math.abs(b2.x1 - b2.x0 - 2200) < 0.6 && b2.hw === b0.hw, 'thêm 1 đợt rồi cập nhật: 69 tấm (tủ 2200 tách 2 thùng → thêm 2 hồi; bản 1.31: nóc / đáy phủ hồi + khung đế + khung mặt hộc kéo), đúng chỗ cũ, phụ kiện không nhân đôi', b2);
+    ok(b2.n === 61 && Math.abs(b2.x0 - 1500) < 0.6 && Math.abs(b2.x1 - b2.x0 - 2200) < 0.6 && b2.hw === b0.hw, 'thêm 1 đợt rồi cập nhật: 61 tấm (tủ 2200 tách 2 thùng → thêm 2 hồi), đúng chỗ cũ, phụ kiện không nhân đôi', b2);
     // hoàn tác lần cập nhật = trả lại tủ trước khi sửa
     await H.locator('[data-act="undo"]').click();
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     let b3 = await B();
-    ok(b3.n === 68 && Math.abs(b3.x1 - b3.x0 - 2200) < 0.6, 'hoàn tác lần cập nhật → tủ trở lại như trước khi sửa (68 tấm)', b3);
+    ok(b3.n === 60 && Math.abs(b3.x1 - b3.x0 - 2200) < 0.6, 'hoàn tác lần cập nhật → tủ trở lại như trước khi sửa (60 tấm)', b3);
     // xoá không được → bản vẽ giữ nguyên, báo rõ
     await page.evaluate(() => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e))]); });
     await H.locator('.tab[data-tab="tu"]').click();
@@ -361,7 +361,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     await H.locator('[data-act="redraw"]').click();
     await page.waitForFunction(() => /Đã cập nhật|Chưa cập nhật/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
     let b4 = await B();
-    ok(b4.n === 68 && Math.abs(b4.x1 - b4.x0 - 2200) < 0.6 && /Chưa bỏ được tủ cũ/.test(await H.locator('.report').innerText()), 'Chenfeng không xoá được tủ cũ → không vẽ chồng, bản vẽ giữ nguyên, báo rõ', b4);
+    ok(b4.n === 60 && Math.abs(b4.x1 - b4.x0 - 2200) < 0.6 && /Chưa bỏ được tủ cũ/.test(await H.locator('.report').innerText()), 'Chenfeng không xoá được tủ cũ → không vẽ chồng, bản vẽ giữ nguyên, báo rõ', b4);
     await page.evaluate(() => { window.__MOCK_ERASE_FAIL__ = false; });
     // dọn: xoá tủ, vẽ lại tủ 2000 bằng cách bấm điểm như trước để các phép thử sau giữ nguyên
     await page.evaluate(async s => { const D = window.MNCFDriver; await D.erase(D.all()); window.MNCF.app.setSpec(s); }, TU_2000);

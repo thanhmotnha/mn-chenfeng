@@ -57,10 +57,11 @@
     // Tách thùng theo bề ngang (anh Jason 03/10/2026: "khổ ván 2 m thường sẽ tách thùng, thùng bé thì kẹp khung chung"):
     //   thùng nào rộng quá rong_max thì tách thành các thùng riêng, mỗi thùng có 2 hồi của nó (chỗ tách = 2 hồi áp lưng);
     //   các khoang nhỏ liền nhau còn nằm trong rong_max thì vẫn chung một thùng (vách chung). Phào, chân trước là khung chung cho cả dãy. 0 = không tách.
-    // Kết cấu nóc / đáy (bản 1.31 — anh Thanh 08/10/2026: "chuyển sang kết cấu nóc, đáy phủ hồi nhé, kết cấu này không chuẩn lắp đặt, rất yếu"):
+    // Kết cấu nóc / đáy (bản 1.31 — anh Thanh 08/10/2026: "chuyển sang kết cấu nóc, đáy phủ hồi nhé, kết cấu này không chuẩn lắp đặt, rất yếu"; rồi: "nhưng phải vẽ đúng theo của Chenfeng"):
     //   'phu_hoi' = nóc, đáy LIỀN cả thùng, phủ lên đầu hồi; hồi + vách kẹp giữa nóc và đáy; thân có chân thì đáy nằm trên KHUNG ĐẾ (đế trước, đế sau, 2 đế hông — mỗi thùng một khung);
-    //   'lot'     = cách cũ: hồi + vách cao suốt thân (hồi thân dưới chạy xuống sàn), nóc / đáy lọt giữa từng khoang.
-    thung: { rong_max: 2000, noc_day: 'phu_hoi' },
+    //   'lot'     = cách cũ: hồi + vách cao suốt thân (hồi thân dưới chạy xuống sàn), nóc / đáy lọt giữa từng khoang — vẽ được bằng LỆNH GỐC.
+    //   Mặc định vẫn 'lot' cho tới khi đo xong lệnh nóc / đáy "bọc hồi" của Chenfeng (nút Đo ở thẻ Hướng dẫn) để phủ hồi cũng vẽ bằng lệnh gốc.
+    thung: { rong_max: 2000, noc_day: 'lot' },
     // Dò lỗi sản xuất (bản 1.20 — anh Jason 04/10/2026: "vẽ phải chuẩn kết cấu, tự động dò lỗi để anh còn sản xuất được"): ngưỡng CẢNH BÁO, xưởng chốt lại; 0 = không kiểm mục đó.
     //   dot_max       = khoang lọt lòng (nhịp đợt / đáy / nóc / suốt treo) tối đa — chuẩn kết cấu mục 1: ván 17,5 không quá 1000
     //   canh_cao_max  = cánh cao hơn thế này dễ cong vênh (cần thanh chống cong hoặc chia thân)

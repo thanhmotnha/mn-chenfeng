@@ -4,7 +4,7 @@ const C0 = require('../src/mncf-core.js');
 // Bản 1.29.2: mặc định dày hậu của xưởng là 6,5 (anh Thanh 08/10/2026). Toàn bộ số đo trong bộ thử này đo với hậu 6 (chuẩn 1.3 – 1.29.1) nên GHIM lại 6 cho cả bộ;
 // chuẩn 6,5 có khối thử riêng ở cuối (nạp một bản lõi mới, không đụng bản đã ghim).
 C0.DEFAULT_SPEC.hau.t = 6;
-// Bản 1.31: kết cấu chuẩn xưởng đổi sang nóc, đáy phủ hồi (anh Thanh 08/10/2026). Số đo cũ của bộ thử này là kết cấu hồi phủ nóc đáy → GHIM 'lot'; kết cấu mới có khối thử riêng ở cuối (lõi nạp mới).
+// Bản 1.31: có thêm kết cấu nóc, đáy phủ hồi (anh Thanh 08/10/2026), sẽ thành mặc định khi vẽ được bằng lệnh gốc. Số đo cũ của bộ thử này là kết cấu hồi phủ nóc đáy → GHIM 'lot'; kết cấu mới có khối thử riêng ở cuối (lõi nạp mới).
 C0.DEFAULT_SPEC.thung.noc_day = 'lot';
 // Bản 1.31: hộc kéo âm mặc định có KHUNG MẶT (thanh ngang phẳng mặt). Số đo cũ là khe + xà ẩn → ghim 0; khung mặt thử ở khối cuối.
 C0.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
@@ -1411,7 +1411,8 @@ T('Thêm vách cho vừa khổ ván (bản 1.30.1)', () => {
 // Bản 1.31 (anh Thanh 08/10/2026: "chuyển sang kết cấu nóc, đáy phủ hồi nhé, kết cấu này không chuẩn lắp đặt, rất yếu"): cả bộ thử ở trên ghim 'lot' nên khối này nạp một bản lõi MỚI.
 T('Nóc, đáy phủ hồi + khung đế (bản 1.31)', () => {
   const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
-  eq(C.DEFAULT_SPEC.thung.noc_day, 'phu_hoi', 'mặc định: nóc, đáy phủ hồi');
+  eq(C.DEFAULT_SPEC.thung.noc_day, 'lot', 'mặc định VẪN kết cấu cũ (vẽ bằng lệnh gốc) cho tới khi đo xong lệnh nóc / đáy bọc hồi của Chenfeng (anh Thanh: "phải vẽ đúng theo của Chenfeng")');
+  C.DEFAULT_SPEC.thung.noc_day = 'phu_hoi';      // khối này thử kết cấu phủ hồi (bản lõi riêng, không đụng bản đã ghim)
   eq([C.normalize({ thung: { noc_day: 'lot' } }).thung.noc_day, C.normalize({ thung: { noc_day: 'la' } }).thung.noc_day], ['lot', 'phu_hoi'], 'chọn cách cũ được; giá trị lạ → mặc định');
   const chongNhau = M => { const o = []; for (let i = 0; i < M.parts.length; i++) for (let j = i + 1; j < M.parts.length; j++) if (C.overlap(M.parts[i], M.parts[j]) > 0) o.push(M.parts[i].ten + '×' + M.parts[j].ten); return o; };
   const M = C.build({}), T0 = M.info.thung, t = M.spec.van.t;

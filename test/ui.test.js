@@ -66,7 +66,7 @@ async function testPage(browser) {
     ok(JSON.stringify(await chu()) === '[false,false,false,true,"false","0"]', 'bấm "?" lần nữa: ít chữ lại', await chu());
   }
   let m = await page.evaluate(inPage.model);
-  ok(m.errors.length === 0 && m.parts === 75, 'tủ mẫu dựng 75 tấm (2 thùng rời: thêm 2 hồi; có xà + nẹp che khe hộc ngăn kéo; bản 1.31: nóc / đáy liền mỗi thùng, 8 tấm khung đế), không lỗi', m.parts);
+  ok(m.errors.length === 0 && m.parts === 71, 'tủ mẫu dựng 71 tấm (2 thùng rời: thêm 2 hồi; có nẹp + thanh ngang khung mặt hộc ngăn kéo), không lỗi', m.parts);
   // bộ mẫu tủ áo: chọn mẫu → bấm Dùng mẫu → kích thước, khoang đổi theo; Chuẩn xưởng giữ nguyên
   // bản 1.28: một hàng "Tủ có sẵn" ở cuối thẻ (mục đầu = tủ mặc định), mô tả nằm ở title của từng mục
   ok((await S(page, '#mncf-ui-mau option').count()) >= 9 && (await S(page, '#mncf-ui-mau option').first().innerText()) === 'Tủ mặc định 3 khoang' && /2 cánh: hai tầng treo · 2 cánh: 3 ngăn kéo \+ treo ngắn/.test(await S(page, '#mncf-ui-mau option[value="TA4-2000-2T"]').getAttribute('title')), 'hàng "Tủ có sẵn": tủ mặc định + các mẫu tủ áo, mô tả ở title');
@@ -77,7 +77,7 @@ async function testPage(browser) {
   ok((await S(page, 'input[data-k="rong"]').inputValue()) === '2000', 'ô nhập bề rộng cập nhật theo mẫu');
   await S(page, '#mncf-ui-mau').selectOption('TA6-3000'); await S(page, '[data-act="mau"]').click();
   m = await page.evaluate(inPage.model);
-  ok(m.errors.length === 0 && m.parts === 74, 'về mẫu 6 cánh 3000: 74 tấm (2 thùng rời, nóc / đáy phủ hồi + khung đế)', m.parts);
+  ok(m.errors.length === 0 && m.parts === 70, 'về mẫu 6 cánh 3000: 70 tấm (2 thùng rời)', m.parts);
   await S(page, '[data-act="lui"]').click();
   { const sl = await page.evaluate(() => window.MNCF.app.getSpec()); ok(sl.rong === 2000 && sl.khoang.length === 2 && (await S(page, 'input[data-k="rong"]').inputValue()) === '2000', '(bản 1.28) ↶ Lùi sau "Dùng": trở lại tủ 2000 đang làm (cả kích thước lẫn khoang)', [sl.rong, sl.khoang.length]); }
   await S(page, '#mncf-ui-mau').selectOption('TA6-3000'); await S(page, '[data-act="mau"]').click();
