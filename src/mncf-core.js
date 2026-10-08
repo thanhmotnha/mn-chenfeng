@@ -988,10 +988,11 @@
         // Xà phải nằm lọt trong khoảng trống giữa 2 hộp ngăn kéo: hộp thấp hơn mép trên mặt SLK, cao hơn mép dưới mặt XLK (mẫu không khai thì coi như 0).
         if (khung) {
           // thanh ngang khung mặt: giữa 2 mặt kề nhau (lọt giữa 2 nẹp / vách đệm) + thanh trên sát mặt dưới đợt (có nẹp thì chạy suốt bề ngang khoang, nẹp dừng dưới nó)
-          // thanh giữa: CẢ HAI đầu tì vào cạnh nẹp (nẹp bắn đinh, không khoan) → keo + đinh như nẹp; còn đầu nào tì vào vách đệm / hồi / vách → khoan cam như ván thùng
-          // (1.31.1: trước xét cờ chung nep_khe nên khoang không cánh / 1 cánh cũng bị "không khoan")
-          const haiNep = coNep && demL > 0 && demR > 0;
-          for (let q = 0; q + 1 < m; q++) { const z0 = rn(matZ[q][1] + gk); P({ loai: 'XA', ten: NM.xa, than: c.than, tu: c.b.tu, type: 2, x0, x1: x0 + L, y0: rn(nk.lui - t), y1: nk.lui, z0, z1: rn(z0 + R), big: 0, khoang: i, khung_mat: true, ...(haiNep ? { khoan: KHONG_KHOAN, fd: false, bd: false, keo_nep: true } : {}) }); }
+          // thanh giữa: CẢ HAI đầu tì vào cạnh nẹp (nẹp bắn đinh, không khoan) → keo + đinh như nẹp. Đầu nào tì vào vách đệm / hồi / vách thì khoan cam như ván thùng —
+          // nhưng mối nối chỉ dài bằng bề cao thanh: dưới 60 thì không khoan cam được (trang giả lập theo quy tắc khoảng của Chenfeng: mối nối < 60 không khoan — CHƯA ĐO trên bản thật)
+          // → bắt vít / chốt gỗ, ghi rõ trong bảng kê. (1.31.1: trước xét cờ chung nep_khe nên khoang không cánh / 1 cánh cũng ghi oan "giữa 2 nẹp, keo + đinh")
+          const haiNep = coNep && demL > 0 && demR > 0, ngan = R < 60;
+          for (let q = 0; q + 1 < m; q++) { const z0 = rn(matZ[q][1] + gk); P({ loai: 'XA', ten: NM.xa, than: c.than, tu: c.b.tu, type: 2, x0, x1: x0 + L, y0: rn(nk.lui - t), y1: nk.lui, z0, z1: rn(z0 + R), big: 0, khoang: i, khung_mat: true, ...(haiNep ? { khoan: KHONG_KHOAN, fd: false, bd: false, keo_nep: true } : ngan ? { khoan: KHONG_KHOAN, vit_ray: true } : {}) }); }
           const xa = coNep ? bayX(i) : x0, xb = coNep ? rn(bayX(i) + widths[i]) : rn(x0 + L);
           P({ loai: 'XA', ten: NM.xa, than: c.than, tu: c.b.tu, type: 2, x0: xa, x1: xb, y0: rn(nk.lui - t), y1: nk.lui, z0: rn(zb - R), z1: zb, big: 0, khoang: i, tren: true, khung_mat: true });
         } else if (nk.xa_cao > 0) {
@@ -1950,7 +1951,7 @@
       const bl = p.ban_le ? `${p.ban_le.so} bản lề / cánh` : '';      // (bản 1.30) số bản lề theo cao + rộng cánh → cùng kích thước là cùng số
       const key = [nhom, p.tu, p.ten, c.dai, c.rong, c.day, p.khoan, p.holes && p.holes.length ? 'x' : '', kh, bl].join('|');
       const r = rows.get(key) || { nhom, tu: p.tu, ten: p.ten, dai: c.dai, rong: c.rong, day: c.day, sl: 0, m2: 0, khoan: p.khoan === KHONG_KHOAN ? 'không khoan' : p.khoan,
-        ghi_chu: kh || (p.phu ? 'ốp sau lưng thùng, bắn đinh' : p.vit_de ? 'áp mặt trước đế trước, bắt vít từ sau' : p.keo_nep ? 'thanh ngang khung mặt giữa 2 nẹp, keo + đinh' : p.van_thung ? 'tấm trước mặt cột — ván thùng, lọt giữa 2 tấm đứng hai bên cột' : p.khau_cot ? 'vách đứng dọc mặt bên cột' : p.holes && p.holes.length ? (p.holes[0].kieu === 'tron' ? (bl ? bl + ', khoét chén' : 'khoét chén bản lề') : 'soi rãnh hậu') : bl) };
+        ghi_chu: kh || (p.phu ? 'ốp sau lưng thùng, bắn đinh' : p.vit_de ? 'áp mặt trước đế trước, bắt vít từ sau' : p.keo_nep ? 'thanh ngang khung mặt giữa 2 nẹp, keo + đinh' : p.vit_ray ? 'thanh ngang khung mặt — bắt vít / chốt gỗ vào hồi, vách (mối nối ngắn hơn 60, không khoan cam)' : p.van_thung ? 'tấm trước mặt cột — ván thùng, lọt giữa 2 tấm đứng hai bên cột' : p.khau_cot ? 'vách đứng dọc mặt bên cột' : p.holes && p.holes.length ? (p.holes[0].kieu === 'tron' ? (bl ? bl + ', khoét chén' : 'khoét chén bản lề') : 'soi rãnh hậu') : bl) };
       r.sl++; r.m2 += c.dai * c.rong / 1e6; rows.set(key, r);
     }
     const order = ['Thùng', 'Hậu', 'Chân trước', 'Phào mặt', 'Phụ trợ phào', 'Cánh'];

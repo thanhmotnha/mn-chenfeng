@@ -1522,8 +1522,11 @@ T('Bản vá 1.31.1 — bản lề, vừa khổ ván, khung mặt, phủ hồi',
     ok(r.spec.khoang.length <= 4 && !M.errors.some(e => /quá hẹp/.test(e)), 'hậu khấu cột rộng (không gỡ được bằng vách): không chặt khoang tới 300', [r.spec.khoang.length, M.errors]); }
   { const r = C.vuaKhoVan({ rong: 2600, cao: 2400, khoang: MT('TA2-1100-T') }); ok(r.doi.length && /tủ thành 2 thùng/.test(r.doi[0]), 'dòng báo nói tủ thành 2 thùng khi chỗ chia trùng chỗ tách thùng', r.doi); }
   // KHUNG MẶT: thanh giữa không khoan chỉ khi CẢ HAI đầu tì vào nẹp
-  const thanh = (canh, ban_le) => P(C.build({ rong: canh === 2 ? 1000 : 600, cao: 2400, than: { cao_duoi: 0 }, khoang: [{ rong: 'auto', canh, ban_le, dot: [600], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] }), 'XA').filter(p => !p.tren).map(p => p.khoan);
-  eq([thanh(0), thanh(1, 'trai'), thanh(2)], [['Cam3Tp'], ['Cam3Tp'], [C.KHONG_KHOAN]], 'thanh giữa: khoang không cánh / 1 cánh (đầu tì vào hồi) khoan cam; 2 cánh (hai đầu tì nẹp) keo + đinh');
+  const thanh = (canh, ban_le, ray) => { const M = C.build({ rong: canh === 2 ? 1000 : 600, cao: 2400, than: { cao_duoi: 0 }, ngan_keo: ray ? { ray } : {}, khoang: [{ rong: 'auto', canh, ban_le, dot: [600], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] }), r = P(M, 'XA').filter(p => !p.tren);
+    return r.map(p => [p.khoan, C.cutList(M).rows.find(x => x.ten === p.ten && x.dai === C.cutSize(p).dai).ghi_chu.replace(/ \(.*/, '')]); };
+  eq([thanh(2), thanh(0), thanh(1, 'trai'), thanh(0, undefined, 60), thanh(1, 'trai', 60)],
+    [[[C.KHONG_KHOAN, 'thanh ngang khung mặt giữa 2 nẹp, keo + đinh']], [[C.KHONG_KHOAN, 'thanh ngang khung mặt — bắt vít / chốt gỗ vào hồi, vách']], [[C.KHONG_KHOAN, 'thanh ngang khung mặt — bắt vít / chốt gỗ vào hồi, vách']], [['Cam3Tp', '']], [['Cam3Tp', '']]],
+    'thanh giữa: 2 cánh (hai đầu tì nẹp) keo + đinh; khoang không cánh / 1 cánh mà thanh 50 (mối nối < 60) bắt vít / chốt gỗ — không ghi oan "giữa 2 nẹp"; thanh ≥ 60 thì khoan cam');
   eq([C.specDaVe({ rong: 1000 }, '1.30.1').ngan_keo.khung_mat, C.specDaVe({ rong: 1000, ngan_keo: { khung_mat: 1 } }, '1.31.0').ngan_keo && C.specDaVe({ rong: 1000, ngan_keo: { khung_mat: 1 } }, '1.31.0').ngan_keo.khung_mat, C.specDaVe({ rong: 1000 }, '1.31.0').ngan_keo], [0, 1, undefined], 'tủ vẽ ở bản < 1.31 dựng lại hộc kéo khe + xà ẩn như lúc vẽ (dò lại không báo oan "thiếu tấm")');
   ok(C.nangCap({ khoang: [{ rong: 'auto', canh: 2, ngan_keo: { so: 2, den: 520 } }] }, '1.4.0').doi.some(d => /khung mặt/.test(d)), 'nâng cấp: ngăn kéo dạng cũ (khoang.ngan_keo) cũng được báo đổi sang khung mặt');
   // PHỦ HỒI: khung đế khép kín khi vách sẵn có làm vách khấu; không có đoạn đế vụn
