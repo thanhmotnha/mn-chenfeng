@@ -56,7 +56,7 @@ T('Ngăn kéo quá rộng thì cảnh báo (mỗi khoang một lần, không ph�
 });
 
 T('Khoang treo quá nông thì cảnh báo móc áo chạm cánh', () => {
-  const nong = { ma: 'T', rong: 1000, cao: 2200, sau_thung: 450, than: { cao_duoi: 0 }, khoang: [{ rong: 'auto', canh: 2, dot: [1900], o: [{ tu: 0, kieu: 'suot' }] }] };      // 450 − hậu 6 = 444
+  const nong = { ma: 'T', rong: 1000, cao: 2200, sau_thung: 450, hau: { t: 6 }, than: { cao_duoi: 0 }, khoang: [{ rong: 'auto', canh: 2, dot: [1900], o: [{ tu: 0, kieu: 'suot' }] }] };      // 450 − hậu 6 = 444
   const M = C.build(nong);
   eq(M.errors, [], 'dựng được');
   const w = kq(M, 'suot', 'luu_y');

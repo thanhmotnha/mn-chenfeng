@@ -451,7 +451,7 @@ async function testOldSaved(browser) {
   // bản cũ để hậu dày lọt lòng; chuẩn xưởng từ 1.3 là hậu 6 li phủ sau → thông số cũ chuyển theo và báo cho người dùng biết
   const hau = () => page.evaluate(() => window.MNCF.app.getModel().parts.filter(p => p.loai === 'HAU').map(p => [p.t, p.y0, p.y1, p.khoan]));
   let h = await hau();
-  ok(sp.hau.kieu === 'phu' && h.length === 4 && h.every(x => x[0] === 6 && x[1] === 574 && x[2] === 580 && x[3] === '不排'), 'thông số bản cũ → hậu 6 li phủ sau lưng thùng', [sp.hau, h]);
+  ok(sp.hau.kieu === 'phu' && h.length === 4 && h.every(x => x[0] === 6.5 && x[1] === 573.5 && x[2] === 580 && x[3] === '不排'), 'thông số bản cũ → hậu 6,5 phủ sau lưng thùng (bản 1.29.2)', [sp.hau, h]);
   ok(/Hậu đã đổi sang chuẩn xưởng mới/.test(await page.evaluate(inPage.status)), 'có dòng báo hậu đã đổi sang chuẩn mới', await page.evaluate(inPage.status));
   // người dùng chủ động chọn lại hậu dày ở bản 1.3 → lần mở sau phải giữ, không tự đổi lần nữa
   await theSau(page.locator('#mncf-host'), 'chuan');
@@ -480,7 +480,7 @@ async function testHau(browser) {
   await S(page, '#mncf-hau-kieu').selectOption('mong'); await page.waitForTimeout(350);
   ok((await S(page, '#mncf-hau-t').inputValue()) === '5' && (await S(page, '#mncf-hau-lui').count()) === 1, 'đổi sang hậu soi rãnh: dày 5, hiện các ô của hậu soi rãnh');
   await S(page, '#mncf-hau-kieu').selectOption('phu'); await page.waitForTimeout(350);
-  ok((await S(page, '#mncf-hau-t').inputValue()) === '6', 'về hậu phủ: dày 6');
+  ok(/^6[.,]5$/.test(await S(page, '#mncf-hau-t').inputValue()), 'về hậu phủ: dày 6,5 (bản 1.29.2)', await S(page, '#mncf-hau-t').inputValue());
   // gộp khoang cho vừa khổ ván: thân dưới cao 2148 vẫn 2 tấm 949; thân trên cao 548 gộp thành 1 tấm 1898
   await S(page, '#mncf-hau-chia').selectOption('kho_van'); await page.waitForTimeout(350);
   h = await hau();
@@ -494,7 +494,7 @@ async function testHau(browser) {
   await S(page, '#mncf-ui-file').setInputFiles(mau('1.2.0'));
   await page.waitForFunction(() => /Đã mở file tủ/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent));
   h = await hau();
-  ok(h.every(x => x[0] === 6) && /Hậu đã đổi sang chuẩn xưởng mới/.test(await page.evaluate(inPage.status)), 'mẫu lưu từ bản 1.2 → hậu 6 li phủ, có dòng báo', [h, await page.evaluate(inPage.status)]);
+  ok(h.every(x => x[0] === 6.5) && /Hậu đã đổi sang chuẩn xưởng mới/.test(await page.evaluate(inPage.status)), 'mẫu lưu từ bản 1.2 → hậu 6,5 phủ, có dòng báo', [h, await page.evaluate(inPage.status)]);
   await S(page, '#mncf-ui-file').setInputFiles(mau('1.3.0'));
   await page.waitForFunction(() => window.MNCF.app.getSpec().hau.kieu === 'day');
   h = await hau();

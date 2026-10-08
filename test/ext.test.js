@@ -186,7 +186,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     await H.locator('[data-act="pick"]').hover();
     ok(/Sửa tủ đang chọn/.test(await H.locator('footer .goiy').innerText()), 'rê chuột vào nút biểu tượng: dòng gợi ý ghi nút đó làm gì', await H.locator('footer .goiy').innerText());
     await H.locator('[data-act="chuanhoa"]').focus();
-    ok(/Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await H.locator('footer .goiy').innerText()) && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await H.locator('[data-act="chuanhoa"]').getAttribute('aria-label')), 'đưa con trỏ bàn phím vào nút cũng hiện gợi ý; nút Chuẩn hoá ghi đúng dày ván + hậu đang dùng', await H.locator('footer .goiy').innerText());
+    ok(/Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6,5 phủ sau/.test(await H.locator('footer .goiy').innerText()) && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6,5 phủ sau/.test(await H.locator('[data-act="chuanhoa"]').getAttribute('aria-label')), 'đưa con trỏ bàn phím vào nút cũng hiện gợi ý; nút Chuẩn hoá ghi đúng dày ván + hậu đang dùng', await H.locator('footer .goiy').innerText());
     await H.locator('#mncf-rong').focus(); await H.locator('.brand').hover();
     ok((await H.locator('footer .goiy').innerText()).trim() === '', 'rời nút: dòng gợi ý trống lại');
     ok((await H.locator('[data-dot]').count()) > 0 && (await H.locator('[data-o]').count()) > 0, 'hình đứng tương tác trong bảng nổi');
