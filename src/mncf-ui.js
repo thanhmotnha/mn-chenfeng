@@ -507,7 +507,7 @@ footer>.kqhang{display:none}
       F('canh.chen.tam_mep', 'Chén: tâm cách mép cánh', { khi: s => s.canh.loai_ban_le === 'tu_chon' }), F('canh.chen.sau', 'Chén: sâu', { khi: s => s.canh.loai_ban_le === 'tu_chon' }), F('canh.chen.d', 'Chén: đường kính', { khi: s => s.canh.loai_ban_le === 'tu_chon' }),
       F('canh.chen_ban_le', 'Khoét chén bản lề vào cánh khi vẽ (thử nghiệm)', { check: 1, span: 2 })],
       s => { const lb = Core.LOAI_BAN_LE.find(l => l.ma === s.canh.loai_ban_le) || {}, c = s.canh.chen;
-        return `${lb.ma === 'tu_chon' ? 'Bản lề tự gõ số' : lb.ten}: chén Ø${hien(c.d)} sâu ${hien(c.sau)}, tâm chén cách mép cánh ${hien(c.tam_mep)}${lb.ma !== 'tu_chon' && lb.day ? `, cánh dày ${hien(lb.day[0])}–${hien(lb.day[1])}` : ''}. Số bản lề mỗi cánh theo chiều cao cánh: đến 900 là 2, đến 1600 là 3, đến 2000 là 4, cao hơn là 5; cánh rộng hơn 600 thêm 1. Bản lề trên / dưới cách đầu cánh ${hien(c.cach_dau)}, các bản lề giữa chia đều, tránh nẹp hộc kéo. Vị trí bản lề hiện trên hình (vòng tròn trên cánh) và số bản lề nằm trong bảng kê.`; }],
+        return `${lb.ma === 'tu_chon' ? 'Bản lề tự gõ số' : lb.ten}: chén Ø${hien(c.d)} sâu ${hien(c.sau)}, tâm chén cách mép cánh ${hien(c.tam_mep)}${lb.ma !== 'tu_chon' && lb.day ? `, cánh dày ${hien(lb.day[0])}–${hien(lb.day[1])}` : ''}. Số bản lề mỗi cánh theo chiều cao cánh: đến 900 là 2, đến 1600 là 3, đến 2000 là 4, cao hơn là 5; cánh rộng hơn 600 thêm 1. Bản lề trên / dưới cách đầu cánh ${hien(c.cach_dau)}, các bản lề giữa chia đều, tránh đợt cố định. Vị trí bản lề hiện trên hình (vòng tròn trên cánh) và số bản lề nằm trong bảng kê.`; }],
     ['@loai'],      // bảng "Các loại ngăn kéo" — vẽ riêng (renderLoai)
     ['Ngăn kéo — số chung', [F('ngan_keo.buoc_sau', 'Sâu hộp làm tròn theo bước (dài ray)'), F('ngan_keo.ho_sau', 'Hộp cách hậu ít nhất')]],
     ['Ngăn kéo âm (nằm sau cánh)', [F('ngan_keo.lui', 'Lưng mặt NK cách mặt trước thùng'), F('ngan_keo.khe_ben', 'Khe 2 bên mặt'), F('ngan_keo.dem', 'Vách đệm tránh bản lề: mặt trong cách hồi/vách (0 = không đệm)', { span: 2 }), F('ngan_keo.khe_tren', 'Khe trên'), F('ngan_keo.khe_giua', 'Khe giữa 2 mặt'), F('ngan_keo.khe_duoi', 'Khe dưới'), F('ngan_keo.xa_cao', 'Xà sau khe mặt NK: cao (0 = không làm xà)', { span: 2 }), F('ngan_keo.xa_ho', 'Xà cách lưng mặt NK'), F('ngan_keo.nep_khe', 'Nẹp che khe 2 bên hộc kéo (1 = có, 0 = để hở)', { span: 2 })]],
@@ -1076,10 +1076,14 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (giu) { const n = bar.querySelector(giu); if (n) { n.focus(); if (n.dataset.ed === 'z') n.select(); } else view.focus({ preventScroll: true }); }
     }
     let moTK = false;      // người dùng bấm "✓ Tự kiểm" để xem phiếu dù mọi mục đạt
+    let vkNho = null;      // kết quả Core.vuaKhoVan cho thông số đang có (tính lại khi thông số đổi — mỗi lần là vài lần dựng tủ)
+    const vuaKho = () => { const k = chup(); if (!vkNho || vkNho.k !== k) { let r = null; try { r = Core.vuaKhoVan(spec); } catch (e) { r = null; } vkNho = { k, r }; } return vkNho.r; };
     function paint() {
       paintView();
       const m = [];
       model.errors.forEach(t => m.push(`<div class="msg err">${esc(t)}</div>`));
+      // (bản 1.30.1 — anh Thanh: "rất hay báo lỗi bị vượt khổ ván rất mệt") khoang quá rộng so với khổ ván → một nút tự thêm vách (Core.vuaKhoVan), chỉ hiện khi cách đó gỡ được lỗi
+      { const vk = model.errors.some(t => /khổ ván/.test(t)) ? vuaKho() : null; if (vk && vk.doi.length && vk.con < vk.truoc) m.push(`<div class="msg err"><button class="sec" data-act="vua-kho">Thêm vách cho vừa khổ ván</button> <span class="hint tt">${vk.con ? 'gỡ bớt' : 'gỡ hết'} lỗi khổ ván ở trên: ${esc(String(vk.spec.khoang.length))} khoang thay cho ${esc(String(spec.khoang.length))}</span></div>`); }
       model.warnings.forEach(t => m.push(`<div class="msg warn">${esc(t)}</div>`));
       // (bản 1.28) ghi chú CHỈ ĐỂ BIẾT (tách thùng, kích thước khấu cột — hình đã vẽ đủ) vào phiếu tự kiểm; ghi chú PHẢI LÀM (bản lề, xà…) vẫn hiện dưới hình
       const deBiet = t => /^Tủ tách \d+ thùng|^Khấu cột:/.test(t), gcPhieu = model.notes.filter(deBiet);
@@ -3276,6 +3280,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (act === 'close') close();
       else if (act === 'lui') lui();
       else if (act === 'them-vach') datCheDoVach(!cheDoVach);
+      else if (act === 'vua-kho') { const r = vuaKho(); if (r && r.doi.length) { nho(); spec = r.spec; sel = null; renderBays(); rebuild(); setStatus(r.doi.join(' ') + (model.errors.length ? ' Tủ còn lỗi (dòng đỏ).' : ' Bấm ↶ Lùi nếu muốn trả lại.')); } }
       else if (act === 'lk-md') { const x = spec.ngan_keo.loai.find(q => q.ma === b.dataset.v); if (x) { spec.ngan_keo.mac_dinh = x.ma; rebuild(); renderSettings(); setStatus(`Loại ngăn kéo mặc định: ${x.ten}.`); } }
       else if (act === 'nap-kt') { const N = root.__MNCF_NAP__; if (N && N.kiemTra) { setStatus('Đang hỏi kho…'); N.kiemTra().then(r => setStatus(!r.ok ? 'Không vào được kho GitHub — đang dùng v' + Core.VERSION + '. Kiểm tra mạng rồi thử lại.' : r.co_moi ? 'Có bản mới v' + r.phien_ban + ' trên kho (' + r.nguon + ') — bấm F5 tải lại trang Chenfeng để dùng (nhớ lưu bản vẽ trước).' : 'Đang dùng bản mới nhất: v' + Core.VERSION + '.'), () => setStatus('Không kiểm tra được bản mới.')); } }
       else if (act === 'dich') { const Dc = root.MNCFDich; if (Dc) { if (Dc.dangBat) Dc.tat(); else Dc.bat(); b.textContent = Dc.dangBat ? 'Tắt dịch ghi chú' : 'Bật dịch ghi chú'; setStatus(Dc.dangBat ? 'Đã bật: ghi chú tham số mẫu hiện bằng tiếng Việt.' : 'Đã tắt: ghi chú tham số mẫu hiện chữ gốc.'); } }
