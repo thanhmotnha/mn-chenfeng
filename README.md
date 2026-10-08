@@ -12,6 +12,14 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Bản vá 1.31.1 (soát lỗi bản 1.30 – 1.31)
+
+- **Bản lề:** tránh cả đáy, nóc (cánh thấp ở thân trên); cánh thấp không nhồi quá số bản lề lọt chỗ; khe giữa hai đợt còn lọt chén thì bản lề giữ chỗ; "cách đầu cánh" gõ 0 hay âm không đưa chén ra ngoài cánh. Bật khoét chén thì tủ vẽ bằng cách nhập tấm (lệnh cánh của Chenfeng không nhận lỗ chén của bảng) và có báo.
+- **Thêm vách cho vừa khổ ván:** tủ có sẵn kéo rộng nhiều (vd 4 cánh 2000 kéo 4000) nay chia tới khi hết lỗi; không chia khi việc chia không gỡ được gì, làm khoang / cánh quá hẹp, hay dời chỗ treo ra trước cột; đếm cả tấm vượt khổ theo chiều cao; phủ hồi thùng liền thì nhắc giảm "Rộng tối đa một thùng".
+- **Khung mặt hộc kéo:** thanh ngang giữa chỉ để keo + đinh khi cả hai đầu tì nẹp (khoang không cánh / 1 cánh thì khoan cam như ván thùng); ô Khung mặt thành ô chọn; tủ vẽ ở bản trước 1.31 khi bấm Sửa / Cập nhật được dựng lại đúng hộc kéo cũ (hết báo oan "thiếu 4 tấm").
+- **Phủ hồi:** rãnh hậu soi rãnh đúng chỗ trên đáy / nóc liền và nằm gọn trong hồi; khung đế khép kín khi vách sẵn có làm vách khấu (thêm đế dọc), không còn đoạn đế vụn; thẻ Phòng báo ống chờ sàn trúng vách đứng trên đáy.
+- **Đo bọc hồi:** chờ Chenfeng dựng tấm tới 45 giây (lượt chưa ra tấm thì không tính), báo rõ nếu còn tấm thử chưa hoàn tác, trả lại hướng nhìn sau khi đo.
+
 ## Khung mặt hộc kéo; nóc, đáy phủ hồi (lựa chọn); đo lệnh bọc hồi (bản 1.31)
 
 - **Khung mặt hộc kéo âm** (theo ảnh mẫu của anh, mặc định): hai nẹp đứng hai bên, thanh ngang cao 50 phẳng mặt ngăn kéo. Thanh trên sát dưới đợt, chạy suốt bề ngang khoang; thanh giữa nằm giữa các mặt. Mặt ngăn kéo lọt trong ô, khe 2 quanh mặt. Không còn xà ẩn sau khe. Ô thấp mà nhiều ngăn có thể không còn đủ chỗ (mỗi thanh chiếm 50): bảng báo đỏ, bớt ngăn hoặc nới ô. Muốn kiểu cũ: *Chuẩn xưởng → Ngăn kéo âm → Khung mặt = 0*.

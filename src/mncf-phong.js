@@ -276,7 +276,8 @@
     const o = (H.p && H.p.goc) || [0, 0, 0], chamSan = Math.abs(k.goc[2] - o[2]) < 1;
     const xk = M.info.x_khoang || [], wk = M.info.khoang || [], cells = M.info.o || [];
     const chong = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0) > 0.5;
-    const tenTam = q => String(q.ten || q.loai).toLowerCase() + (q.khoang >= 0 && /^(DOT|DAY|NOC|HAU)$/.test(q.loai) ? ` khoang ${q.khoang + 1}` : '');
+    // (1.31.1) đáy / nóc liền thùng (phủ hồi) mang den_khoang: ghi cả dải khoang, không chỉ khoang đầu
+    const tenTam = q => String(q.ten || q.loai).toLowerCase() + (q.khoang >= 0 && /^(DOT|DAY|NOC|HAU)$/.test(q.loai) ? (q.den_khoang !== undefined && q.den_khoang !== q.khoang ? ` khoang ${q.khoang + 1}–${q.den_khoang + 1}` : ` khoang ${q.khoang + 1}`) : '');
     const khoangCua = x => xk.findIndex((x0, i) => x >= x0 - 0.5 && x <= x0 + wk[i] + 0.5);
     // tấm bị trúng kèm chỗ nó đang đứng (để biết phải kéo đi bao nhiêu): tấm đứng ghi theo chiều ngang, tấm nằm ghi theo cao độ — đều tính từ mép trái / mép dưới tủ
     const choTam = q => `${tenTam(q)} (${/^(HOI|VACH|DEM)$/.test(q.loai) ? `đang ở ${g(q.x0 - bb.x0)} → ${g(q.x1 - bb.x0)}` : `cao ${g(q.z0 - bb.z0)} → ${g(q.z1 - bb.z0)}`})`;
@@ -309,6 +310,8 @@
           if (q.z0 > bb.z0 + 0.5) { if (q.loai === 'DAY' && (!day || q.z0 < day.z0)) day = q; continue; }      // tấm không chạm sàn; đáy thấp nhất = tấm phải khoét
           it.trung.push(tenTam(q)); cho2.push(/^(HOI|VACH|DEM)$/.test(q.loai) ? choTam(q) : tenTam(q));
         }
+        // (1.31.1) phủ hồi: hồi / vách đứng TRÊN đáy (không chạm sàn) — ống đi lên xuyên đáy vẫn đâm vào chân tấm đó
+        if (day) for (const q of M.parts) if (/^(HOI|VACH)$/.test(q.loai) && q.z0 > bb.z0 + 0.5 && Math.abs(q.z0 - day.z1) < 0.6 && chong(q.x0, q.x1, x - r, x + r) && chong(q.y0, q.y1, y - r, y + r)) { it.trung.push(tenTam(q)); cho2.push(choTam(q)); }
         const vt = `tâm cách mép trái tủ ${g(c.x)}, cách lưng tủ ${g(k.sau - c.y)}`;
         if (d.loai === 'thoat_san') kq.luu_y.push(`${T} nằm dưới tủ (${it.khoang >= 0 ? `khoang ${it.khoang + 1}; ` : ''}${vt}) — tủ che mất thoát sàn: nước không thoát, không thông ống được. Dời tủ hoặc để hở chân tủ chỗ đó.`);
         else if (it.trung.length) kq.luu_y.push(`${T} dưới tủ (${vt}) TRÚNG ${cho2.join(', ')} — ống ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, đâm vào tấm chạm sàn. Kéo vách tránh ra hoặc dời tủ.`);

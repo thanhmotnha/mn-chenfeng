@@ -3523,8 +3523,18 @@
       let ten = '', day = '', b = null; try { ten = e.Name; } catch (er) { /* bỏ qua */ } try { day = r2(e.Thickness); } catch (er) { /* bỏ qua */ } try { b = D.boxOf(e); } catch (er) { b = null; }
       return b ? `  ${ten} | dày ${day} | x ${r2(b[0] - X)} … ${r2(b[1] - X)} | y ${b[2]} … ${b[3]} | z ${b[4]} … ${b[5]}` : `  ${ten} | dày ${day} | (không đọc được hộp)`;
     });
+    let huongNhin = null; try { huongNhin = root.app.Viewer.CameraControl.Direction.clone(); } catch (e) { huongNhin = null; }
+    // nhìn thẳng mặt trước vào vùng thử (như nhinChoVe của veGoc: tia chuột của LEFTRIGHTBOARD không được trúng sàn / tường của phòng — đã đo, trúng là thùng nhảy theo chuột)
     const nhinVung = async (ds, diem) => {
-      try { const V = root.app.Viewer; hienHinh(ds); V.ViewToFront(); if (ds.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(ds); V.UpdateRender(); veNgay(); } catch (e) { /* bỏ qua */ }
+      try {
+        const V = root.app.Viewer; hienHinh(ds); V.ViewToFront();
+        if (typeof V.ZoomtoEntitys === 'function') {
+          if (ds.length) V.ZoomtoEntitys(ds);
+          else { let B = null; for (const e of D.all()) { try { const q = e.BoundingBox; if (q && q.min && q.max && typeof q.clone === 'function') { B = q.clone(); break; } } catch (er) { /* thử đối tượng khác */ } }
+            if (B) { B.min.set(X, 0, 0); B.max.set(X + W, S, H); V.ZoomtoEntitys([{ BoundingBox: B }]); } }
+        }
+        V.UpdateRender(); veNgay();
+      } catch (e) { /* bỏ qua */ }
       await sleep(80); try { if (diem) reChuot(diem); } catch (e) { /* bỏ qua */ } await sleep(90);
     };
     const LUOT = [
@@ -3532,17 +3542,20 @@
       { ma: 'B', ten: 'bọc hồi + CHÂN TRƯỚC + CHÂN SAU, đáy nâng 100', top: { isWrapSide: true }, bot: { isWrapSide: true, offset: 100, isDrawFooter: true, isDrawBackFooter: true, footThickness: t } },
       { ma: 'C', ten: `KHÔNG bọc hồi, nóc / đáy trùm ra 2 bên ${t} (leftExt / rightExt), offset −${t}`, top: { leftExt: t, rightExt: t, offset: -t }, bot: { leftExt: t, rightExt: t, offset: -t } },
     ];
-    let soLuot = 0, cauHinh = null;
+    let soLuot = 0, cauHinh = null, con = 0;
+    const CHO_TAM = 45000;      // Chenfeng dựng tấm SAU khi lời nhắc đóng, còn chờ tải vật liệu (máy mới + mạng chậm: tới hơn 20 s — xem moLenh) → chờ dư
     for (const lu of LUOT) {
       opt.onStatus(`Đo bọc hồi — lượt ${lu.ma}/${LUOT.length}: vẽ thử thùng ở chỗ trống, ghi lại, hoàn tác…`);
       L.push(`=== Lượt ${lu.ma} — ${lu.ten}`);
       const h0 = hmMark(), truoc = new Set(E()), m0 = logMark();
+      let loiLuot = false;
       const moi = () => E().filter(e => e && !e.IsErase && !truoc.has(e));
       let hoi = [];
       try {
         const goc = [X, 0, 0];
         let tra = await chayGoc('LEFTRIGHTBOARD', st => LUA_CHON.LR(st, { cao: H, sau: S, day: t, rong: W, ten: ['Hồi trái (đo)', 'Hồi phải (đo)'], phong: '', tu: 'MNCF-DO', khoan: null }), goc, 'goc', null, { truoc_diem: () => nhinVung([], goc) });
-        await cho(() => moi().filter(D.isBoard).length >= 2, 12000); await D.settle(350, 15000); tra();
+        if (!(await cho(() => moi().filter(D.isBoard).length >= 2, CHO_TAM))) { tra(); throw new Error(`lệnh hồi chưa dựng đủ 2 tấm sau ${CHO_TAM / 1000} giây (Chenfeng còn chờ máy chủ / tải vật liệu?) — dừng đo`); }
+        await D.settle(350, 15000); tra();
         hoi = moi().filter(D.isBoard);
         L.push('Sau LEFTRIGHTBOARD (2 hồi):', ...ghiTam(hoi));
         const hoiTruoc = hoi.map(e => { try { return D.boxOf(e).join(','); } catch (er) { return ''; } });
@@ -3556,25 +3569,29 @@
           ganLC(st.topBoardOption, st.topUiOption, Object.assign({}, nen, { name: 'Nóc (đo)' }, lu.top));
           ganLC(st.bottomBoardOption, st.bottomUiOption, Object.assign({}, nen, { name: 'Đáy (đo)', footThickness: t, isDrawFooter: false, isDrawBackFooter: false, isDrawStrengthenStrip: false }, lu.bot));
         }, diem, 'khoang', null, { hien: () => hienHinh(moi()), nhin: () => nhinVung(moi().filter(D.isBoard), null) });
-        await cho(() => E().some(e => e && !e.IsErase && !coTruoc.has(e) && D.isBoard(e)), 12000); await D.settle(500, 15000); tra();
+        // lựa chọn chỉ trả lại khi tấm đã dựng (Chenfeng đọc lựa chọn SAU khi lời nhắc đóng): trả sớm là thùng thử dựng theo cấu hình người dùng, số đo sai
+        if (!(await cho(() => E().some(e => e && !e.IsErase && !coTruoc.has(e) && D.isBoard(e)), CHO_TAM))) { tra(); throw new Error(`lệnh nóc / đáy chưa dựng tấm nào sau ${CHO_TAM / 1000} giây (Chenfeng còn chờ máy chủ / tải vật liệu?) — lượt này không tính, dừng đo`); }
+        await D.settle(500, 15000); tra();
         const sau = moi().filter(D.isBoard);
         L.push('Sau TOPBOTTOMBOARD — mọi tấm của thùng thử:', ...ghiTam(sau));
         const doi = hoi.filter((e, k) => { try { return e.IsErase || D.boxOf(e).join(',') !== hoiTruoc[k]; } catch (er) { return true; } });
         L.push(doi.length ? `Hồi BỊ ĐỔI bởi lệnh nóc / đáy: ${doi.length} tấm (xem hộp ở trên).` : 'Hồi KHÔNG đổi (cùng đối tượng, cùng hộp).');
         const moiTB = sau.filter(e => !hoi.includes(e)).length; L.push(`Lệnh nóc / đáy sinh ${moiTB} tấm mới.`);
-        soLuot++;
-      } catch (e) { L.push('LỖI: ' + String(e && e.message || e)); }
+        if (moiTB) soLuot++;
+      } catch (e) { L.push('LỖI: ' + String(e && e.message || e)); loiLuot = true; }
       const dong = logsSince(m0).filter(x => x.type !== 'COMMAND' && x.type !== 'INFO' && x.msg).map(x => `  [${x.type}] ${x.msg}`);
       if (dong.length) L.push('Dòng báo của Chenfeng:', ...dong.slice(0, 20));
       if (D.busy()) await D.cancel();
       const h1 = hmMark(); if (h0 && h1 && h1.i > h0.i) { try { await D.undo(h1.i - h0.i); } catch (e) { /* ghi bên dưới */ } }
       await D.settle(300, 8000);
-      const con = moi().length;
+      con = moi().length;
       L.push(con ? `CHÚ Ý: còn ${con} đối tượng của lượt này chưa hoàn tác được — xoá tay thùng thử ở x ≈ ${X}.` : 'Đã hoàn tác lượt này (bản vẽ như trước).', '');
-      if (con) break;
+      if (con || loiLuot) break;      // lệnh hỏng / tới trễ: Chenfeng có thể còn dựng dở — không chạy lượt sau
     }
     L.push('Lựa chọn hộp nóc / đáy của người dùng lúc đo (đã trả lại nguyên):', cauHinh || '(chưa mở được hộp)');
-    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n') };
+    // trả lại hướng nhìn của người dùng + thu phóng vừa bản vẽ (thùng thử đã hoàn tác — để nguyên thì màn hình trống trơn)
+    try { const V = root.app.Viewer; if (huongNhin && V.CameraControl && typeof V.CameraControl.LookAt === 'function') V.CameraControl.LookAt(huongNhin); if (typeof V.ZoomAll === 'function') V.ZoomAll(); V.UpdateRender(); } catch (e) { /* bỏ qua */ }
+    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n'), con, x: X };
   };
 
   /* ------------------------------------------------------------------ *
