@@ -1474,6 +1474,7 @@ T('Khung mặt hộc kéo âm (bản 1.31)', () => {
     ok(mat.every(q => Math.abs(q.h - mat[0].h) < 0.51) && near(mat[0].z, day.z1 + nk.khe_duoi) && (d => d >= g - 0.011 && d < g + 0.5 * so)(tren.z0 - (mat[mat.length - 1].z + mat[mat.length - 1].h)) && mat.slice(1).every((q, i) => near(q.z - g, xa[i].z1) && near(mat[i].z + mat[i].h + g, xa[i].z0)), 'mặt ngăn kéo bằng nhau, lọt trong ô: khe dưới 2, khe 2 với mọi thanh ngang (phần dư làm tròn 0,5 dồn lên khe trên cùng)', mat.map(q => [q.z, q.h]));
     ok(mat.every(q => near(q.x, nep[0].x1 + g) && near(q.x + q.w + g, nep[1].x0) && near(q.y, nk.lui - t)), 'mặt ngăn kéo: khe 2 với nẹp, phẳng mặt khung');
   }
+  { const Mt = C.build(sp(2)); ok(/2 thanh ngang khung mặt \(phẳng mặt ngăn kéo\), 2 nẹp che khe/.test(C.summary(Mt).join('\n')) && (C.elevationSVG(Mt).match(/stroke-dasharray/g) || []).length === (C.elevationSVG(C.build(Object.assign(sp(2), { ngan_keo: { khung_mat: 0 } }))).match(/stroke-dasharray/g) || []).length - 2, 'tóm tắt ghi thanh ngang khung mặt; hình đứng vẽ thanh khung mặt nét liền (không nét đứt như xà ẩn)', C.summary(Mt)); }
   // tắt khung mặt → như cũ (khe trên / giữa + xà ẩn sau khe)
   const M0 = C.build(Object.assign(sp(2), { ngan_keo: { khung_mat: 0 } }));
   ok(!M0.errors.length && P(M0, 'XA').every(p => !p.khung_mat && p.y0 > M0.spec.ngan_keo.lui) && P(M0, 'NEP').every(p => near(p.z1, P(M0, 'DOT')[0].z0)), 'khung_mat = 0: xà ẩn sau khe, nẹp lên tới đợt như bản 1.28');
