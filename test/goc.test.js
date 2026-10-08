@@ -31,6 +31,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     const errs = []; page.on('pageerror', e => errs.push(String(e)));
     await page.goto('https://cfcad.cn/');
     await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCFDriver && window.MNCFCore, null, { timeout: 15000 });
+    // (bản 1.31) chuẩn xưởng mới: nóc, đáy phủ hồi + khung mặt hộc kéo — lệnh gốc chỉ vẽ kết cấu cũ (hồi phủ nóc đáy) và số đo của bộ này là hộc kéo khe + xà ẩn → ghim cả hai
+    await page.evaluate(() => { window.MNCFCore.DEFAULT_SPEC.thung.noc_day = 'lot'; window.MNCFCore.DEFAULT_SPEC.ngan_keo.khung_mat = 0; });
     await page.evaluate(() => {
       const D = window.MNCFDriver, E = () => window.app.Database.ModelSpace.Entitys, song = () => E().filter(e => e && !e.IsErase);
       const lc = () => JSON.stringify(Object.keys(window.__MOCK__.gocSt).map(k => { const st = window.__MOCK__.gocSt[k]; return [k, st.m_Option, st.m_UiOption, st.topBoardOption, st.bottomBoardOption, st.m_BoardProcessOption, st.rectDrillOption, st.autoCutOption]; }));

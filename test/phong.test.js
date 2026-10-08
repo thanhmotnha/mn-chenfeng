@@ -2,6 +2,8 @@
 // Kiểm tra lõi "Phòng" (Node thuần):  node test/phong.test.js
 const P = require('../src/mncf-phong.js');
 const C = require('../src/mncf-core.js');
+// Bản 1.31: chuẩn xưởng đổi sang nóc, đáy phủ hồi. Số đo điện – nước / khấu cột trong bộ này là kết cấu cũ (hồi chạy xuống sàn) → ghim 'lot'; kết cấu mới thử ở core.test.
+C.DEFAULT_SPEC.thung.noc_day = 'lot';
 let pass = 0, fail = 0;
 const ok = (c, name, extra) => { if (c) { pass++; } else { fail++; console.log('  ✗', name, extra === undefined ? '' : JSON.stringify(extra)); } };
 const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { got: a, want: b });

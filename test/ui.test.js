@@ -42,7 +42,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.30\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.31\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -66,7 +66,7 @@ async function testPage(browser) {
     ok(JSON.stringify(await chu()) === '[false,false,false,true,"false","0"]', 'bấm "?" lần nữa: ít chữ lại', await chu());
   }
   let m = await page.evaluate(inPage.model);
-  ok(m.errors.length === 0 && m.parts === 71, 'tủ mẫu dựng 71 tấm (2 thùng rời: thêm 2 hồi; có xà + nẹp che khe hộc ngăn kéo), không lỗi', m.parts);
+  ok(m.errors.length === 0 && m.parts === 75, 'tủ mẫu dựng 75 tấm (2 thùng rời: thêm 2 hồi; có xà + nẹp che khe hộc ngăn kéo; bản 1.31: nóc / đáy liền mỗi thùng, 8 tấm khung đế), không lỗi', m.parts);
   // bộ mẫu tủ áo: chọn mẫu → bấm Dùng mẫu → kích thước, khoang đổi theo; Chuẩn xưởng giữ nguyên
   // bản 1.28: một hàng "Tủ có sẵn" ở cuối thẻ (mục đầu = tủ mặc định), mô tả nằm ở title của từng mục
   ok((await S(page, '#mncf-ui-mau option').count()) >= 9 && (await S(page, '#mncf-ui-mau option').first().innerText()) === 'Tủ mặc định 3 khoang' && /2 cánh: hai tầng treo · 2 cánh: 3 ngăn kéo \+ treo ngắn/.test(await S(page, '#mncf-ui-mau option[value="TA4-2000-2T"]').getAttribute('title')), 'hàng "Tủ có sẵn": tủ mặc định + các mẫu tủ áo, mô tả ở title');
@@ -77,7 +77,7 @@ async function testPage(browser) {
   ok((await S(page, 'input[data-k="rong"]').inputValue()) === '2000', 'ô nhập bề rộng cập nhật theo mẫu');
   await S(page, '#mncf-ui-mau').selectOption('TA6-3000'); await S(page, '[data-act="mau"]').click();
   m = await page.evaluate(inPage.model);
-  ok(m.errors.length === 0 && m.parts === 70, 'về mẫu 6 cánh 3000: 70 tấm (2 thùng rời)', m.parts);
+  ok(m.errors.length === 0 && m.parts === 74, 'về mẫu 6 cánh 3000: 74 tấm (2 thùng rời, nóc / đáy phủ hồi + khung đế)', m.parts);
   await S(page, '[data-act="lui"]').click();
   { const sl = await page.evaluate(() => window.MNCF.app.getSpec()); ok(sl.rong === 2000 && sl.khoang.length === 2 && (await S(page, 'input[data-k="rong"]').inputValue()) === '2000', '(bản 1.28) ↶ Lùi sau "Dùng": trở lại tủ 2000 đang làm (cả kích thước lẫn khoang)', [sl.rong, sl.khoang.length]); }
   await S(page, '#mncf-ui-mau').selectOption('TA6-3000'); await S(page, '[data-act="mau"]').click();
@@ -85,7 +85,7 @@ async function testPage(browser) {
 
   await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
   m = await page.evaluate(inPage.model);
-  ok(m.parts === 46 && m.dem === 2 && JSON.stringify(m.mat) === JSON.stringify([[1061, 69.5, 819.5, 203, false], [1061, 294.5, 819.5, 203, false]]), 'tủ 2000: 2 vách đệm, mặt ngăn kéo 819,5 × 203', m.mat);
+  ok(m.parts === 46 && m.dem === 2 && JSON.stringify(m.mat) === JSON.stringify([[1061, 69.5, 819.5, 172, false], [1061, 295.5, 819.5, 172, false]]), 'tủ 2000: 2 vách đệm, mặt ngăn kéo 819,5 × 172 (bản 1.31: khung mặt — thanh ngang 50 phẳng mặt thay cho khe)', m.mat);
 
   /* 1. kéo đợt +520 của khoang 2 lên 100 mm (bắt bước 5) */
   const k = await page.evaluate(inPage.scale);
@@ -208,8 +208,8 @@ async function testPage(browser) {
   ok(/2 vách khấu · sâu/.test(await S(page, '.view').innerHTML()), 'hình nhìn từ trên xuống ghi "2 vách khấu"');
   await S(page, '[data-act="vach-cot"]').click();
   await page.waitForFunction(() => { const K = (window.MNCF.app.getModel().info.khau || [])[0]; return K && K.co_a && K.co_b; }, null, { timeout: 5000 }).catch(() => {});
-  kg = await page.evaluate(() => { const M = window.MNCF.app.getModel(); return { loi: M.errors, K: M.info.khau[0], u: M.parts.filter(p => p.khau && p.khau.length).length, vk: M.parts.filter(p => p.ten === 'Vách khấu cột').length, n: M.info.khoang.length, w: M.info.khoang }; });
-  ok(kg.loi.length === 0 && kg.K.co_a && kg.K.co_b && kg.u === 0 && kg.vk === 0 && kg.n > g0.n && kg.w.includes(280), 'bấm "Đặt vách theo mép cột giữa" → khoang nông 280 trước cột (cột 250 + 2 khe hở 15), không tấm nào khoét, không vách khấu', kg);
+  kg = await page.evaluate(() => { const M = window.MNCF.app.getModel(); return { loi: M.errors, K: M.info.khau[0], u: M.parts.filter(p => p.khau && p.khau.length && p.loai !== 'DAY' && p.loai !== 'NOC').length, vk: M.parts.filter(p => p.ten === 'Vách khấu cột').length, n: M.info.khoang.length, w: M.info.khoang }; });
+  ok(kg.loi.length === 0 && kg.K.co_a && kg.K.co_b && kg.u === 0 && kg.vk === 0 && kg.n > g0.n && kg.w.includes(280), 'bấm "Đặt vách theo mép cột giữa" → khoang nông 280 trước cột (cột 250 + 2 khe hở 15), không vách khấu; ngoài nóc / đáy liền thùng (bản 1.31: phủ hồi, khoét chữ U quanh cột) không tấm nào khoét', kg);
   ok(/Đã đặt vách theo mép cột/.test(await page.evaluate(inPage.status)) && /khoang nông trước cột/.test(await S(page, '.view').innerHTML()), 'báo đã đặt vách; hình ghi "khoang nông trước cột"', await page.evaluate(inPage.status));
   await S(page, '[data-act="lui"]').click();
   await page.waitForFunction(n => window.MNCF.app.getModel().info.khoang.length === n, g0.n, { timeout: 5000 }).catch(() => {});

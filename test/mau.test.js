@@ -14,7 +14,7 @@ T('Tủ do bảng vẽ: thùng một nhóm, cánh + phào + xà chân trước m
   const kq = nhom(ten), theo = {}; ten.forEach((t, i) => { (theo[kq[i]] = theo[kq[i]] || []).push(t); });
   eq(theo.mat, ['Chân trước', 'Phào trái', 'Phào phải', 'Phào trên', 'Cánh trái', 'Cánh phải'], 'mặt tủ: xà chân trước, 3 phào, 2 cánh');
   eq(theo.hau, ['Hậu'], 'hậu');
-  eq(theo.thung, ['Hồi trái', 'Hồi phải', 'Vách', 'Đáy', 'Nóc', 'Đợt', 'Phụ trợ phào', 'Vách đệm ngăn kéo', 'Xà ngăn kéo', 'Nẹp che khe ngăn kéo', 'Vách khấu cột', 'Hậu khấu cột'],
+  eq(theo.thung, ['Hồi trái', 'Hồi phải', 'Vách', 'Đáy', 'Nóc', 'Đợt', 'Phụ trợ phào', 'Vách đệm ngăn kéo', 'Xà ngăn kéo', 'Nẹp che khe ngăn kéo', 'Vách khấu cột', 'Hậu khấu cột', 'Đế'],
     'thùng: phần còn lại — kể cả phụ trợ phào (nằm khuất sau phào), nẹp che khe ngăn kéo, vách / hậu khấu cột (ván thùng)');
 });
 

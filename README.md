@@ -12,6 +12,14 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Nóc, đáy phủ hồi (bản 1.31)
+
+- **Kết cấu thùng mới (chuẩn xưởng):** nóc và đáy liền cả thùng, phủ lên đầu hồi; hồi và vách kẹp giữa nóc và đáy. Không còn cắt nóc, đáy tại từng vách. Tủ 2 thân thì đáy thân trên đặt lên nóc thân dưới, hai tấm liền chồng nhau. Tủ tách thùng thì mỗi thùng một nóc, một đáy.
+- **Khung đế:** thân có chân thì đáy nằm trên khung đế của từng thùng: đế trước (ngay sau chân trước), đế sau, 2 đế hông, cao bằng chân, ván thùng. Cạnh cột (khấu cột) đế lùi ra trước mặt cột. Chân trước vẫn là tấm mặt như cũ.
+- **Lệnh gốc:** lệnh nóc / đáy của Chenfeng có ô bọc hồi nhưng chưa đo nó làm gì với hồi, nên tủ phủ hồi được vẽ bằng cách nhập tấm (vẫn là một module đổi Rộng / Sâu / Cao) và bảng báo một dòng. Muốn vẽ bằng lệnh gốc như cũ: *Chuẩn xưởng → Thùng → Kết cấu nóc, đáy → Hồi phủ nóc, đáy*.
+- **Khung mặt hộc kéo âm** (theo ảnh mẫu của anh): hai nẹp đứng hai bên, thanh ngang cao 50 phẳng mặt ngăn kéo: thanh trên sát dưới đợt chạy suốt bề ngang khoang, thanh giữa nằm giữa các mặt. Mặt ngăn kéo lọt trong ô, khe 2 quanh mặt. Không còn xà ẩn sau khe. Muốn kiểu cũ: *Chuẩn xưởng → Ngăn kéo âm → Khung mặt = 0*.
+- Thông số lưu từ bản cũ tự sang kết cấu mới và báo một dòng.
+
 ## Nút "Thêm vách cho vừa khổ ván" (bản 1.30.1)
 
 - Chọn tủ có sẵn rồi kéo rộng ra (vd tủ 4 cánh 2000 đặt rộng 2600) làm khoang rộng 1280, tấm hậu rộng hơn khổ 1220 nên bảng báo đỏ và khoá nút Vẽ. Nay dưới các dòng đỏ đó có nút **Thêm vách cho vừa khổ ván**: bảng tách đôi khoang rộng nhất đang có tấm vượt khổ, lặp tới khi hết. Mỗi khoang mới giữ số cánh, đợt, ngăn kéo / suốt treo của khoang cũ. Không ưng thì bấm ↶ Lùi.
