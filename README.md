@@ -12,6 +12,13 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Bản lề Kolity K53 / Imundex thép, số bản lề theo tiêu chuẩn (bản 1.30)
+
+- **Chuẩn xưởng → Cánh → Loại bản lề:** Kolity K53 (mặc định) hoặc Imundex thép 105° của An Cường, hoặc "Tự gõ số". Chọn loại thì chén Ø35, sâu chén và tâm chén cách mép cánh lấy theo loại (K53: sâu 12, cánh dày 15–25; Imundex thép: sâu 11,5, cánh dày 14–22; tâm chén cách mép 21,5 cho cả hai). Cánh dày ngoài khoảng của loại đang chọn thì bảng cảnh báo.
+- **Số bản lề mỗi cánh** theo chiều cao cánh: đến 900 là 2, đến 1600 là 3, đến 2000 là 4, cao hơn là 5; cánh rộng hơn 600 thêm 1. Bản lề trên / dưới cách đầu cánh 100 (đổi ở Chuẩn xưởng), các bản lề giữa chia đều. Khoang có hộc kéo âm có nẹp che khe: bản lề tự tránh vùng nẹp rồi chia đều lại.
+- Vị trí bản lề hiện thành vòng tròn trên cánh ở hình đứng; bảng kê ghi số bản lề mỗi cánh, phần phụ kiện có tổng số bản lề theo loại. Khoét chén vào cánh khi vẽ vẫn là lựa chọn thử nghiệm (tắt sẵn). Chọn "hậu soi rãnh" ở Chuẩn xưởng nay ra dày 6,5 (trước đó vẫn còn đặt 5).
+- **Chưa đo:** khoảng cách mép cánh tới mép chén (K) của cả hai hãng chưa có tài liệu chính hãng, bảng đang lấy 4. Xưởng khoan thử một cánh rồi báo lại số đúng.
+
 ## Hậu 6,5; mã tủ không còn dính vào tên tấm (bản 1.29.2)
 
 - **Hậu dày 6,5** là mặc định cho cả hậu phủ sau lẫn hậu soi rãnh (xưởng chỉ có ván mỏng 6,5, không có 6 hay 5). Thông số đang lưu để đúng mặc định cũ (6 hoặc 5) thì bảng tự đổi sang 6,5 và báo một dòng; số gõ tay thì giữ. Đáy hộp ngăn kéo là tham số của mẫu Chenfeng — bấm *Chuẩn xưởng → Ngăn kéo → Dò kho mẫu*, dòng báo nay kể tên + giá trị từng tham số của mỗi mẫu; gửi dòng đó để chốt tham số dày đáy rồi bảng ghi đè 6,5 cho mọi loại.
