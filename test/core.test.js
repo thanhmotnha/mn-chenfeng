@@ -33,7 +33,7 @@ T('Tủ mẫu 3000×2800: dựng không lỗi, đúng số tấm', () => {
   ok(M.parts.length === 69, '69 tấm (63 tấm tủ + 2 vách đệm + 2 xà + 2 nẹp che khe)', M.parts.length);
   const dem = {}; for (const p of M.parts) dem[p.loai] = (dem[p.loai] || 0) + 1;
   eq(dem, { HOI: 4, VACH: 4, DAY: 6, NOC: 6, HAU: 6, DOT: 8, CHAN: 3, PHAO: 7, PHU: 7, DEM: 2, XA: 2, NEP: 2, CANH: 12 }, 'số tấm theo loại');
-  eq(M.info.canh, { rong: [481], cao: [2147, 547], so: 12 }, 'cánh');
+  eq(M.info.canh, { rong: [481], cao: [2147, 547], so: 12, ban_le: 42 }, 'cánh (bản 1.30: 6 cánh cao 2147 × 5 bản lề + 6 cánh 547 × 2)');
   eq([M.info.hop.x0, M.info.hop.x1, M.info.hop.y0, M.info.hop.y1, M.info.hop.z0, M.info.hop.z1], [0, 3000, -17.5, 580, 0, 2800], 'hộp bao = phủ bì');
   eq(overlapAny(M), [], 'không tấm nào đè nhau');
 });
@@ -1311,6 +1311,69 @@ T('Hậu 6,5 — ván mỏng của xưởng (bản 1.29.2)', () => {
   eq([nc({ kieu: 'phu', t: 6 }, '1.29.1'), nc({ kieu: 'mong', t: 5 }, '1.28.0'), nc({ kieu: 'phu', t: 9 }, '1.29.1'), nc({ kieu: 'day', t: 17.5 }, '1.29.1'), nc({ kieu: 'phu', t: 6 }, '1.29.2')],
     [[6.5, 1], [6.5, 1], [9, 0], [17.5, 0], [6, 0]], 'nâng cấp: phủ 6 → 6,5 (báo), soi rãnh 5 → 6,5 (báo); 9 gõ tay giữ; hậu dày lọt lòng giữ; đã ở 1.29.2 thì không đổi');
   ok(/6,5/.test(C.summary(C.build({})).join ? C.summary(C.build({})).join(' ') : String(C.summary(C.build({})))), 'tóm tắt tủ ghi hậu 6,5');
+});
+
+T('Bản lề Kolity K53 / Imundex thép — số theo tiêu chuẩn, vị trí, tránh nẹp hộc kéo (bản 1.30)', () => {
+  // số bản lề mỗi cánh: cao ≤ 900 → 2, ≤ 1600 → 3, ≤ 2000 → 4, còn lại 5; cánh rộng hơn 600 thêm 1 (mốc chung của Blum / Hettich / Häfele và các xưởng VN)
+  const so = (h, w) => C.banLeCanh(h, w).so;
+  eq([so(500, 400), so(900, 400), so(901, 400), so(1600, 400), so(1601, 400), so(2000, 400), so(2001, 400), so(2600, 400)], [2, 2, 3, 3, 4, 4, 5, 5], 'số bản lề theo chiều cao (mốc 900 / 1600 / 2000)');
+  eq([so(1500, 600), so(1500, 601), so(2400, 650)], [3, 4, 6], 'cánh rộng hơn 600: thêm 1 bản lề');
+  eq(C.banLeCanh(2000, 450), { so: 4, z: [100, 700, 1300, 1900], ket: false }, 'đầu / cuối cách đầu cánh 100, giữa chia đều');
+  eq(C.banLeCanh(300, 400).z, [75, 225], 'cánh thấp: đầu cánh cách cao / 4 (không dồn hai chén vào nhau)');
+  eq(C.banLeCanh(1500, 450, { cach_dau: 80 }).z, [80, 750, 1420], 'cách đầu cánh theo Chuẩn xưởng');
+  // nẹp hộc kéo âm ở chân cánh (0 … 520): bản lề dưới lên ngay trên vùng (+ nửa chén + 5), các bản lề giữa chia đều lại tới bản lề trên cùng
+  eq(C.banLeCanh(2200, 450, { tranh: [[0, 520]] }), { so: 5, z: [542.5, 931.875, 1321.25, 1710.625, 2100], ket: false }, 'tránh nẹp hộc kéo ở chân: dời lên, chia đều lại');
+  eq(C.banLeCanh(2000, 450, { tranh: [[900, 1300]] }).z, [100, 711.25, 1322.5, 1900], 'vùng giữa cánh: dời ra phía gần hơn (lên), bản lề không bị dời chia đều lại');
+  eq(C.banLeCanh(2000, 450, { tranh: [[0, 1000]] }).z, [1022.5, 1315, 1607.5, 1900], 'hai bản lề cùng rơi vào vùng: không chồng lên nhau');
+  ok(C.banLeCanh(600, 400, { tranh: [[0, 600]] }).ket === true, 'không còn chỗ ngoài vùng: báo (ket)');
+  // loại bản lề: số chén theo loại; "Tự gõ số" giữ số người dùng
+  const LB = Object.fromEntries(C.LOAI_BAN_LE.map(l => [l.ma, l]));
+  ok(LB.k53 && LB.imundex && LB.tu_chon && LB.k53.d === 35 && LB.k53.sau === 12 && LB.imundex.sau === 11.5 && LB.imundex.day[0] === 14 && LB.imundex.day[1] === 22 && LB.k53.day[0] === 15 && LB.k53.day[1] === 25, 'bảng loại: K53 Ø35 sâu 12 cánh 15–25; Imundex thép Ø35 sâu 11,5 cánh 14–22');
+  eq(C0.DEFAULT_SPEC.canh.loai_ban_le, 'k53', 'mặc định: Kolity K53');
+  eq(C.normalize({}).canh.chen, { d: 35, sau: 12, tam_mep: 21.5, cach_dau: 100 }, 'K53: chén Ø35 sâu 12, tâm chén cách mép 21,5 (K 4 + Ø/2)');
+  eq(C.normalize({ canh: { loai_ban_le: 'imundex', chen: { sau: 13, tam_mep: 30 } } }).canh.chen, { d: 35, sau: 11.5, tam_mep: 21.5, cach_dau: 100 }, 'chọn Imundex: số chén theo loại, số gõ tay bị thay');
+  eq(C.normalize({ canh: { loai_ban_le: 'tu_chon', chen: { sau: 13, tam_mep: 23, cach_dau: 90 } } }).canh.chen, { d: 35, sau: 13, tam_mep: 23, cach_dau: 90 }, 'Tự gõ số: giữ số người dùng');
+  eq(C.normalize({ canh: { loai_ban_le: 'hang_la' } }).canh.loai_ban_le, 'k53', 'mã loại lạ → mặc định');
+  ok(C.normalize({ khoang: [{ canh: 1, ban_le: 'phai' }] }).khoang[0].ban_le === 'phai', 'khoang[i].ban_le (bên trái / phải) không lẫn với loại bản lề');
+  // dựng tủ: mọi cánh mang ban_le { so, z, ben, loai }; cánh mở phải = bản lề bên phải
+  const M = C.build({ rong: 1000, cao: 2200, than: { cao_duoi: 0 }, khoang: [{ canh: 2, dot: [520], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { canh: 1, ban_le: 'phai' }] });
+  eq(M.errors, [], 'không lỗi');
+  const cs = P(M, 'CANH');
+  ok(cs.length === 3 && cs.every(p => p.ban_le && p.ban_le.so === C.banLeCanh(p.z1 - p.z0, p.x1 - p.x0).so && p.ban_le.loai === 'k53'), 'mọi cánh có số bản lề theo cao + rộng của chính nó', cs.map(p => p.ban_le));
+  eq(cs.map(p => p.ban_le.ben), ['trai', 'phai', 'phai'], 'khoang 2 cánh: trái / phải; khoang 1 cánh bản lề phải');
+  eq(M.info.canh.ban_le, cs.reduce((n, p) => n + p.ban_le.so, 0), 'tổng bản lề ở info.canh');
+  // khoang có hộc kéo âm + nẹp che khe: bản lề cánh không chạm vùng nẹp
+  const tr = M.info.tranh_bl || [];
+  ok(tr.length === 1 && tr[0].khoang === 0, 'vùng nẹp hộc kéo ghi ở info.tranh_bl', tr);
+  for (const p of cs.filter(p => p.khoang === 0)) ok(p.ban_le.z.every(v => p.z0 + v - 17.5 >= tr[0].z1 || p.z0 + v + 17.5 <= tr[0].z0), 'bản lề cánh khoang có hộc kéo nằm ngoài vùng nẹp', { z: p.ban_le.z.map(v => p.z0 + v), vung: [tr[0].z0, tr[0].z1] });
+  ok(M.notes.some(n => /bản lề .*tránh vùng này/.test(n)), 'ghi chú nói bản lề đã tránh vùng nẹp', M.notes);
+  ok(cs.every(p => !p.holes.length), 'chưa bật khoét chén: cánh không có lỗ');
+  // khoét chén: lỗ tròn Ø35 sâu theo loại, tâm cách mép phía bản lề
+  const Mk = C.build({ rong: 1000, cao: 2200, than: { cao_duoi: 0 }, canh: { chen_ban_le: true, loai_ban_le: 'imundex' }, khoang: [{ canh: 1 }, { canh: 1, ban_le: 'phai' }] });
+  const [c1, c2] = P(Mk, 'CANH');
+  ok(c1.holes.length === c1.ban_le.so && c1.holes.every(h => h.kieu === 'tron' && h.r === 17.5 && h.sau === 11.5 && h.u === 21.5) && JSON.stringify(c1.holes.map(h => h.v)) === JSON.stringify(c1.ban_le.z), 'cánh mở trái: chén cách mép trái 21,5, sâu 11,5 (Imundex), đúng vị trí bản lề', c1.holes);
+  ok(c2.holes.every(h => near(h.u, (c2.x1 - c2.x0) - 21.5)), 'cánh mở phải: chén cách mép phải', c2.holes.map(h => h.u));
+  // cánh dày ngoài khoảng của loại: cảnh báo
+  ok(C.build({ van: { t_canh: 25 }, canh: { loai_ban_le: 'imundex' } }).warnings.some(w => /ngoài khoảng dày cánh của bản lề Imundex/.test(w)), 'cánh 25 với Imundex (14–22): cảnh báo');
+  ok(!C.build({ van: { t_canh: 25 } }).warnings.some(w => /khoảng dày cánh/.test(w)), 'cánh 25 với K53 (15–25): không cảnh báo');
+  // bảng kê + tóm tắt + hình
+  const cl = C.cutList(M);
+  ok(cl.rows.filter(r => r.nhom === 'Cánh').every(r => /^\d bản lề \/ cánh$/.test(r.ghi_chu)), 'bảng kê: mỗi dòng cánh ghi số bản lề / cánh', cl.rows.filter(r => r.nhom === 'Cánh').map(r => r.ghi_chu));
+  const pk = cl.phu_kien.find(x => /^Bản lề Kolity K53/.test(x.ten));
+  ok(pk && pk.sl === M.info.canh.ban_le && /sâu 12/.test(pk.ghi_chu) && /3 cánh/.test(pk.ghi_chu), 'phụ kiện: tổng bản lề theo loại', cl.phu_kien);
+  ok(/Bản lề Kolity K53/.test(C.cutListCSV(M)), 'CSV có dòng bản lề');
+  ok(C.summary(M).some(l => new RegExp(`^Cánh: 3 tấm.*, ${M.info.canh.ban_le} bản lề\\.$`).test(l)), 'tóm tắt: tổng bản lề');
+  ok((C.elevationSVG(M).match(/data-ban-le="1"/g) || []).length === M.info.canh.ban_le, 'hình đứng: một vòng tròn cho mỗi bản lề');
+  ok(!/data-ban-le/.test(C.elevationSVG(M, { canh: false })), 'tắt hiện cánh: không vẽ bản lề');
+  ok(C.cutList(Mk).rows.filter(r => r.nhom === 'Cánh').every(r => /bản lề \/ cánh, khoét chén/.test(r.ghi_chu)), 'bật khoét chén: ghi chú nói cả số bản lề lẫn khoét chén');
+  // nâng cấp dữ liệu cũ (< 1.30): số chén tự gõ thì giữ (loại "Tự gõ số"); số mặc định cũ thì theo K53
+  const n1 = C.nangCap({ canh: { chen_ban_le: true, chen: { d: 35, sau: 13, tam_mep: 24, cach_dau: 100 } } }, '1.29.2');
+  ok(n1.spec.canh.loai_ban_le === 'tu_chon' && C.normalize(n1.spec).canh.chen.sau === 13 && n1.doi.some(d => /Tự gõ số/.test(d)), 'bản cũ có số chén tự gõ: giữ', n1);
+  const n2 = C.nangCap({ canh: { chen_ban_le: true, chen: { d: 35, sau: 12.5, tam_mep: 22.5, cach_dau: 100 } } }, '1.29.2');
+  ok(n2.spec.canh.loai_ban_le === undefined && C.normalize(n2.spec).canh.chen.tam_mep === 21.5 && n2.doi.some(d => /Kolity K53/.test(d)), 'bản cũ số mặc định + đang khoét chén: theo K53, báo', n2);
+  const n3 = C.nangCap({ canh: { chen_ban_le: false, chen: { d: 35, sau: 12.5, tam_mep: 22.5, cach_dau: 100 } } }, '1.29.2');
+  ok(!n3.doi.length, 'bản cũ không khoét chén, số mặc định: không báo gì', n3.doi);
+  ok(!C.nangCap({ canh: { loai_ban_le: 'imundex', chen: { sau: 11.5 } } }, '1.30.0').doi.length, 'bản 1.30: không đụng');
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

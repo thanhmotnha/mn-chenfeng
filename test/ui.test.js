@@ -42,7 +42,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.29\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.30\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -478,9 +478,25 @@ async function testHau(browser) {
   h = await hau();
   ok((await S(page, '#mncf-hau-t').inputValue()) === '17.5' && h.length === 4 && h.every(x => x[0] === 17.5 && x[1] === 562.5 && x[3] === 'Cam3Tp') && (await S(page, '#mncf-hau-mep').count()) === 0, 'đổi sang hậu dày: dày 17,5, lọt lòng, khoan cam; các ô của hậu phủ ẩn', h);
   await S(page, '#mncf-hau-kieu').selectOption('mong'); await page.waitForTimeout(350);
-  ok((await S(page, '#mncf-hau-t').inputValue()) === '5' && (await S(page, '#mncf-hau-lui').count()) === 1, 'đổi sang hậu soi rãnh: dày 5, hiện các ô của hậu soi rãnh');
+  ok(/^6[.,]5$/.test(await S(page, '#mncf-hau-t').inputValue()) && (await S(page, '#mncf-hau-lui').count()) === 1, 'đổi sang hậu soi rãnh: dày 6,5 (bản 1.30 — xưởng không có ván 5), hiện các ô của hậu soi rãnh', await S(page, '#mncf-hau-t').inputValue());
   await S(page, '#mncf-hau-kieu').selectOption('phu'); await page.waitForTimeout(350);
   ok(/^6[.,]5$/.test(await S(page, '#mncf-hau-t').inputValue()), 'về hậu phủ: dày 6,5 (bản 1.29.2)', await S(page, '#mncf-hau-t').inputValue());
+  // (bản 1.30) Chuẩn xưởng → Cánh → Loại bản lề: chọn loại thì số chén theo loại (ô số ẩn, số ở dòng giải thích); "Tự gõ số" mới hiện ô; hình vẽ một vòng tròn cho mỗi bản lề
+  {
+    const giai = () => S(page, 'fieldset:has(#mncf-canh-loai_ban_le) [data-giai]').textContent();
+    const chen = () => page.evaluate(() => window.MNCF.app.getSpec().canh.chen);
+    const vong = () => page.evaluate(() => [document.getElementById('mncf-host').shadowRoot.querySelectorAll('[data-ban-le]').length, window.MNCF.app.getModel().info.canh.ban_le]);
+    ok((await S(page, '#mncf-canh-loai_ban_le').inputValue()) === 'k53' && (await S(page, '#mncf-canh-chen-tam_mep').count()) === 0 && /Kolity K53.*sâu 12, tâm chén cách mép cánh 21,5/.test(await giai()), 'mặc định Kolity K53: ô số chén ẩn, dòng giải thích ghi Ø / sâu / tâm', await giai());
+    const [n0, t0] = await vong(); ok(n0 === t0 && t0 > 0, 'hình đứng: một vòng tròn cho mỗi bản lề', [n0, t0]);
+    await S(page, '#mncf-canh-loai_ban_le').selectOption('imundex'); await page.waitForTimeout(350);
+    ok((await chen()).sau === 11.5 && /Imundex.*sâu 11,5.*cánh dày 14–22/.test(await giai()), 'chọn Imundex thép: chén sâu 11,5, cánh 14–22', [await chen(), await giai()]);
+    await S(page, '#mncf-canh-loai_ban_le').selectOption('tu_chon'); await page.waitForTimeout(350);
+    ok((await S(page, '#mncf-canh-chen-sau').inputValue()) === '11.5' && (await S(page, '#mncf-canh-chen-tam_mep').inputValue()) === '21.5', '"Tự gõ số": hiện ô số, giữ số của loại vừa chọn');
+    await S(page, '#mncf-canh-chen-sau').fill('13'); await page.waitForTimeout(350);
+    ok((await chen()).sau === 13 && /tự gõ số.*sâu 13/.test(await giai()), 'gõ sâu chén 13', [await chen(), await giai()]);
+    await S(page, '#mncf-canh-loai_ban_le').selectOption('k53'); await page.waitForTimeout(350);
+    ok((await chen()).sau === 12 && (await S(page, '#mncf-canh-chen-sau').count()) === 0, 'về K53: sâu 12, ô số ẩn lại');
+  }
   // gộp khoang cho vừa khổ ván: thân dưới cao 2148 vẫn 2 tấm 949; thân trên cao 548 gộp thành 1 tấm 1898
   await S(page, '#mncf-hau-chia').selectOption('kho_van'); await page.waitForTimeout(350);
   h = await hau();
