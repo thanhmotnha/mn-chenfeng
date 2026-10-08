@@ -1,6 +1,6 @@
-/* Một Nhà · Trợ lý trang sản xuất Chenfeng — v1.30.1 */
+/* Một Nhà · Trợ lý trang sản xuất Chenfeng — v1.31.0 */
 ;(function(){
-var __MNCF_SX_PB__ = "1.30.1";
+var __MNCF_SX_PB__ = "1.31.0";
 /*
  * Một Nhà · TRỢ LÝ TRANG SẢN XUẤT (bản 1.22 — anh Jason 04/10/2026 14:14: "làm cả 2").
  * Chạy ở tab "晨丰生产管理系统" (sc.leye.site/#/cadSingleAdd…) mà lệnh tách đơn CD của Chenfeng mở ra sau khi bấm 打开. Ba việc, đều dựa trên số đo trang thật 04/10/2026:
