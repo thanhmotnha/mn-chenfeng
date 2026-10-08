@@ -1614,7 +1614,7 @@
 
   D.chuanHoa = async (ent, opt) => {
     D.boManChe();
-    opt = Object.assign({ hau: 6, mep: 1, khoan: '', khoan_lai: true, onStatus() {} }, opt || {});
+    opt = Object.assign({ hau: Core.DEFAULT_SPEC.hau.t, mep: 1, khoan: '', khoan_lai: true, onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
     const hong = ly_do => ({ ok: false, ly_do });
     if (!D.available()) return hong('Không thấy Chenfeng trong trang này.');

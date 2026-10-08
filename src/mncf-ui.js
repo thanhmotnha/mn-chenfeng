@@ -1107,7 +1107,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const bd = $('[data-act="dat"]'); if (bd) bd.disabled = busy;
       const bdt = $('[data-act="dat-tuong"]'); if (bdt) bdt.disabled = busy;
       capDlg();
-      const chb = $('[data-act="chuanhoa"]'); if (chb) { chb.disabled = busy; chb.setAttribute('aria-label', `Chuẩn hoá mẫu kho đang chọn → ván ${hien(spec.van.t)} · hậu ${hien(spec.hau.t || 6)} phủ sau`); }
+      const chb = $('[data-act="chuanhoa"]'); if (chb) { chb.disabled = busy; chb.setAttribute('aria-label', `Chuẩn hoá mẫu kho đang chọn → ván ${hien(spec.van.t)} · hậu ${hien(spec.hau.t || Core.DEFAULT_SPEC.hau.t)} phủ sau`); }
       capNoi(); capHinh();
       const j = $('.pri[data-act="json"]'); if (j) j.disabled = model.errors.length > 0;
       renderBar();
@@ -1795,7 +1795,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (typeof Drv.dayVan === 'function' && spec.van.t > 0) {
         try { dv = await Drv.dayVan(chon[0], spec.van.t, { onStatus: setStatus }); } catch (e) { dv = { ok: false, ly_do: String(e && e.message || e) }; }
       }
-      try { r = await Drv.chuanHoa((dv && dv.tam) || chon[0], { hau: spec.hau.t || 6, mep: spec.hau.mep, khoan: spec.khoan.thung, onStatus: setStatus }); }
+      try { r = await Drv.chuanHoa((dv && dv.tam) || chon[0], { hau: spec.hau.t || Core.DEFAULT_SPEC.hau.t, mep: spec.hau.mep, khoan: spec.khoan.thung, onStatus: setStatus }); }
       catch (e) { r = { ok: false, ly_do: String(e && e.message || e) }; }
       busy = false; rebuild();
       const h = [], dvDoi = !!(dv && dv.ok && !dv.da_dung);
@@ -2388,7 +2388,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const el = $('.kmau'); if (!el) return;
       const m = kho.chon, K = khungDangChon();
       el.innerHTML = m ? `${m.hinh ? `<img src="${esc(m.hinh)}" alt="">` : ''}<div><b>${esc(m.ten)}</b>${m.kt ? `<br>Kích thước mặc định của mẫu: ${m.kt.map(hien).join(' × ')} (rộng × sâu × cao)` : ''}</div>` : '<span class="hint tt" style="margin:0">Bấm vào một mẫu ở trên.</span>';
-      const chu = $('[data-ui="kho-chuan-chu"]'); if (chu) chu.textContent = `Theo chuẩn xưởng: ván ${hien(spec.van.t)}${spec.hau.kieu === 'phu' ? ` · hậu ${hien(spec.hau.t || 6)} li phủ sau` : ''}`;
+      const chu = $('[data-ui="kho-chuan-chu"]'); if (chu) chu.textContent = `Theo chuẩn xưởng: ván ${hien(spec.van.t)}${spec.hau.kieu === 'phu' ? ` · hậu ${hien(spec.hau.t || Core.DEFAULT_SPEC.hau.t)} li phủ sau` : ''}`;
       const bk = $('[data-act="kho-khung"]'), bd = $('[data-act="kho-dat"]'), bv = $('[data-act="kho-ve"]'), ban = $('.khochon');
       if (bk) { bk.hidden = !K; bk.disabled = !m || busy; if (K) bk.textContent = `Dùng mẫu này cho khung ${K.ten}`; }
       if (bd) { bd.disabled = !m || busy; bd.className = K ? 'sec' : 'pri'; }
@@ -2503,7 +2503,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return null; }
       ctx = ctx || {};
       const bat = n => { const el = $(`[data-ui="${n}"]`); return !el || el.checked; }, chuan = bat('kho-chuan');
-      const opt = Object.assign({ onStatus: setStatus, khoan: spec.khoan.thung, ten_viet: bat('kho-ten'), day: chuan ? spec.van.t : 0, hau: chuan && spec.hau.kieu === 'phu' ? (spec.hau.t || 6) : 0, mep: spec.hau.mep, kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }, o);
+      const opt = Object.assign({ onStatus: setStatus, khoan: spec.khoan.thung, ten_viet: bat('kho-ten'), day: chuan ? spec.van.t : 0, hau: chuan && spec.hau.kieu === 'phu' ? (spec.hau.t || Core.DEFAULT_SPEC.hau.t) : 0, mep: spec.hau.mep, kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }, o);
       busy = true; paint(); veChon(); if (Ph) paintPhong();
       if (!opt.corner) { panel.hidden = true; chipChu.textContent = 'Bấm 1 điểm trên bản vẽ để đặt mẫu (góc trái – trước – dưới)… Esc = thôi'; chip.hidden = false; }
       let rep;
