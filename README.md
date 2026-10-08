@@ -12,6 +12,11 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Hậu 6,5; mã tủ không còn dính vào tên tấm (bản 1.29.2)
+
+- **Hậu dày 6,5** là mặc định cho cả hậu phủ sau lẫn hậu soi rãnh (xưởng chỉ có ván mỏng 6,5, không có 6 hay 5). Thông số đang lưu để đúng mặc định cũ (6 hoặc 5) thì bảng tự đổi sang 6,5 và báo một dòng; số gõ tay thì giữ. Đáy hộp ngăn kéo là tham số của mẫu Chenfeng — bấm *Chuẩn xưởng → Ngăn kéo → Dò kho mẫu*, dòng báo nay kể tên + giá trị từng tham số của mỗi mẫu; gửi dòng đó để chốt tham số dày đáy rồi bảng ghi đè 6,5 cho mọi loại.
+- **Trang sản xuất của Chenfeng nối nội dung ghi chú vào tên tấm** ("K1-TĐáy29A99WHS", khó chọn). Mã tủ mà bảng gắn vào tấm (để chọn 1 tấm là tìm lại cả tủ) nay nằm ở *tên* ghi chú ("MNCF 29A99WHS"), nội dung để trống — tên tấm trên trang sản xuất và tem sạch trở lại với tủ vẽ từ bản này; tủ vẽ bản cũ vẫn tìm lại được (bảng đọc cả hai dạng), bấm *Cập nhật tủ* là chuyển sang dạng mới.
+
 ## Kho mẫu gọn hơn; thăm dò lõi Chenfeng (bản 1.29.1)
 
 - **Thẻ Kho mẫu:** ô *Thư mục* chia ba nhóm **Tủ / Phụ kiện / Khác** theo tên thư mục (bản lề, tay nắm, ray, chân, đèn, khoá… là phụ kiện). Thư mục **không có mẫu** (kể cả thư mục con) tự ẩn: sau khi đọc cây thư mục, bảng đếm ngầm số mẫu từng thư mục (chỉ đọc, mỗi thư mục một lần hỏi) rồi dọn danh sách một lần. Thư mục đang mở luôn hiện.

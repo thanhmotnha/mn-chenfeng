@@ -746,7 +746,7 @@ ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản v�
 </ol></fieldset>
 <fieldset><legend>Tủ được dựng thế nào</legend><ul class="sum">
 <li>Thùng: tủ rộng tự <b>tách thành các thùng rời</b>, mỗi thùng không quá 2000 (đổi ở Chuẩn xưởng → Thùng) — chỗ tách là 2 hồi áp lưng, phào và chân trước là khung chung. Trong một thùng: hồi chạy suốt, vách dùng chung giữa 2 khoang; đáy, nóc lọt lòng từng khoang.</li>
-<li><b>Hậu 6 li phủ sau lưng thùng</b>: hậu ốp lên mép sau của hồi, vách, đáy, nóc; chia thành nhiều tấm, mối nối nằm trên vách; bắn đinh từ đằng sau nên Chenfeng không khoan cam cho hậu. Thùng lùi lại 6 mm, sâu thùng vẫn là sâu phủ bì. Đổi kiểu hậu, độ dày, cách chia tấm ở tab Chuẩn xưởng → Hậu.</li>
+<li><b>Hậu 6,5 li phủ sau lưng thùng</b>: hậu ốp lên mép sau của hồi, vách, đáy, nóc; chia thành nhiều tấm, mối nối nằm trên vách; bắn đinh từ đằng sau nên Chenfeng không khoan cam cho hậu. Thùng lùi lại 6 mm, sâu thùng vẫn là sâu phủ bì. Đổi kiểu hậu, độ dày, cách chia tấm ở tab Chuẩn xưởng → Hậu.</li>
 <li>Tủ cao hơn khổ ván: chia thân dưới + thân kịch trần tại "cao thân dưới".</li>
 <li>Xà chân trước nằm ở mặt phẳng cánh, che hết chân hồi và chân vách. Phào 2 bên + trên có thanh phụ trợ phía sau.</li>
 <li><b>Ngăn kéo âm</b> nằm sau cánh mở: mỗi bên có bản lề có một vách đệm cách hồi/vách 50 (khe còn lại là chỗ cho bản lề), ngăn kéo nằm giữa hai vách đệm nên kéo ra không vướng bản lề.</li>
@@ -760,7 +760,7 @@ ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản v�
 ${cf ? `<fieldset><legend>Module lấy từ Kho mẫu Chenfeng (bản 1.11–1.12)</legend><ul class="sum">
 <li><b>Dày ván</b> (bản 1.12): mẫu của Chenfeng vẽ với ván 18. Nút chuẩn hoá đổi luôn tham số dày ván (BH) của module sang ván của xưởng (Chuẩn xưởng → Ván) trước khi chuyển hậu; tấm nào mẫu không nối với BH (thường là cánh) thì thẻ Kết quả nêu tên để đổi tay. Các mẫu một thùng trong kho đã được đặt sẵn BH = 17,5 nên chèn ra là ván 17,5.</li>
 <li>Thùng tủ trong kho của Chenfeng làm theo kiểu Trung: <b>hậu dày 18 lọt lòng</b>, hoặc <b>hậu mỏng âm rãnh</b> lùi 17–20 li có thanh giằng. Chèn module vào bản vẽ như thường, bấm chọn 1 tấm của nó rồi bấm <b>Chuẩn hoá mẫu kho đang chọn</b> (dưới nút "Sửa tủ đang chọn").</li>
-<li>Bảng đổi module đó sang chuẩn xưởng: <b>hậu 6 li phủ sau lưng thùng</b> (lùi mép 1, không khoan), hồi / nóc / đáy / đợt lùi mép sau cho vừa, bỏ thanh giằng, đổi kiểu khoan sang kiểu của xưởng rồi cho Chenfeng khoan lại. Bề dày hậu và mép lùi lấy ở Chuẩn xưởng → Hậu.</li>
+<li>Bảng đổi module đó sang chuẩn xưởng: <b>hậu 6,5 li phủ sau lưng thùng</b> (lùi mép 1, không khoan), hồi / nóc / đáy / đợt lùi mép sau cho vừa, bỏ thanh giằng, đổi kiểu khoan sang kiểu của xưởng rồi cho Chenfeng khoan lại. Bề dày hậu và mép lùi lấy ở Chuẩn xưởng → Hậu.</li>
 <li>Module vẫn là module tham số của Chenfeng: đổi Rộng / Sâu / Cao, chân, dày ván ở ô <b>Thông số</b> thì hậu vẫn phủ kín. Tổng rộng / sâu / cao của thùng không đổi.</li>
 <li>Chỉ sửa module <b>trên bản vẽ</b> — mẫu trong kho giữ nguyên. Làm nhầm: thẻ Kết quả → <b>Hoàn tác lần chuẩn hoá này</b>.</li>
 <li>Chưa làm được (bảng báo lý do, không sửa gì): module đang xoay, tủ góc, tủ né dầm / cột có hậu khuyết hoặc hậu nằm sâu, bộ ghép nhiều thùng (tủ sách, tủ sảnh, tatami… — hồi và vách là tấm tự động của Chenfeng).</li>
@@ -3308,7 +3308,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'lk-do') {
         if (!Drv || !Drv.available() || busy) return;
         setStatus('Đang đọc kho mẫu của tài khoản Chenfeng…');
-        return Drv.drawerTemplates().then(r => { const k = mergeLoai(r.mau); rebuild(); renderSettings(); setStatus(`Thư mục ${r.thu_muc} có ${r.mau.length} mẫu — cập nhật mã cho ${k.capNhat} loại, thêm ${k.them} loại mới.`); });
+        return Drv.drawerTemplates().then(r => { const k = mergeLoai(r.mau); rebuild(); renderSettings();
+          // (bản 1.29.2) kể tham số của từng mẫu (tên = giá trị · chú thích) — để tìm tham số DÀY ĐÁY ngăn kéo của mẫu Chenfeng (xưởng dùng ván 6,5; chưa biết mẫu gọi tham số đó là gì)
+          const ke = r.mau.map(m => `${m.ten}: ${Object.keys(m.ts || {}).map(q => `${q}=${m.ts[q]}${m.mt && m.mt[q] ? ' (' + m.mt[q] + ')' : ''}`).join(', ') || '(không đọc được tham số)'}`).join(' · ');
+          setStatus(`Thư mục ${r.thu_muc} có ${r.mau.length} mẫu — cập nhật mã cho ${k.capNhat} loại, thêm ${k.them} loại mới. Tham số của từng mẫu — ${ke}`); });
       }
       else if (act === 'defaults') { spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan })); renderAll(); switchTab('chuan'); }
       else if (act === 'json') { if (model && !model.errors.length) return saveFile(fileBase() + '_chenfeng.json', JSON.stringify(Core.toChenfeng(model).json), 'application/json', 'Đã tải file JSON — kéo thả vào cửa sổ Chenfeng, rồi bấm 1 điểm để đặt.'); }
