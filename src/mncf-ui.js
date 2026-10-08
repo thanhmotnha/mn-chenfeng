@@ -495,8 +495,10 @@ footer>.kqhang{display:none}
       s => (s.hau.kieu === 'phu' ? `Hậu ốp lên mép sau của hồi, vách, đáy, nóc rồi bắn đinh từ đằng sau; Chenfeng không khoan cam cho hậu. Thùng lùi lại đúng bằng dày hậu, nên sâu thùng ${hien(s.sau_thung)} = hồi sâu ${hien(s.sau_thung - s.hau.t)} + hậu ${hien(s.hau.t)}.`
         : s.hau.kieu === 'day' ? 'Hậu cùng độ dày ván thùng, lọt lòng từng khoang, bắt cam vào hồi / vách / đáy / nóc.' : 'Hậu mỏng lồng vào rãnh soi trên hồi, vách, đáy, nóc.')],
     ['Phào', [F('phao.phu_tro', 'Rộng thanh phụ trợ (0 = không)'), F('phao.noi', 'Nối thanh ngang dài', { select: [['moi_vach', 'Tại mọi vách (đối xứng)'], ['it_nhat', 'Ít mối nối nhất']], span: 2 })]],
-    ['Thùng', [F('thung.rong_max', 'Rộng tối đa một thùng (0 = không tách, thùng liền)', { span: 2 })],
-      () => 'Tủ rộng hơn số này được tách thành các thùng rời: mỗi thùng có 2 hồi của nó, chỗ tách là 2 hồi áp lưng; các khoang nhỏ còn nằm trong số này thì chung một thùng (vách chung). Phào và chân trước vẫn là khung chung cho cả dãy.'],
+    // (bản 1.31) kết cấu nóc / đáy: phủ hồi là chuẩn xưởng mới; cách cũ để vẽ được bằng lệnh gốc của Chenfeng
+    ['Thùng', [F('thung.noc_day', 'Kết cấu nóc, đáy', { select: [['lot', 'Hồi phủ nóc, đáy — hồi chạy xuống sàn, nóc / đáy lọt từng khoang (vẽ bằng lệnh gốc)'], ['phu_hoi', 'Nóc, đáy phủ hồi — liền cả thùng, hồi + vách kẹp giữa (tạm vẽ bằng nhập tấm)']], span: 2 }),
+      F('thung.rong_max', 'Rộng tối đa một thùng (0 = không tách, thùng liền)', { span: 2 })],
+      s => `${s.thung.noc_day === 'phu_hoi' ? 'Nóc và đáy liền cả thùng, phủ lên đầu hồi; hồi và vách kẹp giữa. Thân có chân thì đáy nằm trên khung đế (đế trước, đế sau, 2 đế hông). Bảng chưa vẽ được kiểu này bằng lệnh của Chenfeng nên tạm vẽ bằng cách nhập tấm — Hướng dẫn → Đo bọc hồi, gửi tệp cho Claude để làm bằng lệnh gốc. ' : 'Hồi và vách cao suốt thân, hồi thân dưới chạy xuống sàn; nóc, đáy cắt tại từng vách. Vẽ được bằng lệnh gốc của Chenfeng. '}Tủ rộng hơn số tối đa được tách thành các thùng rời: mỗi thùng có 2 hồi của nó, chỗ tách là 2 hồi áp lưng; các khoang nhỏ còn nằm trong số này thì chung một thùng (vách chung). Phào và chân trước vẫn là khung chung cho cả dãy.`],
     ['Dò lỗi sản xuất — ngưỡng cảnh báo (0 = không kiểm mục đó)', [F('kiem.dot_max', 'Khoang lọt lòng tối đa (nhịp đợt)'), F('kiem.canh_cao_max', 'Cánh cao tối đa'), F('kiem.nk_rong_max', 'Hộp ngăn kéo rộng tối đa'), F('kiem.suot_sau_min', 'Khoang treo: sâu lọt lòng tối thiểu'), F('kiem.tran', 'Cao trần chỗ đặt tủ (0 = không biết; thẻ Phòng tự điền khi mở khung thành tủ)', { span: 2 })],
       s => `Vượt ngưỡng thì bảng CẢNH BÁO (dòng vàng), tủ vẫn vẽ được: khoang rộng hơn ${hien(s.kiem.dot_max)} thì đợt, đáy, nóc dễ võng; cánh cao hơn ${hien(s.kiem.canh_cao_max)} dễ cong; hộp ngăn kéo rộng hơn ${hien(s.kiem.nk_rong_max)} thì ray và đáy dễ võng; khoang treo nông hơn ${hien(s.kiem.suot_sau_min)} thì móc áo chạm cánh. Biết trần thì bảng kiểm thêm thân tủ ráp nằm rồi lật đứng có lọt trần không. Lỗi thật (tấm vượt khổ ván, tấm đè nhau, tấm lơ lửng…) luôn khoá nút Vẽ, không phụ thuộc các số này.`],
     ['Cách vẽ vào Chenfeng', [F('ve_goc', 'Vẽ bằng LỆNH GỐC của Chenfeng (hồi, vách, nóc đáy, hậu, đợt, cánh là tấm tự động — bấm vào tấm nào sửa được tấm đó như tủ vẽ tay). Bỏ chọn = cách cũ: nhập tấm rồi gom thành module.', { check: 1, span: 2 }), F('module_cf', 'Vẽ xong gom CẢ TỦ thành một module tham số (đổi Rộng / Sâu / Cao ở ô Thông số bên phải của Chenfeng là cả tủ chạy theo) — dùng cho cả hai cách vẽ', { check: 1, span: 2 })]],
@@ -510,10 +512,14 @@ footer>.kqhang{display:none}
         return `${lb.ma === 'tu_chon' ? 'Bản lề tự gõ số' : lb.ten}: chén Ø${hien(c.d)} sâu ${hien(c.sau)}, tâm chén cách mép cánh ${hien(c.tam_mep)}${lb.ma !== 'tu_chon' && lb.day ? `, cánh dày ${hien(lb.day[0])}–${hien(lb.day[1])}` : ''}. Số bản lề mỗi cánh theo chiều cao cánh: đến 900 là 2, đến 1600 là 3, đến 2000 là 4, cao hơn là 5; cánh rộng hơn 600 thêm 1. Bản lề trên / dưới cách đầu cánh ${hien(c.cach_dau)}, các bản lề giữa chia đều, tránh đợt cố định. Vị trí bản lề hiện trên hình (vòng tròn trên cánh) và số bản lề nằm trong bảng kê.`; }],
     ['@loai'],      // bảng "Các loại ngăn kéo" — vẽ riêng (renderLoai)
     ['Ngăn kéo — số chung', [F('ngan_keo.buoc_sau', 'Sâu hộp làm tròn theo bước (dài ray)'), F('ngan_keo.ho_sau', 'Hộp cách hậu ít nhất')]],
-    ['Ngăn kéo âm (nằm sau cánh)', [F('ngan_keo.lui', 'Lưng mặt NK cách mặt trước thùng'), F('ngan_keo.khe_ben', 'Khe 2 bên mặt'), F('ngan_keo.dem', 'Vách đệm tránh bản lề: mặt trong cách hồi/vách (0 = không đệm)', { span: 2 }), F('ngan_keo.khe_tren', 'Khe trên'), F('ngan_keo.khe_giua', 'Khe giữa 2 mặt'), F('ngan_keo.khe_duoi', 'Khe dưới'), F('ngan_keo.xa_cao', 'Xà sau khe mặt NK: cao (0 = không làm xà)', { span: 2 }), F('ngan_keo.xa_ho', 'Xà cách lưng mặt NK'), F('ngan_keo.nep_khe', 'Nẹp che khe 2 bên hộc kéo (1 = có, 0 = để hở)', { span: 2 })]],
+    // (bản 1.31) khung mặt: thanh ngang phẳng mặt ngăn kéo — có khung thì khe trên / khe giữa / xà ẩn không dùng (ẩn ô)
+    ['Ngăn kéo âm (nằm sau cánh)', [F('ngan_keo.lui', 'Lưng mặt NK cách mặt trước thùng'), F('ngan_keo.khe_ben', 'Khe quanh mặt NK (2 bên, và với thanh ngang)', { span: 2 }), F('ngan_keo.dem', 'Vách đệm tránh bản lề: mặt trong cách hồi/vách (0 = không đệm)', { span: 2 }),
+      F('ngan_keo.khung_mat', 'Khung mặt: thanh ngang phẳng mặt ngăn kéo (1 = có, 0 = khe + xà ẩn sau khe)', { span: 2 }), F('ngan_keo.ray', 'Thanh ngang khung mặt: cao', { khi: s => !!s.ngan_keo.khung_mat }),
+      F('ngan_keo.khe_tren', 'Khe trên', { khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.khe_giua', 'Khe giữa 2 mặt', { khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.khe_duoi', 'Khe dưới'),
+      F('ngan_keo.xa_cao', 'Xà sau khe mặt NK: cao (0 = không làm xà)', { span: 2, khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.xa_ho', 'Xà cách lưng mặt NK', { khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.nep_khe', 'Nẹp che khe 2 bên hộc kéo (1 = có, 0 = để hở)', { span: 2 })]],
     ['Suốt treo (mẫu Chenfeng)', [F('suot.mau_id', 'Mã mẫu suốt treo'), F('suot.cach_dot', 'Bas cách đợt trên')]],
     ['Kiểu khoan (tên trong "Khoan hàng lỗ" của Chenfeng)', [F('khoan.thung', 'Thùng, chân (và hậu dày)', { text: 1, list: 'drill' }), F('khoan.phao', 'Phào + thanh phụ trợ', { text: 1, list: 'drill' })]],
-    ['Tên tấm', ['hoi_trai', 'hoi_phai', 'vach', 'day', 'noc', 'dot', 'hau', 'chan', 'phao_trai', 'phao_phai', 'phao_tren', 'phu_tro', 'canh_trai', 'canh_phai', 'dem', 'xa', 'nep'].map(k => F('ten_tam.' + k, k.replace(/_/g, ' '), { text: 1 }))],
+    ['Tên tấm', ['hoi_trai', 'hoi_phai', 'vach', 'day', 'noc', 'dot', 'hau', 'chan', 'de', 'phao_trai', 'phao_phai', 'phao_tren', 'phu_tro', 'canh_trai', 'canh_phai', 'dem', 'xa', 'nep'].map(k => F('ten_tam.' + k, k.replace(/_/g, ' '), { text: 1 }))],
   ];
 
   /* ---- đổ màu (bản 1.21): ba nhóm tấm của một tủ + dòng "thùng 21 tấm → 103T · cánh + phào 5 tấm → …" dùng chung cho thẻ Màu và thẻ Kết quả ---- */
@@ -692,7 +698,7 @@ footer>.kqhang{display:none}
     <div class="pane" data-pane="chuan" hidden><p class="hint">Số chuẩn của xưởng — chốt một lần, máy này tự nhớ. Đơn vị mm.</p><div class="settings"></div>
       <div class="frow"><button class="sec" data-act="defaults">Khôi phục mặc định</button></div><datalist id="drill"></datalist></div>
     <div class="pane" data-pane="kq" hidden>${inCF && Drv && typeof Drv.xuatVan === 'function' ? '<div class="xvan" data-ui="xuatvan"></div>' : ''}${inCF ? '<div class="dlsx" data-ui="doloi"></div>' : ''}<div class="report"><p class="hint tt">Chưa vẽ lần nào.</p></div></div>
-    <div class="pane" data-pane="hd" hidden>${guideHTML(inCF)}${inCF && Drv && typeof Drv.thamDoLoi === 'function' ? '<fieldset><legend>Gửi mã lõi Chenfeng cho Claude</legend><p class="hint tt">Gom mã nguồn các lệnh vẽ tấm của Chenfeng (chỉ đọc — không có bản vẽ, không có tài khoản) thành một tệp chữ. Gửi tệp đó cho Claude để bảng gọi thẳng vào lõi Chenfeng thay vì giả bấm hộp, rê chuột.</p><div class="frow"><button class="sec" data-act="tham-do">Thăm dò lõi → tải tệp</button></div></fieldset>' : ''}</div>
+    <div class="pane" data-pane="hd" hidden>${guideHTML(inCF)}${inCF && Drv && typeof Drv.thamDoLoi === 'function' ? '<fieldset><legend>Gửi mã lõi Chenfeng cho Claude</legend><p class="hint tt">Gom mã nguồn các lệnh vẽ tấm của Chenfeng (chỉ đọc — không có bản vẽ, không có tài khoản) thành một tệp chữ. Gửi tệp đó cho Claude để bảng gọi thẳng vào lõi Chenfeng thay vì giả bấm hộp, rê chuột.</p><div class="frow"><button class="sec" data-act="tham-do">Thăm dò lõi → tải tệp</button></div></fieldset>' : ''}${inCF && Drv && typeof Drv.doBocHoi === 'function' ? '<fieldset><legend>Đo lệnh nóc, đáy bọc hồi của Chenfeng</legend><p class="hint tt">Để bảng vẽ được nóc, đáy phủ hồi bằng chính lệnh của Chenfeng. Bảng vẽ thử một thùng nhỏ ở chỗ trống (cách mọi thứ 6 m) bằng lệnh hồi + lệnh nóc đáy, 3 lượt (bọc hồi · bọc hồi có chân · trùm ra 2 bên), ghi lại tấm Chenfeng dựng, rồi hoàn tác hết. Không lưu bản vẽ. Xong tải về một tệp chữ — gửi tệp đó cho Claude.</p><div class="frow"><button class="sec" data-act="do-boc-hoi">Đo bọc hồi → tải tệp</button></div></fieldset>' : ''}</div>
     ${inCF && Ph && Ph.choTrong ? `<div class="pane" data-pane="chon" hidden>
       <div class="chontuong" role="group" aria-label="Chọn tường đặt tủ"></div>
       <div class="chonsplit"><div class="chonmb" title="Bấm vào một tường trên mặt bằng để chọn tường đó"></div><div class="chonmd" title="Chạm vào đoạn tường trống: lấy cả đoạn đó, sàn → trần. Kéo từ góc này tới góc kia: lấy đúng ô vừa kéo."></div></div>
@@ -2920,7 +2926,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         else x.ten = t.value;
         later();
       }
-      else if (t.dataset.k) { if (goPK !== t) { nho(); goPK = t; } setP(spec, t.dataset.k, t.type === 'checkbox' ? t.checked : t.value); if (t.dataset.k === 'hau.kieu') { setP(spec, 'hau.t', t.value === 'day' ? getP(spec, 'van.t') : Core.DEFAULT_SPEC.hau.t); spec = Core.normalize(spec); renderSettings(); } else if (t.dataset.k === 'canh.loai_ban_le') { spec = Core.normalize(spec); renderSettings(); } later(); }
+      else if (t.dataset.k) { if (goPK !== t) { nho(); goPK = t; } setP(spec, t.dataset.k, t.type === 'checkbox' ? t.checked : t.value); if (t.dataset.k === 'hau.kieu') { setP(spec, 'hau.t', t.value === 'day' ? getP(spec, 'van.t') : Core.DEFAULT_SPEC.hau.t); spec = Core.normalize(spec); renderSettings(); } else if (t.dataset.k === 'canh.loai_ban_le' || t.dataset.k === 'thung.noc_day' || t.dataset.k === 'ngan_keo.khung_mat') { spec = Core.normalize(spec); renderSettings(); } later(); }
       else if (t.dataset.b) { if (t.dataset.b !== 'dot' && goPK !== t) { nho(); goPK = t; } readBay(t.closest('.bay')); later(); }
       else if (t.dataset.ui === 'doors') { showDoors = t.checked; paintView(); }
       else if (t.dataset.ui === 'kho-tim') laterKho();
@@ -3288,6 +3294,18 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'the-them') { if (THE_PHU.indexOf(panel.dataset.tabon) < 0) hangThePhu($('.tabs2').hidden); }      // đang ở một thẻ phụ thì hàng thẻ phụ luôn mở
       else if (act === 'nut-them') { const h = $('.themnut'); if (h) { h.hidden = !h.hidden; b.setAttribute('aria-expanded', h.hidden ? 'false' : 'true'); } }
       else if (act === 'do-mang') { doMang(); }
+      else if (act === 'do-boc-hoi') {      // (bản 1.31) vẽ thử thùng bằng lệnh hồi + nóc đáy (bọc hồi), ghi lại, hoàn tác → tải tệp chữ gửi Claude
+        if (busy) return;
+        if (!Drv.gocDuoc()) { setStatus('Trang này chưa chạy được lệnh gốc của Chenfeng (mở bản vẽ rồi bấm lại).'); return; }
+        busy = true; b.disabled = true; rebuild();
+        (async () => {
+          let r = null; try { r = await Drv.doBocHoi({ onStatus: setStatus }); } catch (e) { r = { ok: false, loi: String(e && e.message || e) }; }
+          busy = false; b.disabled = false; rebuild();
+          if (!r || !r.noi_dung) { setStatus('Chưa đo được: ' + ((r && r.loi) || 'lỗi không rõ') + '.'); return; }
+          const kq = await download(`chenfeng-boc-hoi-${new Date().toISOString().slice(0, 10)}.txt`, r.noi_dung, 'text/plain');
+          setStatus(kq === 'saved' ? `Đã đo ${r.so_luot}/3 lượt và hoàn tác — đã tải tệp chenfeng-boc-hoi, gửi tệp đó cho Claude.` : 'Đã đo xong nhưng chưa tải được tệp.');
+        })();
+      }
       else if (act === 'tham-do') {      // (bản 1.29.1) chỉ đọc mã các lớp lệnh của Chenfeng → tải tệp chữ về máy để gửi cho Claude
         let r = null; try { r = Drv.thamDoLoi(); } catch (e) { r = null; }
         if (!r || !r.so_lop) { setStatus('Chưa gom được mã lệnh của Chenfeng trong trang này.'); return; }

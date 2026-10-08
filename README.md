@@ -12,6 +12,12 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Khung mặt hộc kéo; nóc, đáy phủ hồi (lựa chọn); đo lệnh bọc hồi (bản 1.31)
+
+- **Khung mặt hộc kéo âm** (theo ảnh mẫu của anh, mặc định): hai nẹp đứng hai bên, thanh ngang cao 50 phẳng mặt ngăn kéo. Thanh trên sát dưới đợt, chạy suốt bề ngang khoang; thanh giữa nằm giữa các mặt. Mặt ngăn kéo lọt trong ô, khe 2 quanh mặt. Không còn xà ẩn sau khe. Ô thấp mà nhiều ngăn có thể không còn đủ chỗ (mỗi thanh chiếm 50): bảng báo đỏ, bớt ngăn hoặc nới ô. Muốn kiểu cũ: *Chuẩn xưởng → Ngăn kéo âm → Khung mặt = 0*.
+- **Nóc, đáy phủ hồi** (*Chuẩn xưởng → Thùng → Kết cấu nóc, đáy*): nóc và đáy liền cả thùng, phủ lên đầu hồi; hồi và vách kẹp giữa. Thân có chân thì đáy nằm trên khung đế của từng thùng (2 đế hông suốt sâu, đế trước + đế sau kẹp giữa); chân trước bắt vít vào đế trước. Kiểu này hiện vẽ bằng cách nhập tấm, nên **mặc định vẫn là kết cấu cũ** (vẽ bằng lệnh gốc) cho tới khi bảng vẽ được phủ hồi bằng lệnh của Chenfeng.
+- **Đo lệnh nóc, đáy bọc hồi** (*⚙ → Hướng dẫn → Đo bọc hồi*, chỉ trong Chenfeng): bảng vẽ thử một thùng nhỏ ở chỗ trống bằng lệnh hồi + lệnh nóc đáy, 3 lượt (bọc hồi · bọc hồi có chân trước / sau · trùm ra 2 bên), ghi lại tấm Chenfeng dựng, rồi hoàn tác hết. Tải về tệp `chenfeng-boc-hoi-<ngày>.txt` — gửi tệp đó cho Claude để làm phủ hồi bằng lệnh gốc.
+
 ## Nút "Thêm vách cho vừa khổ ván" (bản 1.30.1)
 
 - Chọn tủ có sẵn rồi kéo rộng ra (vd tủ 4 cánh 2000 đặt rộng 2600) làm khoang rộng 1280, tấm hậu rộng hơn khổ 1220 nên bảng báo đỏ và khoá nút Vẽ. Nay dưới các dòng đỏ đó có nút **Thêm vách cho vừa khổ ván**: bảng tách đôi khoang rộng nhất đang có tấm vượt khổ, lặp tới khi hết. Mỗi khoang mới giữ số cánh, đợt, ngăn kéo / suốt treo của khoang cũ. Không ưng thì bấm ↶ Lùi.
