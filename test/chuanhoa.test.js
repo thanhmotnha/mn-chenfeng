@@ -73,8 +73,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       return { r, tr: b(m.tr), ph: b(m.ph), hau: b(m.hau), noc: b(m.noc), day: b(m.day), cs: b(m.cs), t: m.hau.Thickness, khoanHau: [m.hau.BoardProcessOption.drillType].concat(m.hau.BoardProcessOption.highDrill), khoanHoi: m.tr.BoardProcessOption.highDrill,
         lo: window.__MOCK__.ents.filter(e => e instanceof window.__MOCK__.CylinderHole && !e.IsErase).map(e => e.FId.Object.Name), ls: window.app.Database.hm.historyRecord.map(x => x.CommandName) }; });
     ok(r.r.ok && r.r.so_hau === 1 && r.r.hau_tu_dong === 0 && r.r.xoa_giang === 0, 'hậu dày: chuẩn hoá được', r.r);
-    eq([r.hau, r.t], [[1, 799, 494, 500, 81, 1999], 6], 'hậu → 6 li, phủ từ mép ngoài hồi (lùi 1), sát lưng, từ mặt dưới đáy tới mặt trên nóc');
-    eq([r.tr, r.ph, r.noc, r.day], [[0, 18, 0, 494, 0, 2000], [782, 800, 0, 494, 0, 2000], [18, 782, 0, 494, 1982, 2000], [18, 782, 0, 494, 80, 98]], 'hồi lùi mép sau 6; nóc / đáy nối ra tới (sâu − 6)');
+    eq([r.hau, r.t], [[1, 799, 493.5, 500, 81, 1999], 6.5], 'hậu → 6,5 li, phủ từ mép ngoài hồi (lùi 1), sát lưng, từ mặt dưới đáy tới mặt trên nóc');
+    eq([r.tr, r.ph, r.noc, r.day], [[0, 18, 0, 493.5, 0, 2000], [782, 800, 0, 493.5, 0, 2000], [18, 782, 0, 493.5, 1982, 2000], [18, 782, 0, 493.5, 80, 98]], 'hồi lùi mép sau 6; nóc / đáy nối ra tới (sâu − 6)');
     eq(r.cs, [18, 782, 462, 480, 0, 80], 'xà chân sau giữ nguyên');
     ok(r.khoanHau.every(x => x === '不排') && r.khoanHoi.every(x => x === 'Cam3Tp') && !r.lo.includes('背板') && r.lo.includes('左侧板'), 'hậu không khoan (不排); tấm khác đổi sang kiểu khoan của xưởng và được khoan lại', [r.khoanHau, r.khoanHoi]);
     eq(r.ls.slice(-2), ['MNCF_CHUANHOA', 'DRAWHOLE'], 'lịch sử: 1 bước riêng cho phần sửa + 1 bước khoan lại');
@@ -82,34 +82,34 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     // module vẫn co giãn đúng theo tham số của mẫu
     const doi = (ten, v) => D(async ([ten, v]) => { const m = window.__m1, b = window.__T.box; m.T.GetParam(ten).expr = String(v); await m.T.UpdateTemplateTree(); return { tr: b(m.tr), ph: b(m.ph), hau: b(m.hau), noc: b(m.noc), day: b(m.day), t: m.hau.Thickness }; }, [ten, v]);
     let s = await doi('L', 1000);
-    eq([s.hau, s.ph, s.noc], [[1, 999, 494, 500, 81, 1999], [982, 1000, 0, 494, 0, 2000], [18, 982, 0, 494, 1982, 2000]], 'Rộng 800 → 1000: hậu rộng theo, vẫn phủ hết hồi phải');
+    eq([s.hau, s.ph, s.noc], [[1, 999, 493.5, 500, 81, 1999], [982, 1000, 0, 493.5, 0, 2000], [18, 982, 0, 493.5, 1982, 2000]], 'Rộng 800 → 1000: hậu rộng theo, vẫn phủ hết hồi phải');
     s = await doi('W', 600);
-    eq([s.hau, s.tr, s.noc, s.day], [[1, 999, 594, 600, 81, 1999], [0, 18, 0, 594, 0, 2000], [18, 982, 0, 594, 1982, 2000], [18, 982, 0, 594, 80, 98]], 'Sâu 500 → 600: hậu ra sát lưng mới, mép sau hồi / nóc / đáy theo');
+    eq([s.hau, s.tr, s.noc, s.day], [[1, 999, 593.5, 600, 81, 1999], [0, 18, 0, 593.5, 0, 2000], [18, 982, 0, 593.5, 1982, 2000], [18, 982, 0, 593.5, 80, 98]], 'Sâu 500 → 600: hậu ra sát lưng mới, mép sau hồi / nóc / đáy theo');
     s = await doi('H', 2400);
-    eq([s.hau, s.noc], [[1, 999, 594, 600, 81, 2399], [18, 982, 0, 594, 2382, 2400]], 'Cao 2000 → 2400: mép trên hậu theo nóc');
+    eq([s.hau, s.noc], [[1, 999, 593.5, 600, 81, 2399], [18, 982, 0, 593.5, 2382, 2400]], 'Cao 2000 → 2400: mép trên hậu theo nóc');
     s = await doi('DJG', 100);
-    eq([s.hau, s.day], [[1, 999, 594, 600, 101, 2399], [18, 982, 0, 594, 100, 118]], 'Chân 80 → 100: mép dưới hậu theo mặt dưới đáy');
+    eq([s.hau, s.day], [[1, 999, 593.5, 600, 101, 2399], [18, 982, 0, 593.5, 100, 118]], 'Chân 80 → 100: mép dưới hậu theo mặt dưới đáy');
     s = await doi('BH', 25);
-    eq([s.hau, s.t, s.tr, s.noc], [[1, 999, 594, 600, 101, 2399], 6, [0, 25, 0, 594, 0, 2400], [25, 975, 0, 594, 2375, 2400]], 'Ván dày 18 → 25: hậu KHÔNG dày lên, không co lại; nóc không còn lùi mép sau theo bề dày ván');
+    eq([s.hau, s.t, s.tr, s.noc], [[1, 999, 593.5, 600, 101, 2399], 6.5, [0, 25, 0, 593.5, 0, 2400], [25, 975, 0, 593.5, 2375, 2400]], 'Ván dày 18 → 25: hậu KHÔNG dày lên, không co lại; nóc không còn lùi mép sau theo bề dày ván');
 
     /* ---------- 2. hoàn tác ---------- */
     r = await D(async () => { const m = window.__m2 = window.__T.day(3000), b = window.__T.box, truoc = m.all.map(b); const D = window.MNCFDriver;
       const r1 = await D.chuanHoa(m.noc, { khoan: 'Cam3Tp' }), giua = b(m.hau); const u = await D.undoChuanHoa(); const sau = m.all.map(b);
       const dt = m.T.GetParam('BH').actions[1]; const r2 = await D.chuanHoa(m.noc, { khoan: 'Cam3Tp' }); const u2 = await D.undoChuanHoa(); const u3 = await D.undoChuanHoa();
       return { ok1: r1.ok, giua, u, giong: JSON.stringify(truoc) === JSON.stringify(sau), t: m.hau.Thickness, khoan: m.hau.BoardProcessOption.highDrill, keoHau: dt.EntityStretchPointMap.some(x => x.entity === m.hau.Id), ok2: r2.ok, u2, u3, t2: m.hau.Thickness }; });
-    ok(r.ok1 && r.giua[2] === 494 && r.u.ok && r.giong && r.t === 18 && r.khoan.every(x => x === '三合一') && r.keoHau, 'hoàn tác: tấm, bề dày hậu, kiểu khoan, động tác tham số trở lại như mẫu gốc', r);
+    ok(r.ok1 && r.giua[2] === 493.5 && r.u.ok && r.giong && r.t === 18 && r.khoan.every(x => x === '三合一') && r.keoHau, 'hoàn tác: tấm, bề dày hậu, kiểu khoan, động tác tham số trở lại như mẫu gốc', r);
     ok(r.ok2 && r.u2.ok && r.t2 === 18 && !r.u3.ok && /Chưa có lần chuẩn hoá/.test(r.u3.reason), 'chuẩn hoá lại rồi hoàn tác lần nữa vẫn được; hết lần thì báo rõ', r);
 
     /* ---------- 3. hậu mỏng âm rãnh (mẫu hậu tự động) + thanh giằng + đợt ---------- */
     r = await D(async () => { const m = window.__m3 = window.__T.ranh(6000), b = window.__T.box; const r = await window.MNCFDriver.chuanHoa(m.hau, { khoan: 'Cam3Tp' });
       return { r, hau: b(m.hau), t: m.hau.Thickness, tr: b(m.tr), noc: b(m.noc), day: b(m.day), dot: b(m.dot), giang: m.giang.IsErase, op: m.C._option, bh: m.C.GetParam('BH').expr }; });
     ok(r.r.ok && r.r.hau_tu_dong === 1 && r.r.xoa_giang === 1, 'hậu âm rãnh: chuẩn hoá được, bỏ 1 thanh giằng', r.r);
-    eq([r.hau, r.t], [[6001, 6799, 494, 500, 1, 599], 6], 'mẫu hậu tự động dựng lại: 6 li, sát lưng, phủ hết hồi / nóc / đáy (lùi 1)');
-    eq([r.op.leftExt, r.op.rightExt, r.op.topExt, r.op.bottomExt, r.op.thickness, r.op.spaceSize, r.op.calcSpaceSize, r.op.exprThickness, r.bh], [17, 17, 17, 17, 6, -6, '-6', '6', '6'], 'lựa chọn của mẫu hậu: ăn ra 17 mỗi phía, dày 6, cách lưng −6');
-    eq([r.tr, r.noc, r.day, r.dot], [[6000, 6018, 0, 494, 0, 600], [6018, 6782, 0, 494, 582, 600], [6018, 6782, 0, 494, 0, 18], [6018, 6782, 20, 494, 300, 318]], 'hồi / nóc / đáy lùi mép sau 6; đợt nối ra tới (sâu − 6)');
+    eq([r.hau, r.t], [[6001, 6799, 493.5, 500, 1, 599], 6.5], 'mẫu hậu tự động dựng lại: 6,5 li, sát lưng, phủ hết hồi / nóc / đáy (lùi 1)');
+    eq([r.op.leftExt, r.op.rightExt, r.op.topExt, r.op.bottomExt, r.op.thickness, r.op.spaceSize, r.op.calcSpaceSize, r.op.exprThickness, r.bh], [17, 17, 17, 17, 6.5, -6.5, '-6.5', '6.5', '6.5'], 'lựa chọn của mẫu hậu: ăn ra 17 mỗi phía, dày 6,5, cách lưng −6,5');
+    eq([r.tr, r.noc, r.day, r.dot], [[6000, 6018, 0, 493.5, 0, 600], [6018, 6782, 0, 493.5, 582, 600], [6018, 6782, 0, 493.5, 0, 18], [6018, 6782, 20, 493.5, 300, 318]], 'hồi / nóc / đáy lùi mép sau 6; đợt nối ra tới (sâu − 6)');
     ok(r.giang === true, 'thanh giằng đã xoá');
     s = await D(async () => { const m = window.__m3, b = window.__T.box; m.T.GetParam('W').expr = '600'; m.T.GetParam('L').expr = '1000'; await m.T.UpdateTemplateTree(); return { hau: b(m.hau), tr: b(m.tr), dot: b(m.dot) }; });
-    eq([s.hau, s.tr, s.dot], [[6001, 6999, 594, 600, 1, 599], [6000, 6018, 0, 594, 0, 600], [6018, 6982, 20, 594, 300, 318]], 'đổi Rộng / Sâu: hậu tự động vẫn phủ kín, đợt theo mép sau hồi');
+    eq([s.hau, s.tr, s.dot], [[6001, 6999, 593.5, 600, 1, 599], [6000, 6018, 0, 593.5, 0, 600], [6018, 6982, 20, 593.5, 300, 318]], 'đổi Rộng / Sâu: hậu tự động vẫn phủ kín, đợt theo mép sau hồi');
     r = await D(async () => { const m = window.__T.ranh(9000), b = window.__T.box, truoc = m.all.map(b), D = window.MNCFDriver; const r1 = await D.chuanHoa(m.tr, { khoan: 'Cam3Tp' }); const buoc = r1.so_buoc_hoan_tac; const u = await D.undoChuanHoa();
       return { ok: r1.ok, buoc, u, giong: JSON.stringify(truoc) === JSON.stringify(m.all.map(b)), giang: m.giang.IsErase, op: [m.C._option.spaceSize, m.C._option.thickness, m.C._option.leftExt], t: m.hau.Thickness }; });
     ok(r.ok && r.buoc === 3 && r.u.ok && r.giong && r.giang === false && r.t === 5, 'hoàn tác (3 bước: sửa, xoá giằng, khoan lại): mọi tấm + thanh giằng trở lại', r);
@@ -127,9 +127,9 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       const r = await window.MNCFDriver.chuanHoa(tr, { khoan: 'Cam3Tp' });
       return { r, hau: b(hau), xa: b(xa), xaXoa: xa.IsErase, tr: b(tr), day: b(day), dot: b(dot), opX: [Cx._option.spaceSize, Cx._option.calcSpaceSize], opH: [Ch._option.leftExt, Ch._option.rightExt, Ch._option.topExt, Ch._option.bottomExt, Ch._option.spaceSize] }; });
     ok(r.r.ok && r.r.so_hau === 1 && r.r.xoa_giang === 0 && r.xaXoa === false, 'tủ bếp dưới: chỉ hậu mỏng được chuyển; xà sau (背板 dày, nằm trước hậu) được giữ', r.r);
-    eq([r.hau.map(v => v - 40000 > -1 && v > 30000 ? v - 40000 : v), r.opH], [[1, 1046, 580, 586, 93, 879], [17, 17, 99, 17, -6]], 'hậu phủ từ mặt dưới đáy tới ĐẦU HỒI (thùng không có nóc), phần ăn ra tính theo hình học thật');
-    eq([r.xa.map(v => v > 30000 ? v - 40000 : v), r.opX], [[18, 1029, 545, 563, 780, 880], [17, '17']], 'xà sau giữ đúng chỗ cũ (khoảng cách tới lưng 23 → 17 vì hồi đã lùi 6)');
-    eq([r.tr.map(v => v > 30000 ? v - 40000 : v), r.day.map(v => v > 30000 ? v - 40000 : v), r.dot.map(v => v > 30000 ? v - 40000 : v)], [[0, 18, 18, 580, 110, 880], [0, 1047, 68, 580, 92, 110], [19, 1028, 38, 544, 780.5, 798.5]], 'hồi, đáy lùi mép sau 6; đợt không chạm hậu thì giữ nguyên');
+    eq([r.hau.map(v => v - 40000 > -1 && v > 30000 ? v - 40000 : v), r.opH], [[1, 1046, 579.5, 586, 93, 879], [17, 17, 99, 17, -6.5]], 'hậu phủ từ mặt dưới đáy tới ĐẦU HỒI (thùng không có nóc), phần ăn ra tính theo hình học thật');
+    eq([r.xa.map(v => v > 30000 ? v - 40000 : v), r.opX], [[18, 1029, 545, 563, 780, 880], [16.5, '16.5']], 'xà sau giữ đúng chỗ cũ (khoảng cách tới lưng 23 → 16,5 vì hồi đã lùi 6,5)');
+    eq([r.tr.map(v => v > 30000 ? v - 40000 : v), r.day.map(v => v > 30000 ? v - 40000 : v), r.dot.map(v => v > 30000 ? v - 40000 : v)], [[0, 18, 18, 579.5, 110, 880], [0, 1047, 68, 579.5, 92, 110], [19, 1028, 38, 544, 780.5, 798.5]], 'hồi, đáy lùi mép sau 6; đợt không chạm hậu thì giữ nguyên');
 
     // thùng 2 khoang, vách chung, mỗi khoang 1 tấm hậu dày → mối nối 2 tấm hậu nằm ở TIM vách (chuẩn xưởng: chia tấm, mối nối trên vách)
     r = await D(async () => { const M = window.__MOCK__, b = window.__T.box, K = ['三合一', '三合一', '三合一', '三合一'], x0 = 50000, g = q => q.map(v => v >= x0 ? v - x0 : v);
@@ -140,8 +140,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       const r = await window.MNCFDriver.chuanHoa(vach, { khoan: 'Cam3Tp' });
       return { r, h1: g(b(h1)), h2: g(b(h2)), vach: g(b(vach)), tr: g(b(tr)), noc: g(b(noc)) }; });
     ok(r.r.ok && r.r.so_hau === 2, 'thùng 2 khoang: chuyển cả 2 tấm hậu', r.r);
-    eq([r.h1, r.h2], [[1, 800, 494, 500, 1, 1999], [800, 1599, 494, 500, 1, 1999]], '2 tấm hậu nối nhau ở tim vách chung, phủ hết 2 hồi ngoài (lùi 1), từ mặt dưới đáy tới mặt trên nóc');
-    eq([r.vach, r.tr, r.noc], [[791, 809, 0, 494, 18, 1982], [0, 18, 0, 494, 0, 2000], [18, 1582, 0, 494, 1982, 2000]], 'vách, nóc nối ra tới (sâu − 6); hồi lùi 6');
+    eq([r.h1, r.h2], [[1, 800, 493.5, 500, 1, 1999], [800, 1599, 493.5, 500, 1, 1999]], '2 tấm hậu nối nhau ở tim vách chung, phủ hết 2 hồi ngoài (lùi 1), từ mặt dưới đáy tới mặt trên nóc');
+    eq([r.vach, r.tr, r.noc], [[791, 809, 0, 493.5, 18, 1982], [0, 18, 0, 493.5, 0, 2000], [18, 1582, 0, 493.5, 1982, 2000]], 'vách, nóc nối ra tới (sâu − 6); hồi lùi 6');
     // bộ ghép 2 thùng đứng cạnh nhau, sâu khác nhau (500 và 400), mỗi thùng hồi riêng → mỗi tấm hậu theo chiều sâu thùng mình và phủ hết hồi của thùng mình
     r = await D(async () => { const M = window.__MOCK__, b = window.__T.box, K = ['三合一', '三合一', '三合一', '三合一'], x0 = 60000, g = q => q.map(v => v >= x0 ? v - x0 : v);
       const B = (ten, q, t) => M.them(new M.Board(ten, 0, [q[0] + x0, q[1] + x0, q[2], q[3], q[4], q[5]], t, 'BO', '', K));
@@ -150,8 +150,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       const r = await window.MNCFDriver.chuanHoa(a[0], { khoan: 'Cam3Tp' });
       return { r, ha: g(b(a[4])), hc: g(b(c[4])), pa: g(b(a[1])), tc: g(b(c[0])), nc: g(b(c[2])) }; });
     ok(r.r.ok && r.r.so_hau === 2, 'bộ 2 thùng sâu khác nhau: chuyển cả 2', r.r);
-    eq([r.ha, r.hc], [[1, 799, 494, 500, 1, 1999], [801, 1599, 394, 400, 1, 1999]], 'mỗi tấm hậu sát lưng thùng của mình (500 / 400) và phủ hết 2 hồi của thùng đó');
-    eq([r.pa, r.tc, r.nc], [[782, 800, 0, 494, 0, 2000], [800, 818, 0, 394, 0, 2000], [818, 1582, 0, 394, 1982, 2000]], 'hồi áp nhau của 2 thùng: mỗi tấm lùi theo chiều sâu thùng mình');
+    eq([r.ha, r.hc], [[1, 799, 493.5, 500, 1, 1999], [801, 1599, 393.5, 400, 1, 1999]], 'mỗi tấm hậu sát lưng thùng của mình (500 / 400) và phủ hết 2 hồi của thùng đó');
+    eq([r.pa, r.tc, r.nc], [[782, 800, 0, 493.5, 0, 2000], [800, 818, 0, 393.5, 0, 2000], [818, 1582, 0, 393.5, 1982, 2000]], 'hồi áp nhau của 2 thùng: mỗi tấm lùi theo chiều sâu thùng mình');
 
     // nghiệm thu không đạt (ở đây: mẫu hậu tự động không dựng lại) → tự trả module về như cũ, không để module sửa dở
     r = await D(async () => { const m = window.__T.ranh(10500), b = window.__T.box, truoc = m.all.map(b), D = window.MNCFDriver; m.C.dungHau = () => {}; const n0 = window.app.Database.hm.curIndex; const r1 = await D.chuanHoa(m.tr, { khoan: 'Cam3Tp' });
@@ -164,7 +164,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       const gan = (ten, bs) => { const T = new M.Tpl(ten, bs); for (const b of bs) b.Template = T.Id; return T; };
       const le = B('Đợt', [12000, 12800, 0, 500, 0, 18], 18); kq.le = await D.chuanHoa(le, {});
       const a = [B('左侧板', [13000, 13018, 0, 500, 0, 600], 18), B('右侧板', [13782, 13800, 0, 500, 0, 600], 18), B('顶板', [13018, 13782, 0, 500, 582, 600], 18)]; gan('K', a); kq.khongHau = await D.chuanHoa(a[0], {});
-      const c = [B('左侧板', [14000, 14018, 0, 494, 0, 600], 18), B('右侧板', [14782, 14800, 0, 494, 0, 600], 18), B('顶板', [14018, 14782, 0, 494, 582, 600], 18), B('底板', [14018, 14782, 0, 494, 0, 18], 18), B('背板', [14001, 14799, 494, 500, 1, 599], 6)]; gan('P', c); kq.daChuan = await D.chuanHoa(c[0], {});
+      const c = [B('左侧板', [14000, 14018, 0, 493.5, 0, 600], 18), B('右侧板', [14782, 14800, 0, 493.5, 0, 600], 18), B('顶板', [14018, 14782, 0, 493.5, 582, 600], 18), B('底板', [14018, 14782, 0, 493.5, 0, 18], 18), B('背板', [14001, 14799, 493.5, 500, 1, 599], 6.5)]; gan('P', c); kq.daChuan = await D.chuanHoa(c[0], {});
       const x = [B('左侧板', [15000, 15500, 0, 18, 0, 600], 18), B('右侧板', [15000, 15500, 782, 800, 0, 600], 18), B('顶板', [15000, 15500, 18, 782, 582, 600], 18), B('底板', [15000, 15500, 18, 782, 0, 18], 18), B('背板', [15482, 15500, 18, 782, 18, 582], 18)]; gan('Xoay', x); kq.xoay = await D.chuanHoa(x[0], {});
       const mn = [B('Hồi trái', [16000, 16018, 0, 500, 0, 600], 18), B('Hồi phải', [16782, 16800, 0, 500, 0, 600], 18)]; gan('MN', mn); mn[0].BoardProcessOption.remarks = [[D.TAG, 'ABC']]; kq.motNha = await D.chuanHoa(mn[1], {});
       const coDich = M.ents.filter(e => !e.IsErase && e.box && e.box[0] >= 12000).every(e => true);
@@ -202,7 +202,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     const nut = H.locator('[data-act="chuanhoa"]');
     if (!(await nut.isVisible())) await H.locator('[data-act="nut-them"]').click();      // (bản 1.27) nút Chuẩn hoá nằm sau nút ⋯
     // (bản 1.25: nút thành nút biểu tượng — tên đầy đủ nằm ở aria-label, chú thích ngắn dưới hình)
-    ok(await nut.isVisible() && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await nut.getAttribute('aria-label') || '') && /Chuẩn hoá/.test(await nut.innerText()), 'bảng có nút "Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau"', [await nut.getAttribute('aria-label'), await nut.innerText().catch(() => '')]);
+    ok(await nut.isVisible() && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6,5 phủ sau/.test(await nut.getAttribute('aria-label') || '') && /Chuẩn hoá/.test(await nut.innerText()), 'bảng có nút "Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6,5 phủ sau"', [await nut.getAttribute('aria-label'), await nut.innerText().catch(() => '')]);
     await page.evaluate(() => window.__MOCK__.userSelect([]));
     await nut.click();
     ok(/bấm chọn 1 tấm của module/.test(await H.locator('.status').innerText()), 'chưa chọn tấm → nhắc chọn');
@@ -210,8 +210,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     await nut.click();
     await page.waitForFunction(() => /Đã chuẩn hoá module|Chưa chuẩn hoá/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 30000 });
     let rep = await H.locator('.report').innerText();
-    ok(/Đã chuẩn hoá module “标准柜”: 1 tấm hậu → 6 li/.test(rep) && /Mép sau của 4 tấm đã về đúng chỗ để hậu phủ lên: Hồi trái 500 → 494; Hồi phải 500 → 494; Nóc 482\.5 → 494; Đáy 482\.5 → 494/.test(rep) && /Dày ván: 18 → 17,5 cho 5 tấm \(tham số BH của module\)\. Còn 2 tấm vẫn dày 18 — Xà chân, Xà chân sau/.test(rep) && /đổi sang Cam3Tp cho 6 tấm/.test(rep) && /Mẫu trong kho không bị sửa/.test(rep), 'thẻ Kết quả nêu: hậu mới, tấm đã lùi mép sau, kiểu khoan đã đổi, mẫu kho giữ nguyên', rep.slice(0, 400));
-    eq(await page.evaluate(() => window.__T.box(window.__m5.hau)), [20001, 20799, 494, 500, 81, 1999], 'bấm nút: module trên bản vẽ đã thành hậu phủ sau');
+    ok(/Đã chuẩn hoá module “标准柜”: 1 tấm hậu → 6[.,]5 li/.test(rep) && /Mép sau của 4 tấm đã về đúng chỗ để hậu phủ lên: Hồi trái 500 → 493\.5; Hồi phải 500 → 493\.5; Nóc 482\.5 → 493\.5; Đáy 482\.5 → 493\.5/.test(rep) && /Dày ván: 18 → 17,5 cho 5 tấm \(tham số BH của module\)\. Còn 2 tấm vẫn dày 18 — Xà chân, Xà chân sau/.test(rep) && /đổi sang Cam3Tp cho 6 tấm/.test(rep) && /Mẫu trong kho không bị sửa/.test(rep), 'thẻ Kết quả nêu: hậu mới, tấm đã lùi mép sau, kiểu khoan đã đổi, mẫu kho giữ nguyên', rep.slice(0, 400));
+    eq(await page.evaluate(() => window.__T.box(window.__m5.hau)), [20001, 20799, 493.5, 500, 81, 1999], 'bấm nút: module trên bản vẽ đã thành hậu phủ sau');
     eq(await page.evaluate(() => [window.__m5.tr, window.__m5.ph, window.__m5.noc, window.__m5.day].map(b => b.Thickness).concat([window.__m5.T.GetParam('BH').value, window.__T.box(window.__m5.ph)[0]])), [17.5, 17.5, 17.5, 17.5, 17.5, 20782.5], 'bấm nút: ván thùng 18 → 17,5 bằng tham số BH của module (hồi phải dày vào trong)');
     await H.locator('[data-act="undo-ch"]').click();
     await page.waitForFunction(() => /Đã hoàn tác lần chuẩn hoá/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });

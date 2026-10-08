@@ -622,7 +622,7 @@ T('Điện – nước hiện trạng (bản 1.18 — anh Jason 03/10/2026 23:46
   ok(co(P.hinhHoc(pc).luu_y, /^Khung C: mép khung cắt ngang ổ điện 1 — hồi \/ nóc tủ sẽ đè lên điểm này/), 'mép khung cắt ngang ô của điểm: lưu ý');
 
   // SO VỚI TỪNG TẤM của tủ đã dựng: trúng vách / đợt / hồi, sau ngăn kéo, khoét hậu / đáy ở đâu
-  const S = C.normalize({ ma: 'TDN', rong: 2400, cao: 2400, sau_thung: 560, than: { cao_duoi: 0 }, thung: { rong_max: 0 },
+  const S = C.normalize({ hau: { t: 6 },  ma: 'TDN', rong: 2400, cao: 2400, sau_thung: 560, than: { cao_duoi: 0 }, thung: { rong_max: 0 },
     khoang: [{ rong: 'auto', canh: 2, dot: [600, 1200], o: [] }, { rong: 'auto', canh: 2, dot: [500], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 2, dot: [900], o: [] }] });
   const M = C.build(S), bb = M.info.hop;
   eq([M.errors, M.info.x_khoang, M.info.khoang, bb.y0, bb.y1], [[], [67.5, 826, 1591.5], [741, 748, 741], -17.5, 560], 'tủ thử: 3 khoang (vách ở 808,5 → 826 và 1574 → 1591,5), ngăn kéo ở khoang 2');

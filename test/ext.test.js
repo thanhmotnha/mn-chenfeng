@@ -10,7 +10,7 @@ let pass = 0, fail = 0;
 const ok = (c, name, extra) => { if (c) pass++; else { fail++; console.log('  ✗', name, extra === undefined ? '' : JSON.stringify(extra)); } };
 // thẻ nằm sau nút ⚙ (bản 1.27 — Màu, Chuẩn xưởng, Hướng dẫn): hàng thẻ phụ chưa mở thì bấm ⚙ trước rồi mới bấm thẻ
 const theSau = async (H, t) => { const tab = H.locator('.tab[data-tab="' + t + '"]'); if (!(await tab.isVisible())) await H.locator('[data-act="the-them"]').click(); await tab.click(); };
-const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
+const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t: 6 }, khoang: [
   { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
   { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] } ] };
 
@@ -186,7 +186,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, khoang: [
     await H.locator('[data-act="pick"]').hover();
     ok(/Sửa tủ đang chọn/.test(await H.locator('footer .goiy').innerText()), 'rê chuột vào nút biểu tượng: dòng gợi ý ghi nút đó làm gì', await H.locator('footer .goiy').innerText());
     await H.locator('[data-act="chuanhoa"]').focus();
-    ok(/Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await H.locator('footer .goiy').innerText()) && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6 phủ sau/.test(await H.locator('[data-act="chuanhoa"]').getAttribute('aria-label')), 'đưa con trỏ bàn phím vào nút cũng hiện gợi ý; nút Chuẩn hoá ghi đúng dày ván + hậu đang dùng', await H.locator('footer .goiy').innerText());
+    ok(/Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6,5 phủ sau/.test(await H.locator('footer .goiy').innerText()) && /Chuẩn hoá mẫu kho đang chọn → ván 17,5 · hậu 6,5 phủ sau/.test(await H.locator('[data-act="chuanhoa"]').getAttribute('aria-label')), 'đưa con trỏ bàn phím vào nút cũng hiện gợi ý; nút Chuẩn hoá ghi đúng dày ván + hậu đang dùng', await H.locator('footer .goiy').innerText());
     await H.locator('#mncf-rong').focus(); await H.locator('.brand').hover();
     ok((await H.locator('footer .goiy').innerText()).trim() === '', 'rời nút: dòng gợi ý trống lại');
     ok((await H.locator('[data-dot]').count()) > 0 && (await H.locator('[data-o]').count()) > 0, 'hình đứng tương tác trong bảng nổi');

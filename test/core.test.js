@@ -1,6 +1,9 @@
 'use strict';
 // Kiểm tra lõi tính kết cấu (Node thuần, không cần thư viện):  node test/core.test.js
 const C0 = require('../src/mncf-core.js');
+// Bản 1.29.2: mặc định dày hậu của xưởng là 6,5 (anh Thanh 08/10/2026). Toàn bộ số đo trong bộ thử này đo với hậu 6 (chuẩn 1.3 – 1.29.1) nên GHIM lại 6 cho cả bộ;
+// chuẩn 6,5 có khối thử riêng ở cuối (nạp một bản lõi mới, không đụng bản đã ghim).
+C0.DEFAULT_SPEC.hau.t = 6;
 // Toạ độ trong các phép thử cũ được nghiệm thu với chân 50. Từ bản 1.5 chân mặc định là 100 (anh Jason, 02/10/2026):
 // thông số nào không khai chân thì ở đây vẫn dựng với chân 50; mặc định mới có phép thử riêng ở cuối file.
 // Từ bản 1.10 tủ rộng tự tách thùng ≤ 2000 (anh Jason, 03/10/2026). Các phép thử cũ được nghiệm thu với MỘT thùng liền → ở đây thông số nào không khai `thung` thì dựng không tách;
@@ -19,7 +22,7 @@ const overlapAny = (M) => { const out = []; for (let i = 0; i < M.parts.length; 
 const tplBox = tp => ({ x0: tp.pos[0], x1: tp.pos[0] + tp.box[0], y0: tp.pos[1], y1: tp.pos[1] + tp.box[1], z0: tp.pos[2], z1: tp.pos[2] + tp.box[2] });
 
 /* Tủ của anh Jason trong hình báo lỗi: 2000 × 2800, 2 khoang, mỗi khoang 2 cánh + suốt treo, khoang phải có 2 ngăn kéo âm dưới đợt +520 */
-const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, khoang: [
+const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, hau: { t: 6 }, khoang: [
   { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
   { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] } ] };
 
@@ -325,8 +328,8 @@ T('Vẫn chọn được hậu dày lọt lòng (kiểu cũ) và hậu soi rãnh
   eq([box(h), h.khoan, h.bd], [[67.5, 991.5, 562.5, 580, 67.5, 2182.5], 'Cam3Tp', true], 'hậu dày lọt lòng khoang, nằm trong thùng, khoan cam');
   ok(P(M, 'HOI').every(p => p.y1 === 580) && P(M, 'DOT').every(p => p.y1 === 562.5), 'thùng sâu đủ 580, đợt dừng trước hậu');
   eq(C.toChenfeng(M).json.ModelSpace.find(x => x.Name === 'Hậu').UpSealed, '1', 'hậu dày vẫn dán cạnh như ván thùng');
-  eq(C.normalize({ hau: { kieu: 'mong' } }).hau.t, 5, 'hậu soi rãnh: mặc định 5 li');
-  eq(C.normalize({ hau: { kieu: 'phu' } }).hau.t, 6, 'hậu phủ: mặc định 6 li');
+  eq(C.normalize({ hau: { kieu: 'mong' } }).hau.t, 6, 'hậu soi rãnh: không gõ dày thì theo mặc định (bộ thử này ghim 6 — xem khối "Hậu 6,5")');
+  eq(C.normalize({ hau: { kieu: 'phu' } }).hau.t, 6, 'hậu phủ: theo mặc định (ghim 6)');
   eq(C.normalize({ hau: { kieu: 'phu', t: 9 } }).hau.t, 9, 'dày hậu gõ tay thì giữ');
   eq(C.normalize({ hau: { kieu: 'gi_do' } }).hau.kieu, 'phu', 'kiểu lạ → về chuẩn xưởng');
   eq(C.normalize(C.normalize({ hau: { kieu: 'day' } })), C.normalize({ hau: { kieu: 'day' } }), 'chuẩn hoá lặp lại ra cùng kết quả');
@@ -357,7 +360,7 @@ T('Thông số lưu từ bản trước 1.3 (hậu dày lọt lòng là mặc đ
   eq([r.spec.hau.kieu, r.spec.hau.t], ['phu', 6], 'hậu dày (mặc định cũ) → hậu phủ 6 li');
   ok(r.doi.length === 1 && /hậu/i.test(r.doi[0]), 'ghi lại thay đổi để báo người dùng', r.doi);
   eq(P(C.build(r.spec), 'HAU')[0].t, 6, 'dựng ra hậu 6 li');
-  const m = C.nangCap({ rong: 1000, khoang: [{}], hau: { kieu: 'mong', t: 5 } }, '1.2.0'); eq([m.spec.hau.kieu, m.spec.hau.t, m.doi], ['mong', 5, []], 'hậu soi rãnh là lựa chọn riêng của người dùng → giữ');
+  const m = C.nangCap({ rong: 1000, khoang: [{}], hau: { kieu: 'mong', t: 4 } }, '1.2.0'); eq([m.spec.hau.kieu, m.spec.hau.t, m.doi], ['mong', 4, []], 'hậu soi rãnh (dày gõ tay) là lựa chọn riêng của người dùng → giữ cả kiểu lẫn dày (dày 5 = mặc định cũ thì bản 1.29.2 nâng lên 6,5 — thử ở khối cuối)');
   const moi = C.nangCap({ rong: 1000, khoang: [{}], hau: { kieu: 'day', t: 17.5 } }, '1.3.0'); eq([moi.spec.hau.kieu, moi.doi], ['day', []], 'file lưu từ bản 1.3 mà chọn hậu dày → giữ hậu dày');
   eq(C.nangCap({ hau: { kieu: 'day', t: 17.5 } }, undefined).spec.hau.kieu, 'day', 'không rõ phiên bản → không tự đổi');
   eq(cu.hau.kieu, 'day', 'không sửa vào đối tượng đưa vào');
@@ -601,7 +604,8 @@ T('Mã tủ ghi trên từng tấm (để sửa tủ đã vẽ)', () => {
   const M = C0.build({});
   const co = C0.toChenfeng(M, { id: 'ABCD2345' }).json.ModelSpace, khong = C0.toChenfeng(M).json.ModelSpace;
   const tam = co.filter(o => o.Type === 'Board'), mau = co.filter(o => o.Type === 'Template');
-  ok(tam.length === M.parts.length && tam.every(o => JSON.stringify(o.Remarks) === JSON.stringify([[C0.KHOA_TU, 'ABCD2345']])), 'có id → mọi tấm mang Remarks [[MNCF, id]]');
+  ok(tam.length === M.parts.length && tam.every(o => JSON.stringify(o.Remarks) === JSON.stringify([['MNCF ABCD2345', '']])), '(bản 1.29.2) có id → mọi tấm mang ghi chú TÊN "MNCF <id>", nội dung rỗng (trang sản xuất nối nội dung ghi chú vào tên tấm)');
+  eq([C0.maTuCuaGhiChu([['MNCF ABCD2345', '']]), C0.maTuCuaGhiChu([['MNCF', 'ABCD2345']]), C0.maTuCuaGhiChu([['ghi chú khác', 'x'], ['MNCF Q2', '']]), C0.maTuCuaGhiChu([]), C0.maTuCuaGhiChu(null)], ['ABCD2345', 'ABCD2345', 'Q2', '', ''], 'đọc mã tủ: nhận cả dạng mới (tên) lẫn dạng cũ (nội dung), bỏ qua ghi chú khác');
   ok(mau.length > 0 && mau.every(o => !('Remarks' in o)), 'mẫu (ngăn kéo, suốt treo) không mang ghi chú — cổng nhập không nhận');
   ok(khong.every(o => !('Remarks' in o)), 'không có id (tải JSON) → không ghi chú');
   eq(C0.KHOA_TU, 'MNCF', 'tên ô ghi chú');
@@ -1288,6 +1292,25 @@ T('Hình đứng: phào và cột bấm được; hình 3D (bản 1.28)', () => 
   eq([dem(hP, /<polygon/g), dem(hT, /<polygon/g), dem(hTr, /<polygon/g)], [3, 3, 1], 'một khối: nhìn chéo thấy 3 mặt, nhìn thẳng ngang thấy 1 mặt');
   ok(hP !== hT, 'xoay phải / trái ra hai hình khác nhau');
   ok(!/NaN/.test(C.hinh3D(M, { az: 'x', el: null })) && !/NaN/.test(C.hinh3D(M, { az: 400, el: -50 })), 'góc lạ / ngoài khoảng: kẹp lại, không ra số hỏng');
+});
+
+
+// Bản 1.29.2 (anh Thanh 08/10/2026: "các phần hậu chỉ có 6,5 mm thôi, không có 6 hay 5, chỉnh lại toàn bộ"): mặc định dày hậu của xưởng = 6,5 cho cả hậu phủ lẫn soi rãnh.
+// Cả bộ thử ở trên ghim DEFAULT_SPEC.hau.t = 6 (số đo cũ) nên khối này nạp một bản lõi MỚI, không đụng bản đã ghim.
+T('Hậu 6,5 — ván mỏng của xưởng (bản 1.29.2)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  eq(C.DEFAULT_SPEC.hau.t, 6.5, 'mặc định 6,5');
+  eq([C.normalize({}).hau.t, C.normalize({ hau: { kieu: 'phu' } }).hau.t, C.normalize({ hau: { kieu: 'mong' } }).hau.t, C.normalize({ hau: { kieu: 'day' } }).hau.t, C.normalize({ hau: { kieu: 'phu', t: 9 } }).hau.t], [6.5, 6.5, 6.5, 17.5, 9],
+    'không gõ dày: phủ 6,5, soi rãnh 6,5 (không còn 5), dày lọt lòng = ván thùng; gõ tay thì giữ');
+  const M = C.build({}), hoi = M.parts.find(p => p.loai === 'HOI'), hau = M.parts.filter(p => p.loai === 'HAU');
+  ok(hau.length && hau.every(h => near(h.y1 - h.y0, 6.5)) && near(hoi.y1, M.spec.sau_thung - 6.5), 'tủ mặc định: hậu dày 6,5, hồi sâu = sâu thùng − 6,5', [hoi.y1, hau.map(h => h.y1 - h.y0)]);
+  const be = C.keHoachGoc(C.DEFAULT_SPEC).buoc.find(b => b.lenh === 'BE');
+  eq([be.day, be.lui], [6.5, -6.5], 'lệnh gốc BEHINDBOARD: hậu 6,5 phủ sau (mặt sau cách mép sau thùng −6,5)');
+  // nâng cấp thông số đang lưu: đúng bằng mặc định cũ (phủ 6 / soi rãnh 5) thì đổi sang 6,5 và báo; số gõ tay, hậu dày lọt lòng, hoặc đã ở bản ≥ 1.29.2 thì giữ
+  const nc = (h, ban) => { const r = C.nangCap({ rong: 1000, khoang: [{}], chan: { cao: 100 }, hau: h }, ban); return [r.spec.hau.t, r.doi.filter(d => /Dày hậu/.test(d)).length]; };
+  eq([nc({ kieu: 'phu', t: 6 }, '1.29.1'), nc({ kieu: 'mong', t: 5 }, '1.28.0'), nc({ kieu: 'phu', t: 9 }, '1.29.1'), nc({ kieu: 'day', t: 17.5 }, '1.29.1'), nc({ kieu: 'phu', t: 6 }, '1.29.2')],
+    [[6.5, 1], [6.5, 1], [9, 0], [17.5, 0], [6, 0]], 'nâng cấp: phủ 6 → 6,5 (báo), soi rãnh 5 → 6,5 (báo); 9 gõ tay giữ; hậu dày lọt lòng giữ; đã ở 1.29.2 thì không đổi');
+  ok(/6,5/.test(C.summary(C.build({})).join ? C.summary(C.build({})).join(' ') : String(C.summary(C.build({})))), 'tóm tắt tủ ghi hậu 6,5');
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

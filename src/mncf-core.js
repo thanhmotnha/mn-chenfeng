@@ -12,7 +12,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.29.1';
+  const VERSION = '1.29.2';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -43,7 +43,7 @@
       //          Thùng lùi lại đúng bằng dày hậu, nên "sâu thùng" vẫn là sâu phủ bì (hồi sâu = sâu thùng − dày hậu).
       // 'day'  = hậu dày lọt lòng từng khoang, khoan cam (mặc định của bản 1.0–1.2) | 'mong' = hậu mỏng soi rãnh
       kieu: 'phu',
-      t: 6,                    // dày hậu (bỏ trống thì theo kiểu: phủ 6, soi rãnh 5, dày lọt lòng = dày ván thùng)
+      t: 6.5,                  // dày hậu (bỏ trống thì theo kiểu: phủ 6,5, soi rãnh 6,5, dày lọt lòng = dày ván thùng) — bản 1.29.2, anh Thanh 08/10/2026: xưởng chỉ có ván mỏng 6,5, không có 6 hay 5
       mep: 1,                  // (hậu phủ) mép hậu lùi vào so với mép ngoài của thùng, để hậu không lòi ra khỏi hồi / nóc
       chia: 'khoang',          // (hậu phủ) chia tấm: 'khoang' = mỗi khoang 1 tấm | 'kho_van' = gộp các khoang liền nhau cho tới khi vừa khổ ván (ít tấm nhất). Mối nối luôn nằm trên mép sau của vách.
       lui: 20,                 // (hậu soi rãnh) mặt sau tấm hậu cách mép sau thùng
@@ -124,6 +124,19 @@
   const KHONG_KHOAN = '不排';
   /** Tên ô ghi chú (备注) mà tiện ích gắn vào từng tấm nó vẽ: giá trị = mã của lần vẽ tủ đó → sau này chọn 1 tấm là tìm lại được cả tủ để sửa. */
   const KHOA_TU = 'MNCF';
+  /** Ghi chú mang mã tủ (bản 1.29.2 — anh Thanh 08/10/2026: trang sản xuất in "K1-TĐáy29A99WHS", khó chọn): mã nằm ở TÊN ghi chú ("MNCF 29A99WHS"), nội dung để rỗng — trang sản xuất chỉ nối NỘI DUNG vào tên tấm.
+   *  Bản ≤ 1.29.1 ghi [KHOA_TU, mã] (mã ở nội dung) — đọc vẫn nhận cả hai dạng (`maTuCuaGhiChu`). */
+  const nhanTu = id => `${KHOA_TU} ${id}`;
+  function maTuCuaGhiChu(remarks) {
+    if (!Array.isArray(remarks)) return '';
+    for (const r of remarks) {
+      if (!r) continue;
+      const ten = String(r[0] == null ? '' : r[0]);
+      if (ten === KHOA_TU) return String(r[1] == null ? '' : r[1]);
+      if (ten.indexOf(KHOA_TU + ' ') === 0) return ten.slice(KHOA_TU.length + 1).trim();
+    }
+    return '';
+  }
   const KIEU_HAU = ['phu', 'day', 'mong'];
   const KHOA_NK_CU = ['mau_id', 'ten_mau', 'GD', 'SLK', 'XLK', 'LC'];      // bản 1.0–1.1 khai một mẫu ngăn kéo duy nhất bằng các khoá này
   const TS_LOI_TINH = ['BH', 'SYS', 'XYS', 'ZYS', 'YYS'];                   // tham số do lõi tính, không nhận từ "tham số riêng"
@@ -185,7 +198,7 @@
     {
       // dày hậu: người dùng gõ thì giữ; bỏ trống thì theo kiểu hậu
       const hIn = specIn && specIn.hau && typeof specIn.hau === 'object' ? specIn.hau : {};
-      s.hau.t = num(hIn.t, s.hau.kieu === 'day' ? s.van.t : s.hau.kieu === 'mong' ? 5 : DEFAULT_SPEC.hau.t);
+      s.hau.t = num(hIn.t, s.hau.kieu === 'day' ? s.van.t : DEFAULT_SPEC.hau.t);      // phủ sau và soi rãnh đều dùng ván mỏng 6,5 của xưởng
     }
     for (const k of ['mep', 'lui', 'ranh_sau', 'ranh_ho']) s.hau[k] = num(s.hau[k], DEFAULT_SPEC.hau[k]);
     s.hau.mep = Math.max(0, s.hau.mep);
@@ -1388,7 +1401,10 @@
    * @returns {('thung'|'mat'|'hau')[]} cùng thứ tự với ds
    */
   function nhomMau(ds) {
-    const ra = (ds || []).map(t => { const ten = String((t && t.ten) || ''); return RE_MAU_HAU.test(ten) && !RE_MAU_HOP_NK.test(ten) ? 'hau' : RE_MAU_MAT.test(ten) ? 'mat' : 'thung'; });
+    // (bản 1.29.2 — anh Thanh 08/10/2026: "không có tấm 5 mm nên khi ra file nó nhảy ra nhiều ván quá") tấm MỎNG (≤ 9, theo hộp bao) nào cũng là nhóm hậu — đáy hộp ngăn kéo (抽底板) mỏng
+    // đổ cùng vật liệu ván mỏng với hậu, ra trang sản xuất chỉ còn MỘT loại ván mỏng; tấm dày tên 抽底板 (hộp ngăn kéo ván 18) vẫn là thùng
+    const mong = t => { if (!t || !Array.isArray(t.hop) || t.hop.length < 6) return false; const k = trucMong(t.hop), d = t.hop[2 * k + 1] - t.hop[2 * k]; return d > 0 && d <= 9; };
+    const ra = (ds || []).map(t => { const ten = String((t && t.ten) || ''); return (RE_MAU_HAU.test(ten) && !RE_MAU_HOP_NK.test(ten)) || (mong(t) && !RE_MAU_MAT.test(ten)) ? 'hau' : RE_MAU_MAT.test(ten) ? 'mat' : 'thung'; });
     const canh = []; (ds || []).forEach(t => { if (t && Array.isArray(t.hop) && RE_MAU_CANH.test(String(t.ten || ''))) canh.push(t); });
     if (canh.length) (ds || []).forEach((t, i) => {
       if (ra[i] !== 'mat' || !t || !Array.isArray(t.hop) || !RE_MAU_MAT_NK.test(String(t.ten || ''))) return;
@@ -1784,7 +1800,7 @@
     opts = opts || {};
     const s = M.spec;
     const boards = M.parts.map(p => partToCF(p, s));
-    if (opts.id) for (const b of boards) b.Remarks = [[KHOA_TU, String(opts.id)]];
+    if (opts.id) for (const b of boards) b.Remarks = [[nhanTu(opts.id), '']];      // (bản 1.29.2) mã ở TÊN ghi chú, nội dung rỗng — trang sản xuất của Chenfeng nối NỘI DUNG ghi chú vào tên tấm ("K1-TĐáy29A99WHS")
     const tpls = opts.khong_mau ? [] : M.templates.filter(tp => tp.id).map(tp => templateToCF(tp, s));
     const bb = bbox(M.parts);
     return { json: { ModelSpace: boards.concat(tpls) }, base: bb ? [bb.x0, bb.y0, bb.z0] : [0, 0, 0], so_tam: boards.length, so_mau: tpls.length };
@@ -2259,6 +2275,14 @@
         doi.push(`Xà chân trước đã đổi sang mặc định mới: cao ${DEFAULT_SPEC.chan.cao} (bản cũ: 50) — đáy tủ nâng lên theo, cao độ đợt giữ nguyên. Muốn 80 hay số khác: Chuẩn xưởng → Chân.`);
       }
     }
+    if (isFinite(v) && v < soBan('1.29.2')) {
+      // Bản 1.29.2 (anh Thanh 08/10/2026: "các phần hậu chỉ có 6,5 mm thôi, không có 6 hay 5"): hậu mỏng của xưởng là ván 6,5. Chỉ đổi khi số đang lưu đúng bằng mặc định cũ (phủ 6, soi rãnh 5) — người dùng gõ số khác thì giữ.
+      const h = spec.hau && typeof spec.hau === 'object' ? spec.hau : null;
+      if (h && h.kieu !== 'day' && h.t !== DEFAULT_SPEC.hau.t && ((h.kieu === 'mong' && h.t === 5) || ((h.kieu === 'phu' || h.kieu === undefined) && h.t === 6))) {
+        spec.hau = Object.assign({}, h, { t: DEFAULT_SPEC.hau.t });
+        doi.push(`Dày hậu đổi từ ${h.t} sang ${DEFAULT_SPEC.hau.t} (ván mỏng của xưởng chỉ có 6,5). Muốn đổi lại: Chuẩn xưởng → Hậu.`);
+      }
+    }
     if (isFinite(v) && v < soBan('1.17.1')) {
       // Trước 1.17.1 khe hở quanh cột (khấu cột) mặc định 10. Anh Jason 03/10/2026 23:58: "khe khấu cột để 1-2cm cho sau xử lý cho dễ" → 15. Chỉ đổi khi số đang lưu đúng bằng mặc định cũ.
       const k = spec.khau && typeof spec.khau === 'object' ? spec.khau : null;
@@ -2382,5 +2406,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });

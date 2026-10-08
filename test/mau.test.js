@@ -54,5 +54,14 @@ T('Tìm màu: lọc theo mã (không phân biệt hoa thường, bỏ qua dấu 
   eq(C.locMau(ds, 'zzz'), [], 'không khớp: rỗng');
 });
 
+// Bản 1.29.2 (anh Thanh 08/10/2026: "không có tấm 5 mm nên khi ra file nó nhảy ra nhiều ván quá"): tấm MỎNG (≤ 9 theo hộp bao) nào cũng vào nhóm hậu — đáy hộp ngăn kéo mỏng đổ cùng ván mỏng với hậu
+T('Tấm mỏng (đáy ngăn kéo 5 / 6,5…) theo nhóm hậu; tấm dày cùng tên vẫn là thùng', () => {
+  const hop = (day, he) => ({ hop: he === 'z' ? [0, 800, 0, 500, 10, 10 + day] : [0, day, 0, 500, 0, 700] });      // nằm (mỏng theo z) / đứng (mỏng theo x)
+  eq(nhom([Object.assign({ ten: '抽底板' }, hop(5, 'z')), Object.assign({ ten: 'Đáy ngăn kéo' }, hop(6.5, 'z')), Object.assign({ ten: 'Hậu ngăn kéo' }, hop(5)), Object.assign({ ten: '薄背板' }, hop(6.5))]),
+    ['hau', 'hau', 'hau', 'hau'], 'đáy / hậu hộp ngăn kéo mỏng → nhóm hậu (một loại ván mỏng khi ra file)');
+  eq(nhom([Object.assign({ ten: '抽底板' }, hop(18, 'z')), Object.assign({ ten: 'Hậu ngăn kéo' }, hop(17.5)), { ten: '抽底板' }]), ['thung', 'thung', 'thung'], 'cùng tên mà dày 17,5 / 18, hoặc không có hộp bao → vẫn là thùng như trước');
+  eq(nhom([Object.assign({ ten: 'Cánh trái' }, hop(6)), Object.assign({ ten: 'Tấm ốp' }, hop(6))]), ['mat', 'mat'], 'tấm mỏng ở mặt tủ (cánh kính, tấm ốp mỏng) vẫn là nhóm mặt');
+});
+
 console.log(`\nmau.test: ${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

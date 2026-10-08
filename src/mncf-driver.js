@@ -703,7 +703,7 @@
   D.TAG = Core.KHOA_TU;
   D.newId = () => { let t = ''; const A = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; for (let i = 0; i < 8; i++) t += A[Math.floor(Math.random() * A.length)]; return t; };
   /** Mã tủ ghi trên tấm ('' nếu tấm không do tiện ích vẽ / vẽ từ bản trước 1.6). */
-  D.tagOf = e => { try { const r = e && e.BoardProcessOption && e.BoardProcessOption.remarks; if (!Array.isArray(r)) return ''; const x = r.find(a => a && a[0] === D.TAG); return x ? String(x[1] || '') : ''; } catch (err) { return ''; } };
+  D.tagOf = e => { try { return Core.maTuCuaGhiChu(e && e.BoardProcessOption && e.BoardProcessOption.remarks); } catch (err) { return ''; } };
   /** Các đối tượng người dùng đang chọn trên bản vẽ. */
   D.selected = () => {
     try {
@@ -1614,7 +1614,7 @@
 
   D.chuanHoa = async (ent, opt) => {
     D.boManChe();
-    opt = Object.assign({ hau: 6, mep: 1, khoan: '', khoan_lai: true, onStatus() {} }, opt || {});
+    opt = Object.assign({ hau: Core.DEFAULT_SPEC.hau.t, mep: 1, khoan: '', khoan_lai: true, onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
     const hong = ly_do => ({ ok: false, ly_do });
     if (!D.available()) return hong('Không thấy Chenfeng trong trang này.');
@@ -1968,9 +1968,9 @@
   D.templatesIn = async dirId => {
     const j = await post('CAD-moduleList', { dir_id: String(dirId), page: 1, page_count: 100 }), out = [];
     for (const m of j.modules || []) {
-      const ts = {};
-      try { for (const r of JSON.parse(await inflate(m.props))) if (Array.isArray(r) && typeof r[1] === 'string' && typeof r[3] === 'number') ts[r[1]] = r[3]; } catch (e) { /* mẫu không đọc được tham số thì thôi */ }
-      out.push({ id: Math.round(+m.module_id) || 0, ten: String(m.name || '').trim(), ts });
+      const ts = {}, mt = {};      // mt = chú thích của tham số (bản 1.29.2 — để người dùng nhận ra tham số dày đáy ngăn kéo)
+      try { for (const r of JSON.parse(await inflate(m.props))) if (Array.isArray(r) && typeof r[1] === 'string' && typeof r[3] === 'number') { ts[r[1]] = r[3]; if (typeof r[5] === 'string' && r[5]) mt[r[1]] = r[5]; } } catch (e) { /* mẫu không đọc được tham số thì thôi */ }
+      out.push({ id: Math.round(+m.module_id) || 0, ten: String(m.name || '').trim(), ts, mt });
     }
     return out;
   };
@@ -2929,7 +2929,7 @@
       try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_TENTAM'); mo = true; } } catch (e) { mo = false; }
       for (const [e, ten] of doiTen) { try { e.Name = ten; } catch (er) { /* bỏ qua */ } }
       for (const e of tamCua.values()) {
-        try { const o = e.BoardProcessOption, rm = (Array.isArray(o.remarks) ? o.remarks : []).filter(r => r && r[0] && r[0] !== D.TAG); rm.unshift([D.TAG, id]); e.BoardProcessOption = Object.assign({}, o, { remarks: rm }); } catch (er) { /* bỏ qua */ }
+        try { const o = e.BoardProcessOption, rm = (Array.isArray(o.remarks) ? o.remarks : []).filter(r => r && r[0] && r[0] !== D.TAG && String(r[0]).indexOf(D.TAG + ' ') !== 0); rm.unshift([Core.nhanTu(id), '']); e.BoardProcessOption = Object.assign({}, o, { remarks: rm }); } catch (er) { /* bỏ qua */ }
       }
       if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
     }

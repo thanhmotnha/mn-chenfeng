@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.29.1 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.29.2 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.29.1';
+  const VERSION = '1.29.2';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -45,7 +45,7 @@
       //          Thùng lùi lại đúng bằng dày hậu, nên "sâu thùng" vẫn là sâu phủ bì (hồi sâu = sâu thùng − dày hậu).
       // 'day'  = hậu dày lọt lòng từng khoang, khoan cam (mặc định của bản 1.0–1.2) | 'mong' = hậu mỏng soi rãnh
       kieu: 'phu',
-      t: 6,                    // dày hậu (bỏ trống thì theo kiểu: phủ 6, soi rãnh 5, dày lọt lòng = dày ván thùng)
+      t: 6.5,                  // dày hậu (bỏ trống thì theo kiểu: phủ 6,5, soi rãnh 6,5, dày lọt lòng = dày ván thùng) — bản 1.29.2, anh Thanh 08/10/2026: xưởng chỉ có ván mỏng 6,5, không có 6 hay 5
       mep: 1,                  // (hậu phủ) mép hậu lùi vào so với mép ngoài của thùng, để hậu không lòi ra khỏi hồi / nóc
       chia: 'khoang',          // (hậu phủ) chia tấm: 'khoang' = mỗi khoang 1 tấm | 'kho_van' = gộp các khoang liền nhau cho tới khi vừa khổ ván (ít tấm nhất). Mối nối luôn nằm trên mép sau của vách.
       lui: 20,                 // (hậu soi rãnh) mặt sau tấm hậu cách mép sau thùng
@@ -126,6 +126,19 @@
   const KHONG_KHOAN = '不排';
   /** Tên ô ghi chú (备注) mà tiện ích gắn vào từng tấm nó vẽ: giá trị = mã của lần vẽ tủ đó → sau này chọn 1 tấm là tìm lại được cả tủ để sửa. */
   const KHOA_TU = 'MNCF';
+  /** Ghi chú mang mã tủ (bản 1.29.2 — anh Thanh 08/10/2026: trang sản xuất in "K1-TĐáy29A99WHS", khó chọn): mã nằm ở TÊN ghi chú ("MNCF 29A99WHS"), nội dung để rỗng — trang sản xuất chỉ nối NỘI DUNG vào tên tấm.
+   *  Bản ≤ 1.29.1 ghi [KHOA_TU, mã] (mã ở nội dung) — đọc vẫn nhận cả hai dạng (`maTuCuaGhiChu`). */
+  const nhanTu = id => `${KHOA_TU} ${id}`;
+  function maTuCuaGhiChu(remarks) {
+    if (!Array.isArray(remarks)) return '';
+    for (const r of remarks) {
+      if (!r) continue;
+      const ten = String(r[0] == null ? '' : r[0]);
+      if (ten === KHOA_TU) return String(r[1] == null ? '' : r[1]);
+      if (ten.indexOf(KHOA_TU + ' ') === 0) return ten.slice(KHOA_TU.length + 1).trim();
+    }
+    return '';
+  }
   const KIEU_HAU = ['phu', 'day', 'mong'];
   const KHOA_NK_CU = ['mau_id', 'ten_mau', 'GD', 'SLK', 'XLK', 'LC'];      // bản 1.0–1.1 khai một mẫu ngăn kéo duy nhất bằng các khoá này
   const TS_LOI_TINH = ['BH', 'SYS', 'XYS', 'ZYS', 'YYS'];                   // tham số do lõi tính, không nhận từ "tham số riêng"
@@ -187,7 +200,7 @@
     {
       // dày hậu: người dùng gõ thì giữ; bỏ trống thì theo kiểu hậu
       const hIn = specIn && specIn.hau && typeof specIn.hau === 'object' ? specIn.hau : {};
-      s.hau.t = num(hIn.t, s.hau.kieu === 'day' ? s.van.t : s.hau.kieu === 'mong' ? 5 : DEFAULT_SPEC.hau.t);
+      s.hau.t = num(hIn.t, s.hau.kieu === 'day' ? s.van.t : DEFAULT_SPEC.hau.t);      // phủ sau và soi rãnh đều dùng ván mỏng 6,5 của xưởng
     }
     for (const k of ['mep', 'lui', 'ranh_sau', 'ranh_ho']) s.hau[k] = num(s.hau[k], DEFAULT_SPEC.hau[k]);
     s.hau.mep = Math.max(0, s.hau.mep);
@@ -1390,7 +1403,10 @@
    * @returns {('thung'|'mat'|'hau')[]} cùng thứ tự với ds
    */
   function nhomMau(ds) {
-    const ra = (ds || []).map(t => { const ten = String((t && t.ten) || ''); return RE_MAU_HAU.test(ten) && !RE_MAU_HOP_NK.test(ten) ? 'hau' : RE_MAU_MAT.test(ten) ? 'mat' : 'thung'; });
+    // (bản 1.29.2 — anh Thanh 08/10/2026: "không có tấm 5 mm nên khi ra file nó nhảy ra nhiều ván quá") tấm MỎNG (≤ 9, theo hộp bao) nào cũng là nhóm hậu — đáy hộp ngăn kéo (抽底板) mỏng
+    // đổ cùng vật liệu ván mỏng với hậu, ra trang sản xuất chỉ còn MỘT loại ván mỏng; tấm dày tên 抽底板 (hộp ngăn kéo ván 18) vẫn là thùng
+    const mong = t => { if (!t || !Array.isArray(t.hop) || t.hop.length < 6) return false; const k = trucMong(t.hop), d = t.hop[2 * k + 1] - t.hop[2 * k]; return d > 0 && d <= 9; };
+    const ra = (ds || []).map(t => { const ten = String((t && t.ten) || ''); return (RE_MAU_HAU.test(ten) && !RE_MAU_HOP_NK.test(ten)) || (mong(t) && !RE_MAU_MAT.test(ten)) ? 'hau' : RE_MAU_MAT.test(ten) ? 'mat' : 'thung'; });
     const canh = []; (ds || []).forEach(t => { if (t && Array.isArray(t.hop) && RE_MAU_CANH.test(String(t.ten || ''))) canh.push(t); });
     if (canh.length) (ds || []).forEach((t, i) => {
       if (ra[i] !== 'mat' || !t || !Array.isArray(t.hop) || !RE_MAU_MAT_NK.test(String(t.ten || ''))) return;
@@ -1786,7 +1802,7 @@
     opts = opts || {};
     const s = M.spec;
     const boards = M.parts.map(p => partToCF(p, s));
-    if (opts.id) for (const b of boards) b.Remarks = [[KHOA_TU, String(opts.id)]];
+    if (opts.id) for (const b of boards) b.Remarks = [[nhanTu(opts.id), '']];      // (bản 1.29.2) mã ở TÊN ghi chú, nội dung rỗng — trang sản xuất của Chenfeng nối NỘI DUNG ghi chú vào tên tấm ("K1-TĐáy29A99WHS")
     const tpls = opts.khong_mau ? [] : M.templates.filter(tp => tp.id).map(tp => templateToCF(tp, s));
     const bb = bbox(M.parts);
     return { json: { ModelSpace: boards.concat(tpls) }, base: bb ? [bb.x0, bb.y0, bb.z0] : [0, 0, 0], so_tam: boards.length, so_mau: tpls.length };
@@ -2261,6 +2277,14 @@
         doi.push(`Xà chân trước đã đổi sang mặc định mới: cao ${DEFAULT_SPEC.chan.cao} (bản cũ: 50) — đáy tủ nâng lên theo, cao độ đợt giữ nguyên. Muốn 80 hay số khác: Chuẩn xưởng → Chân.`);
       }
     }
+    if (isFinite(v) && v < soBan('1.29.2')) {
+      // Bản 1.29.2 (anh Thanh 08/10/2026: "các phần hậu chỉ có 6,5 mm thôi, không có 6 hay 5"): hậu mỏng của xưởng là ván 6,5. Chỉ đổi khi số đang lưu đúng bằng mặc định cũ (phủ 6, soi rãnh 5) — người dùng gõ số khác thì giữ.
+      const h = spec.hau && typeof spec.hau === 'object' ? spec.hau : null;
+      if (h && h.kieu !== 'day' && h.t !== DEFAULT_SPEC.hau.t && ((h.kieu === 'mong' && h.t === 5) || ((h.kieu === 'phu' || h.kieu === undefined) && h.t === 6))) {
+        spec.hau = Object.assign({}, h, { t: DEFAULT_SPEC.hau.t });
+        doi.push(`Dày hậu đổi từ ${h.t} sang ${DEFAULT_SPEC.hau.t} (ván mỏng của xưởng chỉ có 6,5). Muốn đổi lại: Chuẩn xưởng → Hậu.`);
+      }
+    }
     if (isFinite(v) && v < soBan('1.17.1')) {
       // Trước 1.17.1 khe hở quanh cột (khấu cột) mặc định 10. Anh Jason 03/10/2026 23:58: "khe khấu cột để 1-2cm cho sau xử lý cho dễ" → 15. Chỉ đổi khi số đang lưu đúng bằng mặc định cũ.
       const k = spec.khau && typeof spec.khau === 'object' ? spec.khau : null;
@@ -2384,7 +2408,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { VERSION, DEFAULT_SPEC, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
 
 /*!
@@ -4859,7 +4883,7 @@
   D.TAG = Core.KHOA_TU;
   D.newId = () => { let t = ''; const A = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; for (let i = 0; i < 8; i++) t += A[Math.floor(Math.random() * A.length)]; return t; };
   /** Mã tủ ghi trên tấm ('' nếu tấm không do tiện ích vẽ / vẽ từ bản trước 1.6). */
-  D.tagOf = e => { try { const r = e && e.BoardProcessOption && e.BoardProcessOption.remarks; if (!Array.isArray(r)) return ''; const x = r.find(a => a && a[0] === D.TAG); return x ? String(x[1] || '') : ''; } catch (err) { return ''; } };
+  D.tagOf = e => { try { return Core.maTuCuaGhiChu(e && e.BoardProcessOption && e.BoardProcessOption.remarks); } catch (err) { return ''; } };
   /** Các đối tượng người dùng đang chọn trên bản vẽ. */
   D.selected = () => {
     try {
@@ -5770,7 +5794,7 @@
 
   D.chuanHoa = async (ent, opt) => {
     D.boManChe();
-    opt = Object.assign({ hau: 6, mep: 1, khoan: '', khoan_lai: true, onStatus() {} }, opt || {});
+    opt = Object.assign({ hau: Core.DEFAULT_SPEC.hau.t, mep: 1, khoan: '', khoan_lai: true, onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
     const hong = ly_do => ({ ok: false, ly_do });
     if (!D.available()) return hong('Không thấy Chenfeng trong trang này.');
@@ -6124,9 +6148,9 @@
   D.templatesIn = async dirId => {
     const j = await post('CAD-moduleList', { dir_id: String(dirId), page: 1, page_count: 100 }), out = [];
     for (const m of j.modules || []) {
-      const ts = {};
-      try { for (const r of JSON.parse(await inflate(m.props))) if (Array.isArray(r) && typeof r[1] === 'string' && typeof r[3] === 'number') ts[r[1]] = r[3]; } catch (e) { /* mẫu không đọc được tham số thì thôi */ }
-      out.push({ id: Math.round(+m.module_id) || 0, ten: String(m.name || '').trim(), ts });
+      const ts = {}, mt = {};      // mt = chú thích của tham số (bản 1.29.2 — để người dùng nhận ra tham số dày đáy ngăn kéo)
+      try { for (const r of JSON.parse(await inflate(m.props))) if (Array.isArray(r) && typeof r[1] === 'string' && typeof r[3] === 'number') { ts[r[1]] = r[3]; if (typeof r[5] === 'string' && r[5]) mt[r[1]] = r[5]; } } catch (e) { /* mẫu không đọc được tham số thì thôi */ }
+      out.push({ id: Math.round(+m.module_id) || 0, ten: String(m.name || '').trim(), ts, mt });
     }
     return out;
   };
@@ -7085,7 +7109,7 @@
       try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_TENTAM'); mo = true; } } catch (e) { mo = false; }
       for (const [e, ten] of doiTen) { try { e.Name = ten; } catch (er) { /* bỏ qua */ } }
       for (const e of tamCua.values()) {
-        try { const o = e.BoardProcessOption, rm = (Array.isArray(o.remarks) ? o.remarks : []).filter(r => r && r[0] && r[0] !== D.TAG); rm.unshift([D.TAG, id]); e.BoardProcessOption = Object.assign({}, o, { remarks: rm }); } catch (er) { /* bỏ qua */ }
+        try { const o = e.BoardProcessOption, rm = (Array.isArray(o.remarks) ? o.remarks : []).filter(r => r && r[0] && r[0] !== D.TAG && String(r[0]).indexOf(D.TAG + ' ') !== 0); rm.unshift([Core.nhanTu(id), '']); e.BoardProcessOption = Object.assign({}, o, { remarks: rm }); } catch (er) { /* bỏ qua */ }
       }
       if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
     }
@@ -8520,7 +8544,7 @@ ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản v�
 </ol></fieldset>
 <fieldset><legend>Tủ được dựng thế nào</legend><ul class="sum">
 <li>Thùng: tủ rộng tự <b>tách thành các thùng rời</b>, mỗi thùng không quá 2000 (đổi ở Chuẩn xưởng → Thùng) — chỗ tách là 2 hồi áp lưng, phào và chân trước là khung chung. Trong một thùng: hồi chạy suốt, vách dùng chung giữa 2 khoang; đáy, nóc lọt lòng từng khoang.</li>
-<li><b>Hậu 6 li phủ sau lưng thùng</b>: hậu ốp lên mép sau của hồi, vách, đáy, nóc; chia thành nhiều tấm, mối nối nằm trên vách; bắn đinh từ đằng sau nên Chenfeng không khoan cam cho hậu. Thùng lùi lại 6 mm, sâu thùng vẫn là sâu phủ bì. Đổi kiểu hậu, độ dày, cách chia tấm ở tab Chuẩn xưởng → Hậu.</li>
+<li><b>Hậu 6,5 li phủ sau lưng thùng</b>: hậu ốp lên mép sau của hồi, vách, đáy, nóc; chia thành nhiều tấm, mối nối nằm trên vách; bắn đinh từ đằng sau nên Chenfeng không khoan cam cho hậu. Thùng lùi lại 6 mm, sâu thùng vẫn là sâu phủ bì. Đổi kiểu hậu, độ dày, cách chia tấm ở tab Chuẩn xưởng → Hậu.</li>
 <li>Tủ cao hơn khổ ván: chia thân dưới + thân kịch trần tại "cao thân dưới".</li>
 <li>Xà chân trước nằm ở mặt phẳng cánh, che hết chân hồi và chân vách. Phào 2 bên + trên có thanh phụ trợ phía sau.</li>
 <li><b>Ngăn kéo âm</b> nằm sau cánh mở: mỗi bên có bản lề có một vách đệm cách hồi/vách 50 (khe còn lại là chỗ cho bản lề), ngăn kéo nằm giữa hai vách đệm nên kéo ra không vướng bản lề.</li>
@@ -8534,7 +8558,7 @@ ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản v�
 ${cf ? `<fieldset><legend>Module lấy từ Kho mẫu Chenfeng (bản 1.11–1.12)</legend><ul class="sum">
 <li><b>Dày ván</b> (bản 1.12): mẫu của Chenfeng vẽ với ván 18. Nút chuẩn hoá đổi luôn tham số dày ván (BH) của module sang ván của xưởng (Chuẩn xưởng → Ván) trước khi chuyển hậu; tấm nào mẫu không nối với BH (thường là cánh) thì thẻ Kết quả nêu tên để đổi tay. Các mẫu một thùng trong kho đã được đặt sẵn BH = 17,5 nên chèn ra là ván 17,5.</li>
 <li>Thùng tủ trong kho của Chenfeng làm theo kiểu Trung: <b>hậu dày 18 lọt lòng</b>, hoặc <b>hậu mỏng âm rãnh</b> lùi 17–20 li có thanh giằng. Chèn module vào bản vẽ như thường, bấm chọn 1 tấm của nó rồi bấm <b>Chuẩn hoá mẫu kho đang chọn</b> (dưới nút "Sửa tủ đang chọn").</li>
-<li>Bảng đổi module đó sang chuẩn xưởng: <b>hậu 6 li phủ sau lưng thùng</b> (lùi mép 1, không khoan), hồi / nóc / đáy / đợt lùi mép sau cho vừa, bỏ thanh giằng, đổi kiểu khoan sang kiểu của xưởng rồi cho Chenfeng khoan lại. Bề dày hậu và mép lùi lấy ở Chuẩn xưởng → Hậu.</li>
+<li>Bảng đổi module đó sang chuẩn xưởng: <b>hậu 6,5 li phủ sau lưng thùng</b> (lùi mép 1, không khoan), hồi / nóc / đáy / đợt lùi mép sau cho vừa, bỏ thanh giằng, đổi kiểu khoan sang kiểu của xưởng rồi cho Chenfeng khoan lại. Bề dày hậu và mép lùi lấy ở Chuẩn xưởng → Hậu.</li>
 <li>Module vẫn là module tham số của Chenfeng: đổi Rộng / Sâu / Cao, chân, dày ván ở ô <b>Thông số</b> thì hậu vẫn phủ kín. Tổng rộng / sâu / cao của thùng không đổi.</li>
 <li>Chỉ sửa module <b>trên bản vẽ</b> — mẫu trong kho giữ nguyên. Làm nhầm: thẻ Kết quả → <b>Hoàn tác lần chuẩn hoá này</b>.</li>
 <li>Chưa làm được (bảng báo lý do, không sửa gì): module đang xoay, tủ góc, tủ né dầm / cột có hậu khuyết hoặc hậu nằm sâu, bộ ghép nhiều thùng (tủ sách, tủ sảnh, tatami… — hồi và vách là tấm tự động của Chenfeng).</li>
@@ -8881,7 +8905,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const bd = $('[data-act="dat"]'); if (bd) bd.disabled = busy;
       const bdt = $('[data-act="dat-tuong"]'); if (bdt) bdt.disabled = busy;
       capDlg();
-      const chb = $('[data-act="chuanhoa"]'); if (chb) { chb.disabled = busy; chb.setAttribute('aria-label', `Chuẩn hoá mẫu kho đang chọn → ván ${hien(spec.van.t)} · hậu ${hien(spec.hau.t || 6)} phủ sau`); }
+      const chb = $('[data-act="chuanhoa"]'); if (chb) { chb.disabled = busy; chb.setAttribute('aria-label', `Chuẩn hoá mẫu kho đang chọn → ván ${hien(spec.van.t)} · hậu ${hien(spec.hau.t || Core.DEFAULT_SPEC.hau.t)} phủ sau`); }
       capNoi(); capHinh();
       const j = $('.pri[data-act="json"]'); if (j) j.disabled = model.errors.length > 0;
       renderBar();
@@ -9569,7 +9593,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (typeof Drv.dayVan === 'function' && spec.van.t > 0) {
         try { dv = await Drv.dayVan(chon[0], spec.van.t, { onStatus: setStatus }); } catch (e) { dv = { ok: false, ly_do: String(e && e.message || e) }; }
       }
-      try { r = await Drv.chuanHoa((dv && dv.tam) || chon[0], { hau: spec.hau.t || 6, mep: spec.hau.mep, khoan: spec.khoan.thung, onStatus: setStatus }); }
+      try { r = await Drv.chuanHoa((dv && dv.tam) || chon[0], { hau: spec.hau.t || Core.DEFAULT_SPEC.hau.t, mep: spec.hau.mep, khoan: spec.khoan.thung, onStatus: setStatus }); }
       catch (e) { r = { ok: false, ly_do: String(e && e.message || e) }; }
       busy = false; rebuild();
       const h = [], dvDoi = !!(dv && dv.ok && !dv.da_dung);
@@ -10162,7 +10186,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const el = $('.kmau'); if (!el) return;
       const m = kho.chon, K = khungDangChon();
       el.innerHTML = m ? `${m.hinh ? `<img src="${esc(m.hinh)}" alt="">` : ''}<div><b>${esc(m.ten)}</b>${m.kt ? `<br>Kích thước mặc định của mẫu: ${m.kt.map(hien).join(' × ')} (rộng × sâu × cao)` : ''}</div>` : '<span class="hint tt" style="margin:0">Bấm vào một mẫu ở trên.</span>';
-      const chu = $('[data-ui="kho-chuan-chu"]'); if (chu) chu.textContent = `Theo chuẩn xưởng: ván ${hien(spec.van.t)}${spec.hau.kieu === 'phu' ? ` · hậu ${hien(spec.hau.t || 6)} li phủ sau` : ''}`;
+      const chu = $('[data-ui="kho-chuan-chu"]'); if (chu) chu.textContent = `Theo chuẩn xưởng: ván ${hien(spec.van.t)}${spec.hau.kieu === 'phu' ? ` · hậu ${hien(spec.hau.t || Core.DEFAULT_SPEC.hau.t)} li phủ sau` : ''}`;
       const bk = $('[data-act="kho-khung"]'), bd = $('[data-act="kho-dat"]'), bv = $('[data-act="kho-ve"]'), ban = $('.khochon');
       if (bk) { bk.hidden = !K; bk.disabled = !m || busy; if (K) bk.textContent = `Dùng mẫu này cho khung ${K.ten}`; }
       if (bd) { bd.disabled = !m || busy; bd.className = K ? 'sec' : 'pri'; }
@@ -10277,7 +10301,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return null; }
       ctx = ctx || {};
       const bat = n => { const el = $(`[data-ui="${n}"]`); return !el || el.checked; }, chuan = bat('kho-chuan');
-      const opt = Object.assign({ onStatus: setStatus, khoan: spec.khoan.thung, ten_viet: bat('kho-ten'), day: chuan ? spec.van.t : 0, hau: chuan && spec.hau.kieu === 'phu' ? (spec.hau.t || 6) : 0, mep: spec.hau.mep, kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }, o);
+      const opt = Object.assign({ onStatus: setStatus, khoan: spec.khoan.thung, ten_viet: bat('kho-ten'), day: chuan ? spec.van.t : 0, hau: chuan && spec.hau.kieu === 'phu' ? (spec.hau.t || Core.DEFAULT_SPEC.hau.t) : 0, mep: spec.hau.mep, kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }, o);
       busy = true; paint(); veChon(); if (Ph) paintPhong();
       if (!opt.corner) { panel.hidden = true; chipChu.textContent = 'Bấm 1 điểm trên bản vẽ để đặt mẫu (góc trái – trước – dưới)… Esc = thôi'; chip.hidden = false; }
       let rep;
@@ -11082,7 +11106,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'lk-do') {
         if (!Drv || !Drv.available() || busy) return;
         setStatus('Đang đọc kho mẫu của tài khoản Chenfeng…');
-        return Drv.drawerTemplates().then(r => { const k = mergeLoai(r.mau); rebuild(); renderSettings(); setStatus(`Thư mục ${r.thu_muc} có ${r.mau.length} mẫu — cập nhật mã cho ${k.capNhat} loại, thêm ${k.them} loại mới.`); });
+        return Drv.drawerTemplates().then(r => { const k = mergeLoai(r.mau); rebuild(); renderSettings();
+          // (bản 1.29.2) kể tham số của từng mẫu (tên = giá trị · chú thích) — để tìm tham số DÀY ĐÁY ngăn kéo của mẫu Chenfeng (xưởng dùng ván 6,5; chưa biết mẫu gọi tham số đó là gì)
+          const ke = r.mau.map(m => `${m.ten}: ${Object.keys(m.ts || {}).map(q => `${q}=${m.ts[q]}${m.mt && m.mt[q] ? ' (' + m.mt[q] + ')' : ''}`).join(', ') || '(không đọc được tham số)'}`).join(' · ');
+          setStatus(`Thư mục ${r.thu_muc} có ${r.mau.length} mẫu — cập nhật mã cho ${k.capNhat} loại, thêm ${k.them} loại mới. Tham số của từng mẫu — ${ke}`); });
       }
       else if (act === 'defaults') { spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan })); renderAll(); switchTab('chuan'); }
       else if (act === 'json') { if (model && !model.errors.length) return saveFile(fileBase() + '_chenfeng.json', JSON.stringify(Core.toChenfeng(model).json), 'application/json', 'Đã tải file JSON — kéo thả vào cửa sổ Chenfeng, rồi bấm 1 điểm để đặt.'); }

@@ -197,7 +197,7 @@ async function chay() {
     await H.locator('.kmc').first().click();
     eq(await Promise.all(['kho-rong', 'kho-sau', 'kho-cao'].map(n => H.locator(`[data-ui="${n}"]`).inputValue())), ['1200', '350', '1000'], 'bấm mẫu: ô kích thước điền sẵn kích thước mặc định của mẫu');
     ok(/Tủ giày thấp 2/.test(await H.locator('.kmau').innerText()) && !(await H.locator('[data-act="kho-dat"]').isDisabled()) && (await H.locator('.kmc.on').count()) === 1, 'mẫu đang chọn hiện ở khung dưới, các nút vẽ mở');
-    ok(/Theo chuẩn xưởng: ván 17,5 · hậu 6 li phủ sau/.test(await H.locator('[data-ui="kho-chuan-chu"]').textContent()), 'ô “theo chuẩn xưởng” ghi rõ dày ván + hậu đang đặt ở Chuẩn xưởng');
+    ok(/Theo chuẩn xưởng: ván 17,5 · hậu 6,5 li phủ sau/.test(await H.locator('[data-ui="kho-chuan-chu"]').textContent()), 'ô “theo chuẩn xưởng” ghi rõ dày ván + hậu đang đặt ở Chuẩn xưởng');
 
     // vẽ tại 1 điểm bấm (không xoay)
     await H.locator('[data-ui="kho-chuan"]').uncheck();
