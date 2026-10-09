@@ -509,9 +509,12 @@
   function tuChoKhung(Core, specNen, q, tenPhong, H, j) {
     const ghi = [], dsMau = [];
     let s = Core.normalize(specNen);
+    // (bản 1.32) khung là chỗ đặt TỦ: giường / vách đầu giường đang mở trong bảng → đổi sang tủ áo (Chuẩn xưởng giữ nguyên); táp giữ ngăn kéo của nó
+    const lsp = Core.loaiSP ? Core.loaiSP(s) : 'tu';
+    if ((lsp === 'giuong' || lsp === 'vach') && Core.veTuAo) { s = Core.veTuAo(s); ghi.push(`Khung là chỗ đặt tủ — ${Core.TEN_SP[lsp].toLowerCase()} đang mở trong bảng được đổi sang tủ áo.`); }
     const coMau = q.mau && Core.MAU_TU.find(m => m.ma === q.mau);
     if (coMau) { s = Core.apMau(s, q.mau); dsMau.push(q.mau); }
-    else if (q.giu_ruot) dsMau.push('ruột đang mở');      // bản 1.16 (tủ theo hình): giữ cách chia khoang đang có trong bảng
+    else if (q.giu_ruot || lsp === 'tap') dsMau.push(lsp === 'tap' ? 'táp đang mở' : 'ruột đang mở');      // bản 1.16 (tủ theo hình): giữ cách chia khoang đang có trong bảng
     else {
       // tự chọn theo bề rộng: mỗi cánh ~500; ghép các mẫu 2–6 cánh cho đủ số cánh
       const theo = { 2: 'TA2-1000', 3: 'TA3-1500', 4: 'TA4-2000', 5: 'TA5-2500', 6: 'TA6-3000' };
@@ -741,7 +744,7 @@
     let a = so2(p1), b = so2(p2);
     if (![a[0], a[1], b[0], b[1]].every(isFinite)) return hong('Chưa đủ 2 điểm.');
     sau = Number(sau);
-    if (!(sau >= 100)) return hong('Chiều sâu tủ chưa hợp lệ (ô Sâu ở thẻ Tủ).');
+    if (!(sau >= (Number(opt.sau_min) > 0 ? Number(opt.sau_min) : 100))) return hong('Chiều sâu tủ chưa hợp lệ (ô Sâu ở thẻ Tủ).');      // sau_min: vách đầu giường chỉ dày ~35 (bản 1.32)
     const rongBiet = Number(opt.rong) > 0 ? Number(opt.rong) : 0;
     if (rongBiet && rongBiet < 200) return hong('Bề rộng tủ phải từ 200 trở lên.');
     if (!(Math.hypot(b[0] - a[0], b[1] - a[1]) >= (rongBiet ? 20 : 200))) return hong(rongBiet ? 'Chưa rõ tủ chạy về phía nào — rê chuột dọc tường về phía tủ chạy tới rồi mới Enter.' : 'Hai điểm quá gần nhau (tủ rộng dưới 200) — bấm lại điểm đầu và điểm cuối của tủ.');

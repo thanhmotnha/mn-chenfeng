@@ -1211,7 +1211,7 @@
       if (c.dai > s.van.kho_dai + TOL) bao.err(`${p.ten} (${p.tu}) dài ${g(c.dai)} > khổ ván ${g(s.van.kho_dai)}.`, 'kho_van');
       if (c.rong > s.van.kho_rong + TOL) bao.err(p.phu
         ? `${p.ten} (${p.tu}) rộng ${g(c.rong)} > khổ ván ${g(s.van.kho_rong)} — khoang quá rộng, không có vách để nối hậu: thêm vách (chia khoang nhỏ hơn).`
-        : `${p.ten} (${p.tu}) rộng ${g(c.rong)} > khổ ván ${g(s.van.kho_rong)} — phải chia khoang nhỏ hơn.`, 'kho_van');
+        : `${p.ten} (${p.tu}) rộng ${g(c.rong)} > khổ ván ${g(s.van.kho_rong)} — ${M.info && M.info.loai_sp === 'giuong' ? 'giảm kích thước tấm này (cao đầu giường / rộng phủ bì; lòng rộng thì bật đà giữa)' : M.info && M.info.loai_sp === 'vach' ? 'tăng số ô / số hàng' : 'phải chia khoang nhỏ hơn'}.`, 'kho_van');
       if (Math.abs(c.day - p.t) > TOL) bao.err(`${p.ten}: cạnh nhỏ nhất ${g(c.day)} khác độ dày ${g(p.t)} (tấm quá hẹp).`, 'kho_van');
     }
     // va chạm (hậu mỏng ăn rãnh vào tấm bên cạnh là đúng cấu tạo)
@@ -1592,10 +1592,13 @@
 
   /** Nhóm của một thư mục kho mẫu theo TÊN (bản 1.29.1 — kho của tài khoản bày lẫn tủ với phụ kiện): 'pk' phụ kiện | 'tu' tủ và thành phần của tủ (cánh, ngăn kéo) | 'khac'.
    *  Xét phụ kiện trước ("Tủ phụ kiện" là phụ kiện). Thư mục con thì theo thư mục gốc của nó (giao diện lo). */
+  /** (bản 1.32) Mẫu kho Chenfeng là giường / vách đầu giường (không có hậu → không phủ hậu chuẩn xưởng). Tên có chữ tủ / táp / tab / kệ / hộc / 柜 thì vẫn là tủ
+   *  (táp đầu giường, 床头柜, 背景墙柜) → vẫn phủ hậu. */
+  function khoKhongHau(ten) { const t = String(ten == null ? '' : ten); return /giường|床|背景墙/i.test(t) && !/tủ|t[aá]p|\btab\b|kệ|hộc|柜/i.test(t); }
   function nhomThuMuc(ten) {
     const t = String(ten == null ? '' : ten).toLowerCase();
     if (/phụ kiện|bản lề|tay nắm|tay co|ray|ke |^ke$|chân|đèn|led|kho[áa]|suốt|pát|bát|móc|rổ|giá treo|vít|nẹp|gioăng|giảm chấn|nâng|五金|铰链|拉手|滑轨|导轨|脚|灯|锁|挂衣|衣杆|配件|拉篮|hardware|hinge|handle|rail/.test(t)) return 'pk';
-    if (/tủ|táp|tab|đầu giường|cánh|ngăn kéo|hộc|kệ|giường|bàn|vách|lavabo|thùng|柜|门|抽屉|床|桌|架|cabinet|door|drawer/.test(t)) return 'tu';
+    if (/tủ|táp|\btab\b|đầu giường|cánh|ngăn kéo|hộc|kệ|giường|bàn|vách|lavabo|thùng|柜|门|抽屉|床|桌|架|cabinet|door|drawer/.test(t)) return 'tu';
     return 'khac';
   }
 
@@ -1919,8 +1922,8 @@
 
   function partToCF(p, s) {
     const [w, h, t] = localSize(p);
-    const hau = p.loai === 'HAU' && !p.van_thung;      // hậu khấu cột là ván thùng: vật liệu, dán cạnh, khoan như tấm thùng
-    const dc = hau && (p.phu || p.mong) ? '0' : s.van.dan_canh;      // hậu mỏng (phủ / soi rãnh) không dán cạnh
+    const hau = (p.loai === 'HAU' && !p.van_thung) || !!p.van_hau;      // hậu khấu cột là ván thùng: vật liệu, dán cạnh, khoan như tấm thùng; đáy ngăn kéo giường (van_hau) là ván hậu
+    const dc = hau && (p.phu || p.mong || p.van_hau) ? '0' : s.van.dan_canh;      // hậu mỏng (phủ / soi rãnh), đáy ngăn kéo giường không dán cạnh
     const o = {
       Type: 'Board', Name: p.ten, BrType: p.type, PositionType: 1,      // PositionType 1: Pos = góc nhỏ nhất (x, y, z) cho cả 3 loại tấm
       ContourCurve: p.khau && p.khau.length && p.type === 0 ? duongBaoKhau(p) : rect(w, h), Thickness: rn(t), Pos: [p.x0, p.y0, p.z0],
@@ -1976,7 +1979,7 @@
       const bl = p.ban_le ? `${p.ban_le.so} bản lề / cánh` : '';      // (bản 1.30) số bản lề theo cao + rộng cánh → cùng kích thước là cùng số
       const key = [nhom, p.tu, p.ten, c.dai, c.rong, c.day, p.khoan, p.holes && p.holes.length ? 'x' : '', kh, bl, p.keo_nep ? 'kn' : p.vit_ray ? 'vr' : p.vit_de ? 'vd' : ''].join('|');      // (1.31.1) cùng cỡ mà cách bắt khác thì dòng riêng
       const r = rows.get(key) || { nhom, tu: p.tu, ten: p.ten, dai: c.dai, rong: c.rong, day: c.day, sl: 0, m2: 0, khoan: p.khoan === KHONG_KHOAN ? 'không khoan' : p.khoan,
-        ghi_chu: kh || (p.bat_giuong ? (p.lop_trong ? 'lớp trong — ghép keo + vít với lớp ngoài' : 'bắt bát giường (tháo lắp), không khoan cam') : p.vit_phan ? 'đặt lên vách ngăn gầm + đà giữa, bắt vít' : p.vit_hoc ? 'hộp ngăn kéo bắt vít' : p.vit_no ? 'xương — bắt vít nở vào tường' : p.op ? 'bắn keo + vít lên xương' : p.phu ? 'ốp sau lưng thùng, bắn đinh' : p.vit_de ? 'áp mặt trước đế trước, bắt vít từ sau' : p.keo_nep ? 'thanh ngang khung mặt giữa 2 nẹp, keo + đinh' : p.vit_ray ? 'thanh ngang khung mặt — bắt vít / chốt gỗ vào hồi, vách (mối nối ngắn hơn 60, không khoan cam)' : p.van_thung ? 'tấm trước mặt cột — ván thùng, lọt giữa 2 tấm đứng hai bên cột' : p.khau_cot ? 'vách đứng dọc mặt bên cột' : p.holes && p.holes.length ? (p.holes[0].kieu === 'tron' ? (bl ? bl + ', khoét chén' : 'khoét chén bản lề') : 'soi rãnh hậu') : bl) };
+        ghi_chu: kh || (p.bat_giuong ? (p.lop_trong ? 'lớp trong — ghép keo + vít với lớp ngoài' : 'bắt bát giường (tháo lắp), không khoan cam') : p.vit_phan ? 'đặt lên vách ngăn gầm + đà giữa, bắt vít' : p.vit_de_giuong ? 'đế giường bay — khung đế ráp cam, thân giường bắt ke góc + vít xuống đế' : p.vit_thang ? 'bắt vít / ke vào hông, đuôi, đầu giường, đà' : p.vit_hoc ? 'hộp ngăn kéo bắt vít' : p.vit_no ? 'xương — bắt vít nở vào tường' : p.op ? 'bắn keo + vít lên xương' : p.phu ? 'ốp sau lưng thùng, bắn đinh' : p.vit_de ? 'áp mặt trước đế trước, bắt vít từ sau' : p.keo_nep ? 'thanh ngang khung mặt giữa 2 nẹp, keo + đinh' : p.vit_ray ? 'thanh ngang khung mặt — bắt vít / chốt gỗ vào hồi, vách (mối nối ngắn hơn 60, không khoan cam)' : p.van_thung ? 'tấm trước mặt cột — ván thùng, lọt giữa 2 tấm đứng hai bên cột' : p.khau_cot ? 'vách đứng dọc mặt bên cột' : p.holes && p.holes.length ? (p.holes[0].kieu === 'tron' ? (bl ? bl + ', khoét chén' : 'khoét chén bản lề') : 'soi rãnh hậu') : bl) };
       r.sl++; r.m2 += c.dai * c.rong / 1e6; rows.set(key, r);
     }
     const order = ['Thùng', 'Hậu', 'Chân trước', 'Phào mặt', 'Phụ trợ phào', 'Cánh', 'Giường', 'Khung giường', 'Phản giường', 'Ngăn kéo giường', 'Tấm ốp', 'Xương vách'];
@@ -2567,9 +2570,9 @@
   const TEN_SP = { tu: 'Tủ áo', tap: 'Táp đầu giường', giuong: 'Giường', vach: 'Vách đầu giường' };
   const KIEU_GIUONG = [['thuong', 'Giường thường'], ['bay', 'Giường bay (đế lùi, LED gầm)'], ['nk', 'Giường có ngăn kéo']];
   // lop = số lớp ván ghép của hông / đuôi; lop_dau = của đầu giường; cao_thanh = mặt trên hông tính từ sàn; lun = mặt phản thấp hơn mặt hông; ho_nem = khe lòng giường mỗi bên so với nệm;
-  // so_thang = số vách ngăn gầm (0 = tự: cách ≤ 600); dam_giua = đà giữa (−1 = tự: lòng rộng > 1000 hoặc có ngăn kéo); cao_de / lui_de = đế giường bay; nk_* = ngăn kéo hai bên hông
+  // so_thang = số vách ngăn gầm (0 = tự: cách ≤ 600; ít nhất 2 — vách ở đầu và ở đuôi); dam_giua = đà giữa (−1 = tự: lòng rộng > 1000 hoặc có ngăn kéo); cao_de / lui_de = đế giường bay; nk_* = ngăn kéo hai bên hông
   const DEFAULT_GIUONG = { kieu: 'thuong', lop: 2, lop_dau: 1, cao_thanh: 300, lun: 40, ho_nem: 10, so_thang: 0, dam_giua: -1, cao_de: 120, lui_de: 150, nk_ben: 'hai', nk_so: 2, nk_sau: 500, nk_khe: 3, nk_ray: 13, thanh_hong: 80 };
-  const DEFAULT_VACH = { cach_san: 0, so_o: 0, so_hang: 0, khe: 5, xuong_rong: 80, xuong_cach: 600, day_op: 0 };
+  const DEFAULT_VACH = { cach_san: 0, so_o: 0, so_hang: 0, so_ngang: 0, so_doc: 0, khe: 5, xuong_rong: 80, xuong_cach: 600, day_op: 0 };
   const loaiSP = s => (s && LOAI_SP.indexOf(s.loai_sp) > 0 ? s.loai_sp : 'tu');
   /** Phủ bì giường theo cỡ nệm (rộng × dài) + kết cấu đang chọn: rong = nệm + 2 khe + 2 hông; sau_thung = nệm + 2 khe + đuôi + đầu. */
   function phuBiGiuong(spec, nemR, nemD) {
@@ -2581,11 +2584,11 @@
     q.kieu = KIEU_GIUONG.some(k => k[0] === q.kieu) ? q.kieu : DEFAULT_GIUONG.kieu;
     q.lop = num(q.lop, 2) >= 2 ? 2 : 1; q.lop_dau = num(q.lop_dau, 1) >= 2 ? 2 : 1;
     for (const k of ['cao_thanh', 'lun', 'ho_nem', 'cao_de', 'lui_de', 'nk_sau', 'nk_khe', 'nk_ray', 'thanh_hong']) q[k] = Math.max(0, num(q[k], DEFAULT_GIUONG[k]));
-    q.so_thang = Math.max(0, Math.min(12, Math.round(num(q.so_thang, 0))));
+    { const n = Math.round(num(q.so_thang, 0)); q.so_thang = n <= 0 ? 0 : Math.max(2, Math.min(12, n)); }      // 1 vách thì không chia được nhịp (chia cho 0)
     { const d = num(q.dam_giua, -1); q.dam_giua = d < 0 ? -1 : d ? 1 : 0; }
     q.nk_ben = ['hai', 'trai', 'phai'].indexOf(q.nk_ben) >= 0 ? q.nk_ben : 'hai';
     q.nk_so = Math.max(1, Math.min(4, Math.round(num(q.nk_so, 2))));
-    s.ve_goc = false;
+    s.khau = khongKhauSP(s);
     return q;
   }
   function normVach(s) {
@@ -2594,9 +2597,35 @@
     q.so_o = Math.min(20, Math.round(q.so_o)); q.so_hang = Math.min(6, Math.round(q.so_hang));
     if (!(q.xuong_rong > s.van.t)) q.xuong_rong = DEFAULT_VACH.xuong_rong;
     if (!(q.xuong_cach >= 200)) q.xuong_cach = DEFAULT_VACH.xuong_cach;
+    q.cach_san = 0;      // vách đứng từ sàn (đặt bằng chuột / theo khung neo góc dưới của hộp bao — cách sàn chưa đặt đúng được)
+    q.so_hang = Math.min(6, Math.round(q.so_hang)); q.so_ngang = Math.min(12, Math.round(q.so_ngang)); q.so_doc = Math.min(12, Math.round(q.so_doc));
     s.sau_thung = rn((q.day_op || s.van.t) + s.van.t);      // tấm ốp + xương: không phải số người dùng gõ
-    s.ve_goc = false;
+    s.khau = khongKhauSP(s);
     return q;
+  }
+  // giường / vách không khấu cột (khấu của tủ trước còn trong thông số thì heSo khoá Rộng oan); giữ khe hở cột của người dùng
+  const khongKhauSP = s => ({ trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [], ho: s.khau && s.khau.ho >= 0 ? s.khau.ho : DEFAULT_SPEC.khau.ho });
+  /** Số hàng ô + số tầng xương ngang tự chia của vách theo kích thước đang có. Bảng GHI SẴN hai số này vào thông số mỗi lần dựng ở bảng (như so_thang của giường):
+   *  module trong Chenfeng co giãn Cao không làm nhảy số tấm; về lại bảng thì chia lại theo cỡ mới. */
+  // tâm các xương dọc "bắt buộc": 2 mép + dưới mỗi khe chia ô
+  function cotVach(W, so, q) { const pw = (W - (so - 1) * q.khe) / so, c = [q.xuong_rong / 2]; for (let i = 1; i < so; i++) c.push(rn(i * (pw + q.khe) - q.khe / 2)); c.push(rn(W - q.xuong_rong / 2)); return c; }
+  function vachTuDong(spec) {
+    const s = normalize(Object.assign(clone(spec || {}), { loai_sp: 'vach' })), q = s.vach, Hh = s.cao - q.cach_san;
+    const hang = Math.max(1, Math.ceil(Hh / s.van.kho_dai)), ph = (Hh - (hang - 1) * q.khe) / hang;
+    const cot = cotVach(s.rong, q.so_o || Math.max(1, Math.ceil(s.rong / 800)), q);
+    return { so_hang: hang, so_ngang: Math.max(1, Math.ceil((ph - q.xuong_rong) / q.xuong_cach)), so_doc: Math.max(1, ...cot.slice(1).map((c, i) => Math.ceil((c - cot[i]) / q.xuong_cach))) };
+  }
+  /** Thông số táp / giường / vách → tủ áo: bỏ loại sản phẩm, trả phào trái / phải / trên, cao chân, sâu thùng, khấu cột, mã / tên về mặc định của tủ;
+   *  Chuẩn xưởng (phụ trợ phào, cách nối phào, khe hở cột, cách vẽ, ván…) giữ nguyên. */
+  function veTuAo(spec) {
+    const k = clone(spec || {});
+    if (!k.loai_sp) return normalize(k);
+    delete k.loai_sp; delete k.giuong; delete k.vach;
+    k.phao = Object.assign({}, k.phao, { trai: DEFAULT_SPEC.phao.trai, phai: DEFAULT_SPEC.phao.phai, tren: DEFAULT_SPEC.phao.tren });
+    k.chan = Object.assign({}, k.chan, { cao: DEFAULT_SPEC.chan.cao });
+    k.sau_thung = DEFAULT_SPEC.sau_thung; k.ma = DEFAULT_SPEC.ma; k.ten = DEFAULT_SPEC.ten;
+    k.khau = khongKhauSP(k);
+    return normalize(k);
   }
   const MUC_KIEM_GIUONG = [
     { ma: 'kich_thuoc', ten: 'Phủ bì, lòng giường so với nệm' },
@@ -2619,7 +2648,8 @@
   function moiM(s, loai, muc) {
     const M = { version: VERSION, spec: s, parts: [], templates: [], mat_ngan_keo: [], errors: [], warnings: [], notes: [], kq: [], info: { loai_sp: loai }, muc_kiem: muc, phu_kien: [], tom_tat: [] };
     const P = o => {
-      const p = Object.assign({ tu: s.ma, than: 'D', khoan: KHONG_KHOAN, big: 1, lines: 0, fd: true, bd: true, open: 0, holes: [] }, o);
+      const p = Object.assign({ tu: s.ma, than: 'D', khoan: KHONG_KHOAN, big: 1, lines: 0, open: 0, holes: [] }, o);
+      if (p.fd === undefined) p.fd = p.bd = p.khoan !== KHONG_KHOAN;      // tấm bắt vít / bát / ke: mặt cũng không nhận lỗ cam
       for (const k of ['x0', 'x1', 'y0', 'y1', 'z0', 'z1']) p[k] = rn(p[k]);
       p.t = rn(p.type === 1 ? p.x1 - p.x0 : p.type === 0 ? p.z1 - p.z0 : p.y1 - p.y0);
       M.parts.push(p); return p;
@@ -2653,8 +2683,11 @@
     bao.muc('kich_thuoc');
     if (nemR < 600 || nemD < 1500) { bao.err(`Lòng giường ${g(lr)} × ${g(ld)} quá nhỏ (nệm ${g(nemR)} × ${g(nemD)}) — kiểm lại rộng / dài phủ bì.`); return M; }
     if (bay && (q.cao_de < 40 || q.lui_de < T + 30)) { bao.err(`Giường bay: cao đế ${g(q.cao_de)} (cần ≥ 40), lùi đế ${g(q.lui_de)} (cần ≥ dày hông + 30 = ${g(T + 30)}).`, 'de'); return M; }
+    // lùi đế tối đa: đế trái / phải còn nằm ngoài đế giữa (hoặc đế trước còn dài ≥ 100), đế dọc còn dài ≥ 300
+    if (bay) { const Lmax = rn(Math.min(dam ? xa - t - 50 : (W - 2 * t - 100) / 2, D - Tdau - 300 - t)); if (q.lui_de > Lmax + TOL) { bao.err(`Giường bay: lùi đế ${g(q.lui_de)} quá lớn — tối đa ${g(Lmax)}.`, 'de'); return M; } }
     if (zpb - zDe < 60) { bao.err(`Cao thành ${g(zTop)} quá thấp: phản (đáy ${g(zpb)}) phải cao hơn ${bay ? 'đế' : 'sàn'} ít nhất 60.`); return M; }
     if (H < zTop + 1) { bao.err(`Cao đầu giường ${g(H)} phải cao hơn mặt hông ${g(zTop)}.`); return M; }
+    if (nk && q.thanh_hong - q.lun - t < 20) { bao.err(`Giường ngăn kéo: thanh hông trên ${g(q.thanh_hong)} phải cao hơn phản lún + dày phản (${g(q.lun + t)}) ít nhất 20 — đầu vách ngăn gầm / thanh đỡ phản bắt vào thanh hông.`, 'ngan_keo'); return M; }
     if (nk && zTop - q.thanh_hong - q.nk_khe - 15 < 100) { bao.err(`Giường ngăn kéo: cao thành ${g(zTop)} trừ thanh hông trên ${g(q.thanh_hong)} không còn chỗ cho mặt ngăn kéo (cần ≥ 100).`, 'ngan_keo'); return M; }
     bao.note(`Nệm ${g(nemR)} × ${g(nemD)} (lòng giường ${g(lr)} × ${g(ld)}, khe ${g(q.ho_nem)} mỗi bên); mặt phản cao ${g(zp)}, thấp hơn mặt hông ${g(q.lun)}.`);
     // ĐẦU GIƯỜNG: chạy suốt bề ngang, sát tường, xuống sàn (cả giường bay — đầu giường giữ thân giường)
@@ -2671,18 +2704,21 @@
     }
     // VÁCH NGĂN GẦM (thang): đứng trên sàn (giường bay: trên đế), từ mặt trong hông tới đà giữa, đỡ phản; giường ngăn kéo: mỗi ngăn kéo một ô giữa 2 vách
     bao.muc('nhip');
-    const nT = nk ? q.nk_so + 1 : (q.so_thang || Math.max(3, Math.ceil(ld / 600) + 1));
+    const nT = Math.max(2, nk ? q.nk_so + 1 : (q.so_thang || Math.max(3, Math.ceil(ld / 600) + 1)));
     const yT = []; for (let i = 0; i < nT; i++) yT.push(rn(T + i * (ld - t) / (nT - 1)));
+    // giường bay: thêm một vách ngăn gầm đứng ngay trên đế trước (thân giường tì cả chiều dài đế trước, không chỉ chạm ở mép tấm)
+    const yThem = bay && q.lui_de > T + t + 30 && q.lui_de + t < yT[1] - 30 ? [rn(q.lui_de)] : [];
     const doan = dam ? [[T, xa], [xb, W - T]] : [[T, W - T]];
-    for (const y of yT) doan.forEach(([a, c]) => P({ loai: 'TH', ten: 'Vách ngăn gầm', type: 2, x0: a, x1: c, y0: y, y1: y + t, z0: zDe, z1: zpb, khoan: KT }));
+    // thân giường (đầu, đuôi, hông, vách ngăn gầm, đà, phản) ráp bằng bát giường / vít / ke — không khoan cam
+    for (const y of yT.concat(yThem)) doan.forEach(([a, c]) => P({ loai: 'TH', ten: 'Vách ngăn gầm', type: 2, x0: a, x1: c, y0: y, y1: y + t, z0: zDe, z1: zpb, vit_thang: true }));
     // giường ngăn kéo: mỗi ô ngăn kéo rộng gần 1 m → thêm THANH ĐỠ PHẢN (ván đứng cao CAO_DO ngay dưới phản, nằm trên nóc hộp ngăn kéo) cho nhịp phản ≤ 650
     const CAO_DO = 60, yDo = [];
     if (nk) for (let i = 0; i + 1 < nT; i++) { const a = yT[i] + t, c = yT[i + 1], k = Math.ceil((c - a) / 650) - 1; for (let j = 1; j <= k; j++) yDo.push(rn(a + j * (c - a) / (k + 1) - t / 2)); }
-    for (const y of yDo) doan.forEach(([a, c]) => P({ loai: 'TH', ten: 'Thanh đỡ phản', type: 2, x0: a, x1: c, y0: y, y1: y + t, z0: zpb - CAO_DO, z1: zpb, khoan: KT }));
-    const moc = yT.concat(yDo).sort((a, b) => a - b), nhip = moc.length > 1 ? Math.max(...moc.slice(1).map((y, i) => rn(y - moc[i] - t))) : ld;
+    for (const y of yDo) doan.forEach(([a, c]) => P({ loai: 'TH', ten: 'Thanh đỡ phản', type: 2, x0: a, x1: c, y0: y, y1: y + t, z0: zpb - CAO_DO, z1: zpb, vit_thang: true }));
+    const moc = yT.concat(yDo, yThem).sort((a, b) => a - b), nhip = moc.length > 1 ? Math.max(...moc.slice(1).map((y, i) => rn(y - moc[i] - t))) : ld;
     if (nhip > 650 + TOL) bao.warn(`Vách ngăn gầm cách nhau ${g(nhip)} (> 650): phản ${g(t)} dễ võng — tăng số vách ngăn (đang ${nT}).`);
     // ĐÀ GIỮA: 2 lớp ván đứng dọc giữa giường, đỡ mối nối 2 tấm phản (mỗi tấm tì ${t} lên đà)
-    if (dam) for (const [x0, x1] of [[xa, xc], [xc, xb]]) P({ loai: 'DA', ten: 'Đà giữa', type: 1, x0, x1, y0: T, y1: D - Tdau, z0: zDe, z1: zpb, khoan: KT });
+    if (dam) for (const [x0, x1] of [[xa, xc], [xc, xb]]) P({ loai: 'DA', ten: 'Đà giữa', type: 1, x0, x1, y0: T, y1: D - Tdau, z0: zDe, z1: zpb, vit_thang: true });
     // PHẢN: ván thùng, chia theo đà giữa (mối nối nằm trên đà); lòng dài hơn khổ ván thì chia thêm ở vách ngăn gữa
     {
       const cx = dam ? [[T, xc], [xc, W - T]] : [[T, W - T]];
@@ -2695,10 +2731,13 @@
     if (bay) {
       bao.muc('de');
       const L = q.lui_de;
-      P({ loai: 'DEB', ten: 'Đế giường trái', type: 1, x0: L, x1: L + t, y0: L, y1: D - Tdau, z0: 0, z1: zDe, khoan: KT });
-      P({ loai: 'DEB', ten: 'Đế giường phải', type: 1, x0: W - L - t, x1: W - L, y0: L, y1: D - Tdau, z0: 0, z1: zDe, khoan: KT });
-      P({ loai: 'DEB', ten: 'Đế giường trước', type: 2, x0: L + t, x1: W - L - t, y0: L, y1: L + t, z0: 0, z1: zDe, khoan: KT });
-      if (dam) for (const [x0, x1] of [[xa, xc], [xc, xb]]) P({ loai: 'DEB', ten: 'Đế giường giữa', type: 1, x0, x1, y0: L + t, y1: D - Tdau, z0: 0, z1: zDe, khoan: KT });
+      // khung đế ráp với nhau bằng cam (đế trước / đế giữa kẹp giữa đế trái / phải); thân giường đặt lên đế bắt ke góc + vít (vit_de_giuong)
+      P({ loai: 'DEB', ten: 'Đế giường trái', type: 1, x0: L, x1: L + t, y0: L, y1: D - Tdau, z0: 0, z1: zDe, khoan: KT, vit_de_giuong: true });
+      P({ loai: 'DEB', ten: 'Đế giường phải', type: 1, x0: W - L - t, x1: W - L, y0: L, y1: D - Tdau, z0: 0, z1: zDe, khoan: KT, vit_de_giuong: true });
+      P({ loai: 'DEB', ten: 'Đế giường trước', type: 2, x0: L + t, x1: W - L - t, y0: L, y1: L + t, z0: 0, z1: zDe, khoan: KT, vit_de_giuong: true });
+      if (dam) for (const [x0, x1] of [[xa, xc], [xc, xb]]) P({ loai: 'DEB', ten: 'Đế giường giữa', type: 1, x0, x1, y0: L + t, y1: D - Tdau, z0: 0, z1: zDe, khoan: KT, vit_de_giuong: true });
+      const soDe = M.parts.filter(p => p.loai === 'DEB').length;
+      M.phu_kien.push({ ten: 'Ke góc + vít bắt thân giường xuống đế', sl: 2 * (yT.length + yThem.length) + 2 * soDe, ghi_chu: 'mỗi chỗ vách ngăn gầm / đà đứng trên đế 1 ke; đế trước + đế giữa thêm ke với vách đứng trên nó' });
       const led = rn(2 * (D - Tdau - L) + (W - 2 * L));
       M.phu_kien.push({ ten: 'LED hắt gầm (dán quanh đế)', sl: 1, ghi_chu: `dài ≈ ${g(led)} mm — 2 bên + phía đuôi; chừa lỗ đi dây ở đế` });
     }
@@ -2709,6 +2748,9 @@
       const fw = rn((ld - (q.nk_so + 1) * kh) / q.nk_so);
       let sau = q.nk_sau; const sauMax = rn((dam ? xa : W / 2) - T - 20);
       if (sau > sauMax) { bao.warn(`Ngăn kéo sâu ${g(sau)} không lọt (đà giữa cách mặt trong hông ${g(sauMax + 20)}) — lấy ${g(Math.floor(sauMax / 50) * 50)}.`); sau = Math.floor(sauMax / 50) * 50; }
+      if (sau < 260) { bao.err(`Ngăn kéo sâu ${g(sau)} quá nông — ray bi ngắn nhất 250 (sâu hộp ≥ 260).`, 'ngan_keo'); return M; }
+      // sâu hộp bị kẹp theo đà giữa (hay sát chỗ kẹp): đổi Rộng ở module Chenfeng không co giãn đều → heSo khoá Rộng
+      const kep = sau < q.nk_sau || sauMax - 240 < q.nk_sau;
       const zb0 = rn(zf0 + 20), hb = Math.min(rn(zf1 - zf0 - 40), rn(zpb - CAO_DO - 10 - zb0), 250), zb1 = rn(zb0 + hb);      // nóc hộp dưới thanh đỡ phản
       if (hb < 80) { bao.err(`Giường ngăn kéo: hộp ngăn kéo chỉ cao ${g(hb)} — tăng cao thành (đang ${g(zTop)}).`); return M; }
       for (const ben of benNK) for (let i = 0; i < q.nk_so; i++) {
@@ -2718,13 +2760,14 @@
         P({ loai: 'TNK', ten: 'Thành ngăn kéo', type: 2, x0: bx[0], x1: bx[1], y0: yb0, y1: yb0 + t, z0: zb0 + dn, z1: zb1, vit_hoc: true });
         P({ loai: 'TNK', ten: 'Thành ngăn kéo', type: 2, x0: bx[0], x1: bx[1], y0: yb1 - t, y1: yb1, z0: zb0 + dn, z1: zb1, vit_hoc: true });
         P({ loai: 'HNK', ten: 'Hậu ngăn kéo', type: 1, x0: ben === 'trai' ? bx[1] - t : bx[0], x1: ben === 'trai' ? bx[1] : bx[0] + t, y0: yb0 + t, y1: yb1 - t, z0: zb0 + dn, z1: zb1, vit_hoc: true });
-        P({ loai: 'DNK', ten: 'Đáy ngăn kéo', type: 0, x0: bx[0], x1: bx[1], y0: yb0, y1: yb1, z0: zb0, z1: zb0 + dn, vit_hoc: true });
+        P({ loai: 'DNK', ten: 'Đáy ngăn kéo', type: 0, x0: bx[0], x1: bx[1], y0: yb0, y1: yb1, z0: zb0, z1: zb0 + dn, vit_hoc: true, van_hau: true });      // ván hậu mỏng: vật liệu hậu, không dán cạnh
         if (yb1 - yb0 < 250) bao.warn(`Ngăn kéo ${b} ${i + 1}: hộp chỉ rộng ${g(yb1 - yb0)} (< 250).`);
+        else if (i === 0 && ben === benNK[0] && s.kiem.nk_rong_max > 0 && yb1 - yb0 > s.kiem.nk_rong_max + TOL) bao.warn(`Ngăn kéo rộng ${g(yb1 - yb0)} (> ${g(s.kiem.nk_rong_max)}): ray và đáy dễ võng — tăng số ngăn mỗi bên (đang ${q.nk_so}).`, 'ngan_keo');
       }
       const nNK = benNK.length * q.nk_so, rayDai = Math.floor((sau - 10) / 50) * 50;
       M.phu_kien.push({ ten: `Ray bi 3 tầng dài ${g(rayDai)} (cặp)`, sl: nNK, ghi_chu: `bắt vào vách ngăn gầm, khe ray ${g(ray)} mỗi bên` });
       M.phu_kien.push({ ten: 'Tay nắm / nhấn mở cho mặt ngăn kéo', sl: nNK, ghi_chu: `mặt ${g(fw)} × ${g(zf1 - zf0)}` });
-      M.info.giuong.nk = { so: nNK, mat: [fw, rn(zf1 - zf0)], hop: [sau, rn(yT[1] - yT[0] - t - 2 * ray), hb] };
+      M.info.giuong.nk = { so: nNK, mat: [fw, rn(zf1 - zf0)], hop: [sau, rn(yT[1] - yT[0] - t - 2 * ray), hb], kep };
     }
     bao.muc('phu_kien');
     M.phu_kien.unshift({ ten: 'Bát giường (pát tháo lắp hông – đầu / đuôi)', sl: 4, ghi_chu: 'mỗi góc 1 bộ; hông, đầu, đuôi giường không khoan cam' });
@@ -2743,6 +2786,9 @@
     const so = q.so_o || Math.max(1, Math.ceil(W / 800)), hang = q.so_hang || Math.max(1, Math.ceil(Hh / s.van.kho_dai));
     const pw = rn((W - (so - 1) * kh) / so), ph = rn((Hh - (hang - 1) * kh) / hang);
     M.info.vach = { so_o: so, so_hang: hang, o: [pw, ph] };
+    if (pw > s.van.kho_rong + TOL && pw > s.van.kho_dai + TOL || Math.min(pw, ph) > s.van.kho_rong + TOL || Math.max(pw, ph) > s.van.kho_dai + TOL) { bao.err(`Ô ${g(pw)} × ${g(ph)} lớn hơn khổ ván ${g(s.van.kho_rong)} × ${g(s.van.kho_dai)} — tăng số ô${hang > 1 || ph > s.van.kho_dai ? ' / số hàng' : ''}.`, 'kho_van'); return M; }
+    // mép tấm ốp phải tì lên xương: xương dọc dưới khe chia ô còn chừa mỗi bên ≥ 10
+    if (so > 1 && (xr - kh) / 2 < 10) { bao.err(`Khe giữa ô ${g(kh)} gần bằng bản xương ${g(xr)}: mép tấm ốp không nằm trên xương — tăng bản xương (≥ ${g(kh + 20)}) hoặc giảm khe.`, 'xuong'); return M; }
     // TẤM ỐP: chia ô đều, khe kh (nẹp U inox) giữa các ô
     const xs = [], zs = [];
     for (let i = 0; i < so; i++) xs.push(rn(i * (pw + kh)));
@@ -2750,20 +2796,22 @@
     for (const z of zs) for (const x of xs) P({ loai: 'OP', ten: 'Tấm ốp đầu giường', type: 2, x0: x, x1: x + pw, y0: 0, y1: dop, z0: z, z1: z + ph, op: true });
     // XƯƠNG DỌC: ở 2 mép, dưới mỗi khe chia ô (mối nối tấm nằm trên xương), thêm cho cách nhau ≤ xuong_cach; mỗi hàng ô một đoạn
     bao.muc('xuong');
-    let cot = [xr / 2]; for (let i = 1; i < so; i++) cot.push(rn(xs[i] - kh / 2)); cot.push(rn(W - xr / 2));
-    { const ra = [cot[0]]; for (let i = 1; i < cot.length; i++) { const a = ra[ra.length - 1], b = cot[i], n = Math.ceil((b - a) / q.xuong_cach); for (let k = 1; k < n; k++) ra.push(rn(a + k * (b - a) / n)); ra.push(b); } cot = ra; }
+    let cot = cotVach(W, so, q);
+    // giữa hai xương bắt buộc: chia thêm cho cách ≤ xuong_cach (số đoạn ghi sẵn ở so_doc → module co giãn Rộng không nhảy số tấm)
+    { const ra = [cot[0]]; for (let i = 1; i < cot.length; i++) { const a = ra[ra.length - 1], b = cot[i], n = q.so_doc || Math.ceil((b - a) / q.xuong_cach); for (let k = 1; k < n; k++) ra.push(rn(a + k * (b - a) / n)); ra.push(b); } cot = ra; }
     const dong = cot.map(c => [rn(Math.max(0, c - xr / 2)), rn(Math.min(W, c + xr / 2))]);
     for (const z of zs) for (const [a, b] of dong) P({ loai: 'XU', ten: 'Xương dọc', type: 2, x0: a, x1: b, y0: dop, y1: dop + t, z0: z, z1: z + ph, vit_no: true });
     // XƯƠNG NGANG: trên / dưới mỗi hàng ô + giữa cho cách nhau ≤ xuong_cach, lọt giữa các xương dọc
     for (const z of zs) {
-      const n = Math.max(1, Math.ceil((ph - xr) / q.xuong_cach)), lv = [];
+      const n = q.so_ngang || Math.max(1, Math.ceil((ph - xr) / q.xuong_cach)), lv = [];
       for (let k = 0; k <= n; k++) lv.push(rn(z + xr / 2 + k * (ph - xr) / n));
       for (const c of lv) for (let i = 0; i + 1 < dong.length; i++) {
         const a = dong[i][1], b = dong[i + 1][0];
         if (b - a > t) P({ loai: 'XU', ten: 'Xương ngang', type: 2, x0: a, x1: b, y0: dop, y1: dop + t, z0: c - xr / 2, z1: c + xr / 2, vit_no: true });
       }
     }
-    if (pw > s.van.kho_rong + TOL || ph > s.van.kho_dai + TOL) bao.err(`Ô ${g(pw)} × ${g(ph)} lớn hơn khổ ván ${g(s.van.kho_rong)} × ${g(s.van.kho_dai)} — tăng số ô / số hàng.`, 'kho_van');
+    { const n = q.so_ngang || Math.max(1, Math.ceil((ph - xr) / q.xuong_cach)), cach = rn((ph - xr) / n), cd = Math.max(...cot.slice(1).map((c, i) => rn(c - cot[i])));
+      if (cach > q.xuong_cach + TOL || cd > q.xuong_cach + TOL) bao.warn(`Xương ${cach > q.xuong_cach + TOL ? `ngang cách nhau ${g(cach)}` : `dọc cách nhau ${g(cd)}`} (> ${g(q.xuong_cach)}) — kích thước đã đổi ở Chenfeng: gõ lại Rộng / Cao ở bảng để chia lại xương.`, 'xuong'); }
     if (kh > 0) M.phu_kien.push({ ten: `Nẹp U inox ${g(kh)} (chỉ âm giữa các ô)`, sl: (so - 1) * hang + (hang - 1) * so, ghi_chu: `${(so - 1) * hang} nẹp dọc dài ${g(ph)}, ${(hang - 1) * so} nẹp ngang dài ${g(pw)}` });
     M.phu_kien.push({ ten: 'Vít nở (tắc kê Ø6 – 8) bắt xương vào tường', sl: dong.length * hang * Math.max(2, Math.ceil(ph / 400)), ghi_chu: 'mỗi xương dọc cách ~400 một vít; khoan cách mép tường ≥ 100' });
     M.tom_tat.push(`${s.ten} — ${g(W)} × ${g(Hh)}${z0 ? ` (cách sàn ${g(z0)})` : ''}: ${so * hang} ô ${g(pw)} × ${g(ph)}, khe ${g(kh)}; tấm ốp ${g(dop)} trên khung xương ván ${g(t)} × ${g(xr)} (dọc ${dong.length} cây, cách ≤ ${g(q.xuong_cach)}), tổng dày ${g(dop + t)}.`);
@@ -2778,7 +2826,7 @@
     ['TAP1H-500', 'Táp 1 ngăn kéo + hộc mở 500', 500, 420, 500, 0, () => ({ dot: [230], o: [{ tu: 230, kieu: 'nk_trum', so: 1 }] })],
     ['TAP3-600', 'Táp 3 ngăn kéo 600', 600, 450, 600, 0, () => ({ dot: [], o: [{ tu: 0, kieu: 'nk_trum', so: 3 }] })],
   ].map(([ma, ten, rong, sau, cao, chan, k]) => ({ ma, ten, loai_sp: 'tap', mo_ta: `${g(rong)} × ${g(sau)} × ${g(cao)}${chan ? `, chân ${g(chan)}` : ''}`,
-    ap: keep => Object.assign(keep, { loai_sp: 'tap', ma: 'TAP', ten, rong, cao, sau_thung: sau, khoang: [Object.assign({ rong: 'auto', canh: 0 }, k())], than: Object.assign({}, keep.than, { cao_duoi: 0 }), phao: Object.assign({}, keep.phao, { trai: 0, phai: 0, tren: 0 }), chan: Object.assign({}, keep.chan, { cao: chan }), khau: clone(DEFAULT_SPEC.khau) }) }));
+    ap: keep => Object.assign(keep, { loai_sp: 'tap', ma: 'TAP', ten, rong, cao, sau_thung: sau, khoang: [Object.assign({ rong: 'auto', canh: 0 }, k())], than: Object.assign({}, keep.than, { cao_duoi: 0 }), phao: Object.assign({}, keep.phao, { trai: 0, phai: 0, tren: 0 }), chan: Object.assign({}, keep.chan, { cao: chan }), khau: khongKhauSP(keep) }) }));
   // [mã, tên, kiểu, nệm rộng, nệm dài, cao đầu giường, thêm vào spec.giuong]
   const MAU_GIUONG = [
     ['G12-T', 'Giường 1m2 × 2m', 'thuong', 1200, 2000, 900, {}],
@@ -2804,7 +2852,7 @@
     ['V3200-1200', 'Vách đầu giường 3200 × 1200', 3200, 1200, 5],
     ['V2800-2400', 'Vách đầu giường kịch trần 2800 × 2400', 2800, 2400, 4],
   ].map(([ma, ten, rong, cao, so]) => ({ ma, ten, loai_sp: 'vach', mo_ta: `${so} ô`,
-    ap: keep => Object.assign(keep, { loai_sp: 'vach', ma: 'VD1', ten, rong, cao, vach: Object.assign({}, keep.vach && typeof keep.vach === 'object' ? keep.vach : {}, { so_o: so, so_hang: 0, cach_san: 0 }) }) }));
+    ap: keep => { const s = Object.assign(keep, { loai_sp: 'vach', ma: 'VD1', ten, rong, cao, vach: Object.assign({}, keep.vach && typeof keep.vach === 'object' ? keep.vach : {}, { so_o: so, so_hang: 0, so_ngang: 0, cach_san: 0 }) }); Object.assign(s.vach, vachTuDong(s)); return s; } }));
   const THU_VIEN = [
     { loai: 'tu', ten: 'Tủ áo', ds: null },      // MAU_TU (gán bên dưới)
     { loai: 'tap', ten: 'Táp đầu giường', ds: MAU_TAP },
@@ -2849,13 +2897,13 @@
   THU_VIEN[0].ds = MAU_TU;
   /** Áp một mẫu tủ áo lên thông số hiện tại: thay mã, tên, rộng, cao, cao thân dưới, khoang; mọi số Chuẩn xưởng khác giữ nguyên. */
   function apMau(specHienTai, ma) {
-    const keep = clone(specHienTai || {}), tuKhac = keep.loai_sp === 'giuong' || keep.loai_sp === 'vach';
+    let keep = clone(specHienTai || {});
     const k = [MAU_TAP, MAU_GIUONG, MAU_VACH].map(ds => ds.find(x => x.ma === ma)).find(Boolean);
-    if (k) { if (k.loai_sp === 'tap' && tuKhac) keep.ve_goc = DEFAULT_SPEC.ve_goc; return normalize(k.ap(keep)); }      // (bản 1.32)
+    if (k) return normalize(k.ap(keep));      // (bản 1.32)
     const m = MAU_TU.find(x => x.ma === ma);
     if (!m) return null;
-    // từ táp / giường / vách quay về tủ áo: phào, chân, sâu thùng, khấu, cách vẽ về mặc định của tủ (táp đặt phào 0, sâu 400; giường tắt lệnh gốc)
-    if (keep.loai_sp) { delete keep.loai_sp; keep.phao = clone(DEFAULT_SPEC.phao); keep.chan = clone(DEFAULT_SPEC.chan); keep.sau_thung = DEFAULT_SPEC.sau_thung; keep.khau = clone(DEFAULT_SPEC.khau); if (tuKhac) keep.ve_goc = DEFAULT_SPEC.ve_goc; }
+    // từ táp / giường / vách quay về tủ áo: phào, chân, sâu thùng, khấu về mặc định của tủ; Chuẩn xưởng giữ nguyên (veTuAo)
+    if (keep.loai_sp) keep = veTuAo(keep);
     return normalize(Object.assign(keep, { ma: m.ma.replace(/-.*$/, ''), ten: m.ten, rong: m.rong, cao: m.cao, khoang: m.khoang(), than: Object.assign({}, keep.than, { cao_duoi: m.cao_duoi }) }));
   }
 
@@ -2881,11 +2929,15 @@
     // lúc bám vách khoang (giữ cách vách ≥ 30, vách lọt vùng cột thì nông lại), lúc bám mép cột → từng đoạn một quy tắc, không bộ hệ số tuyến tính nào đúng cả hai chiều.
     // Đo trên Chenfeng thật 05/10/2026 (tủ 3000, cột cách 1000 rộng 300): gõ L 3000 → 2900 ở ô Thông số thì vách khấu còn cách vách khoang 2,09 (thiết kế cần 30); thu thêm nữa là hai tấm đè nhau.
     // Xét theo cột KHAI trong thông số (kể cả cột dính hồi được khấu như cột góc): nó vẫn neo theo mép trái. Cột góc trái / phải thì bám hồi của nó — co giãn đúng. Sâu / Cao không dính.
-    const cotGiua = !!(s0.khau && Array.isArray(s0.khau.giua) && s0.khau.giua.length);
+    const lsp = loaiSP(s0), sp2 = lsp === 'giuong' || lsp === 'vach';
+    const cotGiua = !sp2 && !!(s0.khau && Array.isArray(s0.khau.giua) && s0.khau.giua.length);
     [['L', 'rong', 0], ['W', 'sau_thung', 1], ['H', 'cao', 2]].forEach(([ten, khoa, truc]) => {
       if (ten === 'L' && cotGiua) { out.ly_do[ten] = 'cot_giua'; return; }
+      // (bản 1.32) giường ngăn kéo có sâu hộp kẹp theo đà giữa: Rộng không co giãn đều
+      if (ten === 'L' && M0.info.giuong && M0.info.giuong.nk && M0.info.giuong.nk.kep) { out.ly_do[ten] = 'khong_deu'; return; }
       let M1 = null, d = 0;
-      for (const thu of [120, -120, 60, -60]) { M1 = dung(khoa, thu); if (M1) { d = thu; break; } }
+      // giường / vách: số tấm phải giữ nguyên cả khi tăng LẪN khi giảm (module trong Chenfeng kéo được hai chiều)
+      for (const thu of [120, -120, 60, -60]) { M1 = dung(khoa, thu); if (M1 && (!sp2 || dung(khoa, -thu))) { d = thu; break; } M1 = null; }
       if (!M1) { out.ly_do[ten] = 'khong_deu'; return; }
       const bb1 = bbox(M1.parts), g0 = out.goc[truc], g1 = [bb1.x0, bb1.y0, bb1.z0][truc];
       const dP = [bb1.x1 - bb1.x0, bb1.y1 - bb1.y0, bb1.z1 - bb1.z0][truc] - out.kich[truc];      // thay đổi thật của tham số module
@@ -2916,7 +2968,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, MAU_TAP, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, MAU_TAP, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
 
 /*!
@@ -3430,9 +3482,12 @@
   function tuChoKhung(Core, specNen, q, tenPhong, H, j) {
     const ghi = [], dsMau = [];
     let s = Core.normalize(specNen);
+    // (bản 1.32) khung là chỗ đặt TỦ: giường / vách đầu giường đang mở trong bảng → đổi sang tủ áo (Chuẩn xưởng giữ nguyên); táp giữ ngăn kéo của nó
+    const lsp = Core.loaiSP ? Core.loaiSP(s) : 'tu';
+    if ((lsp === 'giuong' || lsp === 'vach') && Core.veTuAo) { s = Core.veTuAo(s); ghi.push(`Khung là chỗ đặt tủ — ${Core.TEN_SP[lsp].toLowerCase()} đang mở trong bảng được đổi sang tủ áo.`); }
     const coMau = q.mau && Core.MAU_TU.find(m => m.ma === q.mau);
     if (coMau) { s = Core.apMau(s, q.mau); dsMau.push(q.mau); }
-    else if (q.giu_ruot) dsMau.push('ruột đang mở');      // bản 1.16 (tủ theo hình): giữ cách chia khoang đang có trong bảng
+    else if (q.giu_ruot || lsp === 'tap') dsMau.push(lsp === 'tap' ? 'táp đang mở' : 'ruột đang mở');      // bản 1.16 (tủ theo hình): giữ cách chia khoang đang có trong bảng
     else {
       // tự chọn theo bề rộng: mỗi cánh ~500; ghép các mẫu 2–6 cánh cho đủ số cánh
       const theo = { 2: 'TA2-1000', 3: 'TA3-1500', 4: 'TA4-2000', 5: 'TA5-2500', 6: 'TA6-3000' };
@@ -3662,7 +3717,7 @@
     let a = so2(p1), b = so2(p2);
     if (![a[0], a[1], b[0], b[1]].every(isFinite)) return hong('Chưa đủ 2 điểm.');
     sau = Number(sau);
-    if (!(sau >= 100)) return hong('Chiều sâu tủ chưa hợp lệ (ô Sâu ở thẻ Tủ).');
+    if (!(sau >= (Number(opt.sau_min) > 0 ? Number(opt.sau_min) : 100))) return hong('Chiều sâu tủ chưa hợp lệ (ô Sâu ở thẻ Tủ).');      // sau_min: vách đầu giường chỉ dày ~35 (bản 1.32)
     const rongBiet = Number(opt.rong) > 0 ? Number(opt.rong) : 0;
     if (rongBiet && rongBiet < 200) return hong('Bề rộng tủ phải từ 200 trở lên.');
     if (!(Math.hypot(b[0] - a[0], b[1] - a[1]) >= (rongBiet ? 20 : 200))) return hong(rongBiet ? 'Chưa rõ tủ chạy về phía nào — rê chuột dọc tường về phía tủ chạy tới rồi mới Enter.' : 'Hai điểm quá gần nhau (tủ rộng dưới 200) — bấm lại điểm đầu và điểm cuối của tủ.');
@@ -5068,7 +5123,7 @@
     const holeCount = new Map();
     const idOf = x => { try { return x && (x.Object || x); } catch (e) { return null; } };
     for (const h of holes) for (const k of ['FId', 'MId']) { const b = idOf(h[k]); if (b) holeCount.set(b, (holeCount.get(b) || 0) + 1); }
-    const canKhoan = new Set(['HOI', 'VACH', 'DAY', 'NOC', 'DOT', 'DEM', 'XA', 'CHAN', 'PHAO', 'PHU', 'TH', 'DA', 'DEB']);      // (1.32) giường: vách ngăn gầm, đà giữa, đế giường bay khoan cam
+    const canKhoan = new Set(['HOI', 'VACH', 'DAY', 'NOC', 'DOT', 'DEM', 'XA', 'CHAN', 'PHAO', 'PHU', 'DEB']);      // (1.32) giường: khung đế giường bay khoan cam (thân giường bắt vít / bát / ke)
     const noHole = [];
     const chanNoHole = [];
     for (const [p, b] of match) if ((canKhoan.has(p.loai) || p.loai === 'HAU') && p.khoan !== Core.KHONG_KHOAN && !holeCount.get(b)) (p.loai === 'CHAN' ? chanNoHole : noHole).push(`${p.ten} (${p.tu})`);
@@ -5136,7 +5191,8 @@
     let goc = false, ghiGoc = '';
     try {
       const s0 = Core.normalize(spec);
-      if (s0.ve_goc && !(opt && opt.goc === false) && D.gocDuoc()) { const K = Core.keHoachGoc(s0); if (K.M.errors.length || !K.loi.length) goc = true; else ghiGoc = K.loi.join('; '); }
+      const spRieng = Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(s0));      // (bản 1.32) giường / vách: Chenfeng chưa có lệnh dựng — nhập tấm, không báo "rơi về"
+      if (s0.ve_goc && !spRieng && !(opt && opt.goc === false) && D.gocDuoc()) { const K = Core.keHoachGoc(s0); if (K.M.errors.length || !K.loi.length) goc = true; else ghiGoc = K.loi.join('; '); }
     } catch (e) { goc = false; }
     // lời báo "rơi về cách nhập tấm": module đổi được kích thước nào thì nói đúng kích thước đó (bản 1.26.1: tủ có cột giữa thì Rộng chỉ để xem — xem ganHeSo)
     const baoNhapTam = mod => {
@@ -5596,7 +5652,7 @@
       // tham số bị khoá: nói ngay tại ô ghi chú của nó trong bảng Thông số (như BH) — người gõ số ở đó thấy liền vì sao tủ không chạy
       // (1.32) giường: W = dài phủ bì (đuôi → đầu giường), H = cao đầu giường; vách đầu giường: W = dày (tấm ốp + xương — chỉ xem)
       const lsp = Core.loaiSP ? Core.loaiSP(M.spec) : 'tu';
-      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao đỉnh vách (từ sàn)' } : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
+      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' } : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
       const ngan = lsp === 'giuong' ? { L: 'Rộng', W: 'Dài', H: 'Cao' } : { L: 'Rộng', W: lsp === 'vach' ? 'Dày' : 'Sâu', H: 'Cao' };
       for (const k of Object.keys(moTa)) {
         const kh = kq.khoa.find(x => x.ten === k);
@@ -8958,7 +9014,7 @@ footer>.kqhang{display:none}
 .mn.page{display:block}
 .mn.page .panel{position:static;width:auto;max-width:1180px;margin:0 auto;box-shadow:0 2px 14px rgba(0,0,0,.14)}
 .mn.page .body{overflow:visible}
-.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu{display:none!important}.sp[hidden]{display:none}.dims{grid-area:dims}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
+.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu,.panel[data-loai="giuong"] .vehang [data-act="dat-tuong"],.panel[data-loai="vach"] .vehang [data-act="dat-tuong"],.panel[data-loai="giuong"] .vehang [data-act="hinh"],.panel[data-loai="vach"] .vehang [data-act="hinh"]{display:none!important}.sp[hidden]{display:none}.dims{grid-area:dims}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
 @media (min-width:900px){.mn.page .lkr{grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 104px 28px;grid-template-areas:"ten ts id x" "md md md md"}.mn.page .split{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);grid-template-areas:"dims view" "rest view";grid-template-rows:auto 1fr;column-gap:16px;align-items:start}.mn.page .colv{position:sticky;top:12px}.mn.page .seg{grid-template-columns:repeat(4,auto)}}
 /* bảng nổi trong Chenfeng, chế độ rộng: hình đứng to để kéo đợt cho dễ */
 .panel.wide{width:1040px}
@@ -9641,6 +9697,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     function rebuild(khongLuu) {
       if (!busy) setStatus('');      // thông báo của thao tác trước không còn đúng nữa (đang vẽ thì giữ lời nhắc của Chenfeng)
       spec = Core.normalize(spec);
+      if (loaiDangLam() === 'vach' && Core.vachTuDong) Object.assign(spec.vach, Core.vachTuDong(spec));      // (1.32) vách: số hàng / tầng xương chia theo cỡ đang có, ghi sẵn cho module
       model = Core.build(spec);
       // đưa mốc của nội dung ô về đúng mốc của ô chứa nó (mẫu tủ viết tay có thể ghi mốc lệch) — để khi kéo đợt, nội dung đi theo đúng ô
       spec.khoang.forEach((k, i) => { for (const c of k.o) { const o = cellFor(i, c.tu); if (o) c.tu = o.tu; } });
@@ -9912,8 +9969,11 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (khungCho && khungCho.j === j) boChoDat();
       phongStore.save(); renderPhong();
     }
+    // giường / vách: chỗ đặt theo tường / theo hình là khung của TỦ (sâu ≤ 1200, cao theo trần, tự chọn ruột) — chưa làm cho giường / vách
+    const chiTuDat = () => { if (!khongTu()) return false; setStatus(`${Core.TEN_SP[loaiDangLam()]}: đặt bằng nút Chuột (bấm 2 điểm dọc chân tường rồi 1 điểm phía trước) hoặc gõ toạ độ ở hàng nút ⋯.`); return true; };
     function moChonCho(giu) {
       if (!Ph || !Ph.choTrong || busy) return;
+      if (chiTuDat()) return;
       if (!giu) boKhungTam();
       phong = Ph.chuanHoa(phong); hinh = Ph.hinhHoc(phong);
       if (hinh.loi.length) { switchTab('phong'); return setStatus('Phòng còn lỗi (ô đỏ dưới mặt bằng) — sửa ở thẻ Phòng rồi mới đặt tủ theo tường được.'); }
@@ -10139,6 +10199,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     }
     async function theoHinh(hoiTruoc) {
       if (!Drv || busy || !Ph || !Ph.hinhThanhKhung) return;
+      if (chiTuDat()) return;
       if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return; }
       let h = null;
       if (hoiTruoc && khungCho && khungCho.hinh) h = khungCho.hinh.h;      // chọn lại mặt trước của hình đang giữ
@@ -10208,8 +10269,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const z = ganTuong.length ? (ganTuong[0].z || 0) : p1[2];
       const tuong = ph.tuong.filter(w => Math.abs((w.z || 0) - z) < 1 || !w.z), cot = ph.cot.filter(c => c.z1 > z + 1);
       const tinh = (c, rong, truoc) => {
-        let h = Ph.haiDiemThanhHinh(p12, [c[0], c[1]], sau, { tuong, rong, truoc });
-        if (!h.ok && h.can_diem && !truoc) { const h2 = Ph.haiDiemThanhHinh(p12, [c[0], c[1]], sau, { tuong, rong, truoc: [p1[0] - (c[1] - p1[1]), p1[1] + (c[0] - p1[0])] }); if (h2.ok) { h2.tam = true; return h2; } }
+        let h = Ph.haiDiemThanhHinh(p12, [c[0], c[1]], sau, { tuong, rong, truoc, sau_min: kt.sau_min });
+        if (!h.ok && h.can_diem && !truoc) { const h2 = Ph.haiDiemThanhHinh(p12, [c[0], c[1]], sau, { tuong, rong, truoc: [p1[0] - (c[1] - p1[1]), p1[1] + (c[0] - p1[0])], sau_min: kt.sau_min }); if (h2.ok) { h2.tam = true; return h2; } }
         return h;
       };
       const caoXem = Math.max(100, Number(kt.cao) || 2400);
@@ -10234,12 +10295,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       else if (r2.go_so) { rong = r2.go_so; c2 = r2.chuot || r2.diem; }
       else c2 = r2.diem;
       if (!c2) { dong(); setStatus(`Chưa rõ ${vat} chạy về phía nào — bấm lại nút, bấm điểm đầu rồi rê chuột dọc tường trước khi Enter.`); return null; }
-      let h = Ph.haiDiemThanhHinh(p12, [c2[0], c2[1]], sau, { tuong, rong });
+      let h = Ph.haiDiemThanhHinh(p12, [c2[0], c2[1]], sau, { tuong, rong, sau_min: kt.sau_min });
       if (!h.ok && h.can_diem) {
         chipChu.textContent = 'Bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh)…';
         let p3 = null; try { p3 = await Drv.hoiDiem('Một Nhà: bấm 1 điểm ở phía TRƯỚC tủ (phía đứng mở cánh):'); } catch (e) { p3 = null; }
         if (!p3) { dong(); setStatus(`Đã huỷ — chưa đặt ${vat}.`); return null; }
-        h = Ph.haiDiemThanhHinh(p12, [c2[0], c2[1]], sau, { tuong, rong, truoc: [p3[0], p3[1]] });
+        h = Ph.haiDiemThanhHinh(p12, [c2[0], c2[1]], sau, { tuong, rong, truoc: [p3[0], p3[1]], sau_min: kt.sau_min });
       }
       if (!h.ok) { dong(); setStatus(h.loi); return null; }
       const k = Ph.hinhThanhKhung(h.dinh, { tuong, cot, truoc: h.truoc });
@@ -10256,14 +10317,15 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (!Drv || busy || !Ph || !Ph.haiDiemThanhHinh || typeof Drv.hoiDiem2 !== 'function') return;
       if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return; }
       const bb = model && model.parts.length ? Core.bbox(model.parts) : null;
-      const sau = bb ? Math.round((bb.y1 - bb.y0) * 10) / 10 : (Number(spec.sau_thung) || 580) + 20, rongBang = Number(spec.rong) || 0;
-      if (!(sau >= 100 && rongBang >= 200)) { setStatus('Gõ rộng / sâu của tủ ở thẻ Tủ trước đã.'); return; }
-      const cho = await hoiChoDat({ rong: rongBang, sau, cao: Number(spec.cao) || 2400 });
+      const sau = bb ? Math.round((bb.y1 - bb.y0) * 10) / 10 : (Number(spec.sau_thung) || 580) + 20, rongBang = Number(spec.rong) || 0, rieng = khongTu();
+      if (!(sau >= (rieng ? 20 : 100) && rongBang >= 200)) { setStatus(rieng ? 'Sản phẩm còn lỗi (ô đỏ) — sửa ở thẻ Tủ trước đã.' : 'Gõ rộng / sâu của tủ ở thẻ Tủ trước đã.'); return; }
+      const cho = await hoiChoDat({ rong: rongBang, sau, cao: Number(spec.cao) || 2400, sau_min: rieng ? 20 : 0, vat: rieng ? Core.TEN_SP[loaiDangLam()].toLowerCase() : undefined });
       if (!cho) return;
       const { k, h, z, cao, haCao } = cho;
       const coKhau = k.khau.trai.rong > 0 || k.khau.phai.rong > 0 || k.khau.giua_cot.length > 0;
       const ghi = [];
-      if (Math.abs(k.rong - rongBang) > 0.05 || coKhau || haCao) {
+      if (rieng) { if (Math.abs(k.rong - rongBang) > 0.05) ghi.push(`${Core.TEN_SP[loaiDangLam()]} giữ kích thước của nó (rộng ${hien(rongBang)}), neo ở điểm bấm đầu.`); }      // (1.32) giường / vách: chỉ lấy chỗ + hướng
+      else if (Math.abs(k.rong - rongBang) > 0.05 || coKhau || haCao) {
         const soCanh = spec.khoang.reduce((n, kk) => n + (kk.canh || 0), 0), rongCanh = soCanh ? k.rong / soCanh : 0;
         const giu = soCanh > 0 && rongCanh >= 330 && rongCanh <= 620 && spec.khoang.every(kk => kk.rong === 'auto' || kk.rong === '' || kk.rong === undefined || kk.rong === null);
         const t = Ph.tuChoKhung(Core, spec, { ten: spec.ma || spec.ten || 'TU', rong: k.rong, cao, sau: k.sau, mau: '', khau: k.khau, giu_ruot: giu }, spec.phong || '', null, -1);
@@ -10278,11 +10340,11 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const ua = $('[data-ui="useAt"]');
       if (ua) { ua.checked = true; ['ax', 'ay', 'az'].forEach((n, i) => { $(`[data-ui="${n}"]`).value = fmt(d.goc[i]); }); capNoi(); }
       capHinh();
-      const tom = `rộng ${hien(k.rong)} × sâu ${hien(k.sau)} × cao ${hien(cao)}${haCao ? ' (hạ theo trần)' : ''}, xoay ${hien(k.xoay)}°${coKhau ? ', có khấu cột' : ''}`;
+      const tom = rieng ? `xoay ${hien(k.xoay)}°` : `rộng ${hien(k.rong)} × sâu ${hien(k.sau)} × cao ${hien(cao)}${haCao ? ' (hạ theo trần)' : ''}, xoay ${hien(k.xoay)}°${coKhau ? ', có khấu cột' : ''}`;
       // bản 1.23 (anh Jason 04/10/2026 23:02): đặt xong KHÔNG vẽ ngay — hiện hộp chỉnh tủ, bấm Vẽ mới vẽ
       moDlg('tu', { nguon: 'chuot' });
       rebuild();
-      setStatus(`Đã đặt: ${tom}. ${k.ghi_chu.concat(ghi).join(' ')}${model && model.errors.length ? ' Tủ còn lỗi (ô đỏ) — sửa rồi bấm Vẽ.' : ' Xem lại khoang / đợt rồi bấm “Vẽ vào Chenfeng”.'}`);
+      setStatus(`Đã đặt: ${tom}. ${(rieng ? [] : k.ghi_chu).concat(ghi).join(' ')}${model && model.errors.length ? ' Còn lỗi (ô đỏ) — sửa rồi bấm Vẽ.' : rieng ? ' Bấm “Vẽ vào Chenfeng”.' : ' Xem lại khoang / đợt rồi bấm “Vẽ vào Chenfeng”.'}`);
     }
 
     /** Người dùng chọn 1 tấm của tủ đã vẽ → mở lại thông số của tủ đó để sửa. */
@@ -11034,7 +11096,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!Drv.available()) { setStatus('Không thấy bản vẽ Chenfeng trong trang này.'); return null; }
       ctx = ctx || {};
       const bat = n => { const el = $(`[data-ui="${n}"]`); return !el || el.checked; }, chuan = bat('kho-chuan');
-      const opt = Object.assign({ onStatus: setStatus, khoan: spec.khoan.thung, ten_viet: bat('kho-ten'), day: chuan ? spec.van.t : 0, hau: chuan && spec.hau.kieu === 'phu' && !/giường(?!.*(tab|táp))|床(?!头柜)|vách đầu giường|背景墙/i.test(String(o.ten || '')) ? (spec.hau.t || Core.DEFAULT_SPEC.hau.t) : 0, mep: spec.hau.mep, kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }, o);      // (1.32) mẫu giường / vách đầu giường không có hậu: chỉ đổi dày ván
+      const opt = Object.assign({ onStatus: setStatus, khoan: spec.khoan.thung, ten_viet: bat('kho-ten'), day: chuan ? spec.van.t : 0, hau: chuan && spec.hau.kieu === 'phu' && !(Core.khoKhongHau && Core.khoKhongHau(o.ten)) ? (spec.hau.t || Core.DEFAULT_SPEC.hau.t) : 0, mep: spec.hau.mep, kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong } }, o);      // (1.32) mẫu giường / vách đầu giường không có hậu: chỉ đổi dày ván
       busy = true; paint(); veChon(); if (Ph) paintPhong();
       if (!opt.corner) { panel.hidden = true; chipChu.textContent = 'Bấm 1 điểm trên bản vẽ để đặt mẫu (góc trái – trước – dưới)… Esc = thôi'; chip.hidden = false; }
       let rep;
@@ -11445,7 +11507,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         const n = nemCua(spec), v = parseFloat(String(t.value).replace(',', '.')), r = t.dataset.nem === 'r' ? v : n[0], d = t.dataset.nem === 'd' ? v : n[1];
         if (r > 0 && d > 0) { const pb = Core.phuBiGiuong(spec, r, d); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; napO(); later(); }
       }
-      else if (t.dataset.k && /^giuong\.(lop|lop_dau|ho_nem)$/.test(t.dataset.k)) {      // đổi số lớp / khe: giữ cỡ nệm, phủ bì đi theo
+      else if (t.dataset.k && (/^giuong\.(lop|lop_dau|ho_nem)$/.test(t.dataset.k) || (t.dataset.k === 'van.t' && loaiDangLam() === 'giuong'))) {      // đổi số lớp / khe / dày ván: giữ cỡ nệm, phủ bì đi theo
         if (goPK !== t) { nho(); goPK = t; }
         const n = nemCua(spec); setP(spec, t.dataset.k, t.value); spec = Core.normalize(spec);
         const pb = Core.phuBiGiuong(spec, n[0], n[1]); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; napO(); later();
@@ -11853,13 +11915,16 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         const ma = act === 'reset' ? '' : $('[data-ui="mau"]').value, truoc = chup();
         let moi;
         if (ma) moi = Core.apMau(spec, ma);
-        else { const keep = clone(spec); if (keep.loai_sp) { if (keep.loai_sp === 'giuong' || keep.loai_sp === 'vach') keep.ve_goc = Core.DEFAULT_SPEC.ve_goc; delete keep.loai_sp; keep.khau = clone(Core.DEFAULT_SPEC.khau); } moi = Core.normalize(Object.assign(keep, { rong: Core.DEFAULT_SPEC.rong, cao: Core.DEFAULT_SPEC.cao, sau_thung: Core.DEFAULT_SPEC.sau_thung, khoang: clone(Core.DEFAULT_SPEC.khoang), than: clone(Core.DEFAULT_SPEC.than), chan: clone(Core.DEFAULT_SPEC.chan), phao: Object.assign({}, keep.phao, { trai: 50, phai: 50, tren: 50 }) })); }
+        else { const keep = Core.veTuAo(spec); moi = Core.normalize(Object.assign(keep, { rong: Core.DEFAULT_SPEC.rong, cao: Core.DEFAULT_SPEC.cao, sau_thung: Core.DEFAULT_SPEC.sau_thung, khoang: clone(Core.DEFAULT_SPEC.khoang), than: clone(Core.DEFAULT_SPEC.than), chan: clone(Core.DEFAULT_SPEC.chan), phao: Object.assign({}, keep.phao, { trai: 50, phai: 50, tren: 50 }) })); }
         if (moi) {
           // khấu cột là của chỗ đặt: không giữ chỗ đặt nào và không đang sửa tủ đã vẽ (tủ đó vẫn đứng cạnh cột) thì tủ có sẵn không mang khấu
+          // (bản 1.32) đổi loại sản phẩm (tủ ↔ táp ↔ giường ↔ vách): chỗ đặt + tủ đang nối là của món cũ (sâu khác, khung tường là chỗ của tủ) → bỏ cả hai
+          let boCho = '';
+          if (Core.loaiSP(moi) !== Core.loaiSP(spec)) { if (noi) { boCho = `; thôi nối với “${noi.ten}” trên bản vẽ — bấm Vẽ để vẽ món mới`; noi = null; } const ua = $('[data-ui="useAt"]'); if (khungCho || (ua && ua.checked)) { boChoDat(); if (ua) ua.checked = false; boCho += '; bỏ chỗ đặt của món trước — đặt lại bằng Chuột / toạ độ'; } khauCho = null; }
           let boK = false; if (!khungCho && !noi && coKhauCot(moi.khau)) { moi.khau = khongKhau(moi.khau.ho); khauCho = null; boK = true; }
           spec = moi; renderAll(); nho(truoc);
           const m = Core.MAU_TU.find(x => x.ma === ma) || [].concat(...(Core.THU_VIEN || []).filter(n => n.loai !== 'tu').map(n => n.ds)).find(x => x.ma === ma);
-          setStatus(`Đã dùng ${m ? `"${m.ten}" — ${m.mo_ta}` : 'tủ mặc định 3 khoang'}${boK ? '; bỏ khấu cột của tủ trước' : ''}. ↶ Lùi để lấy lại tủ đang làm.`);
+          setStatus(`Đã dùng ${m ? `"${m.ten}" — ${m.mo_ta}` : 'tủ mặc định 3 khoang'}${boK ? '; bỏ khấu cột của tủ trước' : ''}${boCho}. ↶ Lùi để lấy lại món đang làm.`);
         }
       }
       else if (act === 'lk-add') { let n = 1; while (spec.ngan_keo.loai.some(x => x.ma === 'rieng' + n)) n++; spec.ngan_keo.loai.push({ ma: 'rieng' + n, ten: 'Loại mới ' + n, mau_id: 0, ten_mau: '', ts: {} }); renderSettings(); rebuild(); const inp = $(`#${fid('lk' + (spec.ngan_keo.loai.length - 1) + '-ten')}`); if (inp) { inp.focus(); inp.select(); } }
@@ -11872,7 +11937,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           const ke = r.mau.map(m => `${m.ten}: ${Object.keys(m.ts || {}).map(q => `${q}=${m.ts[q]}${m.mt && m.mt[q] ? ' (' + m.mt[q] + ')' : ''}`).join(', ') || '(không đọc được tham số)'}`).join(' · ');
           setStatus(`Thư mục ${r.thu_muc} có ${r.mau.length} mẫu — cập nhật mã cho ${k.capNhat} loại, thêm ${k.them} loại mới. Tham số của từng mẫu — ${ke}`); });
       }
-      else if (act === 'defaults') { const sp = { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan }; if (spec.loai_sp) Object.assign(sp, { loai_sp: spec.loai_sp, ma: spec.ma, ten: spec.ten, phao: spec.phao, khau: spec.khau }, spec.giuong ? { giuong: spec.giuong } : {}, spec.vach ? { vach: spec.vach } : {}); spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), sp)); renderAll(); switchTab('chuan'); }      // giường / vách / táp: về chuẩn xưởng vẫn là giường / vách / táp
+      else if (act === 'defaults') { const sp = { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan }; if (spec.loai_sp) Object.assign(sp, { loai_sp: spec.loai_sp, ma: spec.ma, ten: spec.ten, phao: spec.phao, khau: spec.khau }, spec.giuong ? { giuong: spec.giuong } : {}, spec.vach ? { vach: spec.vach } : {}); const nem = loaiDangLam() === 'giuong' ? nemCua(spec) : null; spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), sp)); if (nem) { const pb = Core.phuBiGiuong(spec, nem[0], nem[1]); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; } renderAll(); switchTab('chuan'); }      // giường / vách / táp: về chuẩn xưởng vẫn là giường / vách / táp
       else if (act === 'json') { if (model && !model.errors.length) return saveFile(fileBase() + '_chenfeng.json', JSON.stringify(Core.toChenfeng(model).json), 'application/json', 'Đã tải file JSON — kéo thả vào cửa sổ Chenfeng, rồi bấm 1 điểm để đặt.'); }
       else if (act === 'csv') { if (model && !model.errors.length) return saveFile(fileBase() + '_bang_ke.csv', Core.cutListCSV(model), 'text/csv;charset=utf-8', 'Đã tải bảng kê tấm (CSV, mở bằng Excel).'); }
       else if (act === 'save') return saveFile(fileBase() + '_mau_tu.json', JSON.stringify({ mncf: Core.VERSION, spec }, null, 1), 'application/json', 'Đã lưu mẫu tủ — lần sau bấm "Mở mẫu" để dùng lại.');
@@ -11918,7 +11983,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const l = loaiDangLam(), fs = $('.sp'), dg = $('.dims .g');
       panel.dataset.loai = l;
       if (dg) dg.innerHTML = l === 'giuong' ? numField('rong', 'Rộng phủ bì', 'title="Rộng phủ bì của giường (mm) — gõ cỡ nệm ở ô Giường thì bảng tự tính"') + numField('sau_thung', 'Dài phủ bì', 'title="Dài phủ bì: từ mặt ngoài đuôi giường tới mặt sau đầu giường (mm)"') + numField('cao', 'Cao đầu giường', 'title="Đầu giường cao bao nhiêu tính từ sàn (mm)"')
-        : l === 'vach' ? numField('rong', 'Rộng vách', 'title="Rộng vách đầu giường (mm)"') + numField('cao', 'Cao đỉnh vách', 'title="Đỉnh vách cách sàn (mm)"')
+        : l === 'vach' ? numField('rong', 'Rộng vách', 'title="Rộng vách đầu giường (mm)"') + numField('cao', 'Cao vách', 'title="Cao vách từ sàn (mm)"')
         : numField('rong', 'Rộng phủ bì', 'title="Rộng phủ bì của cả tủ, KỂ CẢ phào trái / phải (mm)"') + numField('cao', 'Cao phủ bì', 'title="Cao phủ bì của cả tủ, KỂ CẢ phào trên và chân (mm)"') + numField('sau_thung', 'Sâu thùng', 'title="Sâu thùng, CHƯA kể cánh (mm)"');
       if (!fs) return;
       fs.hidden = !khongTu();
@@ -11934,7 +11999,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         else f.push(numField('giuong.so_thang', 'Vách ngăn gầm', 'placeholder="0 = tự" title="Số vách ngăn gầm đỡ phản (kể cả 2 vách ở đầu và đuôi); 0 = tự chia cách ≤ 600"'));
         fs.innerHTML = `<legend>Giường</legend><div class="g g3">${f.join('')}</div>`;
       } else {
-        fs.innerHTML = `<legend>Vách đầu giường</legend><div class="g g3">${numField('vach.so_o', 'Số ô', 'placeholder="0 = tự" title="Số ô tấm ốp theo bề ngang (0 = tự: ô rộng ≤ 800)"')}${numField('vach.cach_san', 'Cách sàn', 'title="Mép dưới vách cách sàn (mm)"')}${numField('vach.khe', 'Khe giữa ô', 'title="Khe chỉ âm giữa các ô (mm) — nẹp U inox 5 / 10"')}${numField('vach.xuong_cach', 'Xương cách', 'title="Khoảng cách tối đa giữa 2 xương dọc / ngang (mm)"')}${numField('vach.xuong_rong', 'Bản xương', 'title="Bề rộng thanh xương ván (mm)"')}</div>`;
+        fs.innerHTML = `<legend>Vách đầu giường</legend><div class="g g3">${numField('vach.so_o', 'Số ô', 'placeholder="0 = tự" title="Số ô tấm ốp theo bề ngang (0 = tự: ô rộng ≤ 800)"')}${numField('vach.khe', 'Khe giữa ô', 'title="Khe chỉ âm giữa các ô (mm) — nẹp U inox 5 / 10"')}${numField('vach.xuong_cach', 'Xương cách', 'title="Khoảng cách tối đa giữa 2 xương dọc / ngang (mm)"')}${numField('vach.xuong_rong', 'Bản xương', 'title="Bề rộng thanh xương ván (mm)"')}</div>`;
       }
     }
     // ô thông số theo loại sản phẩm; đổi sang / khỏi giường, vách: bật / tắt hình 3D

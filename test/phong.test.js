@@ -1016,5 +1016,18 @@ T('Kéo khung — Ô KỀ khít (vách chia ô): kéo mép chung thì ô kề co
   eq([kq4(r), r.ke], [[0, 0, 1200, 2400], []], 'ô bên cạnh cao khác (không khít): không kéo theo');
 });
 
+T('Khung là chỗ đặt tủ: giường / vách đang mở đổi sang tủ áo, táp giữ ngăn kéo (bản 1.32)', () => {
+  const q = { ten: 'K1', rong: 2400, cao: 2600, sau: 600, z: 0, mau: '' };
+  for (const ma of ['G16-T', 'V2800-1200']) {
+    const r = P.tuChoKhung(C, C.apMau(C.DEFAULT_SPEC, ma), q, 'P1', null, -1), M = C.build(r.spec), N = C.normalize(C.DEFAULT_SPEC);
+    ok(!r.spec.loai_sp && !r.spec.giuong && !r.spec.vach && !M.errors.length && M.parts.some(p => p.loai === 'HOI') && JSON.stringify(r.spec.phao) === JSON.stringify(N.phao) && r.spec.chan.cao === N.chan.cao, `${ma} trong khung tủ: thành tủ áo đủ phào / chân`, [r.spec.loai_sp, M.errors, r.spec.phao]);
+    ok(co(r.ghi_chu, /đổi sang tủ áo/), `${ma}: ghi chú nói đã đổi sang tủ áo`, r.ghi_chu);
+  }
+  const r = P.tuChoKhung(C, C.apMau(C.DEFAULT_SPEC, 'TAP2-500'), Object.assign({}, q, { rong: 500, cao: 500, sau: 420 }), 'P1', null, -1), M = C.build(r.spec);
+  { const h = P.haiDiemThanhHinh([0, 0], [2800, 0], 35, { truoc: [0, -500], sau_min: 20 }), h0 = P.haiDiemThanhHinh([0, 0], [2800, 0], 35, { truoc: [0, -500] });
+    ok(h.ok && h.dinh[3][1] === -35 && !h0.ok, 'đặt bằng chuột: vách dày 35 nhận được khi sau_min 20 (tủ vẫn cần ≥ 100)', [h, h0.loi]); }
+  ok(r.spec.loai_sp === 'tap' && !M.errors.length && M.templates.filter(t => t.loai === 'NGAN_KEO').length === 2 && r.spec.khoang.length === 1 && r.spec.khoang[0].canh === 0, 'táp trong khung: giữ 2 ngăn kéo, không tự chọn ruột tủ áo', [r.spec.khoang, r.ghi_chu]);
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

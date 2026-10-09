@@ -376,7 +376,7 @@
     const holeCount = new Map();
     const idOf = x => { try { return x && (x.Object || x); } catch (e) { return null; } };
     for (const h of holes) for (const k of ['FId', 'MId']) { const b = idOf(h[k]); if (b) holeCount.set(b, (holeCount.get(b) || 0) + 1); }
-    const canKhoan = new Set(['HOI', 'VACH', 'DAY', 'NOC', 'DOT', 'DEM', 'XA', 'CHAN', 'PHAO', 'PHU', 'TH', 'DA', 'DEB']);      // (1.32) giường: vách ngăn gầm, đà giữa, đế giường bay khoan cam
+    const canKhoan = new Set(['HOI', 'VACH', 'DAY', 'NOC', 'DOT', 'DEM', 'XA', 'CHAN', 'PHAO', 'PHU', 'DEB']);      // (1.32) giường: khung đế giường bay khoan cam (thân giường bắt vít / bát / ke)
     const noHole = [];
     const chanNoHole = [];
     for (const [p, b] of match) if ((canKhoan.has(p.loai) || p.loai === 'HAU') && p.khoan !== Core.KHONG_KHOAN && !holeCount.get(b)) (p.loai === 'CHAN' ? chanNoHole : noHole).push(`${p.ten} (${p.tu})`);
@@ -444,7 +444,8 @@
     let goc = false, ghiGoc = '';
     try {
       const s0 = Core.normalize(spec);
-      if (s0.ve_goc && !(opt && opt.goc === false) && D.gocDuoc()) { const K = Core.keHoachGoc(s0); if (K.M.errors.length || !K.loi.length) goc = true; else ghiGoc = K.loi.join('; '); }
+      const spRieng = Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(s0));      // (bản 1.32) giường / vách: Chenfeng chưa có lệnh dựng — nhập tấm, không báo "rơi về"
+      if (s0.ve_goc && !spRieng && !(opt && opt.goc === false) && D.gocDuoc()) { const K = Core.keHoachGoc(s0); if (K.M.errors.length || !K.loi.length) goc = true; else ghiGoc = K.loi.join('; '); }
     } catch (e) { goc = false; }
     // lời báo "rơi về cách nhập tấm": module đổi được kích thước nào thì nói đúng kích thước đó (bản 1.26.1: tủ có cột giữa thì Rộng chỉ để xem — xem ganHeSo)
     const baoNhapTam = mod => {
@@ -904,7 +905,7 @@
       // tham số bị khoá: nói ngay tại ô ghi chú của nó trong bảng Thông số (như BH) — người gõ số ở đó thấy liền vì sao tủ không chạy
       // (1.32) giường: W = dài phủ bì (đuôi → đầu giường), H = cao đầu giường; vách đầu giường: W = dày (tấm ốp + xương — chỉ xem)
       const lsp = Core.loaiSP ? Core.loaiSP(M.spec) : 'tu';
-      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao đỉnh vách (từ sàn)' } : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
+      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' } : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
       const ngan = lsp === 'giuong' ? { L: 'Rộng', W: 'Dài', H: 'Cao' } : { L: 'Rộng', W: lsp === 'vach' ? 'Dày' : 'Sâu', H: 'Cao' };
       for (const k of Object.keys(moTa)) {
         const kh = kq.khoa.find(x => x.ten === k);

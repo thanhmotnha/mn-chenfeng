@@ -611,6 +611,13 @@ async function testThuVien(browser) {
   await S(page, '#mncf-nem-r').fill('1800');
   await page.waitForFunction(() => window.MNCF.app.getModel().info.giuong && window.MNCF.app.getModel().info.giuong.nem[0] === 1800);
   { const sp = await page.evaluate(() => window.MNCF.app.getSpec()); ok(near(sp.rong, 1800 + 2 * 10 + 4 * sp.van.t), 'gõ nệm 1800: rộng phủ bì tự tính = nệm + 2 khe + 2 hông 2 lớp', sp.rong); }
+  // đổi dày ván (Chuẩn xưởng) hay "Về chuẩn mặc định": cỡ nệm giữ nguyên, phủ bì đi theo
+  await theSau(page.locator('#mncf-host'), 'chuan'); await S(page, '.settings input[data-k="van.t"]').fill('18');
+  await page.waitForFunction(() => window.MNCF.app.getSpec().van.t === 18);
+  { const r = await page.evaluate(() => [window.MNCF.app.getModel().info.giuong.nem, window.MNCF.app.getSpec().rong]); ok(r[0][0] === 1800 && r[0][1] === 2000 && near(r[1], 1800 + 20 + 4 * 18), 'đổi dày ván 18: nệm vẫn 1800 × 2000, rộng phủ bì đi theo', r); }
+  await S(page, '[data-act="defaults"]').click();
+  { const r = await page.evaluate(() => [window.MNCF.app.getModel().info.giuong.nem, window.MNCF.app.getSpec().van.t]); ok(r[0][0] === 1800 && r[0][1] === 2000 && r[1] === 17.5, '"Về chuẩn mặc định": ván 17,5, nệm vẫn 1800 × 2000', r); }
+  await S(page, '.tab[data-tab="tu"]').click();
   await S(page, '[data-k="giuong.kieu"]').selectOption('bay');
   await page.waitForFunction(() => window.MNCF.app.getModel().parts.some(p => p.loai === 'DEB'));
   ok(await S(page, '[data-k="giuong.cao_de"]').isVisible() && await S(page, '[data-k="giuong.lui_de"]').isVisible(), 'kiểu giường bay: hiện ô cao đế / lùi đế');
@@ -624,7 +631,7 @@ async function testThuVien(browser) {
   await page.waitForFunction(() => window.MNCF.app.getSpec().giuong.nk_ben === 'hai');
   ok(true, '↶ Lùi: trả lại ngăn kéo hai bên');
   await chon('V2800-1200');
-  ok(JSON.stringify(await nhan()) === JSON.stringify(['Rộng vách', 'Cao đỉnh vách']) && await S(page, '[data-k="vach.so_o"]').isVisible(), 'vách: 2 ô kích thước + ô số ô', await nhan());
+  ok(JSON.stringify(await nhan()) === JSON.stringify(['Rộng vách', 'Cao vách']) && await S(page, '[data-k="vach.so_o"]').isVisible(), 'vách: 2 ô kích thước + ô số ô', await nhan());
   ok((await page.evaluate(() => { const M = window.MNCF.app.getModel(); return !M.errors.length && M.parts.filter(p => p.loai === 'OP').length === 4; })), 'vách 2800: 4 tấm ốp, không lỗi');
   await chon('G16-B'); await theSau(page.locator('#mncf-host'), 'chuan'); await S(page, '[data-act="defaults"]').click();
   ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'giuong' && s.giuong.kieu === 'bay' && !window.MNCF.app.getModel().errors.length; })), 'giường bay → "Về chuẩn mặc định": vẫn là giường bay');
