@@ -36,10 +36,13 @@ Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.
 - **Vẽ vào Chenfeng:** Chenfeng chưa có lệnh dựng giường / vách, nên bảng nhập tấm rồi gom cả sản phẩm thành **một module**.
   - Ở ô *Thông số* của Chenfeng sửa được: giường thì rộng, dài phủ bì, cao đầu giường; vách thì rộng, cao (bề dày khoá).
   - Một vài trường hợp module khoá kích thước (chỉ đổi ở bảng): giường ngăn kéo có sâu hộp sát đà giữa (Rộng), vách kịch khổ ván 2440 (Cao).
+  - Vách: ô hẹp quá so với bản xương thì bảng báo đỏ kèm số ô tối đa; không xương ngang vụn dưới 50.
   - Vách chia xương dư sẵn: kéo module to thêm tới 240 trong Chenfeng xương vẫn cách ≤ 600. Kéo nhiều hơn thì bấm Sửa rồi gõ lại Rộng / Cao ở bảng để chia lại xương.
   - Giường bay lùi đế quá 300 (hay đế hẹp hơn nửa thân giường) thì bảng cảnh báo dễ lật.
+  - Tấm rộng hơn khổ 1220 (đầu / đuôi / hông giường, phản, đà) mang vân ngang như hậu rộng của tủ — cắt dọc theo chiều dài khổ ván.
+  - Cập nhật giường / vách đã vẽ (đổi nệm dài, dày ván…): lưng vẫn sát tường, chân giường dời ra / vào.
   - Như tủ: Sửa tủ đang chọn, Cập nhật, bảng kê (có dòng phụ kiện: bát giường, ray, LED, nẹp, vít nở), phiếu tự kiểm, đổ màu, xuất ván.
-  - Mẫu giường / vách đầu giường chèn từ thẻ Kho mẫu không bị phủ thêm hậu.
+  - Mẫu giường / vách đầu giường chèn từ thẻ Kho mẫu không bị phủ thêm hậu (nhận theo danh từ chính của tên: "Giường hộc kéo", "抽屉床" là giường; "Táp / Bàn đầu giường", "床头柜" là tủ — vẫn phủ hậu).
 - **Xưởng xem lại các số mặc định** (cao thành, phản lún, khe nệm, đế giường bay, sâu ngăn kéo 500, khe ray 13) ở ô Giường. Các số này tra theo cách làm phổ biến của xưởng gỗ công nghiệp VN, chưa đo ở xưởng mình.
 - Thân giường (đầu, đuôi, hông, vách ngăn gầm, đà, phản) và vách đầu giường ráp bằng bát giường / vít / ke / vít nở: bảng **không khoan cam** các tấm đó (chỉ khung đế giường bay khoan cam). Lỗ bát giường, lỗ ray, lỗ vít nở xưởng khoan theo phụ kiện thật.
 

@@ -1556,8 +1556,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // vẽ đúng vị trí của khung đang mở (thẻ Phòng) hoặc của hình vừa lấy trên mặt bằng → tủ quay theo tường / theo hình (bản 1.16: driver tự đặt + xoay, cả tủ lệnh gốc)
       let kc = khungCho && khungCho.d && o.corner && o.corner.every((v, i) => Math.abs(v - khungCho.d.goc[i]) < 0.01) ? khungCho : null;
       if (kc && kc.lung && khongTu() && model && model.parts.length) {      // (1.32) giường / vách đặt bằng chuột: sâu đã đổi từ lúc đặt → dời góc trước, lưng giữ sát tường
-        const b = Core.bbox(model.parts), dl = b ? (b.y1 - b.y0) - kc.lung.sau : 0;
-        if (Math.abs(dl) > 0.05) { kc.d.goc = [Math.round((kc.d.goc[0] + kc.lung.n[0] * dl) * 100) / 100, Math.round((kc.d.goc[1] + kc.lung.n[1] * dl) * 100) / 100, kc.d.goc[2]]; kc.lung.sau += dl; o.corner = kc.d.goc.slice(); ['ax', 'ay', 'az'].forEach((n, i) => { const el = $(`[data-ui="${n}"]`); if (el) el.value = fmt(kc.d.goc[i]); }); }
+        const b = Core.bbox(model.parts), dl = b ? (b.y1 - b.y0) - kc.lung.sau : 0, dw = b && kc.lung.phai ? (b.x1 - b.x0) - kc.lung.rong : 0;
+        if (Math.abs(dl) > 0.05 || Math.abs(dw) > 0.05) {
+          const L = kc.lung, g0 = kc.d.goc;
+          kc.d.goc = [Math.round((g0[0] + L.n[0] * dl + L.u[0] * dw) * 100) / 100, Math.round((g0[1] + L.n[1] * dl + L.u[1] * dw) * 100) / 100, g0[2]];
+          L.sau += dl; L.rong += dw; o.corner = kc.d.goc.slice(); ['ax', 'ay', 'az'].forEach((n, i) => { const el = $(`[data-ui="${n}"]`); if (el) el.value = fmt(kc.d.goc[i]); });
+        }
       }
       if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
       // (bản 1.28) tủ này không đứng vào chỗ đặt đang giữ (bấm điểm / gõ toạ độ khác): khấu cột tự sinh theo cột của chỗ cũ không còn đúng → bỏ
@@ -1783,7 +1787,11 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const d = { goc: [k.goc[0], k.goc[1], z], xoay: k.xoay, tuong: 'điểm bấm' };
       khungCho = { j: -1, d, hinh: { k, h: { dinh3: h.dinh.map(q => [q[0], q[1], z]) }, nguon: 'diem' } };
       // giường / vách: neo theo LƯNG — đổi nệm dài / số lớp / dày ván sau khi đặt thì góc trước dời theo (lưng vẫn sát tường)
-      if (rieng && h.dinh && h.dinh.length === 4) khungCho.lung = { sau, n: [(h.dinh[3][0] - h.dinh[0][0]) / sau, (h.dinh[3][1] - h.dinh[0][1]) / sau] };
+      // điểm bấm đầu ở đầu PHẢI của món (đi dọc tường về bên trái): đổi bề rộng sau khi đặt thì giữ đầu phải ở điểm bấm, góc trái – trước dời theo
+      if (rieng && h.dinh && h.dinh.length === 4) {
+        const L = Math.hypot(h.dinh[1][0] - h.dinh[0][0], h.dinh[1][1] - h.dinh[0][1]) || 1, kc2 = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+        khungCho.lung = { sau, n: [(h.dinh[3][0] - h.dinh[0][0]) / sau, (h.dinh[3][1] - h.dinh[0][1]) / sau], rong: rongBang, u: [(h.dinh[1][0] - h.dinh[0][0]) / L, (h.dinh[1][1] - h.dinh[0][1]) / L], phai: kc2(k.goc, h.dinh[2]) < kc2(k.goc, h.dinh[3]) };
+      }
       renderAll(); switchTab('tu');
       const ua = $('[data-ui="useAt"]');
       if (ua) { ua.checked = true; ['ax', 'ay', 'az'].forEach((n, i) => { $(`[data-ui="${n}"]`).value = fmt(d.goc[i]); }); capNoi(); }
@@ -1819,9 +1827,10 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // (1.31.1) tủ vẽ trước 1.31 có hộc kéo âm: specDaVe dựng lại kiểu khe + xà ẩn như lúc vẽ — nói ra, vì tủ vẽ sau khi Bỏ nối cũng theo thông số này
       const ghiKM = nguon === 'luu' && luu.spec && !(luu.spec.ngan_keo && luu.spec.ngan_keo.khung_mat !== undefined) && specCu.ngan_keo && specCu.ngan_keo.khung_mat === 0 && specCu.khoang.some(k => (k.o || []).some(c => c.kieu === 'nk_am'))
         ? ' Hộc kéo âm của tủ này vẽ kiểu cũ (khe + xà ẩn, chưa có khung mặt) — muốn đổi: Chuẩn xưởng → Ngăn kéo âm → Khung mặt.' : '';
+      const boCho = doiLoaiBoCho(specCu);      // (1.32) món vừa chọn khác loại / khác sâu với chỗ đặt đang giữ → bỏ chỗ đặt
       spec = clone(specCu); noi = { id, spec: clone(specCu), ten: specCu.ma || specCu.ten || '', pick: tam };
       sel = null; renderAll(); switchTab('tu');
-      setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.${ghiKM}`);
+      setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}${boCho.replace(/; thôi nối với[^;]*/, '')}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.${ghiKM}`);
     }
 
     /** Bản 1.11 — module chèn từ kho Chenfeng (kết cấu kiểu Trung) → hậu mỏng phủ sau lưng theo chuẩn xưởng. Sửa ngay trên bản vẽ, mẫu trong kho giữ nguyên. */

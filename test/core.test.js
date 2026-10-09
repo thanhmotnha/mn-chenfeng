@@ -1742,11 +1742,24 @@ T('Giường, táp, vách — bản vá sau soát (bản 1.32)', () => {
   ok(C0.normalize(Object.assign(C0.apMau(D0, 'V2800-1200'), { vach: { cach_san: 500 } })).vach.cach_san === 0, 'vách luôn đứng từ sàn (cách sàn = 0)');
   // khổ ván: lời khuyên theo sản phẩm (không bảo giường "chia khoang")
   { const s = C0.apMau(D0, 'G16-T'); s.cao = 1300; const e = C0.build(s).errors; ok(e.length && e.every(x => !/chia khoang/.test(x)) && e.some(x => /cao đầu giường/.test(x)), 'đầu giường cao 1300 > khổ: lỗi nói giảm cao đầu giường', e); }
+  // vân: tấm giường / vách rộng hơn khổ 1220 (bề rộng Chenfeng) mà cao lọt khổ → Lines 1 (như hậu rộng của tủ); mọi tấm cắt được theo vân
+  for (const [ma, sua] of [['G16-NK', s => s], ['G18-B', s => s], ['G12-T', s => s], ['V2800-1200 2 ô', s => { s.vach.so_o = 2; return s; }]]) {
+    const s = sua(C0.apMau(D0, ma.split(' ')[0])), K = s.van.kho_rong, bs = C0.toChenfeng(C0.build(s)).json.ModelSpace.filter(o => o.Type === 'Board');
+    const w = o => Math.max(...o.ContourCurve.map(q => q.pt[0])) - Math.min(...o.ContourCurve.map(q => q.pt[0])), h = o => Math.max(...o.ContourCurve.map(q => q.pt[1])) - Math.min(...o.ContourCurve.map(q => q.pt[1]));
+    ok(bs.length && bs.every(o => !(o.Lines === 0 && w(o) > K + 0.01) && !(o.Lines === 1 && h(o) > K + 0.01)), `${ma}: vân đúng chiều khổ ván (không tấm nào phải xoay ngang vân mới cắt được)`, bs.filter(o => (o.Lines === 0 && w(o) > K) || (o.Lines === 1 && h(o) > K)).map(o => [o.Name, o.Lines, w(o), h(o)]));
+  }
+  { const s = C0.apMau(D0, 'G12-T'); s.giuong.kieu = 'bay'; s.rong = C0.phuBiGiuong(s, 900, 2000).rong; const W = s.rong;
+    ok(!C0.build(s).warnings.length, `giường bay hẹp ${W}, lùi 150: không cảnh báo`); s.giuong.lui_de = 260; const w = C0.build(s).warnings.find(x => /dễ lật/.test(x));
+    ok(w && new RegExp(`nên lùi ≤ ${Math.floor(W / 20) * 5}`).test(w), 'giường bay hẹp lùi 260: cảnh báo nêu mức lùi tối đa theo bề rộng (W / 4)', w); }
+  { const s = C0.apMau(D0, 'V2800-1200'); s.vach.so_o = 20; const e = C0.build(s).errors; ok(e.length === 1 && /hẹp quá so với bản xương .* giảm số ô \(≤ \d+\)/.test(e[0]), 'vách 20 ô: lỗi ô hẹp quá, gợi ý số ô tối đa', e);
+    const n = +e[0].match(/≤ (\d+)/)[1]; s.vach.so_o = n; Object.assign(s.vach, C0.vachTuDong(s)); const M = C0.build(s); ok(!M.errors.length && !overlapAny(M).length && P(M, 'XU').every(p => Math.min(p.x1 - p.x0, p.z1 - p.z0) >= 50 - 0.01), `vách ${n} ô (mức gợi ý): dựng được, không xương vụn dưới 50`, [M.errors, overlapAny(M).slice(0, 2)]); }
+  { const s = C0.apMau(D0, 'V2800-1200'); s.rong = 780; s.vach.so_o = 0; Object.assign(s.vach, C0.vachTuDong(s)); const M = C0.build(s); ok(!M.errors.length && M.info.vach.so_o === 1 && !M.phu_kien.some(x => /Nẹp U/.test(x.ten)), 'vách 780 một ô: không có dòng nẹp U (0 cái)', M.phu_kien); }
   // kho mẫu: chữ "tab" chỉ khi đứng riêng
   eq(['Tableware', 'Portable', 'Stable', 'Tab', 'Tab đầu giường', 'Táp đầu giường'].map(C0.nhomThuMuc), ['khac', 'khac', 'khac', 'tu', 'tu', 'tu'], 'nhomThuMuc: "tab" là chữ riêng');
   eq(['Giường 1m6', 'Giường bay', '床', '双人床', 'Vách đầu giường', '背景墙', 'Táp đầu giường', 'Tab đầu giường', 'Tủ đầu giường', '床头柜', '床边柜', '背景墙柜', 'Kệ đầu giường', 'Tủ áo'].map(C0.khoKhongHau),
     [true, true, true, true, true, true, false, false, false, false, false, false, false, false], 'kho mẫu: giường / vách không phủ hậu; táp / tủ / 柜 đầu giường vẫn phủ hậu');
-  eq(['Giường hộc kéo', 'Giường có kệ đầu giường', 'Hộc đầu giường', 'Bàn đầu giường', 'Đôn đầu giường', '床头几', '床边桌', 'Ngăn kéo gầm giường'].map(C0.khoKhongHau), [true, true, false, false, false, false, false, false], 'kho mẫu: tên mở đầu "Giường" là giường; bàn / đôn / hộc / 几 / 桌 đầu giường là tủ');
+  eq(['Giường hộc kéo', 'Giường có kệ đầu giường', 'Hộc đầu giường', 'Bàn đầu giường', 'Đôn đầu giường', '床头几', '床边桌', 'Ngăn kéo gầm giường', '抽屉床', '儿童抽屉床', 'GH01 - Giường ngăn kéo 1m8', 'MN Giường hộc kéo', '床底抽屉'].map(C0.khoKhongHau),
+    [true, true, false, false, false, false, false, false, true, true, true, true, false], 'kho mẫu: danh từ chính — tiếng Việt đứng trước ("Giường hộc kéo"), tiếng Trung đứng sau ("抽屉床" giường, "床头柜" tủ)');
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

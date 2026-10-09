@@ -849,6 +849,32 @@ async function tienIch() {
     await H.locator('[data-act="hop-lai"]').click(); await choHoi(h0 + 3);
     ok((await hop()).dlg === '' && /Bấm điểm ĐẦU của tủ/.test(await H.locator('.chip').textContent()), 'Chọn lại chỗ (tủ đặt bằng chuột): hộp đóng, bảng hỏi lại điểm đầu');
     await page.evaluate(() => window.app.Editor.Cancel()); await datXong('Đã huỷ — chưa đặt tủ');
+    // (7b) bản 1.32: giường đặt bằng chuột — điểm thứ hai chỉ cho hướng, giường giữ bề rộng của nó. Đi từ GÓC phòng sang trái rồi đổi nệm rộng:
+    //      đầu phải vẫn ở điểm bấm (không đâm qua tường B), lưng sát tường A. "Cập nhật" sau khi đổi nệm dài: lưng vẫn sát tường (không giữ chân giường)
+    {
+      const nG = await soDoiTuong();
+      const G = await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'G16-T'); s.hau = Object.assign({}, s.hau, { t: 6 }); return s; });
+      await page.evaluate(sp => window.MNCF.app.setSpec(sp), G); await H.locator('.tab[data-tab="tu"]').click();
+      ok(!(await H.locator('.vehang [data-act="dat-tuong"]').isVisible()) && !(await H.locator('.vehang [data-act="hinh"]').isVisible()) && await H.locator('.vehang [data-act="dat"]').isVisible(), 'giường: nút Tường / Hình ẩn, còn nút Chuột');
+      h0 = await soHoi();
+      await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+      ok(/Bấm điểm ĐẦU của giường/.test(await H.locator('.chip').textContent()), 'nhắc bấm điểm đầu của giường');
+      await page.evaluate(() => window.__MOCK__.clickPoint(3600, 0, 0)); await choHoi(h0 + 2);
+      await page.evaluate(() => window.__MOCK__.clickPoint(2000, -30, 0)); await datXong('Đã đặt: xoay');
+      ok(/giữ kích thước của nó \(rộng 1690\)/.test(await sr()) && (await hop()).dlg === 'tu', 'bấm điểm thứ hai ở 1600 bên trái: giường vẫn rộng 1690 (điểm đó chỉ cho hướng), hộp chỉnh hiện', await sr());
+      await H.locator('#mncf-nem-r').fill('1800'); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 1890);
+      await H.locator('[data-act="hop-ve"]').click(); await choVe();
+      let v = await hopTu();
+      ok(/Đã vẽ xong/.test(v.kq) && JSON.stringify(v.hop) === '[1710,3600,-2072.5,0,0,1000]', 'đổi nệm rộng 1800 sau khi đặt: giường 1890 vẽ từ x 1710 tới ĐÚNG điểm bấm đầu 3600 (góc phòng), lưng ở tường A (y 0)', [v.hop, v.kq.slice(0, 200)]);
+      await H.locator('.tab[data-tab="tu"]').click();
+      await H.locator('#mncf-nem-d').fill('2200'); await page.waitForFunction(() => Math.abs(window.MNCF.app.getSpec().sau_thung - 2272.5) < 0.01);
+      await H.locator('[data-act="redraw"]').click();
+      await page.waitForFunction(() => /Đã cập nhật|Có lỗi/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 });
+      v = await hopTu();
+      ok(JSON.stringify(v.hop) === '[1710,3600,-2272.5,0,0,1000]', 'Cập nhật với nệm dài 2200: đầu giường vẫn sát tường A (y 0), chân giường ra thêm 200 (không đâm đầu giường qua tường)', [v.hop, await sr()]);
+      await page.evaluate(async n0 => { const D = window.MNCFDriver; for (let i = 0; i < 12 && window.__MOCK__.ents.filter(e => !e.IsErase).length > n0; i++) await D.undo(1); }, nG);
+      ok((await soDoiTuong()) === nG, 'hoàn tác: bản vẽ trở lại như trước khi đặt giường');
+    }
     // (8) bản 1.28 (anh Thanh 06/10/2026: "vẽ phòng ấy rồi tự khấu cột, giờ muốn vẽ tủ mới vẫn ra tủ khấu cột"): khấu cột là của CHỖ ĐẶT.
     //     Đặt bằng chuột trùm qua cột → tủ khấu; đặt tủ mới (cùng bề rộng, dưới trần) ở chỗ không có cột → bỏ khấu của lần trước
     {
