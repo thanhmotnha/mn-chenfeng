@@ -244,6 +244,8 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     for (const [ma, ten, moW] of [['G16-NK', 'G1', /Dài phủ bì/], ['V2800-1200', 'VD1', /Dày/]]) {
       const sp = await page.evaluate(m => { const s = window.MNCFCore.apMau(window.MNCF.app.getSpec(), m); s.hau = Object.assign({}, s.hau, { t: 6 }); return s; }, ma);
       await page.evaluate(s => window.MNCF.app.setSpec(s), sp);
+      await H.locator('.tab[data-tab="tu"]').click();
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
       await H.locator('#mncf-ui-ax').fill('9000');
       await H.locator('[data-act="draw"]').click();
       await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && L.offset[0] === 9000; }, null, { timeout: 30000 });
@@ -260,6 +262,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       await H.locator('.tab[data-tab="tu"]').click();
     }
     await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+    if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
     await H.locator('#mncf-ui-ax').fill('5000');
 
     /* --- nếu Chenfeng lỡ khoan lỗ vào tấm hậu (hậu bắn đinh, không được có lỗ) → báo cáo phải nêu ra --- */
