@@ -514,9 +514,9 @@ footer>.kqhang{display:none}
     ['Ngăn kéo — số chung', [F('ngan_keo.buoc_sau', 'Sâu hộp làm tròn theo bước (dài ray)'), F('ngan_keo.ho_sau', 'Hộp cách hậu ít nhất')]],
     // (bản 1.31) khung mặt: thanh ngang phẳng mặt ngăn kéo — có khung thì khe trên / khe giữa / xà ẩn không dùng (ẩn ô)
     ['Ngăn kéo âm (nằm sau cánh)', [F('ngan_keo.lui', 'Lưng mặt NK cách mặt trước thùng'), F('ngan_keo.khe_ben', 'Khe quanh mặt NK (2 bên, và với thanh ngang)', { span: 2 }), F('ngan_keo.dem', 'Vách đệm tránh bản lề: mặt trong cách hồi/vách (0 = không đệm)', { span: 2 }),
-      F('ngan_keo.khung_mat', 'Khung mặt: thanh ngang phẳng mặt ngăn kéo (1 = có, 0 = khe + xà ẩn sau khe)', { span: 2 }), F('ngan_keo.ray', 'Thanh ngang khung mặt: cao', { khi: s => !!s.ngan_keo.khung_mat }),
-      F('ngan_keo.khe_tren', 'Khe trên', { khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.khe_giua', 'Khe giữa 2 mặt', { khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.khe_duoi', 'Khe dưới'),
-      F('ngan_keo.xa_cao', 'Xà sau khe mặt NK: cao (0 = không làm xà)', { span: 2, khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.xa_ho', 'Xà cách lưng mặt NK', { khi: s => !s.ngan_keo.khung_mat }), F('ngan_keo.nep_khe', 'Nẹp che khe 2 bên hộc kéo (1 = có, 0 = để hở)', { span: 2 })]],
+      F('ngan_keo.khung_mat', 'Khung mặt hộc kéo', { select: [[1, 'Có — thanh ngang phẳng mặt ngăn kéo, mặt lọt trong ô'], [0, 'Không — khe + xà ẩn sau khe (kiểu trước 1.31)']], span: 2 }), F('ngan_keo.ray', 'Thanh ngang khung mặt: cao (0 = không thanh)', { khi: s => !!s.ngan_keo.khung_mat }),
+      F('ngan_keo.khe_tren', 'Khe trên', { khi: s => !(s.ngan_keo.khung_mat && s.ngan_keo.ray > 0) }), F('ngan_keo.khe_giua', 'Khe giữa 2 mặt', { khi: s => !(s.ngan_keo.khung_mat && s.ngan_keo.ray > 0) }), F('ngan_keo.khe_duoi', 'Khe dưới'),
+      F('ngan_keo.xa_cao', 'Xà sau khe mặt NK: cao (0 = không làm xà)', { span: 2, khi: s => !(s.ngan_keo.khung_mat && s.ngan_keo.ray > 0) }), F('ngan_keo.xa_ho', 'Xà cách lưng mặt NK', { khi: s => !(s.ngan_keo.khung_mat && s.ngan_keo.ray > 0) }), F('ngan_keo.nep_khe', 'Nẹp che khe 2 bên hộc kéo (1 = có, 0 = để hở)', { span: 2 })]],
     ['Suốt treo (mẫu Chenfeng)', [F('suot.mau_id', 'Mã mẫu suốt treo'), F('suot.cach_dot', 'Bas cách đợt trên')]],
     ['Kiểu khoan (tên trong "Khoan hàng lỗ" của Chenfeng)', [F('khoan.thung', 'Thùng, chân (và hậu dày)', { text: 1, list: 'drill' }), F('khoan.phao', 'Phào + thanh phụ trợ', { text: 1, list: 'drill' })]],
     ['Tên tấm', ['hoi_trai', 'hoi_phai', 'vach', 'day', 'noc', 'dot', 'hau', 'chan', 'de', 'phao_trai', 'phao_phai', 'phao_tren', 'phu_tro', 'canh_trai', 'canh_phai', 'dem', 'xa', 'nep'].map(k => F('ten_tam.' + k, k.replace(/_/g, ' '), { text: 1 }))],
@@ -766,7 +766,7 @@ ${cf ? '<li>Bấm <b>Vẽ vào Chenfeng</b> rồi bấm 1 điểm trên bản v�
 <li><b>Ngăn kéo trùm ngoài</b>: mặt ngăn kéo nằm ở mặt phẳng cánh, phủ lên mép đợt như cánh; cánh của khoang tự cắt ngắn, chừa đúng vùng mặt ngăn kéo; hộp chạy hết lọt lòng khoang nên không cần vách đệm.</li>
 <li><b>Tấm trước, ngăn kéo / suốt treo sau</b> (bản 1.23): phần tấm của tủ không cần máy chủ nên lúc nào cũng vẽ được; hộp ngăn kéo và suốt treo là mẫu trong kho — Chenfeng phải tải <b>từng mẫu</b> từ máy chủ — nên được thêm sau bằng lệnh riêng. Mạng tới máy chủ Chenfeng chậm / rớt thì bảng thử lại từng mẫu; vẫn không được thì tủ chỉ thiếu đúng mẫu đó, thẻ Kết quả ghi rõ thiếu gì, vì sao, kèm nút <b>Vẽ lại tủ này kèm ngăn kéo / suốt treo</b>. Mã mẫu không thuộc tài khoản Chenfeng đang đăng nhập thì bảng tự tìm mẫu cùng tên trong kho của tài khoản đó.</li>
 <li>Ngăn kéo và suốt treo dùng mẫu có sẵn trong kho mẫu Chenfeng của xưởng. Mỗi <b>loại ngăn kéo</b> là một mẫu trong thư mục 抽屉 của kho mẫu; danh sách loại, mã mẫu và tham số riêng nằm ở tab Chuẩn xưởng${cf ? ' (có nút dò lại mã mẫu từ kho Chenfeng)' : ''}.</li>
-<li><b>Hộc ngăn kéo âm là một khung kín</b> (từ bản 1.5): sau khe phía trên mỗi mặt ngăn kéo có một <b>xà</b> (ván đứng cao 60, xà trên cùng sát đợt) — che khe luồn tay của mặt vát và giằng hai vách đệm; khe giữa hồi và vách đệm có <b>nẹp che</b> ngang mặt ngăn kéo (bắn đinh). Vì có nẹp che, bản lề cánh không đặt trong vùng cao độ của hộc kéo. Đổi số hoặc tắt ở Chuẩn xưởng → Ngăn kéo âm.</li>
+<li><b>Hộc ngăn kéo âm có khung mặt</b> (bản 1.31): khe giữa hồi và vách đệm có <b>nẹp</b> đứng phẳng mặt ngăn kéo (bắn đinh); <b>thanh ngang</b> cao 50 cũng phẳng mặt — thanh trên sát dưới đợt chạy suốt bề ngang khoang, thanh giữa nằm giữa các mặt; mặt ngăn kéo lọt trong ô, khe 2 quanh mặt. Bản lề cánh đặt như khoang thường (vùng hộc thụt sau vách đệm không cấn bản lề). Muốn khe + xà ẩn sau khe như trước: Chuẩn xưởng → Ngăn kéo âm → Khung mặt = Không.</li>
 <li>Đợt nằm ngay trên vách đệm ngăn kéo được đưa cam lên mặt trên (mặt dưới bị đầu vách đệm che, không vặn được).</li>
 <li>Tấm nào dài hơn khổ ván, hai tấm đè nhau, đợt nằm ngoài lọt lòng, ô quá thấp cho số ngăn kéo… đều bị chặn trước khi vẽ.</li>
 </ul></fieldset>
@@ -1089,7 +1089,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const m = [];
       model.errors.forEach(t => m.push(`<div class="msg err">${esc(t)}</div>`));
       // (bản 1.30.1 — anh Thanh: "rất hay báo lỗi bị vượt khổ ván rất mệt") khoang quá rộng so với khổ ván → một nút tự thêm vách (Core.vuaKhoVan), chỉ hiện khi cách đó gỡ được lỗi
-      { const vk = model.errors.some(t => /khổ ván/.test(t)) ? vuaKho() : null; if (vk && vk.doi.length && vk.con < vk.truoc) m.push(`<div class="msg err"><button class="sec" data-act="vua-kho">Thêm vách cho vừa khổ ván</button> <span class="hint tt">${vk.con ? 'gỡ bớt' : 'gỡ hết'} lỗi khổ ván ở trên: ${esc(String(vk.spec.khoang.length))} khoang thay cho ${esc(String(spec.khoang.length))}</span></div>`); }
+      { const vk = model.errors.some(t => /khổ ván/.test(t)) ? vuaKho() : null; if (vk && vk.goi_y) m.push(`<div class="msg warn">${esc(vk.goi_y)}</div>`); if (vk && vk.doi.length && vk.con < vk.truoc) m.push(`<div class="msg err"><button class="sec" data-act="vua-kho">Thêm vách cho vừa khổ ván</button> <span class="hint tt">${vk.con ? 'gỡ bớt' : 'gỡ hết'} lỗi khổ ván ở trên: ${esc(String(vk.spec.khoang.length))} khoang thay cho ${esc(String(spec.khoang.length))}</span></div>`); }
       model.warnings.forEach(t => m.push(`<div class="msg warn">${esc(t)}</div>`));
       // (bản 1.28) ghi chú CHỈ ĐỂ BIẾT (tách thùng, kích thước khấu cột — hình đã vẽ đủ) vào phiếu tự kiểm; ghi chú PHẢI LÀM (bản lề, xà…) vẫn hiện dưới hình
       const deBiet = t => /^Tủ tách \d+ thùng|^Khấu cột:/.test(t), gcPhieu = model.notes.filter(deBiet);
@@ -1795,9 +1795,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (theoModule) { specCu = theoModule; doiKT = ` Kích thước lấy theo module trong Chenfeng: ${hien(specCu.rong)} × ${hien(specCu.cao)}, sâu thùng ${hien(specCu.sau_thung)}.`; }
       const loc = Drv.locate(id, Core.build(specCu), tam);
       if (!loc.ok) { setStatus(loc.reason); return; }
+      // (1.31.1) tủ vẽ trước 1.31 có hộc kéo âm: specDaVe dựng lại kiểu khe + xà ẩn như lúc vẽ — nói ra, vì tủ vẽ sau khi Bỏ nối cũng theo thông số này
+      const ghiKM = nguon === 'luu' && luu.spec && !(luu.spec.ngan_keo && luu.spec.ngan_keo.khung_mat !== undefined) && specCu.ngan_keo && specCu.ngan_keo.khung_mat === 0 && specCu.khoang.some(k => (k.o || []).some(c => c.kieu === 'nk_am'))
+        ? ' Hộc kéo âm của tủ này vẽ kiểu cũ (khe + xà ẩn, chưa có khung mặt) — muốn đổi: Chuẩn xưởng → Ngăn kéo âm → Khung mặt.' : '';
       spec = clone(specCu); noi = { id, spec: clone(specCu), ten: specCu.ma || specCu.ten || '', pick: tam };
       sel = null; renderAll(); switchTab('tu');
-      setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.`);
+      setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.${ghiKM}`);
     }
 
     /** Bản 1.11 — module chèn từ kho Chenfeng (kết cấu kiểu Trung) → hậu mỏng phủ sau lưng theo chuẩn xưởng. Sửa ngay trên bản vẽ, mẫu trong kho giữ nguyên. */
@@ -2926,7 +2929,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         else x.ten = t.value;
         later();
       }
-      else if (t.dataset.k) { if (goPK !== t) { nho(); goPK = t; } setP(spec, t.dataset.k, t.type === 'checkbox' ? t.checked : t.value); if (t.dataset.k === 'hau.kieu') { setP(spec, 'hau.t', t.value === 'day' ? getP(spec, 'van.t') : Core.DEFAULT_SPEC.hau.t); spec = Core.normalize(spec); renderSettings(); } else if (t.dataset.k === 'canh.loai_ban_le' || t.dataset.k === 'thung.noc_day' || t.dataset.k === 'ngan_keo.khung_mat') { spec = Core.normalize(spec); renderSettings(); } later(); }
+      else if (t.dataset.k) { if (goPK !== t) { nho(); goPK = t; } setP(spec, t.dataset.k, t.type === 'checkbox' ? t.checked : t.value); if (t.dataset.k === 'hau.kieu') { setP(spec, 'hau.t', t.value === 'day' ? getP(spec, 'van.t') : Core.DEFAULT_SPEC.hau.t); spec = Core.normalize(spec); renderSettings(); } else if (t.dataset.k === 'canh.loai_ban_le' || t.dataset.k === 'thung.noc_day' || t.dataset.k === 'ngan_keo.khung_mat') { spec = Core.normalize(spec); renderSettings(); }
+        else if (t.dataset.k === 'ngan_keo.ray' && t.closest('.settings')) { const co = !!(spec.ngan_keo.khung_mat && parseFloat(t.value) > 0), hien = !!$('.settings [data-k="ngan_keo.khe_tren"]'); if (co === hien && !t.__mncfRay) { t.__mncfRay = 1; t.addEventListener('change', () => { spec = Core.normalize(spec); renderSettings(); }, { once: true }); } } later(); }
       else if (t.dataset.b) { if (t.dataset.b !== 'dot' && goPK !== t) { nho(); goPK = t; } readBay(t.closest('.bay')); later(); }
       else if (t.dataset.ui === 'doors') { showDoors = t.checked; paintView(); }
       else if (t.dataset.ui === 'kho-tim') laterKho();
@@ -3300,10 +3304,14 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         busy = true; b.disabled = true; rebuild();
         (async () => {
           let r = null; try { r = await Drv.doBocHoi({ onStatus: setStatus }); } catch (e) { r = { ok: false, loi: String(e && e.message || e) }; }
+          // (1.31.1) lệnh của Chenfeng tới trễ: bảng còn canh để trả lựa chọn + xoá thùng thử — giữ khoá các nút (vẽ tủ lúc đó thì lệnh của bảng chen vào lệnh trễ, lựa chọn bị trả chéo)
+          if (r && r.canh && !r.canh.xong) { setStatus(`Chenfeng còn chờ máy chủ để dựng thùng thử (x ≈ ${r.x}) — bảng chờ lệnh đó xong rồi xoá thùng thử (tối đa 3 phút). Đừng chạy lệnh khác trong Chenfeng lúc này.`); while (!r.canh.xong) await new Promise(res => setTimeout(res, 500)); }
           busy = false; b.disabled = false; rebuild();
           if (!r || !r.noi_dung) { setStatus('Chưa đo được: ' + ((r && r.loi) || 'lỗi không rõ') + '.'); return; }
+          if (r.ban && !r.so_luot && !r.con) { setStatus(`Chưa đo: Chenfeng đang chạy dở lệnh ${r.ban} (chờ máy chủ?) — bảng không đụng vào. Chờ lệnh đó xong rồi bấm lại.`); return; }
           const kq = await download(`chenfeng-boc-hoi-${new Date().toISOString().slice(0, 10)}.txt`, r.noi_dung, 'text/plain');
-          setStatus(kq === 'saved' ? `Đã đo ${r.so_luot}/3 lượt và hoàn tác — đã tải tệp chenfeng-boc-hoi, gửi tệp đó cho Claude.` : 'Đã đo xong nhưng chưa tải được tệp.');
+          const sot = r.canh ? (r.canh.con ? ` CHÚ Ý: thùng thử Chenfeng dựng trễ còn ${r.canh.con} tấm ở x ≈ ${r.x} (bảng không xoá được vì Chenfeng đang chạy lệnh khác) — xoá tay (bấm chọn rồi Delete).` : r.canh.xoa ? ` Chenfeng dựng thùng thử trễ — bảng đã xoá ${r.canh.xoa} tấm đó.` : '') : r.con ? ` CHÚ Ý: còn ${r.con} tấm thử chưa hoàn tác được ở x ≈ ${r.x} — xoá tay (bấm chọn rồi Delete).` : '';
+          setStatus((kq === 'saved' ? `Đã đo ${r.so_luot}/3 lượt${r.con || (r.canh && r.canh.con) ? '' : ' và dọn sạch'} — đã tải tệp chenfeng-boc-hoi, gửi tệp đó cho Claude.` : 'Đã đo xong nhưng chưa tải được tệp.') + sot);
         })();
       }
       else if (act === 'tham-do') {      // (bản 1.29.1) chỉ đọc mã các lớp lệnh của Chenfeng → tải tệp chữ về máy để gửi cho Claude

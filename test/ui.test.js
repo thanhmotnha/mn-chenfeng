@@ -585,9 +585,13 @@ async function testPhieu(browser) {
   await page.waitForFunction(() => window.MNCF.app.getSpec().khoang.length === 3);
   const sp = await page.evaluate(() => window.MNCF.app.getSpec()), md = await page.evaluate(() => ({ e: window.MNCF.app.getModel().errors, w: window.MNCF.app.getModel().info.khoang }));
   ok(md.e.length === 0 && sp.khoang.every(k => k.rong === 'auto' && k.canh === 2) && JSON.stringify(sp.khoang[0].o) === JSON.stringify(sp.khoang[1].o) && sp.khoang[2].o.length === 2 && (await S(page, '[data-act="vua-kho"]').count()) === 0, 'bấm: 3 khoang 2 cánh, khoang tách giữ nội dung ô, hết lỗi, nút biến mất', [md, sp.khoang]);
-  ok(/Đã thêm 1 vách cho vừa khổ ván/.test(await page.evaluate(inPage.status)) && await S(page, '.pri[data-act="json"]').isEnabled(), 'dòng báo nói đã thêm vách; nút xuất mở lại', await page.evaluate(inPage.status));
+  ok(/Đã chia lại 2 → 3 khoang cho vừa khổ ván/.test(await page.evaluate(inPage.status)) && await S(page, '.pri[data-act="json"]').isEnabled(), 'dòng báo nói đã chia lại khoang; nút xuất mở lại', await page.evaluate(inPage.status));
   await S(page, '[data-act="lui"]').click();
   ok((await page.evaluate(() => window.MNCF.app.getSpec().khoang.length)) === 2, '↶ Lùi: trả lại 2 khoang');
+  // (1.31.1) chỉ còn đáy / nóc / đế liền thùng vượt khổ (phủ hồi, "Rộng tối đa một thùng" = 0): không có nút, nhưng có dòng nhắc đặt số đó
+  await page.evaluate(s => window.MNCF.app.setSpec(s), { ma: 'T', rong: 3000, cao: 2400, hau: { t: 6 }, than: { cao_duoi: 0 }, thung: { noc_day: 'phu_hoi', rong_max: 0 }, khoang: [0, 1, 2].map(() => ({ rong: 'auto', canh: 2, dot: [1800], o: [] })) });
+  { const nhac = S(page, '.msg.warn').filter({ hasText: 'Rộng tối đa một thùng' });
+    ok((await S(page, '[data-act="vua-kho"]').count()) === 0 && await nhac.isVisible() && /đang 0 = không tách/.test(await nhac.textContent()), 'phủ hồi thùng liền dài hơn khổ: không có nút thêm vách, có dòng nhắc đặt "Rộng tối đa một thùng" (đang 0)', await page.evaluate(() => window.MNCF.app.getModel().errors)); }
   ok(errs.length === 0, 'không lỗi JS', errs);
   await ctx.close();
 }

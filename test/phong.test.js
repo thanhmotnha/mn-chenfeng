@@ -647,6 +647,12 @@ T('Điện – nước hiện trạng (bản 1.18 — anh Jason 03/10/2026 23:46
   ok(co(kq.luu_y, /^Ống chờ sàn 2 dưới tủ \(tâm cách mép trái tủ 800, cách lưng tủ 150\) TRÚNG vách \(đang ở 808,5 → 826\) — ống Ø90 chiếm 755 → 845/), 'ống chờ sàn trúng vách chạm sàn');
   ok(co(kq.luu_y, /^Ổ điện 5 sau lưng tủ .* TRÚNG hồi trái \(đang ở 50 → 67,5\)/) && co(kq.luu_y, /^Ổ điện 6 sau lưng tủ \(tâm cách mép trái tủ 1500, cao \+60\) không nằm trong lòng khoang nào \(sau chân tủ \/ phào\)/), 'ổ ở mép tủ trúng hồi; ổ thấp hơn đáy: sau chân tủ');
   eq(kq.luu_y.length + kq.ghi_chu.length, kq.diem.length, 'mỗi điểm đúng một dòng báo');
+  // (1.31.1) cùng tủ, kết cấu nóc, đáy phủ hồi: vách đứng TRÊN đáy liền — ống chờ sàn dưới vách vẫn TRÚNG vách; đáy liền ghi đúng dải khoang
+  { const Mp = C.build(Object.assign({}, S, { thung: Object.assign({}, S.thung, { noc_day: 'phu_hoi' }) })), kp = P.dienNuocChoTu(Mp, Ht, dk);
+    ok(!Mp.errors.length && co(kp.luu_y, /^Ống chờ sàn 2 dưới tủ \(tâm cách mép trái tủ 800, cách lưng tủ 150\) TRÚNG vách \(đang ở 808,5 → 826\)/), 'phủ hồi: ống chờ sàn dưới vách vẫn TRÚNG vách', kp.luu_y);
+    ok(kp.ghi_chu.some(t => /^Ống chờ sàn 1: dưới đáy tủ, khoang 1 — .*Khoét đáy khoang 1–3 Ø90/.test(t)), 'phủ hồi: đáy liền thùng ghi "đáy khoang 1–3"', kp.ghi_chu); }
+  { const Mp = C.build(Object.assign({}, S, { chan: { cao: 0 }, thung: Object.assign({}, S.thung, { noc_day: 'phu_hoi' }) })), kp = P.dienNuocChoTu(Mp, Ht, dk);
+    ok(co(kp.luu_y, /^Ống chờ sàn 2 dưới tủ \(tâm cách mép trái tủ 800, cách lưng tủ 150\) TRÚNG .*vách \(đang ở 808,5 → 826\)/), 'phủ hồi KHÔNG chân (đáy liền nằm sát sàn): ống dưới vách vẫn nêu vách đứng trên đáy', kp.luu_y); }
   // tủ treo (đáy cách sàn 800): chỉ còn công tắc, cao độ ghi từ mép dưới tủ; không biết chỗ đặt / phòng không có điểm: rỗng
   const kq2 = P.dienNuocChoTu(M, Ht, { goc: [dk.goc[0], dk.goc[1], 800], xoay: 0 });
   ok(kq2.diem.length === 1 && kq2.diem[0].nhan === 'CT1' && kq2.diem[0].z === 450 && /cao 450 từ mép dưới tủ/.test(kq2.luu_y[0]), 'tủ treo: chỉ che công tắc, cao độ tính từ mép dưới tủ', kq2);

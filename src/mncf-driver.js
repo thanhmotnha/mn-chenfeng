@@ -185,6 +185,8 @@
   };
   /** Chờ lệnh nhập bị bỏ (đang chạy ngầm) kết thúc, tối đa `ms`. true = Chenfeng đã rảnh. */
   const choLenhTre = async ms => { const tre = lenhTre; if (!tre || tre.xong) return true; await cho(() => tre.xong, ms); return tre.xong; };
+  /** (1.31.1) Còn lệnh của bảng chạy ngầm (bị bỏ vì quá hạn, đang được canh để huỷ / dọn) — lúc đó gửi gì vào Chenfeng cũng rơi mất hoặc thành câu trả lời cho lệnh đó. */
+  D.dangLenhTre = () => !!(lenhTre && !lenhTre.xong);
 
   /**
    * Nhập một khối dữ liệu {ModelSpace:[…]} bằng cổng 晨丰导入.
@@ -1175,7 +1177,7 @@
   const dongHopThoai = async () => { const d = hopThoai(); if (!d) return; const c = [...d.querySelectorAll('button')].find(b => TEN_HUY.test(chuNut(b))) || d.querySelector('.bp3-dialog-close-button'); if (c) { c.click(); await sleep(300); } };
   // Hạn chờ của các lệnh phòng (ms) — phép thử chỉnh thẳng vào D.CH. han_lenh: lệnh đã bắt đầu thì chờ lời nhắc đầu tiên tối đa chừng này; cho_bat_dau: không rõ Chenfeng đã nhận lệnh chưa thì chờ chừng này;
   // bao_cho: chờ quá chừng này thì nói cho người dùng biết đang chờ gì.
-  D.CH = { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000, do_cach: 400 };
+  D.CH = { han_lenh: 60000, cho_bat_dau: 8000, bao_cho: 3000, do_cach: 400, cho_tam: 45000 };
   // Vì sao lần moLenh gần nhất không mở được lệnh: '' | 'hop_mo' (Chenfeng đang mở một hộp thoại — tên hộp ở lenhBan; chưa gửi gì) | 'ban' (Chenfeng đang chạy dở một lệnh khác — tên ở lenhBan)
   // | 'khong_bat_dau' (Chenfeng không nhận lệnh — lời nó báo, nếu có, ở lenhBao) | 'het' (Chenfeng nhận lệnh rồi tự kết thúc, không hỏi gì) | 'qua_han' (lệnh đã bắt đầu, quá hạn vẫn chưa hỏi — đang chờ máy chủ)
   // | 'hop' (hộp thông số không nhận số)
@@ -2149,9 +2151,15 @@
    *  → chờ danh sách cấu hình về + lựa chọn đứng yên; ghi lựa chọn 2 lần (trước khi bấm OK và ngay trước khi trả lời điểm — lúc Chenfeng thật sự đọc). */
   const daMoGoc = new Set();
   const chayGoc = async (ten, sua, diem, kieu, mong, viec) => {
+    // (1.31.1, kiem_nhan) Chenfeng đang hỏi / mở hộp lúc bảng sắp gửi lệnh = lệnh của người dùng (lệnh trước của bảng đã xong) → không Esc nó, dừng
+    if (viec && viec.kiem_nhan && (D.busy() || hopGoc() || hopThoai())) { const e = new Error(`Chenfeng đang chạy dở lệnh ${tenLenhCuoi() || 'khác'} — chưa đo tiếp, không đụng vào lệnh đó`); e.ban = tenLenhCuoi() || '?'; throw e; }
     if (D.busy()) await D.cancel();
     D.boManChe();
+    const mGui = logMark();
     await guiLenh(ten);
+    // (1.31.1, chỉ khi viec.kiem_nhan — đo bọc hồi) Chenfeng nhận lệnh thì ghi NGAY dòng COMMAND ">TÊN" (đã đo); không có = đang chạy dở lệnh khác (của người dùng, chờ máy chủ):
+    // chữ vừa gửi đã rơi vào lệnh đó → dừng, KHÔNG đụng gì nữa (hộp tới sau, Esc, UNDO đều là của người dùng)
+    if (viec && viec.kiem_nhan && !logsSince(mGui).some(q => q.type === 'COMMAND' && String(q.msg || '').replace(/^>/, '').trim().toUpperCase() === ten)) { const e = new Error(`Chenfeng đang chạy dở lệnh ${tenLenhCuoi() || 'khác'} (chờ máy chủ?) — chưa đo, bản vẽ không đổi; chờ lệnh đó xong rồi bấm lại`); e.ban = tenLenhCuoi() || '?'; throw e; }
     let m = null; await cho(() => !!(m = hopGoc()), 9000);
     if (!m) throw new Error(`Chenfeng không mở hộp thoại của lệnh ${ten} (lệnh khác đang chạy dở, hoặc giao diện Chenfeng đã đổi).`);
     const st = m.store, lanDau = !daMoGoc.has(ten);
@@ -3513,6 +3521,11 @@
     opt.onStatus = guard(opt.onStatus);
     if (!D.gocDuoc()) return { ok: false, loi: 'Trang này không chạy được lệnh gốc của Chenfeng.' };
     if (D.busy()) return { ok: false, loi: 'Chenfeng đang chạy dở một lệnh — xong lệnh đó rồi bấm lại.' };
+    // (1.31.1) đang mở hộp thoại / lệnh trước của bảng còn chạy ngầm: chữ gửi vào thành câu trả lời cho lệnh đó và hopGoc() vớ nhầm hộp của người dùng (bấm OK hộ) → không đo
+    // hộp của lệnh vẽ tấm (hopGoc: tìm theo nút OK + store) có khi không có ô nhập nào nên hopThoai() không thấy — xét cả hai
+    const hopMo = () => { const g = hopGoc(); if (g) { try { const h = g.ok.closest('.bp3-dialog'), d = h && h.querySelector('.bp3-heading'); return String((d && d.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'thông số'; } catch (e) { return 'thông số'; } } return hopThoai() ? (tenHop() || 'thông số') : ''; };
+    if (hopMo()) return { ok: false, loi: `Chenfeng đang mở hộp "${hopMo()}" — đóng hộp đó rồi bấm lại.` };
+    if (lenhTre && !lenhTre.xong) return { ok: false, loi: 'Chenfeng còn chạy dở lệnh trước (đang chờ máy chủ) — chờ một lát rồi bấm lại.' };
     const t = Core.DEFAULT_SPEC.van.t, W = 800, S = 560, H = 900;
     let mx = -Infinity;
     for (const e of D.all()) { try { const b = e.BoundingBox; if (b && isFinite(b.max.x) && Math.abs(b.max.x) < 1e7) mx = Math.max(mx, b.max.x); } catch (er) { /* bỏ qua */ } }
@@ -3523,8 +3536,18 @@
       let ten = '', day = '', b = null; try { ten = e.Name; } catch (er) { /* bỏ qua */ } try { day = r2(e.Thickness); } catch (er) { /* bỏ qua */ } try { b = D.boxOf(e); } catch (er) { b = null; }
       return b ? `  ${ten} | dày ${day} | x ${r2(b[0] - X)} … ${r2(b[1] - X)} | y ${b[2]} … ${b[3]} | z ${b[4]} … ${b[5]}` : `  ${ten} | dày ${day} | (không đọc được hộp)`;
     });
+    let huongNhin = null; try { huongNhin = root.app.Viewer.CameraControl.Direction.clone(); } catch (e) { huongNhin = null; }
+    // nhìn thẳng mặt trước vào vùng thử (như nhinChoVe của veGoc: tia chuột của LEFTRIGHTBOARD không được trúng sàn / tường của phòng — đã đo, trúng là thùng nhảy theo chuột)
     const nhinVung = async (ds, diem) => {
-      try { const V = root.app.Viewer; hienHinh(ds); V.ViewToFront(); if (ds.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(ds); V.UpdateRender(); veNgay(); } catch (e) { /* bỏ qua */ }
+      try {
+        const V = root.app.Viewer; hienHinh(ds); V.ViewToFront();
+        if (typeof V.ZoomtoEntitys === 'function') {
+          if (ds.length) V.ZoomtoEntitys(ds);
+          else { let B = null; for (const e of D.all()) { try { const q = e.BoundingBox; if (q && q.min && q.max && typeof q.clone === 'function') { B = q.clone(); break; } } catch (er) { /* thử đối tượng khác */ } }
+            if (B) { B.min.set(X, 0, 0); B.max.set(X + W, S, H); V.ZoomtoEntitys([{ BoundingBox: B }]); } }
+        }
+        V.UpdateRender(); veNgay();
+      } catch (e) { /* bỏ qua */ }
       await sleep(80); try { if (diem) reChuot(diem); } catch (e) { /* bỏ qua */ } await sleep(90);
     };
     const LUOT = [
@@ -3532,22 +3555,85 @@
       { ma: 'B', ten: 'bọc hồi + CHÂN TRƯỚC + CHÂN SAU, đáy nâng 100', top: { isWrapSide: true }, bot: { isWrapSide: true, offset: 100, isDrawFooter: true, isDrawBackFooter: true, footThickness: t } },
       { ma: 'C', ten: `KHÔNG bọc hồi, nóc / đáy trùm ra 2 bên ${t} (leftExt / rightExt), offset −${t}`, top: { leftExt: t, rightExt: t, offset: -t }, bot: { leftExt: t, rightExt: t, offset: -t } },
     ];
-    let soLuot = 0, cauHinh = null;
+    let soLuot = 0, cauHinh = null, con = 0, tre = null, ban = '';
+    const CHO_TAM = D.CH.cho_tam;      // Chenfeng dựng tấm SAU khi lời nhắc đóng, còn chờ tải vật liệu (máy mới + mạng chậm: tới hơn 20 s — xem moLenh) → chờ dư
+    const banDau = new Set(E());
+    // tấm của thùng thử: mới so với lúc bắt đầu đo + nằm GỌN trong vùng thùng thử (lượt C trùm ra t). Bảng vẽ tủ / mẫu ở chỗ trống max x + 6000 — cũng ở bên phải X — nên phải chặn cả mép phải;
+    // người dùng vẽ gì chỗ khác trong lúc đo cũng không bị nhận là tấm của lệnh thử
+    const trongVung = e => { try { const b = D.boxOf(e); return b[0] >= X - 50 && b[1] <= X + W + 50; } catch (er) { return false; } };
+    const tamThu = () => E().filter(e => e && !e.IsErase && !banDau.has(e) && D.isBoard(e) && trongVung(e));
+    // (1.31.1) lệnh chưa dựng tấm sau CHO_TAM mà vẫn đang chạy (chờ tải vật liệu): Chenfeng đọc lựa chọn khi dựng → trả lựa chọn ngay là thùng thử dựng theo cấu hình người dùng.
+    // Canh tối đa 3 phút như canhLenhTre (lenhTre chặn lệnh khác của bảng): lệnh xong thì trả lựa chọn, chờ Chenfeng rảnh (không hỏi, không hộp) rồi xoá thùng thử; quá 3 phút vẫn trả lựa chọn.
+    // Xoá thùng thử CHỈ khi chắc Chenfeng không chạy lệnh nào khác: chưa lệnh nào bắt đầu sau lệnh trễ (_cmdName vẫn là nó), không hỏi, không hộp; gửi ERASE rồi xem dòng COMMAND ">ERASE" —
+    // không có = chữ đã rơi vào lệnh của người dùng (đã đo: không báo gì) → thôi, không gõ Enter / Esc vào lệnh đó (D.erase chung thì có gõ Enter).
+    const xoaThu = async (ten, rac) => {
+      if (tenLenhCuoi() !== ten || dangNhap || D.busy() || hopMo()) return false;
+      if (D.selected().length) return false;      // người dùng đang chọn tấm của họ: không bỏ / không cộng vào tập chọn đó (ERASE xoá cả tập) — báo xoá tay
+      const con = () => rac.filter(e => !e.IsErase).length, m = logMark(), w2 = watchEnd(), song = rac.filter(e => !e.IsErase);
+      try {
+        D.select(song); await sleep(200);
+        { const c = 120 - (Date.now() - lanGui); if (c > 0) await sleep(c); }
+        // ngay trước khi gửi, KHÔNG await nào ở giữa: tập chọn đúng bằng thùng thử (người dùng không bấm chọn thêm trong lúc chờ), Chenfeng vẫn rảnh
+        const ds = D.selected();
+        if (ds.length !== song.length || ds.some(e => !song.some(q => idOf(q) === idOf(e))) || tenLenhCuoi() !== ten || D.busy() || hopMo()) return false;
+        D.cmd('ERASE'); await sleep(150);
+        if (!logsSince(m).some(q => q.type === 'COMMAND' && String(q.msg || '').replace(/^>/, '').trim().toUpperCase() === 'ERASE')) return false;
+        let t0 = Date.now(); while (con() && !(w2.ended && w2.ended.name === 'ERASE') && Date.now() - t0 < 4000) await sleep(100);
+        if (con() && D.busy() && tenLenhCuoi() === 'ERASE') { D.input(''); t0 = Date.now(); while (con() && Date.now() - t0 < 6000) await sleep(100); }      // ERASE còn chờ xác nhận lựa chọn
+        return !con();
+      } catch (e) { return false; } finally { w2.off(); try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ } }
+    };
+    const canhTre = (w, ten, tra) => {
+      const k = { xong: false, xoa: 0, con: 0 }; lenhTre = k; tre = k;
+      (async () => {
+        // lệnh trễ đã ghi dòng COMMAND của nó từ trước → dòng COMMAND nào mới từ lúc này = có lệnh khác bắt đầu (kể cả lệnh CÙNG TÊN của người dùng — _cmdName không đổi)
+        const t0 = Date.now(), mCanh = logMark(), lenhKhac = () => tenLenhCuoi() !== ten || logsSince(mCanh).some(q => q.type === 'COMMAND');
+        let daTra = false;
+        try {
+          while (Date.now() - t0 < 180000) {
+            await sleep(300);
+            // lệnh trễ kết thúc (tấm đã dựng — Chenfeng đọc lựa chọn TRƯỚC đó) hoặc đã có lệnh khác chạy → trả lựa chọn NGAY, không chờ gì (chờ là có thể đè lên lựa chọn lệnh sau vừa ghi)
+            if (!daTra && (w.ended || lenhKhac())) { tra(); daTra = true; }
+            if (!daTra) continue;
+            if (lenhKhac()) break;      // người dùng / bảng đã chạy lệnh khác: không xoá nữa (chữ gửi vào sẽ rơi vào lệnh đó), báo xoá tay
+            if (dangNhap || D.busy() || hopMo()) continue;
+            const rac = tamThu(); if (rac.length && (await xoaThu(ten, rac))) k.xoa = rac.length;
+            break;
+          }
+        } catch (e) { /* bỏ qua */ }
+        if (!daTra) tra();
+        k.con = tamThu().length;
+        w.off(); k.xong = true;
+      })();
+    };
+    // lệnh không dựng tấm sau CHO_TAM: còn chạy (chưa có sự kiện kết thúc, lệnh gần nhất vẫn là nó) → canh; đã kết thúc → trả lựa chọn ngay
+    const quaHan = (w, ten, tra, viec) => { if (!w.ended && ten && tenLenhCuoi() === ten) { canhTre(w, ten, tra); return `${viec} chưa dựng xong sau ${CHO_TAM / 1000} giây (Chenfeng còn chờ máy chủ / tải vật liệu) — dừng đo; bảng canh tối đa 3 phút, lệnh xong thì trả lựa chọn và xoá thùng thử`; } w.off(); tra(); return `${viec} kết thúc mà không dựng đủ tấm — dừng đo`; };
     for (const lu of LUOT) {
       opt.onStatus(`Đo bọc hồi — lượt ${lu.ma}/${LUOT.length}: vẽ thử thùng ở chỗ trống, ghi lại, hoàn tác…`);
       L.push(`=== Lượt ${lu.ma} — ${lu.ten}`);
-      const h0 = hmMark(), truoc = new Set(E()), m0 = logMark();
-      const moi = () => E().filter(e => e && !e.IsErase && !truoc.has(e));
+      const h0 = hmMark(), truoc = new Set(E()), m0 = logMark(), buoc = new Set();
+      let loiLuot = false, mLenh = m0;
+      const moi = () => E().filter(e => e && !e.IsErase && !truoc.has(e) && trongVung(e));
+      // (1.31.1) bản ghi lịch sử do CHÍNH lệnh thử sinh (ghi ngay khi lệnh xong) — lúc hoàn tác chỉ lùi các bước này; bước người dùng chen vào (Ctrl+Z, Delete, vẽ…) không bao giờ bị lùi
+      const ghiBuoc = i0 => { const h = hm(); if (h && typeof i0 === 'number') for (let i = i0 + 1; i <= h.curIndex; i++) if (h.historyRecord[i]) buoc.add(h.historyRecord[i]); };
+      // chờ lệnh dựng đủ tấm trong vùng thử; lệnh KẾT THÚC mà chưa có tấm thì chờ thêm chút rồi thôi (không chờ đủ hạn — trong lúc đó Chenfeng rảnh, người dùng vẽ gì cũng bị nhận nhầm)
+      const choTam = async (w, du) => { if (!(await cho(() => du() || !!w.ended, CHO_TAM))) return false; if (!du()) await cho(du, 1500); if (du()) await cho(() => !!w.ended, 3000); return du(); };
       let hoi = [];
       try {
         const goc = [X, 0, 0];
-        let tra = await chayGoc('LEFTRIGHTBOARD', st => LUA_CHON.LR(st, { cao: H, sau: S, day: t, rong: W, ten: ['Hồi trái (đo)', 'Hồi phải (đo)'], phong: '', tu: 'MNCF-DO', khoan: null }), goc, 'goc', null, { truoc_diem: () => nhinVung([], goc) });
-        await cho(() => moi().filter(D.isBoard).length >= 2, 12000); await D.settle(350, 15000); tra();
+        let w = watchEnd(), iTruoc = (hmMark() || {}).i;
+        mLenh = logMark();
+        let tra = await chayGoc('LEFTRIGHTBOARD', st => LUA_CHON.LR(st, { cao: H, sau: S, day: t, rong: W, ten: ['Hồi trái (đo)', 'Hồi phải (đo)'], phong: '', tu: 'MNCF-DO', khoan: null }), goc, 'goc', null, { kiem_nhan: true, truoc_diem: () => nhinVung([], goc) }).catch(e => { w.off(); throw e; });
+        let ten = tenLenhCuoi();
+        if (!(await choTam(w, () => moi().filter(D.isBoard).length >= 2))) throw new Error(quaHan(w, ten, tra, 'lệnh hồi'));
+        ghiBuoc(iTruoc);
+        await D.settle(350, 15000); tra(); w.off();
         hoi = moi().filter(D.isBoard);
         L.push('Sau LEFTRIGHTBOARD (2 hồi):', ...ghiTam(hoi));
         const hoiTruoc = hoi.map(e => { try { return D.boxOf(e).join(','); } catch (er) { return ''; } });
         const diem = [X + W / 2, S / 2, H / 2], coTruoc = new Set(E());
         await nhinVung(hoi, diem);
+        w = watchEnd(); iTruoc = (hmMark() || {}).i; mLenh = logMark();
         tra = await chayGoc('TOPBOTTOMBOARD', st => {
           if (!cauHinh) { try { cauHinh = JSON.stringify({ nóc: st.topBoardOption, đáy: st.bottomBoardOption }); } catch (e) { cauHinh = '(không đọc được)'; } }
           if (st.m_BoardProcessOption) st.m_BoardProcessOption.useBoardProcessOption = true;
@@ -3555,26 +3641,55 @@
           const nen = { isDraw: true, isWrapSide: false, frontDist: 0, behindDistance: 0, leftExt: 0, rightExt: 0, thickness: t, offset: 0 };
           ganLC(st.topBoardOption, st.topUiOption, Object.assign({}, nen, { name: 'Nóc (đo)' }, lu.top));
           ganLC(st.bottomBoardOption, st.bottomUiOption, Object.assign({}, nen, { name: 'Đáy (đo)', footThickness: t, isDrawFooter: false, isDrawBackFooter: false, isDrawStrengthenStrip: false }, lu.bot));
-        }, diem, 'khoang', null, { hien: () => hienHinh(moi()), nhin: () => nhinVung(moi().filter(D.isBoard), null) });
-        await cho(() => E().some(e => e && !e.IsErase && !coTruoc.has(e) && D.isBoard(e)), 12000); await D.settle(500, 15000); tra();
+        }, diem, 'khoang', null, { kiem_nhan: true, hien: () => hienHinh(moi()), nhin: () => nhinVung(moi().filter(D.isBoard), null) }).catch(e => { w.off(); throw e; });
+        ten = tenLenhCuoi();
+        // lựa chọn chỉ trả lại khi tấm đã dựng (Chenfeng đọc lựa chọn SAU khi lời nhắc đóng): trả sớm là thùng thử dựng theo cấu hình người dùng, số đo sai
+        if (!(await choTam(w, () => moi().some(e => !coTruoc.has(e) && D.isBoard(e))))) throw new Error(quaHan(w, ten, tra, 'lệnh nóc / đáy') + ' (lượt này không tính)');
+        ghiBuoc(iTruoc);
+        await D.settle(500, 15000); tra(); w.off();
         const sau = moi().filter(D.isBoard);
         L.push('Sau TOPBOTTOMBOARD — mọi tấm của thùng thử:', ...ghiTam(sau));
         const doi = hoi.filter((e, k) => { try { return e.IsErase || D.boxOf(e).join(',') !== hoiTruoc[k]; } catch (er) { return true; } });
         L.push(doi.length ? `Hồi BỊ ĐỔI bởi lệnh nóc / đáy: ${doi.length} tấm (xem hộp ở trên).` : 'Hồi KHÔNG đổi (cùng đối tượng, cùng hộp).');
         const moiTB = sau.filter(e => !hoi.includes(e)).length; L.push(`Lệnh nóc / đáy sinh ${moiTB} tấm mới.`);
-        soLuot++;
-      } catch (e) { L.push('LỖI: ' + String(e && e.message || e)); }
+        if (moiTB) soLuot++;
+      } catch (e) { L.push('LỖI: ' + String(e && e.message || e)); loiLuot = true; if (e && e.ban) ban = e.ban; }
       const dong = logsSince(m0).filter(x => x.type !== 'COMMAND' && x.type !== 'INFO' && x.msg).map(x => `  [${x.type}] ${x.msg}`);
       if (dong.length) L.push('Dòng báo của Chenfeng:', ...dong.slice(0, 20));
-      if (D.busy()) await D.cancel();
-      const h1 = hmMark(); if (h0 && h1 && h1.i > h0.i) { try { await D.undo(h1.i - h0.i); } catch (e) { /* ghi bên dưới */ } }
-      await D.settle(300, 8000);
-      const con = moi().length;
-      L.push(con ? `CHÚ Ý: còn ${con} đối tượng của lượt này chưa hoàn tác được — xoá tay thùng thử ở x ≈ ${X}.` : 'Đã hoàn tác lượt này (bản vẽ như trước).', '');
-      if (con) break;
+      if (ban) {
+        // lệnh của bảng không được nhận (người dùng đang chạy dở lệnh của họ): mọi hộp / lời hỏi / bước lịch sử lúc này là của họ → không đóng, không Esc, không hoàn tác.
+        // Lượt trước của chính lượt này (vd 2 hồi thử khi lệnh nóc / đáy không được nhận) thì còn trên bản vẽ — đếm ở dưới, báo xoá tay.
+      } else if (!tre) {
+        // (1.31.1) lượt hỏng còn để hộp thông số / lời hỏi mở (vd hộp không nhận OK): Chenfeng đang chạy dở lệnh đó nên UNDO gửi vào bị nuốt → đóng hộp (nút Huỷ của nó), thôi lệnh.
+        // Chỉ khi chắc là của BẢNG: lệnh gần nhất là lệnh thử và chưa lệnh nào khác bắt đầu sau nó (dòng COMMAND) — không thì là của người dùng, không đụng.
+        const cuaBang = () => ['LEFTRIGHTBOARD', 'TOPBOTTOMBOARD'].includes(tenLenhCuoi()) && logsSince(mLenh).filter(q => q.type === 'COMMAND').length <= 1;
+        if (loiLuot && cuaBang()) {
+          { const g = hopGoc(); if (g) await dongHop(g); else if (hopThoai()) await dongHopThoai(); }
+          if (D.busy() && cuaBang()) await D.cancel();
+          await cho(() => !hopMo() && !D.busy(), 3000);
+        }
+        // hoàn tác từng bước, kiểm lại NGAY trước mỗi lần gửi: bước trên đỉnh lịch sử phải là bước của lệnh thử, Chenfeng rảnh; khác thì thôi (không lùi qua việc của người dùng)
+        for (let k = 0; k < 8 && h0; k++) {
+          const h = hm(); if (!h || h.curIndex <= h0.i || !buoc.has(h.historyRecord[h.curIndex]) || D.busy() || hopMo()) break;
+          { const c = 120 - (Date.now() - lanGui); if (c > 0) await sleep(c); }
+          const h2 = hm(); if (!h2 || h2.curIndex !== h.curIndex || h2.historyRecord[h2.curIndex] !== h.historyRecord[h.curIndex] || D.busy() || hopMo()) break;
+          const i0 = h2.curIndex; D.cmd('UNDO');
+          if (!(await cho(() => { const h3 = hm(); return !!h3 && h3.curIndex < i0; }, 4000))) break;
+          await D.settle(300, 4000);
+        }
+        // còn tấm thử (có bước lạ chen giữa — không lùi được qua nó): xoá riêng các tấm đó nếu Chenfeng rảnh và người dùng không đang chọn gì
+        { const con0 = moi().filter(D.isBoard); if (con0.length) await xoaThu(tenLenhCuoi(), con0); }
+        await D.settle(300, 8000);
+      }
+      // đếm TẤM (lỗ khoan dính theo tấm, Chenfeng tự dọn khi xoá tấm) — dòng báo nói "tấm thử"
+      con = tre ? 0 : moi().filter(D.isBoard).length;
+      L.push(ban && !con ? `Chưa đo lượt này: Chenfeng đang chạy dở lệnh ${ban} của người dùng (bản vẽ không đổi).` : tre ? `Thùng thử ở x ≈ ${X} có thể hiện ra trễ — bảng tự xoá khi lệnh của Chenfeng xong (tối đa 3 phút).` : con ? `CHÚ Ý: còn ${con} tấm thử của lượt này chưa hoàn tác được — xoá tay thùng thử ở x ≈ ${X}.` : 'Đã hoàn tác lượt này (bản vẽ như trước).', '');
+      if (con || loiLuot) break;      // lệnh hỏng / tới trễ: Chenfeng có thể còn dựng dở — không chạy lượt sau
     }
     L.push('Lựa chọn hộp nóc / đáy của người dùng lúc đo (đã trả lại nguyên):', cauHinh || '(chưa mở được hộp)');
-    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n') };
+    // trả lại hướng nhìn của người dùng + thu phóng vừa bản vẽ (thùng thử đã hoàn tác — để nguyên thì màn hình trống trơn)
+    try { const V = root.app.Viewer; if (huongNhin && V.CameraControl && typeof V.CameraControl.LookAt === 'function') V.CameraControl.LookAt(huongNhin); if (typeof V.ZoomAll === 'function') V.ZoomAll(); V.UpdateRender(); } catch (e) { /* bỏ qua */ }
+    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n'), con, x: X, tre: !!tre, canh: tre, ban };
   };
 
   /* ------------------------------------------------------------------ *

@@ -192,6 +192,111 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       if (process.env.MNCF_IN) console.log(d.nd);
       ok(/Nóc \(đo\) \| dày 17,5|Nóc \(đo\) \| dày 17.5/.test(d.nd) && /x 0 … 17.5/.test(d.nd), 'tệp ghi tên, dày, hộp từng tấm (toạ độ tính từ góc thùng thử)', d.nd.split('\n').filter(l => /Nóc|Hồi/.test(l)).slice(0, 4));
     }
+    // (1.31.1) đo trên Chenfeng của người dùng: không đụng hộp người dùng đang mở; lệnh tới trễ / hộp không nhận OK thì dọn sạch, trả lại lựa chọn đúng lúc
+    {
+      const song = () => page.evaluate(() => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length);
+      await page.evaluate(() => window.app.Editor.CommandStore.HandleInput('TOPBOTTOMBOARD'));      // người dùng tự mở lệnh nóc / đáy của Chenfeng
+      await page.waitForSelector('.mock-goc');
+      const h = await page.evaluate(async () => { const n0 = (window.__MOCK_INPUTS__ || []).length; const r = await window.MNCFDriver.doBocHoi(); return { ok: r.ok, loi: r.loi, gui: (window.__MOCK_INPUTS__ || []).slice(n0), hop: document.querySelectorAll('.mock-goc').length }; });
+      ok(!h.ok && /đang mở hộp "TOPBOTTOMBOARD"/.test(h.loi) && !h.gui.length && h.hop === 1, 'Chenfeng đang mở hộp nóc / đáy của người dùng: không đo, không gửi lệnh nào, không bấm OK hộ — nói tên hộp', h);
+      await page.evaluate(() => document.querySelector('.mock-goc .nut-huy').click()); await page.waitForTimeout(150);
+      const n0 = await song();
+      // lệnh hồi dựng tấm trễ hơn hạn chờ (Chenfeng còn tải vật liệu): không trả lựa chọn sớm (thùng thử dựng theo cấu hình người dùng), canh tới khi lệnh xong rồi xoá thùng thử
+      const tre = await page.evaluate(async () => {
+        const D = window.MNCFDriver, ch0 = D.CH.cho_tam, st0 = window.setTimeout; let cham = 3500;
+        window.setTimeout = function (fn, ms, ...a) { if (cham && ms === 40 && typeof fn === 'function' && /dungGoc/.test(String(fn))) { ms = cham; cham = 0; } return st0.call(this, fn, ms, ...a); };
+        D.CH.cho_tam = 1200;
+        let r; try { r = await D.doBocHoi(); } finally { D.CH.cho_tam = ch0; window.setTimeout = st0; }
+        const dem = () => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length, n0 = dem(), lcNgay = window.__thu.lc() === window.__thu.lc0, lai = await D.doBocHoi();
+        let thay = 0, tenThu = ''; const t0 = Date.now();
+        while (Date.now() - t0 < 15000) { await new Promise(res => st0(res, 150)); const ds = window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && e.Name); if (dem() > n0) { thay = 1; tenThu = tenThu || ds.map(e => e.Name).join(','); } if (thay && dem() === n0 && window.__thu.lc() === window.__thu.lc0 && !D.dangLenhTre()) break; }
+        return { ok: r.ok, tre: r.tre, con: r.con, tep: /hiện ra trễ/.test(r.noi_dung || ''), lcNgay, lai: lai.loi || '', thay, tenThu, sau: dem() - n0, lc: window.__thu.lc() === window.__thu.lc0, busy: D.busy(), canh: D.dangLenhTre() };
+      });
+      ok(!tre.ok && tre.tre && tre.con === 0 && tre.tep && !tre.lcNgay && /chạy dở lệnh trước/.test(tre.lai), 'lệnh hồi tới trễ: dừng đo, báo "hiện ra trễ", CHƯA trả lựa chọn (Chenfeng chưa đọc); bấm đo lại lúc đó thì từ chối', tre);
+      ok(tre.thay && /Hồi trái \(đo\)/.test(tre.tenThu) && tre.sau === 0 && tre.lc && !tre.busy && !tre.canh, '… lệnh tới: thùng thử dựng theo lựa chọn đo (không phải của người dùng), bảng tự xoá, rồi trả lựa chọn của người dùng nguyên vẹn', tre);
+      // lệnh trễ vừa xong thì người dùng mở ngay lệnh của họ (cùng tên LEFTRIGHTBOARD — _cmdName không đổi, chỉ có dòng COMMAND mới): bảng trả lựa chọn, KHÔNG gửi ERASE vào lệnh đó, báo xoá tay
+      const nhuong = await page.evaluate(async () => {
+        const D = window.MNCFDriver, ch0 = D.CH.cho_tam, st0 = window.setTimeout, ngu = ms => new Promise(res => st0(res, ms)); let cham = 2500;
+        window.setTimeout = function (fn, ms, ...a) { if (cham && ms === 40 && typeof fn === 'function' && /dungGoc/.test(String(fn))) { ms = cham; cham = 0; } return st0.call(this, fn, ms, ...a); };
+        D.CH.cho_tam = 800;
+        let r; try { r = await D.doBocHoi(); } finally { D.CH.cho_tam = ch0; window.setTimeout = st0; }
+        const thu = () => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && /\(đo\)/.test(e.Name || ''));
+        for (let i = 0; i < 300 && !thu().length; i++) await ngu(20);
+        const n0 = (window.__MOCK_INPUTS__ || []).length;
+        window.app.Editor.CommandStore.HandleInput('LEFTRIGHTBOARD');      // người dùng vẽ hồi của họ
+        for (let i = 0; i < 100 && !(r.canh.xong && document.querySelector('.mock-goc')); i++) await ngu(100);      // hộp của họ mở có khi chậm hơn lúc bảng thôi canh (máy bận)
+        const hop = !!document.querySelector('.mock-goc'), luaChonHop = window.__thu.lc() === window.__thu.lc0, gui = (window.__MOCK_INPUTS__ || []).slice(n0);
+        const huy = document.querySelector('.mock-goc .nut-huy'); if (huy) huy.click();
+        for (let i = 0; i < 50 && (document.querySelector('.mock-goc') || D.busy()); i++) await ngu(100); await ngu(200);
+        const con = thu().length; await D.erase(thu());      // dọn cho các phép thử sau
+        return { tre: r.tre, xong: r.canh.xong, xoa: r.canh.xoa, conBao: r.canh.con, con, hop, luaChonHop, gui };
+      });
+      ok(nhuong.tre && nhuong.xong && !nhuong.xoa && nhuong.conBao === 2 && nhuong.con === 2 && nhuong.hop && nhuong.luaChonHop && !nhuong.gui.some(x => /ERASE/i.test(x) || x === ''),
+        'lệnh trễ xong mà người dùng đã mở lệnh hồi của họ: hộp của họ mang lựa chọn của họ, bảng không gửi ERASE / Enter vào lệnh đó, báo còn 2 tấm thử để xoá tay', nhuong);
+      // lệnh hồi CỦA NGƯỜI DÙNG đang chờ dựng tấm (không hỏi, không hộp — D.busy() false): chữ LEFTRIGHTBOARD của bảng rơi vào lệnh đó (không có dòng COMMAND) → dừng ngay, không UNDO / Esc / đóng hộp
+      const ban = await page.evaluate(async () => {
+        const D = window.MNCFDriver, E = window.app.Editor, st0 = window.setTimeout, ngu = ms => new Promise(res => st0(res, ms)); let cham = 3000;
+        const lr = window.__MOCK__.gocSt.LEFTRIGHTBOARD.m_Option, ten0 = [lr.leftBoardName, lr.rightBoardName];
+        E.CommandStore.HandleInput('LEFTRIGHTBOARD');
+        for (let i = 0; i < 50 && !document.querySelector('.mock-goc'); i++) await ngu(50);
+        document.querySelector('.mock-goc .nut-ok').click();
+        for (let i = 0; i < 50 && !D.busy(); i++) await ngu(50);
+        window.setTimeout = function (fn, ms, ...a) { if (cham && ms === 40 && typeof fn === 'function' && /dungGoc/.test(String(fn))) { ms = cham; cham = 0; } return st0.call(this, fn, ms, ...a); };
+        try { E.InputEvent('-6000,0,0'); await ngu(100); } finally { window.setTimeout = st0; }
+        const h0 = window.app.Database.hm.curIndex, c0 = window.__MOCK_CANCELS__ || 0, t0 = Date.now(), r = await D.doBocHoi(), ms = Date.now() - t0;
+        for (let i = 0; i < 60 && !window.app.Database.ModelSpace.Entitys.some(e => e && !e.IsErase && e.Name === ten0[0]); i++) await ngu(100);
+        await ngu(300);
+        const cua = window.app.Database.ModelSpace.Entitys.filter(e => e && ten0.includes(e.Name));
+        const kq = { ok: r.ok, ban: r.ban, ms, cuaHo: cua.map(e => e.IsErase ? 'xoá' : 'còn'), lui: window.app.Database.hm.curIndex - h0, esc: (window.__MOCK_CANCELS__ || 0) - c0, khongDoi: /bản vẽ không đổi/.test(r.noi_dung || '') };
+        await D.erase(cua.filter(e => !e.IsErase));      // dọn cho các phép thử sau
+        return kq;
+      });
+      ok(!ban.ok && ban.ban === 'LEFTRIGHTBOARD' && ban.ms < 3000 && ban.cuaHo.length === 2 && ban.cuaHo.every(x => x === 'còn') && ban.lui >= 1 && !ban.esc && ban.khongDoi,
+        'lệnh của người dùng đang chờ máy chủ: không đo, nêu tên lệnh, không Esc / UNDO — 2 hồi của họ dựng xong vẫn còn', ban);
+      // lệnh thử tới trễ mà người dùng đang chọn tấm của họ: không bỏ / không cộng vào tập chọn đó (ERASE xoá cả tập chọn) — để thùng thử lại, báo xoá tay
+      const chon = await page.evaluate(async () => {
+        const D = window.MNCFDriver, M = window.__MOCK__, ch0 = D.CH.cho_tam, st0 = window.setTimeout, ngu = ms => new Promise(res => st0(res, ms)); let cham = 2500;
+        const u = M.them(new M.Board('Tấm của tôi', 0, [-3000, -2000, 0, 500, 0, 18], 18, '', '', ['不排', '不排', '不排', '不排']));
+        window.setTimeout = function (fn, ms, ...a) { if (cham && ms === 40 && typeof fn === 'function' && /dungGoc/.test(String(fn))) { ms = cham; cham = 0; } return st0.call(this, fn, ms, ...a); };
+        D.CH.cho_tam = 800;
+        let r; try { r = await D.doBocHoi(); } finally { D.CH.cho_tam = ch0; window.setTimeout = st0; }
+        window.app.Editor.SelectCtrl.AddSelect({ SelectEntityList: [u] });      // người dùng bấm chọn tấm của họ
+        for (let i = 0; i < 100 && !r.canh.xong; i++) await ngu(100);
+        const kq = { tre: r.tre, xoa: r.canh.xoa, con: r.canh.con, chon: window.app.Editor.SelectCtrl.SelectSet.SelectEntityList.map(e => e.Name), uCon: !u.IsErase };
+        window.app.Editor.SelectCtrl.Cancel();
+        await D.erase([u].concat(window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && /\(đo\)/.test(e.Name || ''))));
+        return kq;
+      });
+      ok(chon.tre && !chon.xoa && chon.con === 2 && chon.uCon && JSON.stringify(chon.chon) === '["Tấm của tôi"]', 'người dùng đang chọn tấm của họ: tập chọn giữ nguyên, tấm của họ còn, thùng thử để lại + báo 2 tấm xoá tay', chon);
+      // người dùng bấm Ctrl+Z (UNDO) ngay lúc bảng đang hoàn tác lượt đo: bảng chỉ lùi bước của lệnh thử — gặp đỉnh lịch sử là bước của người dùng thì thôi, không lùi tiếp vào việc cũ của họ
+      const ctrlz = await page.evaluate(async () => {
+        const D = window.MNCFDriver, E = window.app.Editor, st0 = window.setTimeout, ngu = ms => new Promise(res => st0(res, ms));
+        const lr = window.__MOCK__.gocSt.LEFTRIGHTBOARD.m_Option, ten0 = [lr.leftBoardName, lr.rightBoardName];
+        E.CommandStore.HandleInput('LEFTRIGHTBOARD');      // việc cũ của người dùng: 2 hồi ở x −9000 (một bước lịch sử)
+        for (let i = 0; i < 50 && !document.querySelector('.mock-goc'); i++) await ngu(50);
+        document.querySelector('.mock-goc .nut-ok').click();
+        for (let i = 0; i < 50 && !D.busy(); i++) await ngu(50);
+        E.InputEvent('-9000,0,0');
+        for (let i = 0; i < 50 && !window.app.Database.ModelSpace.Entitys.some(e => e && !e.IsErase && e.Name === ten0[0]); i++) await ngu(50);
+        await ngu(300);
+        const cua = window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && ten0.includes(e.Name)), pl = E.CommandStore.promptList, mk = pl.length ? pl[pl.length - 1].key : -1;
+        let daBam = 0; (async () => { for (let i = 0; i < 600 && !pl.some(p => p.key > mk && p.type === 'COMMAND' && p.msg === '>UNDO'); i++) await ngu(50); await ngu(150); E.CommandStore.HandleInput('UNDO'); daBam = 1; })();
+        const r = await D.doBocHoi();
+        const kq = { daBam, cuaHo: cua.map(e => e.IsErase ? 'xoá' : 'còn'), con: r.con, thu: window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && /\(đo\)/.test(e.Name || '')).length };
+        await D.erase(cua.filter(e => !e.IsErase));
+        return kq;
+      });
+      ok(ctrlz.daBam && ctrlz.cuaHo.length === 2 && ctrlz.cuaHo.every(x => x === 'còn') && !ctrlz.thu, 'người dùng Ctrl+Z giữa lúc bảng hoàn tác: 2 hồi cũ của họ còn nguyên, không còn tấm thử nào', ctrlz);
+      // hộp nóc / đáy không nhận OK (Chenfeng giữ hộp): đóng hộp bằng nút huỷ của nó rồi mới hoàn tác (UNDO gửi lúc hộp còn mở bị nuốt) — không còn hồi thử
+      const k = await page.evaluate(async () => {
+        const id = setInterval(() => { const h = [...document.querySelectorAll('.mock-goc')].find(d => d.querySelector('h4').textContent === 'TOPBOTTOMBOARD'); if (h) { h.querySelector('.nut-ok').onclick = () => {}; clearInterval(id); } }, 20);
+        const dem = () => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length, n0 = dem();
+        let r; try { r = await window.MNCFDriver.doBocHoi(); } finally { clearInterval(id); }
+        return { ok: r.ok, loi: r.loi, con: r.con, hoan: /Đã hoàn tác lượt này/.test(r.noi_dung || ''), hop: document.querySelectorAll('.mock-goc').length, moi: dem() - n0, busy: window.MNCFDriver.busy(), lc: window.__thu.lc() === window.__thu.lc0 };
+      });
+      ok(!k.ok && k.con === 0 && k.hoan && k.hop === 0 && k.moi === 0 && !k.busy && k.lc, 'hộp nóc / đáy không nhận OK: đóng hộp, hoàn tác 2 hồi thử, bản vẽ như trước, lựa chọn trả lại', k);
+      eq(await song(), n0, '… bản vẽ đúng số đối tượng như trước 3 lần đo hỏng');
+    }
 
     eq(errs, [], 'không có lỗi JS nào lọt ra trang');
   } finally { await ctx.close(); try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ } }
