@@ -1123,7 +1123,7 @@
     // vẽ lại đúng chỗ + đúng hướng cũ: gốc toạ độ thiết kế của tủ cũ trên bản vẽ (tủ xoay thì tính qua khung của module)
     // (bản 1.32) giường / vách: lưng sát tường — đổi dài / dày thì giữ LƯNG (mép sau hộp bao), không giữ gốc thiết kế (đuôi giường / mặt tấm ốp)
     let off = loc.offset;
-    if (Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC && Math.abs(bN.y1 - bC.y1) > 0.01) off = [loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), loc.offset[2]]; }
+    if (Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), loc.offset[2]]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
     const viTri = loc.khung ? { at: apM(loc.khung.G, off).map(r2), xoay: loc.khung.xoay } : { at: off };
     const rep = await D.draw(spec, Object.assign({}, opt, viTri, { corner: undefined, id: ref.id }));
     if (rep.giai_doan !== 'xong') {      // vẽ lại không được → trả tủ cũ về chỗ cũ

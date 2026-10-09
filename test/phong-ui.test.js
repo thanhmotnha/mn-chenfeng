@@ -863,6 +863,8 @@ async function tienIch() {
       await page.evaluate(() => window.__MOCK__.clickPoint(2000, -30, 0)); await datXong('Đã đặt: xoay');
       ok(/giữ kích thước của nó \(rộng 1690\)/.test(await sr()) && (await hop()).dlg === 'tu', 'bấm điểm thứ hai ở 1600 bên trái: giường vẫn rộng 1690 (điểm đó chỉ cho hướng), hộp chỉnh hiện', await sr());
       await H.locator('#mncf-nem-r').fill('1800'); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 1890);
+      await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="ax"]').value === '1710', null, { timeout: 5000 }).catch(() => {});
+      ok((await oDat()).goc[0] === '1710', 'đổi nệm rộng trong hộp: ô toạ độ đi theo ngay (góc trái 1710, đầu phải vẫn ở 3600) — chưa cần bấm Vẽ', await oDat());
       await H.locator('[data-act="hop-ve"]').click(); await choVe();
       let v = await hopTu();
       ok(/Đã vẽ xong/.test(v.kq) && JSON.stringify(v.hop) === '[1710,3600,-2072.5,0,0,1000]', 'đổi nệm rộng 1800 sau khi đặt: giường 1890 vẽ từ x 1710 tới ĐÚNG điểm bấm đầu 3600 (góc phòng), lưng ở tường A (y 0)', [v.hop, v.kq.slice(0, 200)]);
@@ -872,6 +874,12 @@ async function tienIch() {
       await page.waitForFunction(() => /Đã cập nhật|Có lỗi/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 40000 });
       v = await hopTu();
       ok(JSON.stringify(v.hop) === '[1710,3600,-2272.5,0,0,1000]', 'Cập nhật với nệm dài 2200: đầu giường vẫn sát tường A (y 0), chân giường ra thêm 200 (không đâm đầu giường qua tường)', [v.hop, await sr()]);
+      await H.locator('.tab[data-tab="tu"]').click();
+      await H.locator('#mncf-nem-r').fill('1600'); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 1690);
+      await H.locator('[data-act="redraw"]').click();
+      await page.waitForFunction(() => /Đã cập nhật|Có lỗi/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent) && window.MNCFDriver.last && window.MNCFDriver.last.added.filter(window.MNCFDriver.isBoard).length, null, { timeout: 40000 });
+      v = await hopTu();
+      ok(JSON.stringify(v.hop) === '[1910,3600,-2272.5,0,0,1000]', 'Cập nhật với nệm rộng 1600 (đặt từ đầu phải ở góc phòng): đầu phải vẫn ở 3600, không đâm qua tường B', [v.hop, await sr()]);
       await page.evaluate(async n0 => { const D = window.MNCFDriver; for (let i = 0; i < 12 && window.__MOCK__.ents.filter(e => !e.IsErase).length > n0; i++) await D.undo(1); }, nG);
       ok((await soDoiTuong()) === nG, 'hoàn tác: bản vẽ trở lại như trước khi đặt giường');
     }

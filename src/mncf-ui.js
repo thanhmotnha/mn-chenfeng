@@ -1140,7 +1140,19 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // đưa mốc của nội dung ô về đúng mốc của ô chứa nó (mẫu tủ viết tay có thể ghi mốc lệch) — để khi kéo đợt, nội dung đi theo đúng ô
       spec.khoang.forEach((k, i) => { for (const c of k.o) { const o = cellFor(i, c.tu); if (o) c.tu = o.tu; } });
       if (khongLuu !== true) store.save(spec);
+      neoLung();
       paint();
+    }
+    /** (bản 1.32) Giường / vách đặt bằng chuột: lưng sát tường, đầu ở điểm bấm đầu — sâu / rộng đổi sau lúc đặt thì dời góc trái – trước theo,
+     *  ô toạ độ + nút "Vẽ tại …" + dòng đầu hộp chỉnh đi theo ngay (không đợi lúc bấm Vẽ). */
+    function neoLung() {
+      const kc = khungCho; if (!kc || !kc.lung || !kc.d || !khongTu() || !model || !model.parts.length || model.errors.length) return;
+      const b = Core.bbox(model.parts), L = kc.lung, dl = b ? (b.y1 - b.y0) - L.sau : 0, dw = b && L.phai ? (b.x1 - b.x0) - L.rong : 0;
+      if (!(Math.abs(dl) > 0.05 || Math.abs(dw) > 0.05)) return;
+      const g0 = kc.d.goc, ua = $('[data-ui="useAt"]'), theo = ua && ua.checked && ['ax', 'ay', 'az'].every((n, i) => Math.abs((parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.')) || 0) - g0[i]) < 0.01);
+      kc.d.goc = [Math.round((g0[0] + L.n[0] * dl + L.u[0] * dw) * 100) / 100, Math.round((g0[1] + L.n[1] * dl + L.u[1] * dw) * 100) / 100, g0[2]];
+      L.sau += dl; if (L.phai) L.rong += dw;
+      if (theo) { ['ax', 'ay', 'az'].forEach((n, i) => { const el = $(`[data-ui="${n}"]`); if (el) el.value = fmt(kc.d.goc[i]); }); capNoi(); }
     }
     let tmr = 0; const later = () => { clearTimeout(tmr); tmr = setTimeout(safe(() => rebuild()), 160); };
 
@@ -1555,14 +1567,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (!o.at && !o.corner) { panel.hidden = true; chipChu.textContent = 'Đang chuẩn bị…'; chip.hidden = false; }
       // vẽ đúng vị trí của khung đang mở (thẻ Phòng) hoặc của hình vừa lấy trên mặt bằng → tủ quay theo tường / theo hình (bản 1.16: driver tự đặt + xoay, cả tủ lệnh gốc)
       let kc = khungCho && khungCho.d && o.corner && o.corner.every((v, i) => Math.abs(v - khungCho.d.goc[i]) < 0.01) ? khungCho : null;
-      if (kc && kc.lung && khongTu() && model && model.parts.length) {      // (1.32) giường / vách đặt bằng chuột: sâu đã đổi từ lúc đặt → dời góc trước, lưng giữ sát tường
-        const b = Core.bbox(model.parts), dl = b ? (b.y1 - b.y0) - kc.lung.sau : 0, dw = b && kc.lung.phai ? (b.x1 - b.x0) - kc.lung.rong : 0;
-        if (Math.abs(dl) > 0.05 || Math.abs(dw) > 0.05) {
-          const L = kc.lung, g0 = kc.d.goc;
-          kc.d.goc = [Math.round((g0[0] + L.n[0] * dl + L.u[0] * dw) * 100) / 100, Math.round((g0[1] + L.n[1] * dl + L.u[1] * dw) * 100) / 100, g0[2]];
-          L.sau += dl; L.rong += dw; o.corner = kc.d.goc.slice(); ['ax', 'ay', 'az'].forEach((n, i) => { const el = $(`[data-ui="${n}"]`); if (el) el.value = fmt(kc.d.goc[i]); });
-        }
-      }
+      if (kc && kc.lung) { neoLung(); o.corner = kc.d.goc.slice(); }      // (1.32) lưới đỡ: góc đã theo sâu / rộng hiện tại (neoLung chạy mỗi lần dựng lại)
+      const neoPhai = !!(kc && kc.lung && kc.lung.phai);
       if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
       // (bản 1.28) tủ này không đứng vào chỗ đặt đang giữ (bấm điểm / gõ toạ độ khác): khấu cột tự sinh theo cột của chỗ cũ không còn đúng → bỏ
       let boKhau = false;
@@ -1583,6 +1589,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         if (Ph) paintPhong();      // mở lại các nút của thẻ Phòng (bị khoá trong lúc vẽ), cập nhật "đã vẽ" của khung
         if (rep.giai_doan === 'xong' && rep.id) {
           noi = { id: rep.id, spec: clone(spec), ten: spec.ma || spec.ten || '' }; khoTu.save(rep.id, noi.spec);
+          if (neoPhai) noi.neo_phai = true;      // (1.32) Cập nhật giường / vách đặt từ đầu phải: giữ đầu phải
           const g0 = o.corner || rep.goc;      // chỗ tủ vừa đặt (góc trái – trước – dưới + góc xoay): để soi điện – nước của phòng lên tủ khi sửa tiếp
           if (Array.isArray(g0) && g0.length === 3 && g0.every(v => isFinite(v))) noi.dat = { goc: g0.slice(), xoay: o.xoay || 0 };
         }
@@ -1618,13 +1625,14 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       } catch (e) { /* bỏ qua */ }
       busy = true; rebuild();
       let rep;
-      try { rep = await Drv.update(spec, { id: noi.id, specCu: noi.spec, pick: noi.pick }, { onStatus: setStatus }); }
+      const neoPhai = !!noi.neo_phai;
+      try { rep = await Drv.update(spec, { id: noi.id, specCu: noi.spec, pick: noi.pick, neo_phai: neoPhai }, { onStatus: setStatus }); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
       if (rep.giai_doan === 'xong' && !rep.giu_mau) rep.do_mau = await tuDoMau();      // tủ cũ đã có màu thì bộ điều khiển giữ màu đó (rep.giu_mau); chưa có thì theo ô "tự đổ màu"
       busy = false;
       try {
         lastRep = rep;
-        if (rep.giai_doan === 'xong') { noi = { id: rep.id || noi.id, spec: clone(spec), ten: spec.ma || spec.ten || '' }; khoTu.save(noi.id, noi.spec); }
+        if (rep.giai_doan === 'xong') { noi = Object.assign({ id: rep.id || noi.id, spec: clone(spec), ten: spec.ma || spec.ten || '' }, neoPhai ? { neo_phai: true } : {}); khoTu.save(noi.id, noi.spec); }
         rebuild(); showReport(rep); setStatus(rep.ok ? 'Đã cập nhật tủ tại chỗ.' : rep.giai_doan === 'xong' ? 'Đã cập nhật nhưng có chỗ cần xem — tab Kết quả.' : 'Chưa cập nhật được — xem tab Kết quả.');
       } catch (e) { setStatus('Lỗi khi hiện kết quả: ' + (e && e.message || e)); }
       return rep;
