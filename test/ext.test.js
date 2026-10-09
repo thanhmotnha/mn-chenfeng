@@ -267,8 +267,16 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, `${ma}: hoàn tác sạch`);
       await H.locator('.tab[data-tab="tu"]').click();
     }
+    // (1.32) mở file giường khi đang giữ chỗ đặt của món khác loại: bỏ chỗ đặt (góc trước tính theo sâu của món cũ)
+    { if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+      const g = await page.evaluate(() => window.MNCFCore.apMau(window.MNCFCore.DEFAULT_SPEC, 'G16-T'));
+      await H.locator('[data-ui="file"]').setInputFiles({ name: 'giuong.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ spec: g })) });
+      await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'giuong');
+      const st = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent);
+      ok(!(await H.locator('#mncf-ui-useat').isChecked()) && /Đã mở file giường; bỏ chỗ đặt của món trước/.test(st), 'mở file giường khi đang giữ chỗ đặt của vách: bỏ chỗ đặt, có báo', st); }
     await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
     if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+    await H.locator('#mncf-ui-useat').check();
     await H.locator('#mncf-ui-ax').fill('5000');
 
     /* --- nếu Chenfeng lỡ khoan lỗ vào tấm hậu (hậu bắn đinh, không được có lỗ) → báo cáo phải nêu ra --- */

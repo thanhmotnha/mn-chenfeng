@@ -1706,7 +1706,10 @@ T('Giường, táp, vách — bản vá sau soát (bản 1.32)', () => {
   // giường ngăn kéo: kiểm số nhập
   { const s = C0.apMau(D0, 'G16-NK'); s.giuong.nk_so = 1; ok(C0.build(s).warnings.some(w => /Ngăn kéo rộng .* tăng số ngăn/.test(w)), '1 ngăn mỗi bên (hộp ~2 m): cảnh báo ray và đáy dễ võng'); }
   { const s = C0.apMau(D0, 'G16-NK'); s.giuong.nk_sau = 200; const M = C0.build(s); ok(M.errors.some(e => /quá nông/.test(e)) && !M.phu_kien.some(x => /dài 0/.test(x.ten)), 'ngăn kéo sâu 200: lỗi, không ra "ray dài 0"'); }
-  { const s = C0.apMau(D0, 'G16-NK'); s.giuong.thanh_hong = 60; ok(C0.build(s).errors.some(e => /thanh hông trên 60/.test(e)), 'thanh hông 60 < phản lún + dày phản + 20: lỗi'); }
+  for (const [lun, vt] of [[55, 17.5], [40, 25]]) { const s = C0.apMau(D0, 'G16-NK'); s.giuong.lun = lun; s.van.t = vt; const M = C0.build(s), th = Math.max(80, lun + vt + 20), zTop = M.spec.giuong.cao_thanh;
+    ok(!M.errors.length && P(M, 'THH').every(p => near(p.z0, zTop - th)) && P(M, 'TH').every(p => p.z1 > zTop - th + 19.9), `giường ngăn kéo phản lún ${lun}, ván ${vt}: thanh hông tự cao ${th}, vẫn dựng được`, [M.errors, P(M, 'THH').map(box)]); }
+  { const s = C0.apMau(D0, 'G16-NK'); s.giuong.lun = 240; const e = C0.build(s).errors; ok(e.some(x => /giảm Phản lún/.test(x)), 'phản lún 150: hết chỗ cho mặt ngăn kéo — lỗi nói tăng Cao thành / giảm Phản lún', e); }
+  { const s = C0.apMau(D0, 'G16-B'); s.giuong.lui_de = 500; ok(C0.build(s).warnings.some(w => /dễ lật/.test(w)) && !C0.build(C0.apMau(D0, 'G16-B')).warnings.length, 'giường bay lùi đế 500: cảnh báo dễ lật (mặc định 150 thì không)'); }
   { const s = C0.apMau(D0, 'G16-NK'); s.giuong.nk_sau = 700; const M = C0.build(s), h = C0.heSo(s);
     ok(M.info.giuong.nk.kep && !h.bien.L && h.ly_do.L === 'khong_deu' && h.bien.W && h.bien.H, 'sâu hộp ngăn kéo kẹp theo đà giữa: module khoá Rộng (đổi ở bảng)', [M.info.giuong.nk, h.ly_do]);
     ok(!C0.build(C0.apMau(D0, 'G16-NK')).info.giuong.nk.kep, 'mẫu G16-NK (sâu 500): không kẹp'); }
@@ -1731,6 +1734,9 @@ T('Giường, táp, vách — bản vá sau soát (bản 1.32)', () => {
   { const s = C0.apMau(D0, 'V2800-1200'); s.vach.khe = 75; ok(C0.build(s).errors.some(e => /mép tấm ốp không nằm trên xương/.test(e)), 'khe 75 với xương 80: lỗi'); }
   for (const m of C0.MAU_VACH) { const s = C0.apMau(D0, m.ma), h = C0.heSo(s), a = C0.vachTuDong(s);
     ok(h.bien.L && (h.bien.H || m.ma === 'V2800-2400') && s.vach.so_hang === a.so_hang && s.vach.so_ngang === a.so_ngang && s.vach.so_doc === a.so_doc, `${m.ma}: ghi sẵn số hàng / tầng xương; module co giãn Rộng${m.ma === 'V2800-2400' ? ' (Cao kịch khổ ván: khoá)' : ' + Cao'}`, [h.ly_do, s.vach]); }
+  { const s = C0.apMau(D0, 'V2800-1200'); for (const [k, d] of [['cao', 240], ['rong', 240], ['cao', -120]]) { const s1 = JSON.parse(JSON.stringify(s)); s1[k] += d; const M = C0.build(s1); ok(!M.errors.length && !M.warnings.length && M.parts.length === C0.build(s).parts.length, `vách ghi sẵn số xương: kéo ${k} ${d > 0 ? '+' : ''}${d} trong Chenfeng vẫn đủ xương (không cảnh báo, không đổi số tấm)`, M.warnings); } }
+  for (const v of [{ xuong_cach: 200, xuong_rong: 150 }, { xuong_cach: 200, xuong_rong: 20, so_o: 1 }]) { const s = C0.apMau(D0, 'V2800-1200'); Object.assign(s.vach, v); if (v.so_o) s.rong = 1200; Object.assign(s.vach, C0.vachTuDong(s)); const M = C0.build(s);
+    ok(!M.errors.length && M.warnings.every(w => /bản xương .* quá to/.test(w)) && (v.so_o ? !M.warnings.length : M.warnings.length === 1) && !overlapAny(M).length, `vách xương ${v.xuong_rong} cách ${v.xuong_cach}${v.so_o ? ', 1 ô' : ''}: không chồng xương, không bảo "đổi ở Chenfeng" oan`, [M.errors, M.warnings, overlapAny(M).slice(0, 3), s.vach]); }
   { const s = C0.apMau(D0, 'V2600-1200'); s.cao = 2000; const M = C0.build(s); ok(M.warnings.some(w => /Xương ngang cách nhau .* gõ lại/.test(w)), 'số tầng xương ghi sẵn mà cao đổi ở Chenfeng: cảnh báo, bảo gõ lại Cao', M.warnings);
     Object.assign(s.vach, C0.vachTuDong(s)); ok(!C0.build(s).warnings.length, 'chia lại theo cỡ mới: hết cảnh báo'); }
   ok(C0.normalize(Object.assign(C0.apMau(D0, 'V2800-1200'), { vach: { cach_san: 500 } })).vach.cach_san === 0, 'vách luôn đứng từ sàn (cách sàn = 0)');
@@ -1740,6 +1746,7 @@ T('Giường, táp, vách — bản vá sau soát (bản 1.32)', () => {
   eq(['Tableware', 'Portable', 'Stable', 'Tab', 'Tab đầu giường', 'Táp đầu giường'].map(C0.nhomThuMuc), ['khac', 'khac', 'khac', 'tu', 'tu', 'tu'], 'nhomThuMuc: "tab" là chữ riêng');
   eq(['Giường 1m6', 'Giường bay', '床', '双人床', 'Vách đầu giường', '背景墙', 'Táp đầu giường', 'Tab đầu giường', 'Tủ đầu giường', '床头柜', '床边柜', '背景墙柜', 'Kệ đầu giường', 'Tủ áo'].map(C0.khoKhongHau),
     [true, true, true, true, true, true, false, false, false, false, false, false, false, false], 'kho mẫu: giường / vách không phủ hậu; táp / tủ / 柜 đầu giường vẫn phủ hậu');
+  eq(['Giường hộc kéo', 'Giường có kệ đầu giường', 'Hộc đầu giường', 'Bàn đầu giường', 'Đôn đầu giường', '床头几', '床边桌', 'Ngăn kéo gầm giường'].map(C0.khoKhongHau), [true, true, false, false, false, false, false, false], 'kho mẫu: tên mở đầu "Giường" là giường; bàn / đôn / hộc / 几 / 桌 đầu giường là tủ');
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

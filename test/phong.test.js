@@ -1026,6 +1026,8 @@ T('Khung là chỗ đặt tủ: giường / vách đang mở đổi sang tủ á
   const r = P.tuChoKhung(C, C.apMau(C.DEFAULT_SPEC, 'TAP2-500'), Object.assign({}, q, { rong: 500, cao: 500, sau: 420 }), 'P1', null, -1), M = C.build(r.spec);
   { const h = P.haiDiemThanhHinh([0, 0], [2800, 0], 35, { truoc: [0, -500], sau_min: 20 }), h0 = P.haiDiemThanhHinh([0, 0], [2800, 0], 35, { truoc: [0, -500] });
     ok(h.ok && h.dinh[3][1] === -35 && !h0.ok, 'đặt bằng chuột: vách dày 35 nhận được khi sau_min 20 (tủ vẫn cần ≥ 100)', [h, h0.loi]); }
+  for (const [rong, cao] of [[1000, 2700], [500, 2700], [2000, 900]]) { const r2 = P.tuChoKhung(C, C.apMau(C.DEFAULT_SPEC, 'TAP2-500'), Object.assign({}, q, { rong, cao }), 'P1', null, -1), M2 = C.build(r2.spec);
+    ok(!r2.spec.loai_sp && !M2.errors.length && M2.mat_ngan_keo.every(m => m.h <= 450) && co(r2.ghi_chu, /đổi sang tủ áo/), `táp trong khung ${rong} × ${cao} (không phải cỡ táp): thành tủ áo, không kéo táp to`, [r2.spec.loai_sp, M2.mat_ngan_keo.map(m => m.h)]); }
   ok(r.spec.loai_sp === 'tap' && !M.errors.length && M.templates.filter(t => t.loai === 'NGAN_KEO').length === 2 && r.spec.khoang.length === 1 && r.spec.khoang[0].canh === 0, 'táp trong khung: giữ 2 ngăn kéo, không tự chọn ruột tủ áo', [r.spec.khoang, r.ghi_chu]);
 });
 
