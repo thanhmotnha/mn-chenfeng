@@ -1089,7 +1089,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const m = [];
       model.errors.forEach(t => m.push(`<div class="msg err">${esc(t)}</div>`));
       // (bản 1.30.1 — anh Thanh: "rất hay báo lỗi bị vượt khổ ván rất mệt") khoang quá rộng so với khổ ván → một nút tự thêm vách (Core.vuaKhoVan), chỉ hiện khi cách đó gỡ được lỗi
-      { const vk = model.errors.some(t => /khổ ván/.test(t)) ? vuaKho() : null; if (vk && vk.doi.length && vk.con < vk.truoc) m.push(`<div class="msg err"><button class="sec" data-act="vua-kho">Thêm vách cho vừa khổ ván</button> <span class="hint tt">${vk.con ? 'gỡ bớt' : 'gỡ hết'} lỗi khổ ván ở trên: ${esc(String(vk.spec.khoang.length))} khoang thay cho ${esc(String(spec.khoang.length))}</span></div>`); }
+      { const vk = model.errors.some(t => /khổ ván/.test(t)) ? vuaKho() : null; if (vk && vk.goi_y) m.push(`<div class="msg warn">${esc(vk.goi_y)}</div>`); if (vk && vk.doi.length && vk.con < vk.truoc) m.push(`<div class="msg err"><button class="sec" data-act="vua-kho">Thêm vách cho vừa khổ ván</button> <span class="hint tt">${vk.con ? 'gỡ bớt' : 'gỡ hết'} lỗi khổ ván ở trên: ${esc(String(vk.spec.khoang.length))} khoang thay cho ${esc(String(spec.khoang.length))}</span></div>`); }
       model.warnings.forEach(t => m.push(`<div class="msg warn">${esc(t)}</div>`));
       // (bản 1.28) ghi chú CHỈ ĐỂ BIẾT (tách thùng, kích thước khấu cột — hình đã vẽ đủ) vào phiếu tự kiểm; ghi chú PHẢI LÀM (bản lề, xà…) vẫn hiện dưới hình
       const deBiet = t => /^Tủ tách \d+ thùng|^Khấu cột:/.test(t), gcPhieu = model.notes.filter(deBiet);
@@ -1795,9 +1795,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (theoModule) { specCu = theoModule; doiKT = ` Kích thước lấy theo module trong Chenfeng: ${hien(specCu.rong)} × ${hien(specCu.cao)}, sâu thùng ${hien(specCu.sau_thung)}.`; }
       const loc = Drv.locate(id, Core.build(specCu), tam);
       if (!loc.ok) { setStatus(loc.reason); return; }
+      // (1.31.1) tủ vẽ trước 1.31 có hộc kéo âm: specDaVe dựng lại kiểu khe + xà ẩn như lúc vẽ — nói ra, vì tủ vẽ sau khi Bỏ nối cũng theo thông số này
+      const ghiKM = nguon === 'luu' && luu.spec && !(luu.spec.ngan_keo && luu.spec.ngan_keo.khung_mat !== undefined) && specCu.ngan_keo && specCu.ngan_keo.khung_mat === 0 && specCu.khoang.some(k => (k.o || []).some(c => c.kieu === 'nk_am'))
+        ? ' Hộc kéo âm của tủ này vẽ kiểu cũ (khe + xà ẩn, chưa có khung mặt) — muốn đổi: Chuẩn xưởng → Ngăn kéo âm → Khung mặt.' : '';
       spec = clone(specCu); noi = { id, spec: clone(specCu), ten: specCu.ma || specCu.ten || '', pick: tam };
       sel = null; renderAll(); switchTab('tu');
-      setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.`);
+      setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.${ghiKM}`);
     }
 
     /** Bản 1.11 — module chèn từ kho Chenfeng (kết cấu kiểu Trung) → hậu mỏng phủ sau lưng theo chuẩn xưởng. Sửa ngay trên bản vẽ, mẫu trong kho giữ nguyên. */

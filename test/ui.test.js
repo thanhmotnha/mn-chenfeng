@@ -588,6 +588,10 @@ async function testPhieu(browser) {
   ok(/Đã chia lại 2 → 3 khoang cho vừa khổ ván/.test(await page.evaluate(inPage.status)) && await S(page, '.pri[data-act="json"]').isEnabled(), 'dòng báo nói đã chia lại khoang; nút xuất mở lại', await page.evaluate(inPage.status));
   await S(page, '[data-act="lui"]').click();
   ok((await page.evaluate(() => window.MNCF.app.getSpec().khoang.length)) === 2, '↶ Lùi: trả lại 2 khoang');
+  // (1.31.1) chỉ còn đáy / nóc / đế liền thùng vượt khổ (phủ hồi, "Rộng tối đa một thùng" = 0): không có nút, nhưng có dòng nhắc đặt số đó
+  await page.evaluate(s => window.MNCF.app.setSpec(s), { ma: 'T', rong: 3000, cao: 2400, hau: { t: 6 }, than: { cao_duoi: 0 }, thung: { noc_day: 'phu_hoi', rong_max: 0 }, khoang: [0, 1, 2].map(() => ({ rong: 'auto', canh: 2, dot: [1800], o: [] })) });
+  { const nhac = S(page, '.msg.warn').filter({ hasText: 'Rộng tối đa một thùng' });
+    ok((await S(page, '[data-act="vua-kho"]').count()) === 0 && await nhac.isVisible() && /đang 0 = không tách/.test(await nhac.textContent()), 'phủ hồi thùng liền dài hơn khổ: không có nút thêm vách, có dòng nhắc đặt "Rộng tối đa một thùng" (đang 0)', await page.evaluate(() => window.MNCF.app.getModel().errors)); }
   ok(errs.length === 0, 'không lỗi JS', errs);
   await ctx.close();
 }

@@ -1517,7 +1517,17 @@ T('Bản vá 1.31.1 — bản lề, vừa khổ ván, khung mặt, phủ hồi',
   { const r = C.vuaKhoVan({ rong: 1400, cao: 2600, than: { cao_duoi: 0 }, khoang: MT('TA2-1100-T') }); ok(!r.doi.length && r.con === r.truoc && r.truoc > 1, 'thân cao 2600 (vượt khổ theo chiều cao): không thêm vách, con = truoc (đếm cả tấm vượt theo chiều cao)', r); }
   { const r = C.vuaKhoVan({ rong: 2000, cao: 2400, khoang: MT('TA3-1500'), khau: { giua: [{ cach: 1375, rong: 300, sau: 300 }] } }); ok(!r.doi.length, 'có cột giữa: chia mà dời phần treo ra trước cột (cảnh báo mới) thì không nhận', r.doi); }
   { const r = C.vuaKhoVan({ rong: 2600, cao: 2400, thung: { noc_day: 'phu_hoi', rong_max: 0 }, khoang: MT('TA4-2000') }), M = C.build(r.spec);
-    ok(r.spec.khoang.length === 3 && r.con < r.truoc && r.doi.some(d => /Rộng tối đa một thùng/.test(d)) && !M.errors.some(e => /quá hẹp/.test(e)), 'phủ hồi thùng liền: chỉ chia tới khi hậu vừa (3 khoang), nhắc giảm "Rộng tối đa một thùng" cho đáy / nóc / đế liền', [r.spec.khoang.length, r.doi]); }
+    ok(r.spec.khoang.length === 3 && r.con < r.truoc && /đặt "Rộng tối đa một thùng" \(đang 0 = không tách\) không quá 2440/.test(r.goi_y) && !M.errors.some(e => /quá hẹp/.test(e)), 'phủ hồi thùng liền (Rộng tối đa = 0): chỉ chia tới khi hậu vừa (3 khoang); lời nhắc bảo ĐẶT số đó (đang 0), không bảo "giảm"', [r.spec.khoang.length, r.goi_y]); }
+  { const r = C.vuaKhoVan({ rong: 3000, cao: 2400, than: { cao_duoi: 0 }, thung: { noc_day: 'phu_hoi', rong_max: 0 }, khoang: MT('TA6-3000') });
+    ok(!r.doi.length && r.con === r.truoc && /đang 0 = không tách/.test(r.goi_y), 'chỉ còn tấm liền thùng vượt khổ: không chia, nhưng vẫn có lời nhắc (goi_y riêng, không gắn vào dòng chia)', r); }
+  { const r = C.vuaKhoVan({ rong: 3000, cao: 2400, than: { cao_duoi: 0 }, thung: { noc_day: 'phu_hoi', rong_max: 2900 }, khoang: MT('TA6-3000') });
+    ok(/giảm "Rộng tối đa một thùng" \(đang 2900\)/.test(r.goi_y), 'Rộng tối đa một thùng > khổ ván: nhắc giảm, kèm số đang đặt', r.goi_y); }
+  // tủ sẵn có cảnh báo theo khoang (treo nông): chia đôi khoang thì cảnh báo cũ lặp ở hai nửa — không phải chỗ hỏng mới, vẫn chia
+  for (const x of [{ sau_thung: 450 }, { kiem: { suot_sau_min: 580 } }]) {
+    const sp = Object.assign({ rong: 2600, cao: 2400, than: { cao_duoi: 0 }, khoang: MT('TA4-2000') }, x), r = C.vuaKhoVan(sp), M = C.build(r.spec);
+    ok(C.build(sp).warnings.some(w => /treo chỉ sâu/.test(w)) && r.spec.khoang.length === 3 && r.con === 0 && !M.errors.length, `cảnh báo "treo chỉ sâu" có sẵn (${JSON.stringify(x)}) không chặn việc chia: 3 khoang, hết lỗi khổ ván`, [r.truoc, r.con, r.spec.khoang.length]); }
+  { const sp = { rong: 3500, cao: 2400, than: { cao_duoi: 0 }, khoang: MT('TA5-2500') }, r = C.vuaKhoVan(sp);
+    ok(C.build(sp).info.thung.length === 3 && C.build(r.spec).info.thung.length === 2 && /tủ còn 2 thùng/.test(r.doi[0]), 'chia xong số thùng GIẢM (3 → 2): dòng báo nói "tủ còn 2 thùng"', r.doi); }
   { const r = C.vuaKhoVan({ rong: 4000, cao: 2400, khoang: MT('TA6-3000'), khau: { giua: [{ cach: 800, rong: 1250, sau: 250 }] } }), M = C.build(r.spec);
     ok(r.spec.khoang.length <= 4 && !M.errors.some(e => /quá hẹp/.test(e)), 'hậu khấu cột rộng (không gỡ được bằng vách): không chặt khoang tới 300', [r.spec.khoang.length, M.errors]); }
   { const r = C.vuaKhoVan({ rong: 2600, cao: 2400, khoang: MT('TA2-1100-T') }); ok(r.doi.length && /tủ thành 2 thùng/.test(r.doi[0]), 'dòng báo nói tủ thành 2 thùng khi chỗ chia trùng chỗ tách thùng', r.doi); }
@@ -1527,7 +1537,25 @@ T('Bản vá 1.31.1 — bản lề, vừa khổ ván, khung mặt, phủ hồi',
   eq([thanh(2), thanh(0), thanh(1, 'trai'), thanh(0, undefined, 60), thanh(1, 'trai', 60)],
     [[[C.KHONG_KHOAN, 'thanh ngang khung mặt giữa 2 nẹp, keo + đinh']], [[C.KHONG_KHOAN, 'thanh ngang khung mặt — bắt vít / chốt gỗ vào hồi, vách']], [[C.KHONG_KHOAN, 'thanh ngang khung mặt — bắt vít / chốt gỗ vào hồi, vách']], [['Cam3Tp', '']], [['Cam3Tp', '']]],
     'thanh giữa: 2 cánh (hai đầu tì nẹp) keo + đinh; khoang không cánh / 1 cánh mà thanh 50 (mối nối < 60) bắt vít / chốt gỗ — không ghi oan "giữa 2 nẹp"; thanh ≥ 60 thì khoan cam');
-  eq([C.specDaVe({ rong: 1000 }, '1.30.1').ngan_keo.khung_mat, C.specDaVe({ rong: 1000, ngan_keo: { khung_mat: 1 } }, '1.31.0').ngan_keo && C.specDaVe({ rong: 1000, ngan_keo: { khung_mat: 1 } }, '1.31.0').ngan_keo.khung_mat, C.specDaVe({ rong: 1000 }, '1.31.0').ngan_keo], [0, 1, undefined], 'tủ vẽ ở bản < 1.31 dựng lại hộc kéo khe + xà ẩn như lúc vẽ (dò lại không báo oan "thiếu tấm")');
+  { const nk = { rong: 1000, khoang: [{ rong: 'auto', canh: 2, dot: [600], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] };
+    eq([C.specDaVe(nk, '1.30.1').ngan_keo.khung_mat, C.specDaVe(Object.assign({ ngan_keo: { khung_mat: 1 } }, nk), '1.30.1').ngan_keo.khung_mat, C.specDaVe(nk, '1.31.0').ngan_keo, C.specDaVe({ rong: 1000 }, '1.30.1').ngan_keo], [0, 1, undefined, undefined], 'tủ có ngăn kéo âm vẽ ở bản < 1.31 dựng lại hộc kéo khe + xà ẩn như lúc vẽ (dò lại không báo oan "thiếu tấm"); tủ KHÔNG có ngăn kéo âm thì không ghi gì (thông số đó là của mọi tủ vẽ sau khi sửa nó)'); }
+  // bảng kê: cùng cỡ mà cách bắt khác (keo + đinh giữa 2 nẹp / bắt vít) → hai dòng riêng
+  { const M = C.build(C.normalize({ rong: 1292.5, cao: 2400, than: { cao_duoi: 0 }, khoang: [{ rong: 620, canh: 2, dot: [600], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }, { rong: 'auto', canh: 0, dot: [600], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }] }));
+    const d = C.cutList(M).rows.filter(r => r.khoan === 'không khoan' && /khung mặt/.test(r.ghi_chu || '')).map(r => [r.dai, r.sl, /keo/.test(r.ghi_chu) ? 'keo' : /vít/.test(r.ghi_chu) ? 'vit' : '?']);
+    eq(d.sort(), [[520, 1, 'keo'], [520, 1, 'vit']], 'thanh giữa 520 của khoang 2 cánh (keo + đinh) và khoang không cánh (bắt vít) là hai dòng bảng kê', d); }
+  // BẢN LỀ: khe giữa hai vùng tránh chỉ vừa lọt chén (2r … 2r + 10) vẫn đặt được; cánh thấp có đợt: hai đế không chồng nhau
+  { const M = C.build({ rong: 1000, cao: 900, than: { cao_duoi: 0 }, phao: { tren: 0 }, khoang: [{ canh: 2, dot: [160, 227.5] }] }), c = P(M, 'CANH')[0];
+    const nam = M.parts.filter(p => p.loai === 'DOT' || p.loai === 'DAY' || p.loai === 'NOC');
+    ok(!M.warnings.some(w => /bản lề/.test(w)) && c.ban_le.z.every(v => nam.every(d => c.z0 + v + 25 <= d.z0 + 0.011 || c.z0 + v - 25 >= d.z1 - 0.011)), 'đợt 160 + 227,5: bản lề tìm được chỗ, đế (± 25) không cấn đợt / đáy / nóc, không báo "không đủ chỗ"', c.ban_le.z.map(v => c.z0 + v)); }
+  eq(C.banLeCanh(600, 500, { r: 17.5, tranh: [[-9.5, 23], [50.5, 83], [118, 150.5]] }).ket, false, 'vùng tránh cách nhau 35 (= 2r): khe lọt đúng một chén → dùng được, không "kẹt"');
+  { const s = C.apMau(C.DEFAULT_SPEC, 'TA3-1500'); s.cao = 2000; s.than.cao_duoi = 1750; const M = C.build(C.normalize(s)), p = M.parts.find(q => q.loai === 'CANH' && q.khoang === 1 && q.z0 > 1700), z = p.ban_le.z;
+    ok(!M.warnings.some(w => /bản lề/.test(w)) && z.length === 2 && z[1] - z[0] >= 45 - 0.011, 'cánh thấp 197 của thân trên: 2 bản lề cách nhau ≥ 2r + 10 (đế không chồng nhau), không cảnh báo', z.map(v => p.z0 + v)); }
+  { let sai = 0;      // quét: kết quả hoặc hợp lệ (trong cánh, không chạm vùng, cách nhau ≥ 45), hoặc báo ket — không có "hợp lệ mà báo ket" hay "sai mà không báo"
+    for (let cao = 150; cao <= 2400; cao += 37) for (const dots of [[], [0.3], [0.5], [0.2, 0.25], [0.4, 0.43], [0.1, 0.9], [0.33, 0.66]]) {
+      const tr = dots.map(f => [f * cao - 16.5, f * cao + 16.5]), r = C.banLeCanh(cao, 500, { r: 17.5, tranh: tr }), cham = v => tr.some(([a, b]) => v + 17.5 > a && v - 17.5 < b);
+      const hop = r.z.every(v => v >= 17.5 - 1e-6 && v <= cao - 17.5 + 1e-6 && !cham(v)) && r.z.every((v, i) => !i || v - r.z[i - 1] >= 45 - 1e-6);
+      if (hop === !!r.ket) sai++; }
+    eq(sai, 0, 'quét 427 cánh × vùng tránh: bản lề hợp lệ ⇔ không báo kẹt'); }
   ok(C.nangCap({ khoang: [{ rong: 'auto', canh: 2, ngan_keo: { so: 2, den: 520 } }] }, '1.4.0').doi.some(d => /khung mặt/.test(d)), 'nâng cấp: ngăn kéo dạng cũ (khoang.ngan_keo) cũng được báo đổi sang khung mặt');
   // PHỦ HỒI: khung đế khép kín khi vách sẵn có làm vách khấu; không có đoạn đế vụn
   { const r = C.vachTheoCot({ rong: 2400, cao: 2200, than: { cao_duoi: 0 }, thung: { noc_day: 'phu_hoi' }, khoang: [0, 1, 2].map(() => ({ rong: 'auto', canh: 2, dot: [1100], o: [] })), khau: { giua: [{ cach: 900, rong: 250, sau: 200 }] } });
