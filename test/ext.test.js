@@ -240,6 +240,28 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
     await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
     ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'hoàn tác: bản vẽ sạch trở lại');
 
+    /* --- (bản 1.32) giường có ngăn kéo / vách đầu giường: nhập tấm + gom MỘT module (đổi Rộng / Dài / Cao ngay ở ô Thông số của Chenfeng) --- */
+    for (const [ma, ten, moW] of [['G16-NK', 'G1', /Dài phủ bì/], ['V2800-1200', 'VD1', /Dày/]]) {
+      const sp = await page.evaluate(m => { const s = window.MNCFCore.apMau(window.MNCF.app.getSpec(), m); s.hau = Object.assign({}, s.hau, { t: 6 }); return s; }, ma);
+      await page.evaluate(s => window.MNCF.app.setSpec(s), sp);
+      await H.locator('#mncf-ui-ax').fill('9000');
+      await H.locator('[data-act="draw"]').click();
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && L.offset[0] === 9000; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      const g = await page.evaluate(() => { const D = window.MNCFDriver, L = D.last, bs = L.added.filter(D.isBoard), T = bs[0] && bs[0].Template && bs[0].Template.Object;
+        return { n: bs.length, mod: !!T && bs.every(b => b.Template && b.Template.Object === T), ten: T && T.Name, L: T && T.GetParam('L').actions.length, W: T && T.GetParam('W').actions.length, H: T && T.GetParam('H').actions.length, moTa: T && [T.GetParam('W').description, T.GetParam('H').description], goc: !!L.goc_cf, ve_goc: window.MNCF.app.getSpec().ve_goc }; });
+      const nThiet = await page.evaluate(() => window.MNCF.app.getModel().parts.length), bc = await H.locator('.report').innerText();
+      ok(new RegExp(`Đã vẽ xong — ${nThiet}/${nThiet} tấm`).test(bc), `${ma}: ${nThiet}/${nThiet} tấm đúng vị trí`, bc);
+      ok(g.mod && g.ten === ten && g.L > 0 && g.H > 0 && moW.test(g.moTa[0]) && !g.goc && g.ve_goc === false, `${ma}: gom thành MỘT module ${ten}, L / H có hành động co giãn, mô tả tham số theo loại; vẽ bằng nhập tấm`, g);
+      ok(ma !== 'G16-NK' || (g.W > 0 && /Giường đã là module tham số/.test(bc) && /W \(dài\)/.test(bc)), `${ma}: đổi được cả Dài (W) — báo cáo nói "Giường", "W (dài)"`, bc);
+      await H.locator('[data-act="undo"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+      ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, `${ma}: hoàn tác sạch`);
+      await H.locator('.tab[data-tab="tu"]').click();
+    }
+    await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+    await H.locator('#mncf-ui-ax').fill('5000');
+
     /* --- nếu Chenfeng lỡ khoan lỗ vào tấm hậu (hậu bắn đinh, không được có lỗ) → báo cáo phải nêu ra --- */
     await page.evaluate(() => { window.__MOCK_DRILL_BACK__ = true; });
     await H.locator('.tab[data-tab="tu"]').click();

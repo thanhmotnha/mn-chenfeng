@@ -12,6 +12,29 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Thư viện: táp, giường, vách đầu giường (bản 1.32)
+
+- Ô **Thư viện** ở thẻ Tủ chia 4 nhóm: Tủ áo · Táp đầu giường · Giường · Vách đầu giường. Chọn một mục rồi bấm nút bên cạnh. Không ưng thì bấm ↶ Lùi, bảng trả lại cái đang làm.
+- **Táp đầu giường** (5 mẫu, rộng 450 – 600): là tủ 1 khoang không cánh, ngăn kéo trùm (mẫu ngăn kéo của Chenfeng). Vẽ như tủ.
+- **Giường** (7 mẫu): thường 1m2 / 1m6 / 1m8, bay 1m6 / 1m8, có ngăn kéo 1m6 / 1m8. Gõ cỡ nệm ở ô Giường là rộng / dài phủ bì tự tính. Kết cấu:
+  - Đầu giường chạy suốt bề ngang, sát tường, xuống tận sàn.
+  - Đuôi và hai hông ghép 2 lớp ván. Mặt trên hông cao 300 (giường bay / ngăn kéo: 350).
+  - Hông kẹp giữa đầu và đuôi, bắt **bát giường** để tháo lắp (không khoan cam).
+  - Gầm có vách ngăn cách nhau ≤ 600. Lòng rộng hơn 1000 thì thêm đà giữa 2 lớp.
+  - Phản chia 2 tấm, mối nối nằm trên đà. Mặt phản thấp hơn mặt hông 40.
+  - Giường bay: thân đặt trên khung đế lùi vào 150, cao 120, có dòng LED hắt gầm.
+  - Giường ngăn kéo: mỗi bên 2 ngăn, mặt ngăn kéo phẳng mặt hông. Hộp làm bằng ván, chạy ray bi giữa 2 vách ngăn gầm. Trên nóc hộp có thanh đỡ phản để phản không võng.
+- **Vách đầu giường** (4 mẫu, cao 1200 / kịch trần 2400): tấm ốp chia ô rộng ≤ 800, khe 5 để nẹp U inox. Tấm ốp bắn lên khung xương ván 80:
+  - Xương dọc ở hai mép, dưới mỗi mối nối ô, và cách nhau ≤ 600.
+  - Xương ngang ở trên, dưới và giữa.
+  - Khung bắt vào tường bằng vít nở.
+- **Vẽ vào Chenfeng:** Chenfeng chưa có lệnh dựng giường / vách, nên bảng nhập tấm rồi gom cả sản phẩm thành **một module**.
+  - Ở ô *Thông số* của Chenfeng sửa được: giường thì rộng, dài phủ bì, cao đầu giường; vách thì rộng, cao (bề dày khoá).
+  - Như tủ: Sửa tủ đang chọn, Cập nhật, bảng kê (có dòng phụ kiện: bát giường, ray, LED, nẹp, vít nở), phiếu tự kiểm, đổ màu, xuất ván.
+  - Mẫu giường / vách đầu giường chèn từ thẻ Kho mẫu không bị phủ thêm hậu.
+- **Xưởng xem lại các số mặc định** (cao thành, phản lún, khe nệm, đế giường bay, sâu ngăn kéo 500, khe ray 13) ở ô Giường. Các số này tra theo cách làm phổ biến của xưởng gỗ công nghiệp VN, chưa đo ở xưởng mình.
+- Lỗ bát giường, lỗ ray ngăn kéo giường và lỗ xương vách bảng **không khoan**: xưởng khoan theo phụ kiện thật.
+
 ## Bản vá 1.31.1 (soát lỗi bản 1.30 – 1.31)
 
 - **Bản lề:** tránh cả đáy, nóc (cánh thấp ở thân trên); cánh thấp không nhồi quá số bản lề lọt chỗ; khe giữa hai đợt còn lọt chén thì bản lề giữ chỗ hoặc dời vào đó; cánh thấp có đợt không còn hai đế bản lề chồng nhau (bảng dàn lại cho cách nhau đủ 45), chỗ trống vừa đúng 2 bản lề cũng xếp được, hết báo oan "không đủ chỗ" khi đợt gõ số lẻ; "cách đầu cánh" gõ 0 hay âm không đưa chén ra ngoài cánh. Bật khoét chén thì tủ vẽ bằng cách nhập tấm (lệnh cánh của Chenfeng không nhận lỗ chén của bảng) và có báo.

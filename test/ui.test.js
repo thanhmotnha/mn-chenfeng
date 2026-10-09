@@ -42,7 +42,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.31\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.32\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -596,9 +596,55 @@ async function testPhieu(browser) {
   await ctx.close();
 }
 
+async function testThuVien(browser) {
+  console.log('— Thư viện: tủ áo, táp, giường (thường / bay / ngăn kéo), vách đầu giường (bản 1.32)');
+  const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
+  const nhom = await S(page, '#mncf-ui-mau optgroup').evaluateAll(gs => gs.map(g => g.label));
+  ok(['Tủ áo', 'Táp đầu giường', 'Giường', 'Vách đầu giường'].every(t => nhom.some(l => l.indexOf(t) === 0)), 'ô Thư viện chia nhóm Tủ áo / Táp / Giường / Vách', nhom);
+  const chon = async ma => { await S(page, '#mncf-ui-mau').selectOption(ma); await S(page, '[data-act="mau"]').click(); await page.waitForFunction(m => (window.MNCF.app.getSpec().loai_sp || 'tu') === m, ma ? (ma[0] === 'G' ? 'giuong' : ma[0] === 'V' ? 'vach' : ma.indexOf('TAP') === 0 ? 'tap' : 'tu') : 'tu'); };
+  const nhan = () => S(page, '.dims label').evaluateAll(ls => ls.map(l => l.textContent.trim()));
+  await chon('G16-T');
+  ok((await S(page, '.panel').getAttribute('data-loai')) === 'giuong' && await S(page, '.sp').isVisible() && !(await S(page, '.bays').isVisible()), 'giường: ô Giường hiện, phần khoang của tủ ẩn');
+  ok(JSON.stringify(await nhan()) === JSON.stringify(['Rộng phủ bì', 'Dài phủ bì', 'Cao đầu giường']), 'giường: ô kích thước đổi tên', await nhan());
+  ok((await page.evaluate(() => window.MNCF.app.getModel().errors.length)) === 0 && await S(page, '.view svg').isVisible(), 'giường: dựng được, có hình');
+  ok((await S(page, '#mncf-nem-r').inputValue()) === '1600' && (await S(page, '#mncf-nem-d').inputValue()) === '2000', 'ô nệm 1600 × 2000');
+  await S(page, '#mncf-nem-r').fill('1800');
+  await page.waitForFunction(() => window.MNCF.app.getModel().info.giuong && window.MNCF.app.getModel().info.giuong.nem[0] === 1800);
+  { const sp = await page.evaluate(() => window.MNCF.app.getSpec()); ok(near(sp.rong, 1800 + 2 * 10 + 4 * sp.van.t), 'gõ nệm 1800: rộng phủ bì tự tính = nệm + 2 khe + 2 hông 2 lớp', sp.rong); }
+  await S(page, '[data-k="giuong.kieu"]').selectOption('bay');
+  await page.waitForFunction(() => window.MNCF.app.getModel().parts.some(p => p.loai === 'DEB'));
+  ok(await S(page, '[data-k="giuong.cao_de"]').isVisible() && await S(page, '[data-k="giuong.lui_de"]').isVisible(), 'kiểu giường bay: hiện ô cao đế / lùi đế');
+  await S(page, '[data-k="giuong.kieu"]').selectOption('nk');
+  await page.waitForFunction(() => window.MNCF.app.getModel().parts.filter(p => p.loai === 'MNK').length === 4);
+  ok(await S(page, '[data-k="giuong.nk_ben"]').isVisible() && (await S(page, '[data-k="giuong.cao_de"]').count()) === 0, 'kiểu ngăn kéo: hiện ô ngăn kéo, bỏ ô đế');
+  await S(page, '[data-k="giuong.nk_ben"]').selectOption('trai');
+  await page.waitForFunction(() => window.MNCF.app.getModel().parts.filter(p => p.loai === 'MNK').length === 2);
+  ok(true, 'ngăn kéo một bên: 2 mặt ngăn kéo');
+  await S(page, '[data-act="lui"]').click();
+  await page.waitForFunction(() => window.MNCF.app.getSpec().giuong.nk_ben === 'hai');
+  ok(true, '↶ Lùi: trả lại ngăn kéo hai bên');
+  await chon('V2800-1200');
+  ok(JSON.stringify(await nhan()) === JSON.stringify(['Rộng vách', 'Cao đỉnh vách']) && await S(page, '[data-k="vach.so_o"]').isVisible(), 'vách: 2 ô kích thước + ô số ô', await nhan());
+  ok((await page.evaluate(() => { const M = window.MNCF.app.getModel(); return !M.errors.length && M.parts.filter(p => p.loai === 'OP').length === 4; })), 'vách 2800: 4 tấm ốp, không lỗi');
+  await chon('G16-B'); await theSau(page.locator('#mncf-host'), 'chuan'); await S(page, '[data-act="defaults"]').click();
+  ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'giuong' && s.giuong.kieu === 'bay' && !window.MNCF.app.getModel().errors.length; })), 'giường bay → "Về chuẩn mặc định": vẫn là giường bay');
+  await S(page, '.tab[data-tab="tu"]').click();
+  await chon('TAP2-500');
+  ok((await S(page, '.panel').getAttribute('data-loai')) === 'tap' && !(await S(page, '.sp').isVisible()) && await S(page, '.bays').isVisible(), 'táp: như tủ thường (có phần khoang), không ô Giường');
+  ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.khoang.length === 1 && s.ve_goc === window.MNCFCore.DEFAULT_SPEC.ve_goc && !window.MNCF.app.getModel().errors.length; })), 'táp: 1 khoang, cách vẽ như tủ');
+  await chon('G16-NK'); await chon('');
+  ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !('loai_sp' in s) && !s.giuong && s.khoang.length === 3 && !window.MNCF.app.getModel().errors.length; })) && (await S(page, '.panel').getAttribute('data-loai')) === 'tu' && await S(page, '.bays').isVisible(), 'giường → tủ mặc định: tủ 3 khoang, không mang thông số giường');
+  ok(JSON.stringify(await nhan()) === JSON.stringify(['Rộng phủ bì', 'Cao phủ bì', 'Sâu thùng']), 'tủ: ô kích thước trở lại', await nhan());
+  await S(page, '[data-act="lui"]').click();
+  await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'giuong');
+  ok((await S(page, '.panel').getAttribute('data-loai')) === 'giuong', '↶ Lùi: trở lại giường ngăn kéo');
+  ok(errs.length === 0, 'không lỗi JS', errs);
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);
