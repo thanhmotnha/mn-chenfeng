@@ -1556,6 +1556,28 @@ T('Bản vá 1.31.1 — bản lề, vừa khổ ván, khung mặt, phủ hồi',
       const hop = r.z.every(v => v >= 17.5 - 1e-6 && v <= cao - 17.5 + 1e-6 && !cham(v)) && r.z.every((v, i) => !i || v - r.z[i - 1] >= 45 - 1e-6);
       if (hop === !!r.ket) sai++; }
     eq(sai, 0, 'quét 427 cánh × vùng tránh: bản lề hợp lệ ⇔ không báo kẹt'); }
+  { let sai = 0, x = 7;      // vùng tránh số lẻ thập phân (đợt gõ 2256,7…): số giả ngẫu nhiên cố định cho lần chạy nào cũng như nhau
+    const ngau = () => { x = (x * 16807) % 2147483647; return (x - 1) / 2147483646; };
+    for (let i = 0; i < 6000; i++) {
+      const cao = 150 + ngau() * 700, tr = []; for (let j = Math.floor(ngau() * 4); j > 0; j--) { const c = ngau() * cao; tr.push([c - 16.5 - ngau() * 3, c + 16.5 + ngau() * 3]); }
+      const r = C.banLeCanh(cao, ngau() < 0.5 ? 450 : 650, { r: 17.5, tranh: tr }), cham = v => tr.some(([a, b]) => v + 17.5 > a + 0.011 && v - 17.5 < b - 0.011);
+      const hop = r.z.every(v => v >= 17.5 - 0.011 && v <= cao - 17.5 + 0.011 && !cham(v)) && r.z.every((v, i) => !i || v - r.z[i - 1] >= 45 - 0.011);
+      if (hop === !!r.ket) sai++; }
+    eq(sai, 0, 'quét 6000 cánh thấp × vùng tránh số lẻ: hợp lệ ⇔ không kẹt (so khoảng cách có dung sai; chỗ trống vừa đúng 2 chén thì bỏ lề 5)'); }
+  eq(C.banLeCanh(200, 450, { r: 17.5, tranh: [[-25, 7.5], [192.5, 225], [26.8, 59.3], [64.7, 97.2]] }).ket, false, 'hai chén cách đúng 45 (trừ số lẻ ra 44,999…): không báo kẹt');
+  for (const d of [2256.7, 2261]) { const M = C.build({ rong: 700, cao: 2450, than: { cao_duoi: 2200 }, khoang: [{ rong: 'auto', canh: 1, dot: [1200, d], o: [] }] }), p = M.parts.find(q => q.loai === 'CANH' && q.z0 > 2000);
+    ok(!M.warnings.some(w => /bản lề/.test(w)) && p.ban_le.z[1] - p.ban_le.z[0] >= 45 - 0.011, `cánh trên 197, đợt ${d}: 2 bản lề xếp được, không báo "không đủ chỗ"`, p.ban_le.z); }
+  // vừa khổ ván: cảnh báo sẵn có đổi SỐ sau khi chia (hộp che cột chiếm X trong Y) vẫn là của khoang gốc đó — không chặn; cảnh báo cùng loại mà ở khoang gốc khác — chặn
+  for (const w of [1800, 2700]) { const s = C.apMau(C.DEFAULT_SPEC, 'TA2-1000'); s.rong = w; s.khau = Object.assign({}, s.khau, { trai: { rong: 300, sau: 200 } });
+    const r = C.vuaKhoVan(s), M = C.build(r.spec);
+    ok(C.build(s).warnings.some(t => /hộp che cột/.test(t)) && r.doi.length && r.con === 0 && !M.errors.length, `tủ 2 cánh kéo ${w} có cột góc (cảnh báo "hộp che cột" sẵn có): vẫn chia, hết lỗi`, [r.truoc, r.con, r.spec.khoang.length]); }
+  { const s = C.apMau(C.DEFAULT_SPEC, 'TA4-2000-2T'); s.rong = 2600; s.khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 600, rong: 300, sau: 250 }], ho: 15 };
+    const r = C.vuaKhoVan(s), dem = M => M.warnings.filter(t => /treo chỉ sâu/.test(t)).length;
+    ok(dem(C.build(r.spec)) <= dem(C.build(s)) && !r.doi.length, 'chia mà khoang treo vốn đủ sâu nay lấn vào vùng cột (cảnh báo cùng loại, KHOANG GỐC khác): không nhận', [r.doi, C.build(r.spec).warnings.filter(t => /treo chỉ sâu/.test(t))]); }
+  // khung đế: hai vùng cột dùng chung một vách → một đế dọc, chạy tới mép sau (đoạn đế sau dưới vách đã bỏ vì vụn)
+  { const M = C.build({ rong: 2400, cao: 2200, than: { cao_duoi: 0 }, chan: { cao: 100 }, thung: { noc_day: 'phu_hoi', rong_max: 0 }, khoang: [0, 1, 2].map(() => ({ rong: 'auto', canh: 2, dot: [1100], o: [] })), khau: { giua: [{ cach: 543.5, rong: 200, sau: 200 }, { cach: 911, rong: 200, sau: 180 }] } });
+    const doc = P(M, 'DE').filter(p => p.ten === 'Đế dọc'), Dc = Math.max(...P(M, 'DE').map(p => p.y1));
+    ok(!M.errors.length && !chongNhau(M).length && doc.length === 1 && Math.abs(doc[0].y1 - Dc) < 0.011, 'hai cột hai bên một vách: một đế dọc (không hai tấm chồng nhau), chạy tới mép sau', [M.errors, doc.map(p => [p.x0, p.x1, p.y0, p.y1]), Dc]); }
   ok(C.nangCap({ khoang: [{ rong: 'auto', canh: 2, ngan_keo: { so: 2, den: 520 } }] }, '1.4.0').doi.some(d => /khung mặt/.test(d)), 'nâng cấp: ngăn kéo dạng cũ (khoang.ngan_keo) cũng được báo đổi sang khung mặt');
   // PHỦ HỒI: khung đế khép kín khi vách sẵn có làm vách khấu; không có đoạn đế vụn
   { const r = C.vachTheoCot({ rong: 2400, cao: 2200, than: { cao_duoi: 0 }, thung: { noc_day: 'phu_hoi' }, khoang: [0, 1, 2].map(() => ({ rong: 'auto', canh: 2, dot: [1100], o: [] })), khau: { giua: [{ cach: 900, rong: 250, sau: 200 }] } });

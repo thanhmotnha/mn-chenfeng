@@ -175,11 +175,11 @@
     const dau = Math.max(r, Math.min(num(opt.cach_dau, 100), cao / 4));      // tâm chén không ra ngoài cánh dù gõ "cách đầu cánh" ≤ 0
     while (so > 2 && (cao - 2 * dau) / (so - 1) < GAP) so--;      // (1.31.1) cánh thấp: không nhồi quá số bản lề lọt chỗ (hai chén cách nhau ≥ 2r + 10), ít nhất 2
     const z = []; for (let q = 0; q < so; q++) z.push(rn(dau + q * (cao - 2 * dau) / (so - 1)));
-    const cham = v => tranh.some(([a, b]) => v + r > a && v - r < b);
+    const cham = v => tranh.some(([a, b]) => v + r > a + TOL && v - r < b - TOL);      // chạm đúng mép vùng (số lẻ sau phép trừ) không tính
     // (1.31.1) chỗ trống cho TÂM chén: [r, cao − r] trừ (a − r, b + r) của từng vùng. Dời bản lề vào điểm trống gần nhất (cách mép chỗ trống 5 khi chỗ đủ rộng) —
     // kể cả khe giữa hai vùng chỉ vừa lọt chén (trước: chỉ thử b + r + 5 / a − r − 5 nên khe 2r … 2r + 10 bị bỏ qua)
     const TRONG = []; { let lo = r; for (const [a, b] of tranh) { if (a - r > lo + TOL) TRONG.push([lo, Math.min(a - r, cao - r)]); lo = Math.max(lo, b + r); } if (cao - r > lo + TOL) TRONG.push([lo, cao - r]); }
-    const gan = (v, lb, ub) => { let tot = null; for (const [u0, u1] of TRONG) { let lo = u0, hi = u1; if (hi - lo > 10) { lo += 5; hi -= 5; } if (lb !== undefined) lo = Math.max(lo, lb); if (ub !== undefined) hi = Math.min(hi, ub); if (lo > hi + TOL) continue; const c = Math.min(Math.max(v, lo), hi); if (tot === null || Math.abs(c - v) < Math.abs(tot - v)) tot = c; } return tot; };
+    const gan = (v, lb, ub, le = 5) => { let tot = null; for (const [u0, u1] of TRONG) { let lo = u0, hi = u1; if (hi - lo > 2 * le) { lo += le; hi -= le; } if (lb !== undefined) lo = Math.max(lo, lb); if (ub !== undefined) hi = Math.min(hi, ub); if (lo > hi + TOL) continue; const c = Math.min(Math.max(v, lo), hi); if (tot === null || Math.abs(c - v) < Math.abs(tot - v)) tot = c; } return tot; };
     const raNgoai = v => gan(v);
     if (tranh.length) {
       const chot = new Set([0, so - 1]);
@@ -197,12 +197,13 @@
     // (1.31.1) còn chạm vùng hoặc hai bản lề sát nhau (< 2r + 10): dàn lại — từ dưới lên, mỗi bản lề ở chỗ trống gần chỗ cũ nhất mà cách bản lề dưới ≥ 2r + 10; không được thì từ trên xuống
     const hong = a => a.some(cham) || a.some((v, q) => q && v - a[q - 1] < GAP - TOL);
     if (hong(z)) {
-      const len = () => { const o = []; for (let q = 0; q < so; q++) { const lb = q ? o[q - 1] + GAP : undefined, c = gan(lb === undefined ? z[q] : Math.max(z[q], lb), lb); if (c === null) return null; o.push(rn(c)); } return o; };
-      const xuong = () => { const o = []; for (let q = so - 1; q >= 0; q--) { const ub = q < so - 1 ? o[0] - GAP : undefined, c = gan(ub === undefined ? z[q] : Math.min(z[q], ub), undefined, ub); if (c === null) return null; o.unshift(rn(c)); } return o; };
-      const a1 = len(); if (a1 && !hong(a1)) z.splice(0, so, ...a1); else { const a2 = xuong(); if (a2 && !hong(a2)) z.splice(0, so, ...a2); }
+      const len = le => { const o = []; for (let q = 0; q < so; q++) { const lb = q ? o[q - 1] + GAP : undefined, c = gan(lb === undefined ? z[q] : Math.max(z[q], lb), lb, undefined, le); if (c === null) return null; o.push(rn(c)); } return o; };
+      const xuong = le => { const o = []; for (let q = so - 1; q >= 0; q--) { const ub = q < so - 1 ? o[0] - GAP : undefined, c = gan(ub === undefined ? z[q] : Math.min(z[q], ub), undefined, ub, le); if (c === null) return null; o.unshift(rn(c)); } return o; };
+      // chừa lề 5 trong chỗ trống trước; chỗ trống chỉ vừa (vd 45 – 55 cho 2 chén) thì bỏ lề
+      for (const thu of [() => len(5), () => xuong(5), () => len(0), () => xuong(0)]) { const a = thu(); if (a && !hong(a)) { z.splice(0, so, ...a); break; } }
     }
     let ket = z.some(v => cham(v) || v < r - TOL || v > cao - r + TOL);
-    for (let q = 1; q < so; q++) if (z[q] - z[q - 1] < GAP) ket = true;
+    for (let q = 1; q < so; q++) if (z[q] - z[q - 1] < GAP - TOL) ket = true;      // cùng ngưỡng với hong() (cách đúng 2r + 10 mà trừ số lẻ ra 44,999… thì vẫn hợp lệ)
     return { so, z, ket, vung: tranh.length > 0 };
   }
   const DE_BL = 50;      // (bản 1.30) chiều cao đế bản lề chữ thập (lấy dư) — vùng đế không được đè lên đợt cố định
@@ -786,12 +787,17 @@
         // đế sau: cắt thành đoạn theo mép các vùng cột
         const moc = [x0 + t, x1 - t]; for (const K of KH) for (const v of [K.xa - K.eA, K.xb + K.eB]) if (isFinite(v) && v > x0 + t + TOL && v < x1 - t - TOL) moc.push(v);
         moc.sort((u, v) => u - v);
-        for (let k = 0; k + 1 < moc.length; k++) { const a = moc[k], c = moc[k + 1]; if (c - a < 2 * t) continue; const y = mepSau(a, c); de('sau', 2, a, c, y - t, y); }      // (1.31.1) bỏ đoạn vụn (< 2 dày ván) giữa hai vùng cột sát nhau
-        // (1.31.1) vách sẵn có làm vách khấu (eA / eB = 0) đứng TRÊN đáy, không xuống sàn → đế sau đoạn trước cột và đoạn sát lưng hở đầu: thêm đế dọc ngay dưới vách đó nối hai đoạn
+        const sau = [];
+        for (let k = 0; k + 1 < moc.length; k++) { const a = moc[k], c = moc[k + 1]; if (c - a < 2 * t) continue; const y = mepSau(a, c); de('sau', 2, a, c, y - t, y); sau.push([a, c, y]); }      // (1.31.1) bỏ đoạn vụn (< 2 dày ván) giữa hai vùng cột sát nhau
+        // (1.31.1) vách sẵn có làm vách khấu (eA / eB = 0) đứng TRÊN đáy, không xuống sàn → đế sau đoạn trước cột và đoạn sát lưng hở đầu: thêm đế dọc ngay dưới vách đó nối hai đoạn.
+        // Hai vùng cột dùng chung MỘT vách (vùng trái co_b, vùng phải co_a) → một đế dọc (gom theo x, chạy từ đoạn trước cột nông hơn); đoạn đế sau ngay dưới vách bị bỏ vì vụn → đế dọc chạy tới mép sau.
+        const doc = new Map();
+        const themDoc = (xa, xb, ya) => { const k = rn(xa, 1); const c = doc.get(k); if (c) c[2] = Math.min(c[2], ya); else doc.set(k, [xa, xb, ya]); };
         for (const K of KH) {
-          if (isFinite(K.xa) && !K.eA && K.xa - t > x0 + t - TOL && K.xa < x1 - t + TOL) de('dọc', 1, K.xa - t, K.xa, K.Dn - t, Dc - t);
-          if (isFinite(K.xb) && !K.eB && K.xb > x0 + t - TOL && K.xb + t < x1 - t + TOL) de('dọc', 1, K.xb, K.xb + t, K.Dn - t, Dc - t);
+          if (isFinite(K.xa) && !K.eA && K.xa - t > x0 + t - TOL && K.xa < x1 - t + TOL) themDoc(K.xa - t, K.xa, K.Dn - t);
+          if (isFinite(K.xb) && !K.eB && K.xb > x0 + t - TOL && K.xb + t < x1 - t + TOL) themDoc(K.xb, K.xb + t, K.Dn - t);
         }
+        for (const [xa, xb, ya] of doc.values()) de('dọc', 1, xa, xb, ya, sau.some(([a, c, y]) => Math.abs(y - Dc) < TOL && a < xb - TOL && c > xa + TOL) ? Dc - t : Dc);
       }
     }
 
@@ -2398,7 +2404,7 @@
    * (bản 1.30.1 — anh Thanh 08/10/2026: "rất hay báo lỗi bị vượt khổ ván rất mệt"; viết lại 1.31.1) Khoang quá rộng so với khổ ván — thường gặp: chọn "Tủ có sẵn" rồi kéo rộng
    * (vd 4 cánh 2000 đặt rộng 2600 → khoang 1280, hậu 1290 > 1220). Tách đôi khoang TỰ CHIA rộng nhất có tấm vượt khổ VÌ BỀ NGANG (tấm của một khoang — không kể đáy / nóc / đế
    * liền thùng, hậu khấu cột), tối đa 12 lần; một lần tách có thể chưa giảm (cả dãy chia lại theo số cánh) nên đi tiếp và giữ phương án ít tấm vượt nhất. Dừng khi lần tách sinh
-   * lỗi khác hoặc cảnh báo "hư" MỚI (khoang / cánh quá hẹp, treo trước hộp che cột — so theo nội dung, bỏ số khoang). Mỗi nửa giữ số cánh, đợt, nội dung ô (1 cánh: bản lề hai bên).
+   * lỗi khác hoặc cảnh báo "hư" MỚI (khoang / cánh quá hẹp, treo trước hộp che cột — so theo nội dung + khoang gốc). Mỗi nửa giữ số cánh, đợt, nội dung ô (1 cánh: bản lề hai bên).
    * Khoang gõ số cố định không đụng. Hàm thuần.
    * @returns {{ spec, doi: string[], truoc: number, con: number, goi_y: string }} truoc / con = MỌI tấm vượt khổ (cả chiều cao) + lỗi "thanh ngang mặt trước" trước / sau khi chia;
    *   doi = dòng báo khi có chia (rỗng = không chia); goi_y = nhắc "Rộng tối đa một thùng" khi còn tấm liền thùng dài hơn khổ (hiện cả khi không chia được gì)
@@ -2416,11 +2422,15 @@
       return { tong: vuot.length + thanh, go, thanh, lien };
     };
     // chia mà làm hỏng chỗ khác thì không nhận: lỗi không phải khổ ván, hoặc cảnh báo "hư" (khoang / cánh quá hẹp, treo trước hộp che cột)
-    // so theo NỘI DUNG (bỏ số thứ tự khoang): cảnh báo sẵn có của khoang cũ lặp lại ở hai nửa của chính nó không phải chỗ hỏng mới (1.31.1 — trước so số đếm, từ chối oan)
+    // (1.31.1) so theo NỘI DUNG + KHOANG GỐC: `goc[j]` = khoang ban đầu mà khoang j hiện tại tách ra từ đó. Số khoang trong dòng báo đổi thành khoang gốc, mọi con số khác bỏ
+    // (bề ngang, sâu… đổi theo mỗi lần chia). Cảnh báo sẵn có của khoang cũ lặp lại ở các nửa của chính nó (vd "hộp che cột chiếm 265 trong 824") không phải chỗ hỏng mới;
+    // cùng loại cảnh báo mà ở khoang gốc KHÁC (vd khoang treo vốn đủ sâu nay lấn vào vùng cột) là hỏng mới. Trước: so số dòng / chỉ bỏ số khoang → từ chối oan / nhận nhầm.
     const RE_HU = /quá hẹp|Cánh chỉ rộng|khoang treo chỉ sâu|hộp che cột|không treo được/;
-    const khoa = t => String(t).replace(/[Kk]hoang \d+/g, 'khoang #');
-    const hong = M => new Set(M.errors.filter(e => !/khổ ván/.test(e)).map(khoa).concat(M.warnings.filter(w => RE_HU.test(w)).map(khoa)));
-    const M0 = build(s0), L0 = dem(M0), n0 = s0.khoang.length, H0 = hong(M0);
+    const chu = n => (n === undefined ? '?' : String.fromCharCode(97 + (n % 26)) + (n >= 26 ? String.fromCharCode(97 + Math.floor(n / 26)) : ''));
+    const khoa = (t, goc) => String(t).replace(/([Kk]hoang) (\d+)(?:\s*[–-]\s*(\d+))?/g, (m, k, a, b) => `khoang @${chu(goc[+a - 1])}${b ? '–@' + chu(goc[+b - 1]) : ''}`).replace(/\d+(?:[.,]\d+)?/g, '#');
+    const hong = (M, goc) => new Set(M.errors.filter(e => !/khổ ván/.test(e)).map(e => 'E|' + khoa(e, goc)).concat(M.warnings.filter(w => RE_HU.test(w)).map(w => 'W|' + khoa(w, goc))));
+    const M0 = build(s0), L0 = dem(M0), n0 = s0.khoang.length, goc0 = s0.khoang.map((k, j) => j), H0 = hong(M0, goc0);
+    let goc = goc0;
     let tot = { s: s0, M: M0, L: L0 }, s = s0, M = M0, L = L0;
     for (let lan = 0; lan < 12 && (L.go.length || L.thanh); lan++) {
       const w = M.info.khoang || [], co = new Set(L.go.map(p => p.khoang)), chung = L.thanh > 0 || L.go.some(p => p.khoang === undefined);
@@ -2430,9 +2440,9 @@
       const k = s.khoang[i], a = clone(k), b = clone(k);
       if (k.canh === 1) { a.ban_le = 'trai'; b.ban_le = 'phai'; }
       const c = clone(s); c.khoang.splice(i, 1, a, b);
-      const s2 = normalize(c), M2 = build(s2);
-      if ([...hong(M2)].some(k => !H0.has(k))) break;
-      s = s2; M = M2; L = dem(M2);
+      const s2 = normalize(c), M2 = build(s2), goc2 = goc.slice(); goc2.splice(i, 1, goc[i], goc[i]);
+      if ([...hong(M2, goc2)].some(k => !H0.has(k))) break;
+      s = s2; M = M2; L = dem(M2); goc = goc2;
       // cả dãy khoang tự chia theo số cánh nên một lần tách có thể chưa giảm (mọi khoang co đều) — đi tiếp, giữ phương án ít tấm vượt nhất
       if (L.tong < tot.L.tong) tot = { s, M, L };
       if (!L.tong) break;

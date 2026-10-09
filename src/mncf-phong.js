@@ -304,14 +304,15 @@
         else (che ? kq.luu_y : kq.ghi_chu).push(`${T}: sau lưng tủ, ${cho || 'ngoài các khoang'} — ${vt}. ${it.hau.charAt(0).toUpperCase() + it.hau.slice(1)}.${che}`);
       } else if (c.mat === 'day') {
         it.khoang = khoangCua(x);
-        let day = null; const cho2 = [];
+        let day = null, dayThap = null; const cho2 = [];
         for (const q of M.parts) {
           if (q.loai === 'CANH' || !chong(q.x0, q.x1, x - r, x + r) || !chong(q.y0, q.y1, y - r, y + r)) continue;
+          if (q.loai === 'DAY' && (!dayThap || q.z0 < dayThap.z0)) dayThap = q;      // đáy thấp nhất kể cả đáy nằm sát sàn (phủ hồi không chân)
           if (q.z0 > bb.z0 + 0.5) { if (q.loai === 'DAY' && (!day || q.z0 < day.z0)) day = q; continue; }      // tấm không chạm sàn; đáy thấp nhất = tấm phải khoét
           it.trung.push(tenTam(q)); cho2.push(/^(HOI|VACH|DEM)$/.test(q.loai) ? choTam(q) : tenTam(q));
         }
         // (1.31.1) phủ hồi: hồi / vách đứng TRÊN đáy (không chạm sàn) — ống đi lên xuyên đáy vẫn đâm vào chân tấm đó
-        if (day) for (const q of M.parts) if (/^(HOI|VACH)$/.test(q.loai) && q.z0 > bb.z0 + 0.5 && Math.abs(q.z0 - day.z1) < 0.6 && chong(q.x0, q.x1, x - r, x + r) && chong(q.y0, q.y1, y - r, y + r)) { it.trung.push(tenTam(q)); cho2.push(choTam(q)); }
+        if (dayThap) for (const q of M.parts) if (/^(HOI|VACH)$/.test(q.loai) && q.z0 > bb.z0 + 0.5 && Math.abs(q.z0 - dayThap.z1) < 0.6 && chong(q.x0, q.x1, x - r, x + r) && chong(q.y0, q.y1, y - r, y + r)) { it.trung.push(tenTam(q)); cho2.push(choTam(q)); }
         const vt = `tâm cách mép trái tủ ${g(c.x)}, cách lưng tủ ${g(k.sau - c.y)}`;
         if (d.loai === 'thoat_san') kq.luu_y.push(`${T} nằm dưới tủ (${it.khoang >= 0 ? `khoang ${it.khoang + 1}; ` : ''}${vt}) — tủ che mất thoát sàn: nước không thoát, không thông ống được. Dời tủ hoặc để hở chân tủ chỗ đó.`);
         else if (it.trung.length) kq.luu_y.push(`${T} dưới tủ (${vt}) TRÚNG ${cho2.join(', ')} — ống ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, đâm vào tấm chạm sàn. Kéo vách tránh ra hoặc dời tủ.`);

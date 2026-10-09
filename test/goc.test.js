@@ -192,6 +192,38 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       if (process.env.MNCF_IN) console.log(d.nd);
       ok(/Nóc \(đo\) \| dày 17,5|Nóc \(đo\) \| dày 17.5/.test(d.nd) && /x 0 … 17.5/.test(d.nd), 'tệp ghi tên, dày, hộp từng tấm (toạ độ tính từ góc thùng thử)', d.nd.split('\n').filter(l => /Nóc|Hồi/.test(l)).slice(0, 4));
     }
+    // (1.31.1) đo trên Chenfeng của người dùng: không đụng hộp người dùng đang mở; lệnh tới trễ / hộp không nhận OK thì dọn sạch, trả lại lựa chọn đúng lúc
+    {
+      const song = () => page.evaluate(() => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length);
+      await page.evaluate(() => window.app.Editor.CommandStore.HandleInput('TOPBOTTOMBOARD'));      // người dùng tự mở lệnh nóc / đáy của Chenfeng
+      await page.waitForSelector('.mock-goc');
+      const h = await page.evaluate(async () => { const n0 = (window.__MOCK_INPUTS__ || []).length; const r = await window.MNCFDriver.doBocHoi(); return { ok: r.ok, loi: r.loi, gui: (window.__MOCK_INPUTS__ || []).slice(n0), hop: document.querySelectorAll('.mock-goc').length }; });
+      ok(!h.ok && /đang mở hộp "TOPBOTTOMBOARD"/.test(h.loi) && !h.gui.length && h.hop === 1, 'Chenfeng đang mở hộp nóc / đáy của người dùng: không đo, không gửi lệnh nào, không bấm OK hộ — nói tên hộp', h);
+      await page.evaluate(() => document.querySelector('.mock-goc .nut-huy').click()); await page.waitForTimeout(150);
+      const n0 = await song();
+      // lệnh hồi dựng tấm trễ hơn hạn chờ (Chenfeng còn tải vật liệu): không trả lựa chọn sớm (thùng thử dựng theo cấu hình người dùng), canh tới khi lệnh xong rồi xoá thùng thử
+      const tre = await page.evaluate(async () => {
+        const D = window.MNCFDriver, ch0 = D.CH.cho_tam, st0 = window.setTimeout; let cham = 3500;
+        window.setTimeout = function (fn, ms, ...a) { if (cham && ms === 40 && typeof fn === 'function' && /dungGoc/.test(String(fn))) { ms = cham; cham = 0; } return st0.call(this, fn, ms, ...a); };
+        D.CH.cho_tam = 1200;
+        let r; try { r = await D.doBocHoi(); } finally { D.CH.cho_tam = ch0; window.setTimeout = st0; }
+        const dem = () => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length, n0 = dem(), lcNgay = window.__thu.lc() === window.__thu.lc0, lai = await D.doBocHoi();
+        let thay = 0, tenThu = ''; const t0 = Date.now();
+        while (Date.now() - t0 < 15000) { await new Promise(res => st0(res, 150)); const ds = window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && e.Name); if (dem() > n0) { thay = 1; tenThu = tenThu || ds.map(e => e.Name).join(','); } if (thay && dem() === n0 && window.__thu.lc() === window.__thu.lc0 && !D.dangLenhTre()) break; }
+        return { ok: r.ok, tre: r.tre, con: r.con, tep: /hiện ra trễ/.test(r.noi_dung || ''), lcNgay, lai: lai.loi || '', thay, tenThu, sau: dem() - n0, lc: window.__thu.lc() === window.__thu.lc0, busy: D.busy(), canh: D.dangLenhTre() };
+      });
+      ok(!tre.ok && tre.tre && tre.con === 0 && tre.tep && !tre.lcNgay && /chạy dở lệnh trước/.test(tre.lai), 'lệnh hồi tới trễ: dừng đo, báo "hiện ra trễ", CHƯA trả lựa chọn (Chenfeng chưa đọc); bấm đo lại lúc đó thì từ chối', tre);
+      ok(tre.thay && /Hồi trái \(đo\)/.test(tre.tenThu) && tre.sau === 0 && tre.lc && !tre.busy && !tre.canh, '… lệnh tới: thùng thử dựng theo lựa chọn đo (không phải của người dùng), bảng tự xoá, rồi trả lựa chọn của người dùng nguyên vẹn', tre);
+      // hộp nóc / đáy không nhận OK (Chenfeng giữ hộp): đóng hộp bằng nút huỷ của nó rồi mới hoàn tác (UNDO gửi lúc hộp còn mở bị nuốt) — không còn hồi thử
+      const k = await page.evaluate(async () => {
+        const id = setInterval(() => { const h = [...document.querySelectorAll('.mock-goc')].find(d => d.querySelector('h4').textContent === 'TOPBOTTOMBOARD'); if (h) { h.querySelector('.nut-ok').onclick = () => {}; clearInterval(id); } }, 20);
+        const dem = () => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase).length, n0 = dem();
+        let r; try { r = await window.MNCFDriver.doBocHoi(); } finally { clearInterval(id); }
+        return { ok: r.ok, loi: r.loi, con: r.con, hoan: /Đã hoàn tác lượt này/.test(r.noi_dung || ''), hop: document.querySelectorAll('.mock-goc').length, moi: dem() - n0, busy: window.MNCFDriver.busy(), lc: window.__thu.lc() === window.__thu.lc0 };
+      });
+      ok(!k.ok && k.con === 0 && k.hoan && k.hop === 0 && k.moi === 0 && !k.busy && k.lc, 'hộp nóc / đáy không nhận OK: đóng hộp, hoàn tác 2 hồi thử, bản vẽ như trước, lựa chọn trả lại', k);
+      eq(await song(), n0, '… bản vẽ đúng số đối tượng như trước 3 lần đo hỏng');
+    }
 
     eq(errs, [], 'không có lỗi JS nào lọt ra trang');
   } finally { await ctx.close(); try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ } }

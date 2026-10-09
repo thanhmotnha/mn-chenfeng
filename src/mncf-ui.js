@@ -3307,8 +3307,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           busy = false; b.disabled = false; rebuild();
           if (!r || !r.noi_dung) { setStatus('Chưa đo được: ' + ((r && r.loi) || 'lỗi không rõ') + '.'); return; }
           const kq = await download(`chenfeng-boc-hoi-${new Date().toISOString().slice(0, 10)}.txt`, r.noi_dung, 'text/plain');
-          const sot = r.con ? ` CHÚ Ý: còn ${r.con} tấm thử chưa hoàn tác được ở x ≈ ${r.x} — xoá tay (bấm chọn rồi Delete).` : '';
-          setStatus((kq === 'saved' ? `Đã đo ${r.so_luot}/3 lượt${r.con ? '' : ' và hoàn tác'} — đã tải tệp chenfeng-boc-hoi, gửi tệp đó cho Claude.` : 'Đã đo xong nhưng chưa tải được tệp.') + sot);
+          const sot = r.tre ? ` Chenfeng còn chờ máy chủ: thùng thử ở x ≈ ${r.x} có thể hiện ra trễ — bảng tự xoá khi lệnh xong (tối đa 3 phút); còn thấy thì xoá tay.` : r.con ? ` CHÚ Ý: còn ${r.con} tấm thử chưa hoàn tác được ở x ≈ ${r.x} — xoá tay (bấm chọn rồi Delete).` : '';
+          setStatus((kq === 'saved' ? `Đã đo ${r.so_luot}/3 lượt${r.con || r.tre ? '' : ' và hoàn tác'} — đã tải tệp chenfeng-boc-hoi, gửi tệp đó cho Claude.` : 'Đã đo xong nhưng chưa tải được tệp.') + sot);
         })();
       }
       else if (act === 'tham-do') {      // (bản 1.29.1) chỉ đọc mã các lớp lệnh của Chenfeng → tải tệp chữ về máy để gửi cho Claude
