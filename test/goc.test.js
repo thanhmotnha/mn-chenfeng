@@ -268,6 +268,25 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
         return kq;
       });
       ok(chon.tre && !chon.xoa && chon.con === 2 && chon.uCon && JSON.stringify(chon.chon) === '["Tấm của tôi"]', 'người dùng đang chọn tấm của họ: tập chọn giữ nguyên, tấm của họ còn, thùng thử để lại + báo 2 tấm xoá tay', chon);
+      // người dùng bấm Ctrl+Z (UNDO) ngay lúc bảng đang hoàn tác lượt đo: bảng chỉ lùi bước của lệnh thử — gặp đỉnh lịch sử là bước của người dùng thì thôi, không lùi tiếp vào việc cũ của họ
+      const ctrlz = await page.evaluate(async () => {
+        const D = window.MNCFDriver, E = window.app.Editor, st0 = window.setTimeout, ngu = ms => new Promise(res => st0(res, ms));
+        const lr = window.__MOCK__.gocSt.LEFTRIGHTBOARD.m_Option, ten0 = [lr.leftBoardName, lr.rightBoardName];
+        E.CommandStore.HandleInput('LEFTRIGHTBOARD');      // việc cũ của người dùng: 2 hồi ở x −9000 (một bước lịch sử)
+        for (let i = 0; i < 50 && !document.querySelector('.mock-goc'); i++) await ngu(50);
+        document.querySelector('.mock-goc .nut-ok').click();
+        for (let i = 0; i < 50 && !D.busy(); i++) await ngu(50);
+        E.InputEvent('-9000,0,0');
+        for (let i = 0; i < 50 && !window.app.Database.ModelSpace.Entitys.some(e => e && !e.IsErase && e.Name === ten0[0]); i++) await ngu(50);
+        await ngu(300);
+        const cua = window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && ten0.includes(e.Name)), pl = E.CommandStore.promptList, mk = pl.length ? pl[pl.length - 1].key : -1;
+        let daBam = 0; (async () => { for (let i = 0; i < 600 && !pl.some(p => p.key > mk && p.type === 'COMMAND' && p.msg === '>UNDO'); i++) await ngu(50); await ngu(150); E.CommandStore.HandleInput('UNDO'); daBam = 1; })();
+        const r = await D.doBocHoi();
+        const kq = { daBam, cuaHo: cua.map(e => e.IsErase ? 'xoá' : 'còn'), con: r.con, thu: window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && /\(đo\)/.test(e.Name || '')).length };
+        await D.erase(cua.filter(e => !e.IsErase));
+        return kq;
+      });
+      ok(ctrlz.daBam && ctrlz.cuaHo.length === 2 && ctrlz.cuaHo.every(x => x === 'còn') && !ctrlz.thu, 'người dùng Ctrl+Z giữa lúc bảng hoàn tác: 2 hồi cũ của họ còn nguyên, không còn tấm thử nào', ctrlz);
       // hộp nóc / đáy không nhận OK (Chenfeng giữ hộp): đóng hộp bằng nút huỷ của nó rồi mới hoàn tác (UNDO gửi lúc hộp còn mở bị nuốt) — không còn hồi thử
       const k = await page.evaluate(async () => {
         const id = setInterval(() => { const h = [...document.querySelectorAll('.mock-goc')].find(d => d.querySelector('h4').textContent === 'TOPBOTTOMBOARD'); if (h) { h.querySelector('.nut-ok').onclick = () => {}; clearInterval(id); } }, 20);
