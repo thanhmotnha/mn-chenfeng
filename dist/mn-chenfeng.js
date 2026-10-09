@@ -2430,7 +2430,11 @@
     const RE_HU = /quá hẹp|Cánh chỉ rộng|khoang treo chỉ sâu|hộp che cột|không treo được/;
     const chu = n => (n === undefined ? '?' : String.fromCharCode(97 + (n % 26)) + (n >= 26 ? String.fromCharCode(97 + Math.floor(n / 26)) : ''));
     const khoa = (t, goc) => String(t).replace(/([Kk]hoang) (\d+)(?:\s*[–-]\s*(\d+))?/g, (m, k, a, b) => `khoang @${chu(goc[+a - 1])}${b ? '–@' + chu(goc[+b - 1]) : ''}`).replace(/\d+(?:[.,]\d+)?/g, '#');
-    const hong = (M, goc) => new Set(M.errors.filter(e => !/khổ ván/.test(e)).map(e => 'E|' + khoa(e, goc)).concat(M.warnings.filter(w => RE_HU.test(w)).map(w => 'W|' + khoa(w, goc))));
+    // "hộp che cột" là của CÂY CỘT (cố định), không của khoang: cả dãy chia lại theo số cánh thì cùng cây cột đó có thể nằm sau khoang khác → khoá theo các cột nằm sau khoang đó
+    const cotSau = (M, n) => { const x0 = (M.info.x_khoang || [])[n - 1], w = (M.info.khoang || [])[n - 1]; if (!isFinite(x0) || !isFinite(w)) return null; const ds = (M.info.khau || []).filter(K => Math.min(typeof K.xb === 'number' ? K.xb : Infinity, x0 + w) - Math.max(typeof K.xa === 'number' ? K.xa : -Infinity, x0) > TOL).map(K => String(K.cot && isFinite(K.cot.x0) ? Math.round(K.cot.x0) : K.ben)); return ds.length ? ds : null; };      // cột góc: vùng khấu từ mép tủ (M.info.khau ghi xa / xb = null — isFinite(null) là true, đừng dùng)
+    // (một khoá cho MỖI cột: khoang có 2 cột góc tách đôi thành 2 khoang mỗi khoang một cột vẫn là 2 chỗ che cũ)
+    const khoaW = (M, w, goc) => { const m = /hộp che cột/.test(w) && /^Khoang (\d+):/.exec(w), c = m && cotSau(M, +m[1]); return c ? c.map(x => 'W|hộp che cột|' + x) : ['W|' + khoa(w, goc)]; };
+    const hong = (M, goc) => new Set(M.errors.filter(e => !/khổ ván/.test(e)).map(e => 'E|' + khoa(e, goc)).concat(...M.warnings.filter(w => RE_HU.test(w)).map(w => khoaW(M, w, goc))));
     const M0 = build(s0), L0 = dem(M0), n0 = s0.khoang.length, goc0 = s0.khoang.map((k, j) => j), H0 = hong(M0, goc0);
     let goc = goc0;
     let tot = { s: s0, M: M0, L: L0 }, s = s0, M = M0, L = L0;
@@ -2443,10 +2447,11 @@
       if (k.canh === 1) { a.ban_le = 'trai'; b.ban_le = 'phai'; }
       const c = clone(s); c.khoang.splice(i, 1, a, b);
       const s2 = normalize(c), M2 = build(s2), goc2 = goc.slice(); goc2.splice(i, 1, goc[i], goc[i]);
-      if ([...hong(M2, goc2)].some(k => !H0.has(k))) break;
+      const hu = [...hong(M2, goc2)].some(k => !H0.has(k));
       s = s2; M = M2; L = dem(M2); goc = goc2;
-      // cả dãy khoang tự chia theo số cánh nên một lần tách có thể chưa giảm (mọi khoang co đều) — đi tiếp, giữ phương án ít tấm vượt nhất
-      if (L.tong < tot.L.tong) tot = { s, M, L };
+      // cả dãy khoang tự chia theo số cánh nên một lần tách có thể chưa giảm (mọi khoang co đều) — đi tiếp, giữ phương án ít tấm vượt nhất. Bước sinh hư mới cũng đi tiếp
+      // (lần chia sau có khi gỡ được: cột lại rơi vào khoang cũ) nhưng không bao giờ nhận làm kết quả
+      if (!hu && L.tong < tot.L.tong) tot = { s, M, L };
       if (!L.tong) break;
     }
     const doi = [], con = tot.L.tong;
@@ -7962,24 +7967,45 @@
     let soLuot = 0, cauHinh = null, con = 0, tre = null;
     const CHO_TAM = D.CH.cho_tam;      // Chenfeng dựng tấm SAU khi lời nhắc đóng, còn chờ tải vật liệu (máy mới + mạng chậm: tới hơn 20 s — xem moLenh) → chờ dư
     const banDau = new Set(E());
-    // tấm của thùng thử: mới so với lúc bắt đầu đo + nằm ở vùng thử (cách mọi thứ 6 m)
-    const tamThu = () => E().filter(e => { if (!e || e.IsErase || banDau.has(e) || !D.isBoard(e)) return false; try { return D.boxOf(e)[0] >= X - 50; } catch (er) { return false; } });
+    // tấm của thùng thử: mới so với lúc bắt đầu đo + nằm GỌN trong vùng thùng thử (lượt C trùm ra t). Bảng vẽ tủ / mẫu ở chỗ trống max x + 6000 — cũng ở bên phải X — nên phải chặn cả mép phải
+    const tamThu = () => E().filter(e => { if (!e || e.IsErase || banDau.has(e) || !D.isBoard(e)) return false; try { const b = D.boxOf(e); return b[0] >= X - 50 && b[1] <= X + W + 50; } catch (er) { return false; } });
     // (1.31.1) lệnh chưa dựng tấm sau CHO_TAM mà vẫn đang chạy (chờ tải vật liệu): Chenfeng đọc lựa chọn khi dựng → trả lựa chọn ngay là thùng thử dựng theo cấu hình người dùng.
     // Canh tối đa 3 phút như canhLenhTre (lenhTre chặn lệnh khác của bảng): lệnh xong thì trả lựa chọn, chờ Chenfeng rảnh (không hỏi, không hộp) rồi xoá thùng thử; quá 3 phút vẫn trả lựa chọn.
+    // Xoá thùng thử CHỈ khi chắc Chenfeng không chạy lệnh nào khác: chưa lệnh nào bắt đầu sau lệnh trễ (_cmdName vẫn là nó), không hỏi, không hộp; gửi ERASE rồi xem dòng COMMAND ">ERASE" —
+    // không có = chữ đã rơi vào lệnh của người dùng (đã đo: không báo gì) → thôi, không gõ Enter / Esc vào lệnh đó (D.erase chung thì có gõ Enter).
+    const xoaThu = async (ten, rac) => {
+      if (tenLenhCuoi() !== ten || dangNhap || D.busy() || hopMo()) return false;
+      const con = () => rac.filter(e => !e.IsErase).length, m = logMark(), w2 = watchEnd();
+      try {
+        try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+        D.select(rac); await sleep(200);
+        await guiLenh('ERASE'); await sleep(150);
+        if (!logsSince(m).some(q => q.type === 'COMMAND' && String(q.msg || '').replace(/^>/, '').trim().toUpperCase() === 'ERASE')) return false;
+        let t0 = Date.now(); while (con() && !(w2.ended && w2.ended.name === 'ERASE') && Date.now() - t0 < 4000) await sleep(100);
+        if (con() && D.busy() && tenLenhCuoi() === 'ERASE') { D.input(''); t0 = Date.now(); while (con() && Date.now() - t0 < 6000) await sleep(100); }      // ERASE còn chờ xác nhận lựa chọn
+        return !con();
+      } catch (e) { return false; } finally { w2.off(); try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ } }
+    };
     const canhTre = (w, ten, tra) => {
-      const k = { xong: false, xoa: 0 }; lenhTre = k; tre = k;
+      const k = { xong: false, xoa: 0, con: 0 }; lenhTre = k; tre = k;
       (async () => {
-        const t0 = Date.now(); let daTra = false;
+        // lệnh trễ đã ghi dòng COMMAND của nó từ trước → dòng COMMAND nào mới từ lúc này = có lệnh khác bắt đầu (kể cả lệnh CÙNG TÊN của người dùng — _cmdName không đổi)
+        const t0 = Date.now(), mCanh = logMark(), lenhKhac = () => tenLenhCuoi() !== ten || logsSince(mCanh).some(q => q.type === 'COMMAND');
+        let daTra = false;
         try {
           while (Date.now() - t0 < 180000) {
             await sleep(300);
-            if (!daTra && (w.ended || (ten && tenLenhCuoi() !== ten))) { await D.settle(400, 8000); tra(); daTra = true; }
-            if (!daTra || dangNhap || D.busy() || hopMo()) continue;
-            const rac = tamThu(); if (rac.length) { const r = await D.erase(rac); k.xoa = r.n || 0; }
+            // lệnh trễ kết thúc (tấm đã dựng — Chenfeng đọc lựa chọn TRƯỚC đó) hoặc đã có lệnh khác chạy → trả lựa chọn NGAY, không chờ gì (chờ là có thể đè lên lựa chọn lệnh sau vừa ghi)
+            if (!daTra && (w.ended || lenhKhac())) { tra(); daTra = true; }
+            if (!daTra) continue;
+            if (lenhKhac()) break;      // người dùng / bảng đã chạy lệnh khác: không xoá nữa (chữ gửi vào sẽ rơi vào lệnh đó), báo xoá tay
+            if (dangNhap || D.busy() || hopMo()) continue;
+            const rac = tamThu(); if (rac.length && (await xoaThu(ten, rac))) k.xoa = rac.length;
             break;
           }
         } catch (e) { /* bỏ qua */ }
         if (!daTra) tra();
+        k.con = tamThu().length;
         w.off(); k.xong = true;
       })();
     };
@@ -8042,7 +8068,7 @@
     L.push('Lựa chọn hộp nóc / đáy của người dùng lúc đo (đã trả lại nguyên):', cauHinh || '(chưa mở được hộp)');
     // trả lại hướng nhìn của người dùng + thu phóng vừa bản vẽ (thùng thử đã hoàn tác — để nguyên thì màn hình trống trơn)
     try { const V = root.app.Viewer; if (huongNhin && V.CameraControl && typeof V.CameraControl.LookAt === 'function') V.CameraControl.LookAt(huongNhin); if (typeof V.ZoomAll === 'function') V.ZoomAll(); V.UpdateRender(); } catch (e) { /* bỏ qua */ }
-    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n'), con, x: X, tre: !!tre };
+    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n'), con, x: X, tre: !!tre, canh: tre };
   };
 
   /* ------------------------------------------------------------------ *
@@ -11466,11 +11492,13 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         busy = true; b.disabled = true; rebuild();
         (async () => {
           let r = null; try { r = await Drv.doBocHoi({ onStatus: setStatus }); } catch (e) { r = { ok: false, loi: String(e && e.message || e) }; }
+          // (1.31.1) lệnh của Chenfeng tới trễ: bảng còn canh để trả lựa chọn + xoá thùng thử — giữ khoá các nút (vẽ tủ lúc đó thì lệnh của bảng chen vào lệnh trễ, lựa chọn bị trả chéo)
+          if (r && r.canh && !r.canh.xong) { setStatus(`Chenfeng còn chờ máy chủ để dựng thùng thử (x ≈ ${r.x}) — bảng chờ lệnh đó xong rồi xoá thùng thử (tối đa 3 phút). Đừng chạy lệnh khác trong Chenfeng lúc này.`); while (!r.canh.xong) await new Promise(res => setTimeout(res, 500)); }
           busy = false; b.disabled = false; rebuild();
           if (!r || !r.noi_dung) { setStatus('Chưa đo được: ' + ((r && r.loi) || 'lỗi không rõ') + '.'); return; }
           const kq = await download(`chenfeng-boc-hoi-${new Date().toISOString().slice(0, 10)}.txt`, r.noi_dung, 'text/plain');
-          const sot = r.tre ? ` Chenfeng còn chờ máy chủ: thùng thử ở x ≈ ${r.x} có thể hiện ra trễ — bảng tự xoá khi lệnh xong (tối đa 3 phút); còn thấy thì xoá tay.` : r.con ? ` CHÚ Ý: còn ${r.con} tấm thử chưa hoàn tác được ở x ≈ ${r.x} — xoá tay (bấm chọn rồi Delete).` : '';
-          setStatus((kq === 'saved' ? `Đã đo ${r.so_luot}/3 lượt${r.con || r.tre ? '' : ' và hoàn tác'} — đã tải tệp chenfeng-boc-hoi, gửi tệp đó cho Claude.` : 'Đã đo xong nhưng chưa tải được tệp.') + sot);
+          const sot = r.canh ? (r.canh.con ? ` CHÚ Ý: thùng thử Chenfeng dựng trễ còn ${r.canh.con} tấm ở x ≈ ${r.x} (bảng không xoá được vì Chenfeng đang chạy lệnh khác) — xoá tay (bấm chọn rồi Delete).` : r.canh.xoa ? ` Chenfeng dựng thùng thử trễ — bảng đã xoá ${r.canh.xoa} tấm đó.` : '') : r.con ? ` CHÚ Ý: còn ${r.con} tấm thử chưa hoàn tác được ở x ≈ ${r.x} — xoá tay (bấm chọn rồi Delete).` : '';
+          setStatus((kq === 'saved' ? `Đã đo ${r.so_luot}/3 lượt${r.con || (r.canh && r.canh.con) ? '' : ' và dọn sạch'} — đã tải tệp chenfeng-boc-hoi, gửi tệp đó cho Claude.` : 'Đã đo xong nhưng chưa tải được tệp.') + sot);
         })();
       }
       else if (act === 'tham-do') {      // (bản 1.29.1) chỉ đọc mã các lớp lệnh của Chenfeng → tải tệp chữ về máy để gửi cho Claude

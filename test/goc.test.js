@@ -214,6 +214,24 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       });
       ok(!tre.ok && tre.tre && tre.con === 0 && tre.tep && !tre.lcNgay && /chạy dở lệnh trước/.test(tre.lai), 'lệnh hồi tới trễ: dừng đo, báo "hiện ra trễ", CHƯA trả lựa chọn (Chenfeng chưa đọc); bấm đo lại lúc đó thì từ chối', tre);
       ok(tre.thay && /Hồi trái \(đo\)/.test(tre.tenThu) && tre.sau === 0 && tre.lc && !tre.busy && !tre.canh, '… lệnh tới: thùng thử dựng theo lựa chọn đo (không phải của người dùng), bảng tự xoá, rồi trả lựa chọn của người dùng nguyên vẹn', tre);
+      // lệnh trễ vừa xong thì người dùng mở ngay lệnh của họ (cùng tên LEFTRIGHTBOARD — _cmdName không đổi, chỉ có dòng COMMAND mới): bảng trả lựa chọn, KHÔNG gửi ERASE vào lệnh đó, báo xoá tay
+      const nhuong = await page.evaluate(async () => {
+        const D = window.MNCFDriver, ch0 = D.CH.cho_tam, st0 = window.setTimeout, ngu = ms => new Promise(res => st0(res, ms)); let cham = 2500;
+        window.setTimeout = function (fn, ms, ...a) { if (cham && ms === 40 && typeof fn === 'function' && /dungGoc/.test(String(fn))) { ms = cham; cham = 0; } return st0.call(this, fn, ms, ...a); };
+        D.CH.cho_tam = 800;
+        let r; try { r = await D.doBocHoi(); } finally { D.CH.cho_tam = ch0; window.setTimeout = st0; }
+        const thu = () => window.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && /\(đo\)/.test(e.Name || ''));
+        for (let i = 0; i < 300 && !thu().length; i++) await ngu(20);
+        const n0 = (window.__MOCK_INPUTS__ || []).length;
+        window.app.Editor.CommandStore.HandleInput('LEFTRIGHTBOARD');      // người dùng vẽ hồi của họ
+        for (let i = 0; i < 100 && !r.canh.xong; i++) await ngu(100);
+        const hop = !!document.querySelector('.mock-goc'), luaChonHop = window.__thu.lc() === window.__thu.lc0, gui = (window.__MOCK_INPUTS__ || []).slice(n0);
+        const huy = document.querySelector('.mock-goc .nut-huy'); if (huy) huy.click(); await ngu(200);
+        const con = thu().length; await D.erase(thu());      // dọn cho các phép thử sau
+        return { tre: r.tre, xong: r.canh.xong, xoa: r.canh.xoa, conBao: r.canh.con, con, hop, luaChonHop, gui };
+      });
+      ok(nhuong.tre && nhuong.xong && !nhuong.xoa && nhuong.conBao === 2 && nhuong.con === 2 && nhuong.hop && nhuong.luaChonHop && !nhuong.gui.some(x => /ERASE/i.test(x) || x === ''),
+        'lệnh trễ xong mà người dùng đã mở lệnh hồi của họ: hộp của họ mang lựa chọn của họ, bảng không gửi ERASE / Enter vào lệnh đó, báo còn 2 tấm thử để xoá tay', nhuong);
       // hộp nóc / đáy không nhận OK (Chenfeng giữ hộp): đóng hộp bằng nút huỷ của nó rồi mới hoàn tác (UNDO gửi lúc hộp còn mở bị nuốt) — không còn hồi thử
       const k = await page.evaluate(async () => {
         const id = setInterval(() => { const h = [...document.querySelectorAll('.mock-goc')].find(d => d.querySelector('h4').textContent === 'TOPBOTTOMBOARD'); if (h) { h.querySelector('.nut-ok').onclick = () => {}; clearInterval(id); } }, 20);

@@ -1574,6 +1574,15 @@ T('Bản vá 1.31.1 — bản lề, vừa khổ ván, khung mặt, phủ hồi',
   { const s = C.apMau(C.DEFAULT_SPEC, 'TA4-2000-2T'); s.rong = 2600; s.khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 600, rong: 300, sau: 250 }], ho: 15 };
     const r = C.vuaKhoVan(s), dem = M => M.warnings.filter(t => /treo chỉ sâu/.test(t)).length;
     ok(dem(C.build(r.spec)) <= dem(C.build(s)) && !r.doi.length, 'chia mà khoang treo vốn đủ sâu nay lấn vào vùng cột (cảnh báo cùng loại, KHOANG GỐC khác): không nhận', [r.doi, C.build(r.spec).warnings.filter(t => /treo chỉ sâu/.test(t))]); }
+  // "hộp che cột" là của CÂY CỘT: cả dãy chia lại thì cùng cột đó nằm sau khoang khác — không phải hỏng mới; khoang có 2 cột góc tách đôi mỗi nửa một cột — cũng vậy
+  { const s = C.apMau(C.DEFAULT_SPEC, 'TA5-2500'); s.rong = 3919; s.thung = { noc_day: 'lot', rong_max: 1600 }; s.chan = { cao: 100 }; s.than = { cao_duoi: 2200 };
+    s.khau = { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 1063, rong: 206, sau: 83 }, { cach: 3471, rong: 178, sau: 143 }], ho: 15 };
+    const r = C.vuaKhoVan(s); ok(r.doi.length && r.con === 0 && !C.build(r.spec).errors.length, 'cột giữa: cảnh báo che cột dời sang khoang khác (cùng cây cột) — vẫn chia, hết lỗi', [r.truoc, r.con, r.spec.khoang.length]); }
+  { const s = C.apMau(C.DEFAULT_SPEC, 'TA2-1000'); Object.assign(s, { rong: 2005, khau: { trai: { rong: 267, sau: 122 }, phai: { rong: 442, sau: 223 }, giua: [], ho: 15 }, thung: Object.assign({}, s.thung, { rong_max: 1600 }), chan: Object.assign({}, s.chan, { cao: 100 }) });
+    const r = C.vuaKhoVan(s); ok(r.doi.length && r.con === 0 && r.spec.khoang.length === 2, 'một khoang có 2 cột góc tách đôi (mỗi nửa một cột): vẫn chia', [r.truoc, r.con, r.spec.khoang.length]); }
+  { const s = C.apMau(C.DEFAULT_SPEC, 'TA6-3000'); Object.assign(s, { rong: 5812, khau: { trai: { rong: 0, sau: 0 }, phai: { rong: 263, sau: 89 }, giua: [{ cach: 3359, rong: 177, sau: 323 }], ho: 15 }, thung: Object.assign({}, s.thung, { noc_day: 'phu_hoi', rong_max: 2000 }), chan: Object.assign({}, s.chan, { cao: 0 }), than: Object.assign({}, s.than, { cao_duoi: 2200 }) });
+    const r = C.vuaKhoVan(s), dem = M => M.warnings.filter(t => /treo chỉ sâu/.test(t)).length;
+    ok(dem(C.build(r.spec)) <= dem(C.build(s)), 'không nhận phương án làm thêm một khoang treo nông vì lấn vùng cột (dù gỡ hết lỗi khổ ván)', [r.truoc, r.con, r.spec.khoang.length]); }
   // khung đế: hai vùng cột dùng chung một vách → một đế dọc, chạy tới mép sau (đoạn đế sau dưới vách đã bỏ vì vụn)
   { const M = C.build({ rong: 2400, cao: 2200, than: { cao_duoi: 0 }, chan: { cao: 100 }, thung: { noc_day: 'phu_hoi', rong_max: 0 }, khoang: [0, 1, 2].map(() => ({ rong: 'auto', canh: 2, dot: [1100], o: [] })), khau: { giua: [{ cach: 543.5, rong: 200, sau: 200 }, { cach: 911, rong: 200, sau: 180 }] } });
     const doc = P(M, 'DE').filter(p => p.ten === 'Đế dọc'), Dc = Math.max(...P(M, 'DE').map(p => p.y1));

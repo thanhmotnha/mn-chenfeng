@@ -3552,24 +3552,45 @@
     let soLuot = 0, cauHinh = null, con = 0, tre = null;
     const CHO_TAM = D.CH.cho_tam;      // Chenfeng dựng tấm SAU khi lời nhắc đóng, còn chờ tải vật liệu (máy mới + mạng chậm: tới hơn 20 s — xem moLenh) → chờ dư
     const banDau = new Set(E());
-    // tấm của thùng thử: mới so với lúc bắt đầu đo + nằm ở vùng thử (cách mọi thứ 6 m)
-    const tamThu = () => E().filter(e => { if (!e || e.IsErase || banDau.has(e) || !D.isBoard(e)) return false; try { return D.boxOf(e)[0] >= X - 50; } catch (er) { return false; } });
+    // tấm của thùng thử: mới so với lúc bắt đầu đo + nằm GỌN trong vùng thùng thử (lượt C trùm ra t). Bảng vẽ tủ / mẫu ở chỗ trống max x + 6000 — cũng ở bên phải X — nên phải chặn cả mép phải
+    const tamThu = () => E().filter(e => { if (!e || e.IsErase || banDau.has(e) || !D.isBoard(e)) return false; try { const b = D.boxOf(e); return b[0] >= X - 50 && b[1] <= X + W + 50; } catch (er) { return false; } });
     // (1.31.1) lệnh chưa dựng tấm sau CHO_TAM mà vẫn đang chạy (chờ tải vật liệu): Chenfeng đọc lựa chọn khi dựng → trả lựa chọn ngay là thùng thử dựng theo cấu hình người dùng.
     // Canh tối đa 3 phút như canhLenhTre (lenhTre chặn lệnh khác của bảng): lệnh xong thì trả lựa chọn, chờ Chenfeng rảnh (không hỏi, không hộp) rồi xoá thùng thử; quá 3 phút vẫn trả lựa chọn.
+    // Xoá thùng thử CHỈ khi chắc Chenfeng không chạy lệnh nào khác: chưa lệnh nào bắt đầu sau lệnh trễ (_cmdName vẫn là nó), không hỏi, không hộp; gửi ERASE rồi xem dòng COMMAND ">ERASE" —
+    // không có = chữ đã rơi vào lệnh của người dùng (đã đo: không báo gì) → thôi, không gõ Enter / Esc vào lệnh đó (D.erase chung thì có gõ Enter).
+    const xoaThu = async (ten, rac) => {
+      if (tenLenhCuoi() !== ten || dangNhap || D.busy() || hopMo()) return false;
+      const con = () => rac.filter(e => !e.IsErase).length, m = logMark(), w2 = watchEnd();
+      try {
+        try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ }
+        D.select(rac); await sleep(200);
+        await guiLenh('ERASE'); await sleep(150);
+        if (!logsSince(m).some(q => q.type === 'COMMAND' && String(q.msg || '').replace(/^>/, '').trim().toUpperCase() === 'ERASE')) return false;
+        let t0 = Date.now(); while (con() && !(w2.ended && w2.ended.name === 'ERASE') && Date.now() - t0 < 4000) await sleep(100);
+        if (con() && D.busy() && tenLenhCuoi() === 'ERASE') { D.input(''); t0 = Date.now(); while (con() && Date.now() - t0 < 6000) await sleep(100); }      // ERASE còn chờ xác nhận lựa chọn
+        return !con();
+      } catch (e) { return false; } finally { w2.off(); try { ed().SelectCtrl.Cancel(); } catch (e) { /* bỏ qua */ } }
+    };
     const canhTre = (w, ten, tra) => {
-      const k = { xong: false, xoa: 0 }; lenhTre = k; tre = k;
+      const k = { xong: false, xoa: 0, con: 0 }; lenhTre = k; tre = k;
       (async () => {
-        const t0 = Date.now(); let daTra = false;
+        // lệnh trễ đã ghi dòng COMMAND của nó từ trước → dòng COMMAND nào mới từ lúc này = có lệnh khác bắt đầu (kể cả lệnh CÙNG TÊN của người dùng — _cmdName không đổi)
+        const t0 = Date.now(), mCanh = logMark(), lenhKhac = () => tenLenhCuoi() !== ten || logsSince(mCanh).some(q => q.type === 'COMMAND');
+        let daTra = false;
         try {
           while (Date.now() - t0 < 180000) {
             await sleep(300);
-            if (!daTra && (w.ended || (ten && tenLenhCuoi() !== ten))) { await D.settle(400, 8000); tra(); daTra = true; }
-            if (!daTra || dangNhap || D.busy() || hopMo()) continue;
-            const rac = tamThu(); if (rac.length) { const r = await D.erase(rac); k.xoa = r.n || 0; }
+            // lệnh trễ kết thúc (tấm đã dựng — Chenfeng đọc lựa chọn TRƯỚC đó) hoặc đã có lệnh khác chạy → trả lựa chọn NGAY, không chờ gì (chờ là có thể đè lên lựa chọn lệnh sau vừa ghi)
+            if (!daTra && (w.ended || lenhKhac())) { tra(); daTra = true; }
+            if (!daTra) continue;
+            if (lenhKhac()) break;      // người dùng / bảng đã chạy lệnh khác: không xoá nữa (chữ gửi vào sẽ rơi vào lệnh đó), báo xoá tay
+            if (dangNhap || D.busy() || hopMo()) continue;
+            const rac = tamThu(); if (rac.length && (await xoaThu(ten, rac))) k.xoa = rac.length;
             break;
           }
         } catch (e) { /* bỏ qua */ }
         if (!daTra) tra();
+        k.con = tamThu().length;
         w.off(); k.xong = true;
       })();
     };
@@ -3632,7 +3653,7 @@
     L.push('Lựa chọn hộp nóc / đáy của người dùng lúc đo (đã trả lại nguyên):', cauHinh || '(chưa mở được hộp)');
     // trả lại hướng nhìn của người dùng + thu phóng vừa bản vẽ (thùng thử đã hoàn tác — để nguyên thì màn hình trống trơn)
     try { const V = root.app.Viewer; if (huongNhin && V.CameraControl && typeof V.CameraControl.LookAt === 'function') V.CameraControl.LookAt(huongNhin); if (typeof V.ZoomAll === 'function') V.ZoomAll(); V.UpdateRender(); } catch (e) { /* bỏ qua */ }
-    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n'), con, x: X, tre: !!tre };
+    return { ok: soLuot > 0, so_luot: soLuot, noi_dung: L.join('\n'), con, x: X, tre: !!tre, canh: tre };
   };
 
   /* ------------------------------------------------------------------ *
