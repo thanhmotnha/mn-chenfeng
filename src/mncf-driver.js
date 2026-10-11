@@ -376,7 +376,7 @@
     const holeCount = new Map();
     const idOf = x => { try { return x && (x.Object || x); } catch (e) { return null; } };
     for (const h of holes) for (const k of ['FId', 'MId']) { const b = idOf(h[k]); if (b) holeCount.set(b, (holeCount.get(b) || 0) + 1); }
-    const canKhoan = new Set(['HOI', 'VACH', 'DAY', 'NOC', 'DOT', 'DEM', 'XA', 'CHAN', 'PHAO', 'PHU']);
+    const canKhoan = new Set(['HOI', 'VACH', 'DAY', 'NOC', 'DOT', 'DEM', 'XA', 'CHAN', 'PHAO', 'PHU', 'DEB']);      // (1.32) giường: khung đế giường bay khoan cam (thân giường bắt vít / bát / ke)
     const noHole = [];
     const chanNoHole = [];
     for (const [p, b] of match) if ((canKhoan.has(p.loai) || p.loai === 'HAU') && p.khoan !== Core.KHONG_KHOAN && !holeCount.get(b)) (p.loai === 'CHAN' ? chanNoHole : noHole).push(`${p.ten} (${p.tu})`);
@@ -444,7 +444,8 @@
     let goc = false, ghiGoc = '';
     try {
       const s0 = Core.normalize(spec);
-      if (s0.ve_goc && !(opt && opt.goc === false) && D.gocDuoc()) { const K = Core.keHoachGoc(s0); if (K.M.errors.length || !K.loi.length) goc = true; else ghiGoc = K.loi.join('; '); }
+      const spRieng = Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(s0));      // (bản 1.32) giường / vách: Chenfeng chưa có lệnh dựng — nhập tấm, không báo "rơi về"
+      if (s0.ve_goc && !spRieng && !(opt && opt.goc === false) && D.gocDuoc()) { const K = Core.keHoachGoc(s0); if (K.M.errors.length || !K.loi.length) goc = true; else ghiGoc = K.loi.join('; '); }
     } catch (e) { goc = false; }
     // lời báo "rơi về cách nhập tấm": module đổi được kích thước nào thì nói đúng kích thước đó (bản 1.26.1: tủ có cột giữa thì Rộng chỉ để xem — xem ganHeSo)
     const baoNhapTam = mod => {
@@ -902,7 +903,10 @@
       const bh = T.GetParam('BH');
       if (bh) { bh.actions.length = 0; bh.expr = so(M.spec.van.t); try { bh.description = 'Dày ván (chỉ xem — đổi ở bảng Một Nhà)'; } catch (e) { /* bỏ qua */ } }
       // tham số bị khoá: nói ngay tại ô ghi chú của nó trong bảng Thông số (như BH) — người gõ số ở đó thấy liền vì sao tủ không chạy
-      const moTa = { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' }, ngan = { L: 'Rộng', W: 'Sâu', H: 'Cao' };
+      // (1.32) giường: W = dài phủ bì (đuôi → đầu giường), H = cao đầu giường; vách đầu giường: W = dày (tấm ốp + xương — chỉ xem)
+      const lsp = Core.loaiSP ? Core.loaiSP(M.spec) : 'tu';
+      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' } : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
+      const ngan = lsp === 'giuong' ? { L: 'Rộng', W: 'Dài', H: 'Cao' } : { L: 'Rộng', W: lsp === 'vach' ? 'Dày' : 'Sâu', H: 'Cao' };
       for (const k of Object.keys(moTa)) {
         const kh = kq.khoa.find(x => x.ten === k);
         try { const pr = T.GetParam(k); if (pr) pr.description = kh ? `${ngan[k]} ${DAU_KHOA} — ${kh.ly_do === 'cot_giua' ? 'tủ có cột giữa: ' : ''}đổi ở bảng Một Nhà)` : moTa[k]; } catch (e) { /* bỏ qua */ }
@@ -1117,7 +1121,10 @@
       return { ok: false, giai_doan: 'xoa', errors: [`Chưa bỏ được tủ cũ (còn ${er.con} đối tượng) — bản vẽ được giữ nguyên. Thử lại, hoặc tự xoá tủ cũ rồi bấm Vẽ.`], warnings: [] };
     }
     // vẽ lại đúng chỗ + đúng hướng cũ: gốc toạ độ thiết kế của tủ cũ trên bản vẽ (tủ xoay thì tính qua khung của module)
-    const viTri = loc.khung ? { at: apM(loc.khung.G, loc.offset).map(r2), xoay: loc.khung.xoay } : { at: loc.offset };
+    // (bản 1.32) giường / vách: lưng sát tường — đổi dài / dày thì giữ LƯNG (mép sau hộp bao), không giữ gốc thiết kế (đuôi giường / mặt tấm ốp)
+    let off = loc.offset;
+    if (Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), loc.offset[2]]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
+    const viTri = loc.khung ? { at: apM(loc.khung.G, off).map(r2), xoay: loc.khung.xoay } : { at: off };
     const rep = await D.draw(spec, Object.assign({}, opt, viTri, { corner: undefined, id: ref.id }));
     if (rep.giai_doan !== 'xong') {      // vẽ lại không được → trả tủ cũ về chỗ cũ
       if (er.steps) await D.undo(er.steps);
@@ -1601,6 +1608,8 @@
   // tên tấm của mẫu kho là tiếng Trung → tiếng Việt: khi báo cáo (D.tenTamViet) và khi ghi lại tên tấm của mẫu kho vừa vẽ (D.tenTamMoi — bản 1.19).
   // Tên DÀI / RIÊNG đứng trước tên chung chứa trong nó (抽底板 trước 底板, 左开门板 trước 门板…). Tên đo trên các bộ tủ của kho ngày 04/10/2026.
   const TEN_TAM = [
+    // (1.32) tấm của module giường / táp trong kho Chenfeng — đứng TRƯỚC tên chung (侧板, 底板, 背板…) vì dò bằng includes theo thứ tự
+    ['床头板', 'Đầu giường'], ['床屏', 'Đầu giường'], ['床尾板', 'Đuôi giường'], ['床侧板', 'Hông giường'], ['床边板', 'Hông giường'], ['床铺板', 'Phản giường'], ['床板', 'Phản giường'], ['排骨架', 'Khung vạt'], ['床撑', 'Đà giường'], ['床箱', 'Hộp giường'],
     ['左抽侧', 'Thành trái ngăn kéo'], ['右抽侧', 'Thành phải ngăn kéo'], ['抽侧板', 'Thành ngăn kéo'], ['抽侧', 'Thành ngăn kéo'], ['抽尾板', 'Hậu ngăn kéo'], ['抽尾', 'Hậu ngăn kéo'], ['抽背板', 'Hậu ngăn kéo'],
     ['抽前板', 'Trước ngăn kéo'], ['抽前', 'Trước ngăn kéo'], ['抽面板', 'Mặt ngăn kéo'], ['抽面', 'Mặt ngăn kéo'], ['抽底板', 'Đáy ngăn kéo'], ['抽底', 'Đáy ngăn kéo'],
     ['左开门板', 'Cánh mở trái'], ['右开门板', 'Cánh mở phải'], ['上翻门板', 'Cánh lật lên'], ['下翻门板', 'Cánh lật xuống'], ['假门', 'Cánh giả'],
