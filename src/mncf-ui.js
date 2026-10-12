@@ -875,7 +875,10 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     const cellFor = (i, tu) => { const cs = cellsOf(i); let r = null; for (const c of cs) if (c.tu <= tu + 0.6) r = c; return r || cs[0] || null; };
     const loaiCua = c => { const L = spec.ngan_keo.loai; return L.find(x => x.ma === c.loai) || L.find(x => x.ma === spec.ngan_keo.mac_dinh) || L[0] || null; };
     const tenO = c => { if (c.kieu === 'suot') return TEN_KIEU.suot; if (!c.kieu) return '';
-      if (c.kieu === 'keo_pk') { const ten = [].concat(c.pk || []).map(m => ((Core.LOAI_PK_BEP || []).find(q => q.ma === m) || {}).ten).filter(Boolean); return `${c.so} ${TEN_KIEU.keo_pk}${ten.length ? ' · ' + ten.join(', ') : ''}`; }      // (1.33) mặt kéo bắt vào rổ: không có loại ray ngăn kéo
+      if (c.kieu === 'keo_pk') { const ds = [].concat(c.pk || []).map(m => (Core.LOAI_PK_BEP || []).find(q => q.ma === m)).filter(Boolean), ten = ds.map(q => q.ten);
+        // (1.33 vòng soát 2) rổ đồ khô cánh mở: khung rổ bắt hồi, ô có CÁNH bản lề — không phải mặt kéo
+        const canh = ds.length && ds.every(q => q.lap === 'canh');
+        return `${c.so} ${canh ? 'rổ cánh mở' : TEN_KIEU.keo_pk}${ten.length ? ' · ' + ten.join(', ') : ''}`; }      // (1.33) mặt kéo bắt vào rổ: không có loại ray ngăn kéo
       const lo = loaiCua(c); return `${c.so} ${TEN_KIEU[c.kieu]}${lo ? ' · ' + lo.ten : ''}`; };
     // khoảng cao độ một đợt được phép nằm: trong lọt lòng thân của nó, cách đợt kề ít nhất 20
     function limits(i, j) {
@@ -1004,6 +1007,24 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // noi.dat (góc đã vẽ) và toạ độ gõ là z thật — không cộng.
     const zTreo = () => (loaiDangLam() === 'bep' && model && model.info && model.info.bep ? Number(model.info.bep.z_dat) || 0 : 0);      // cao độ đáy tủ bếp trên (0: tủ dưới / tủ cao / không phải tủ bếp)
     const nangTreo = g => { const z = zTreo(); return z ? [g[0], g[1], Math.round((g[2] + z) * 100) / 100] : g; };
+    // (1.33 vòng soát 2) ô toạ độ luôn mang z THẬT: chỗ đặt (khung, chuột, hình) ghi góc ở sàn → bảng điền ô z = cao độ treo của tủ bếp trên.
+    // Sửa x / y sau đó thì tủ vẫn treo đúng (vẽ theo số gõ, z đã là cao độ đáy tủ). kc.zO = z đã điền — cao độ treo đổi thì ô z đi theo (capTreoO).
+    const docO = () => ['ax', 'ay', 'az'].map(n => { const e = $(`[data-ui="${n}"]`); return parseFloat(String(e ? e.value : '').replace(',', '.')); });
+    /** Toạ độ c có đúng là chỗ đặt kc không: x, y trùng; z = góc ở sàn (lời gọi bằng mã) hoặc z bảng đã điền / cao độ treo hiện tại. */
+    const khopCho = (c, kc) => !!(kc && kc.d && Array.isArray(kc.d.goc) && c && Math.abs(c[0] - kc.d.goc[0]) < 0.01 && Math.abs(c[1] - kc.d.goc[1]) < 0.01
+      && [kc.d.goc[2], nangTreo(kc.d.goc)[2], kc.zO].some(z => isFinite(z) && z !== null && Math.abs((c[2] || 0) - z) < 0.01));
+    function dienO(d) {      // bật "Đặt tại toạ độ" và điền góc của chỗ đặt (z đã nâng lên cao độ treo)
+      const ua = $('[data-ui="useAt"]'); if (!ua || !d) return;
+      const g = nangTreo(d.goc); ua.checked = true; ['ax', 'ay', 'az'].forEach((n, i) => { $(`[data-ui="${n}"]`).value = fmt(g[i]); });
+      if (khungCho && khungCho.d === d) khungCho.zO = g[2];
+      capNoi();
+    }
+    function capTreoO() {      // cao độ treo đổi (mặt đá, cách mặt đá) sau lúc đặt: ô z đang mang z bảng đã điền thì đi theo
+      const kc = khungCho, ua = $('[data-ui="useAt"]'), az = $('[data-ui="az"]');
+      if (!kc || !kc.d || !Array.isArray(kc.d.goc) || !ua || !ua.checked || !az || !isFinite(kc.zO)) return;
+      const c = docO(), z = nangTreo(kc.d.goc)[2];
+      if (Math.abs(c[0] - kc.d.goc[0]) < 0.01 && Math.abs(c[1] - kc.d.goc[1]) < 0.01 && Math.abs(c[2] - kc.zO) < 0.01 && Math.abs(z - kc.zO) >= 0.01 && sh.activeElement !== az) { az.value = fmt(z); kc.zO = z; capNoi(); }
+    }
     function choDatTu() {
       if (khungCho && khungCho.d && Array.isArray(khungCho.d.goc)) return { goc: nangTreo(khungCho.d.goc), xoay: khungCho.d.xoay || 0 };
       if (noi && noi.dat) return noi.dat;
@@ -1100,6 +1121,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       { const vk = model.errors.some(t => /khổ ván/.test(t)) ? vuaKho() : null; if (vk && vk.goi_y) m.push(`<div class="msg warn">${esc(vk.goi_y)}</div>`); if (vk && vk.doi.length && vk.con < vk.truoc) m.push(`<div class="msg err"><button class="sec" data-act="vua-kho">Thêm vách cho vừa khổ ván</button> <span class="hint tt">${vk.con ? 'gỡ bớt' : 'gỡ hết'} lỗi khổ ván ở trên: ${esc(String(vk.spec.khoang.length))} khoang thay cho ${esc(String(spec.khoang.length))}</span></div>`); }
       { const n = bepCo(); if (n) m.push(`<div class="msg err"><button class="sec" data-act="bep-co" data-v="${n}">Chuyển tủ ${esc(String(n))}</button> <span class="hint tt">thiết bị không lọt tủ ${esc(hien(spec.rong))} — tủ ${esc(String(n))} vừa</span></div>`); }      // (bản 1.33) "căn chuẩn" theo thiết bị
       model.warnings.forEach(t => m.push(`<div class="msg warn">${esc(t)}</div>`));
+      napBep();
       { const bp = $('[data-ui="bep-pk"]'); if (bp) { const ds = (model.phu_kien || []).filter(q => q.bep); bp.textContent = ds.length ? `Phụ kiện: ${ds.map(q => `${q.ten}${q.sl > 1 ? ' × ' + q.sl : ''}`).join(' · ')}` : ''; } }
       // (bản 1.28) ghi chú CHỈ ĐỂ BIẾT (tách thùng, kích thước khấu cột — hình đã vẽ đủ) vào phiếu tự kiểm; ghi chú PHẢI LÀM (bản lề, xà…) vẫn hiện dưới hình
       const deBiet = t => /^Tủ tách \d+ thùng|^Khấu cột:/.test(t), gcPhieu = model.notes.filter(deBiet);
@@ -1149,7 +1171,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // đưa mốc của nội dung ô về đúng mốc của ô chứa nó (mẫu tủ viết tay có thể ghi mốc lệch) — để khi kéo đợt, nội dung đi theo đúng ô
       spec.khoang.forEach((k, i) => { for (const c of k.o) { const o = cellFor(i, c.tu); if (o) c.tu = o.tu; } });
       if (khongLuu !== true) store.save(spec);
-      neoLung();
+      neoLung(); capTreoO();
       paint();
     }
     /** (bản 1.32) Giường / vách đặt bằng chuột: lưng sát tường, đầu ở điểm bấm đầu — sâu / rộng đổi sau lúc đặt thì dời góc trái – trước theo,
@@ -1158,10 +1180,10 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const kc = khungCho; if (!kc || !kc.lung || !kc.d || !datRieng() || !model || !model.parts.length || model.errors.length) return;
       const b = Core.bbox(model.parts), L = kc.lung, dl = b ? (b.y1 - b.y0) - L.sau : 0, dw = b && L.phai ? (b.x1 - b.x0) - L.rong : 0;
       if (!(Math.abs(dl) > 0.05 || Math.abs(dw) > 0.05)) return;
-      const g0 = kc.d.goc, ua = $('[data-ui="useAt"]'), theo = ua && ua.checked && ['ax', 'ay', 'az'].every((n, i) => Math.abs((parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.')) || 0) - g0[i]) < 0.01);
+      const g0 = kc.d.goc, ua = $('[data-ui="useAt"]'), theo = ua && ua.checked && khopCho(docO(), kc);
       kc.d.goc = [Math.round((g0[0] + L.n[0] * dl + L.u[0] * dw) * 100) / 100, Math.round((g0[1] + L.n[1] * dl + L.u[1] * dw) * 100) / 100, g0[2]];
       L.sau += dl; if (L.phai) L.rong += dw;
-      if (theo) { ['ax', 'ay', 'az'].forEach((n, i) => { const el = $(`[data-ui="${n}"]`); if (el) el.value = fmt(kc.d.goc[i]); }); capNoi(); }
+      if (theo) dienO(kc.d);
     }
     let tmr = 0; const later = () => { clearTimeout(tmr); tmr = setTimeout(safe(() => rebuild()), 160); };
 
@@ -1575,7 +1597,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       else if ($('[data-ui="useAt"]') && $('[data-ui="useAt"]').checked) o.corner = ['ax', 'ay', 'az'].map(n => parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.')) || 0);
       if (!o.at && !o.corner) { panel.hidden = true; chipChu.textContent = 'Đang chuẩn bị…'; chip.hidden = false; }
       // vẽ đúng vị trí của khung đang mở (thẻ Phòng) hoặc của hình vừa lấy trên mặt bằng → tủ quay theo tường / theo hình (bản 1.16: driver tự đặt + xoay, cả tủ lệnh gốc)
-      let kc = khungCho && khungCho.d && o.corner && o.corner.every((v, i) => Math.abs(v - khungCho.d.goc[i]) < 0.01) ? khungCho : null;
+      let kc = o.corner && khopCho(o.corner, khungCho) ? khungCho : null;
       if (kc && kc.lung) { neoLung(); o.corner = kc.d.goc.slice(); }      // (1.32) lưới đỡ: góc đã theo sâu / rộng hiện tại (neoLung chạy mỗi lần dựng lại)
       // (bản 1.33) tủ bếp trên: điểm bấm / chỗ đặt bằng chuột là ở SÀN — bảng cộng cao độ treo (mặt đá + cách mặt đá) vào z. KHÔNG ghi cao độ treo vào hình học của tủ
       // (module đổi Cao thì đáy phải đứng yên). Cập nhật: driver dời z theo phần cao độ treo đổi.
@@ -1587,7 +1609,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         if (!p) { chip.hidden = true; panel.hidden = false; busy = false; rebuild(); setStatus('Đã huỷ — chưa vẽ gì.'); return null; }
         o.corner = nangTreo(p);
       }
-      else if (zBep && kc) o.corner = nangTreo(o.corner);      // chỗ đặt bằng chuột / khung: góc ở sàn
+      else if (zBep && kc) o.corner = nangTreo(kc.d.goc.slice());      // chỗ đặt bằng chuột / khung: góc ở sàn → cao độ treo HIỆN TẠI (ô z đã điền đúng số này)
       const neoPhai = !!(kc && kc.lung && kc.lung.phai);
       if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
       // (bản 1.28) tủ này không đứng vào chỗ đặt đang giữ (bấm điểm / gõ toạ độ khác): khấu cột tự sinh theo cột của chỗ cũ không còn đúng → bỏ
@@ -1635,7 +1657,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const az = $('[data-ui="az"]'), zt = zTreo();
       if (az) az.title = zt ? `Tủ bếp trên: z = cao độ đáy tủ tính từ sàn (mặt đá + cách mặt đá = ${hien(zt)}). Bảng không cộng thêm gì vào số gõ.` : 'z của góc trái – trước – dưới của cả tủ';
       if (dv) { const ua = $('[data-ui="useAt"]'), c = ['ax', 'ay', 'az'].map(n => { const e = $(`[data-ui="${n}"]`); return e ? String(e.value).trim() : ''; });
-        if (zt && c.every(Boolean) && khungCho && khungCho.d && Array.isArray(khungCho.d.goc)) { const v = c.map(x => parseFloat(x.replace(',', '.'))); if (v.every((x, i) => Math.abs(x - khungCho.d.goc[i]) < 0.01)) c[2] = fmt(nangTreo(v)[2]); }
+        if (zt && c.every(Boolean) && khopCho(c.map(x => parseFloat(x.replace(',', '.'))), khungCho)) c[2] = fmt(nangTreo(khungCho.d.goc)[2]);
         dv.textContent = noi ? 'Tủ mới' : ua && ua.checked && c.every(Boolean) ? `Vẽ tại ${c.join(', ')}` : 'Vẽ vào Chenfeng';
         dv.title = noi ? 'Vẽ một tủ MỚI theo số trong bảng (tủ đang nối trên bản vẽ giữ nguyên)' : ''; }
     }
@@ -1723,7 +1745,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       khungCho = { j: -1, d, hinh: { k, h, nguon: nguonCu } };
       renderAll(); switchTab('tu');
       const ua = $('[data-ui="useAt"]');
-      if (ua) { ua.checked = true; ['ax', 'ay', 'az'].forEach((n, i) => { $(`[data-ui="${n}"]`).value = fmt(d.goc[i]); }); capNoi(); }
+      if (ua) dienO(d);
       capHinh();
       setStatus(`Đã lấy hình: rộng ${hien(k.rong)} × sâu ${hien(k.sau)}, cao ${hien(cao)}${theoTran ? ' (theo trần — tủ thấp hơn thì sửa ô Cao)' : ''}, xoay ${hien(k.xoay)}°. ${k.ghi_chu.concat(t.ghi_chu).join(' ')}${model && model.errors.length ? ' Tủ còn lỗi (ô đỏ) — sửa rồi bấm Vẽ.' : ' Chỉnh khoang / đợt rồi bấm “Vẽ vào Chenfeng”.'}`);
     }
@@ -1826,7 +1848,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       }
       renderAll(); switchTab('tu');
       const ua = $('[data-ui="useAt"]');
-      if (ua) { ua.checked = true; ['ax', 'ay', 'az'].forEach((n, i) => { $(`[data-ui="${n}"]`).value = fmt(d.goc[i]); }); capNoi(); }
+      if (ua) dienO(d);
       capHinh();
       const tom = rieng ? `xoay ${hien(k.xoay)}°` : `rộng ${hien(k.rong)} × sâu ${hien(k.sau)} × cao ${hien(cao)}${haCao ? ' (hạ theo trần)' : ''}, xoay ${hien(k.xoay)}°${coKhau ? ', có khấu cột' : ''}`;
       // bản 1.23 (anh Jason 04/10/2026 23:02): đặt xong KHÔNG vẽ ngay — hiện hộp chỉnh tủ, bấm Vẽ mới vẽ
@@ -2165,7 +2187,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const r = Ph.tuChoKhung(Core, spec, q, hinh.p.ten, hinh, j), d = Ph.datKhung(hinh, j);
       spec = r.spec; noi = null; selKhung = j; khungCho = d ? { j, d } : null; nhoKhauCho(); renderAll();
       const ua = $('[data-ui="useAt"]');
-      if (ua && d) { ua.checked = true; ['ax', 'ay', 'az'].forEach((k, i) => { $(`[data-ui="${k}"]`).value = fmt(d.goc[i]); }); capNoi(); }
+      if (ua && d) dienO(d);
       return { d, q, ghi: r.ghi_chu };
     }
     let chanSan = 0;          // cao chân tủ trước khi mở một khung treo (khung treo đặt chân = 0)
@@ -2180,7 +2202,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     function boChoDat() {
       const k = khungCho; khungCho = null; capHinh();
       const ua = $('[data-ui="useAt"]');
-      if (k && k.d && ua && ua.checked && ['ax', 'ay', 'az'].every((n, i) => Math.abs((parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.')) || 0) - k.d.goc[i]) < 0.01)) ua.checked = false; capNoi();
+      if (k && k.d && ua && ua.checked && khopCho(docO(), k)) ua.checked = false; capNoi();
     }
     let khungCho = null;      // khung vừa mở thành tủ: vẽ đúng toạ độ khung thì tự xoay theo tường và ghi "đã vẽ" cho khung
     // Bản 1.23: phòng nhớ lần vẽ gần nhất của nó (phong.da_ve — đi theo phòng, lưu cùng phòng) → bấm "Vẽ phòng" lần nữa là CẬP NHẬT: cái gì đã có đúng chỗ thì giữ,
@@ -2702,7 +2724,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!mauS.o.thung && !mauS.o.mat && !mauS.o.hau) return setStatus('Chưa chọn màu: bấm một ô (Thùng / Cánh + phào / Hậu) rồi bấm một màu trong danh sách.');
       const tam = Drv.tamCuaTu(chon), tu = tenTuCua(tam);
       vlKQ('<p class="hint tt">Đang đổ màu…</p>'); setStatus(`Đang đổ màu ${tu} (${tam.length} tấm)… màu dùng lần đầu phải tải từ kho, mất vài giây.`);
-      const r = await Drv.doMauTu(tam, mauS.o);
+      const r = await Drv.doMauTu(tam, mauS.o, { giu_van: vanGiu() });
       if (!r.ok) { vlKQ(`<div class="msg err">${esc(r.reason)}</div>`); return setStatus('Chưa đổ được màu.'); }
       const giu = NHOM_MAU.filter(N => !r.mau[N[0]]).map(N => N[1].toLowerCase());
       vlKQ(`<div class="msg ok">Đã đổ màu ${esc(tu)}: ${esc(dongMau(r) || 'không có tấm nào thuộc nhóm đã chọn màu')}.</div>`
@@ -2766,6 +2788,13 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       vlKQ(`<div class="msg ok">Đã thay ${esc(chuTu)} → ${esc(m.ten)}: ${r.so} tấm ${cho}.</div>` + (r.khoa ? `<div class="msg warn">${esc(khoaMau(r).trim())}</div>` : ''), r.steps > 0);
       setStatus(`Đã thay ${chuTu} → ${m.ten}: ${r.so} tấm.`); vlQuetLai();
     }
+    /** (1.33) Tên ván chống ẩm của tủ chậu (thông số đang làm + chuẩn bếp đã nhớ): đổ màu không ghi đè tên ván này trên tấm — kể cả tủ chậu vẽ từ phiên trước. */
+    function vanGiu() {
+      const ds = [];
+      try { if (spec.bep && spec.bep.van_chau) ds.push(spec.bep.van_chau); } catch (e) { /* bỏ qua */ }
+      try { const c = docChuanBep(); if (c && c.van_chau) ds.push(String(c.van_chau)); } catch (e) { /* bỏ qua */ }
+      return ds;
+    }
     /** Tủ / mẫu kho vừa vẽ xong: đổ màu ngay theo 3 ô (khi ô "tự đổ màu" đang bật). → null (không làm) | kết quả Drv.doMauTu. Không ném lỗi. */
     async function tuDoMau() {
       if (!coMau || !mauS.tu_dong || !(mauS.o.thung || mauS.o.mat || mauS.o.hau)) return null;
@@ -2773,7 +2802,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       try { tam = ((Drv.last && Drv.last.added) || []).filter(e => e && !e.IsErase && Drv.isBoard(e)); } catch (e) { tam = []; }
       if (!tam.length) return null;
       setStatus('Đang đổ màu tủ vừa vẽ…');
-      try { return await Drv.doMauTu(tam, mauS.o, { gop_ve: true }); } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
+      try { return await Drv.doMauTu(tam, mauS.o, { gop_ve: true, giu_van: vanGiu() }); } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
     }
 
     /* ---- ảnh hiện trạng ---- */
@@ -3005,7 +3034,9 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         const c = spec.khoang[0] && (spec.khoang[0].o || []).find(x => x.kieu === 'nk_trum'), v = parseFloat(String(t.value).replace(',', '.'));
         if (c && isFinite(v) && v > 0) {
           if (goPK !== t) { nho(); goPK = t; }
-          if (t.dataset.bepNk === 'so') c.so = Math.max(1, Math.min(6, Math.round(v))); else { c.cao = [v]; spec = Core.datBep(spec, { nk_nong: v }); }
+          // (1.33 vòng soát 2) cao ngăn trên ngoài khoảng chuẩn (đang gõ dở, hay số lạ) thì KHÔNG ghi vào chuẩn bếp — datBep sẽ kẹp về mép khoảng mà ô vẫn hiện số gõ
+          const kh = (Core.SO_BEP && Core.SO_BEP.nk_nong) || [100, 400];
+          if (t.dataset.bepNk === 'so') c.so = Math.max(1, Math.min(6, Math.round(v))); else { c.cao = [v]; if (v >= kh[0] && v <= kh[1]) spec = Core.datBep(spec, { nk_nong: v }); }
           later();
         }
       }
@@ -3044,6 +3075,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     /* ---- bản 1.28: PHÀO và CỘT sửa ngay trên hình (anh Thanh 06/10/2026: "phải có nút trên hình cho nó nhanh … chọn trên ảnh thêm phào sửa phào luôn") ---- */
     const TEN_PHAO = { trai: 'trái', phai: 'phải', tren: 'trên' }, PHAO_MD = Core.DEFAULT_SPEC.phao.trai;
     function datPhao(ben, v) {
+      if (loaiDangLam() === 'bep') { sel = null; renderBar(); return; }      // (1.33 vòng soát 2) tủ bếp không có phào — normalize đặt lại 0, đừng báo "đã thêm"
       v = Math.max(0, Math.round(v * 10) / 10);
       const ds = ben === '*' ? ['trai', 'phai', 'tren'] : [ben];
       if (ds.every(b => Math.abs(spec.phao[b] - v) < 0.05)) { renderBar(); return; }
@@ -3106,6 +3138,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (t.dataset.ed === 'z') applyZ(t);
       else if (t.dataset.ed === 'wl') applyWL(t);
       else if (t.dataset.ed === 'phao') applyPhao(t);
+      else if ((t.dataset.bep && t.tagName !== 'SELECT') || t.dataset.bepNk) { clearTimeout(tmr); rebuild(); napBep(t); }      // (1.33 vòng soát 2) rời ô Tủ bếp: dựng ngay rồi ô hiện số thật đang dùng
       else if (t.dataset.ed === 'loai') { const c = sel && sel.loai === 'o' ? cellFor(sel.khoang, sel.tu) : null; if (c && c.kieu && c.kieu !== 'suot') setCell(c, c.kieu, c.so, t.value); }
     }));
     rootEl.addEventListener('keydown', safe(e => {
@@ -3267,6 +3300,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       { const ph = e.target.closest('.view [data-phao]'), ct = e.target.closest('.view [data-cot]');
         if (ph || ct) {
           if (boClickXoay || Date.now() - dragEnd < 250) { boClickXoay = false; return; }
+          if (ph && loaiDangLam() === 'bep') return;      // tủ bếp không có phào
           if (ph) sel = { loai: 'phao', ben: ph.dataset.phao };
           else { const [x0, x1] = ct.dataset.cot.split(':').map(Number); sel = { loai: 'cot', x0, x1 }; }
           paintView(); renderBar();
@@ -3494,6 +3528,20 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     const chonBep = (k, label, ds, extra) => `<label>${esc(label)}<select id="${fid('bep.' + k)}" data-bep="${k}" ${extra || ''}>${ds.map(([v, t]) => `<option value="${esc(String(v))}"${String(getP(spec.bep, k)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
     const chonTB = (loai, label) => chonBep(`tb.${loai}.ma`, label, (Core.LOAI_TB_BEP[loai] || []).map(x => [x.ma, x.ten]).concat([['tu_chon', 'Tự gõ số theo model khách mua']]));
     // ô "Tủ bếp": chỉ các ô liên quan tới tầng + chức năng của module (bảng ít chữ — giải thích nằm ở title)
+    /** (1.33 vòng soát 2) ô Tủ bếp hiện lại số thật sau mỗi lần dựng: sửa Cao (ô chung) thì "Cao mặt đá" theo kịp; số bị kẹp / bỏ (số ngăn > 6, ngăn trên < 60) thì ô hiện số đang dùng.
+     *  Ô đang gõ thì để yên (trừ `ep` — ô vừa rời, sự kiện 'change'). */
+    function napBep(ep) {
+      if (!spec.bep) return;
+      const nk = spec.khoang[0] && (spec.khoang[0].o || []).find(c => c.kieu === 'nk_trum');
+      for (const el of rootEl.querySelectorAll('[data-bep], [data-bep-nk]')) {
+        if (el !== ep && sh.activeElement === el) continue;
+        let v;
+        if (el.dataset.bepNk) { if (!nk) continue; v = el.dataset.bepNk === 'so' ? fmt(nk.so) : fmt((nk.cao || [])[0] || ''); }
+        else { const x = getP(spec.bep, el.dataset.bep); if (x === undefined || x === null) continue; v = el.tagName === 'SELECT' ? String(x) : fmt(x); }
+        if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === v)) continue;
+        if (el.value !== v) el.value = v;
+      }
+    }
     function bepHTML() {
       const B = spec.bep, tang = B.tang, tb = B.tb || {}, f = [];
       const chucs = [...new Set(dsMauBep(tang).map(m => m.chuc_nang))];

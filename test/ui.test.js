@@ -667,14 +667,40 @@ async function testBep(browser) {
   ok((await S(page, '[data-bep="cao_mat"]').inputValue()) === '850' && await S(page, '[data-bep="chan"]').isVisible() && await S(page, '[data-bep="len_lui"]').isVisible() && (await S(page, '[data-bep="cach_tren"]').count()) === 0, 'tủ dưới: ô mặt đá 850, chân, lùi xà chân; không có ô "cách mặt đá" của tủ trên');
   ok((await S(page, '[data-bep^="tb."]').count()) === 0 && await S(page, '[data-bep-nk="so"]').isVisible() && (await S(page, '[data-bep-nk="cao"]').inputValue()) === '180', 'tủ 3 ngăn kéo: ô số ngăn + cao ngăn trên (180), không ô thiết bị');
   ok((await S(page, '[data-act="xem-3d"]').getAttribute('aria-pressed')) === 'true', 'tủ dưới: hình mặc định 3D');
+  // (1.33 vòng soát 2) sửa Cao (ô chung) → ô "Cao mặt đá" theo kịp; ô ngăn kéo hiện lại số đang dùng; cao ngăn < 100 không ghi vào chuẩn bếp
+  { const giaTri = q => S(page, q).inputValue();
+    await S(page, '#mncf-ui-mau').focus();
+    await S(page, '[data-k="cao"]').fill('860');
+    await page.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 880);
+    await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelector('[data-bep="cao_mat"]').value === '880', null, { timeout: 3000 }).catch(() => {});
+    ok((await giaTri('[data-bep="cao_mat"]')) === '880', 'gõ Cao 860 ở ô chung: ô "Cao mặt đá" hiện 880 (= thông số), không đứng ở 850', await giaTri('[data-bep="cao_mat"]'));
+    await S(page, '[data-k="cao"]').fill('830');
+    await page.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 850);
+    const nong0 = await page.evaluate(() => window.MNCF.app.getSpec().bep.nk_nong);
+    await S(page, '[data-bep-nk="cao"]').fill('50'); await S(page, '[data-bep-nk="cao"]').press('Tab');
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => { const s = window.MNCF.app.getSpec(), c = s.khoang[0].o.find(x => x.kieu === 'nk_trum'); let l = null; try { l = JSON.parse(localStorage.getItem('mncf.bep.v1')).nk_nong; } catch (e) { l = null; } return { cao: c.cao || null, nong: s.bep.nk_nong, luu: l }; });
+    ok((await giaTri('[data-bep-nk="cao"]')) === '' && !r.cao && r.nong === nong0 && r.luu !== 100, 'gõ ngăn trên 50 rồi rời ô: ô hiện trống (chia đều — số 50 không dùng), chuẩn nk_nong không bị kẹp thành 100', [await giaTri('[data-bep-nk="cao"]'), r, nong0]);
+    await S(page, '[data-bep-nk="so"]').fill('9'); await S(page, '[data-bep-nk="so"]').press('Tab');
+    await page.waitForTimeout(300);
+    ok((await giaTri('[data-bep-nk="so"]')) === '6' && (await page.evaluate(() => window.MNCF.app.getSpec().khoang[0].o.find(x => x.kieu === 'nk_trum').so)) === 6, 'gõ 9 ngăn: ô hiện 6 (số đang dùng)', await giaTri('[data-bep-nk="so"]'));
+    await S(page, '[data-bep-nk="so"]').fill('3'); await S(page, '[data-bep-nk="cao"]').fill('180'); await S(page, '[data-bep-nk="cao"]').press('Tab');
+    await page.waitForFunction(() => { const c = window.MNCF.app.getSpec().khoang[0].o.find(x => x.kieu === 'nk_trum'); return c.so === 3 && (c.cao || [])[0] === 180; });
+  }
   // tủ trên: giữ ô khoang (đợt, cánh), không phào / khấu cột
   await chon('BT-CANH-800');
   ok((await loai()) === 'bep' && await S(page, '.bays').isVisible() && !(await S(page, 'fieldset.khung-tu').first().isVisible()), 'tủ bếp trên: ô khoang hiện; phào / khấu cột ẩn', await loai());
   ok(await S(page, '[data-bep="cach_tren"]').isVisible() && (await S(page, '[data-bep="cao_mat"]').count()) === 1 && (await S(page, '[data-bep="chan"]').count()) === 0, 'tủ trên: có ô cách mặt đá, không có ô chân');
   // ô mặt kéo rổ (keo_pk) của tủ cao kho: dòng nội dung ô ghi "mặt kéo rổ" + tên rổ, không "undefined" / loại ray ngăn kéo
+  ok((await S(page, '.view [data-phao]').count()) === 0, 'tủ bếp trên: hình không bày vùng "+ phào" để bấm (tủ bếp không có phào)', await S(page, '.view [data-phao]').count());
+  await chon('BC-KHO-400');
+  { const noi = (await S(page, '.bay .noi').allInnerTexts()).join('\n');
+    ok(/mặt kéo rổ/.test(noi) && !/undefined/.test(noi) && !/Ray bi/.test(noi), 'tủ cao đồ khô kéo 400: ô rổ ghi "mặt kéo rổ", không "undefined", không loại ray ngăn kéo', noi); }
+  // (1.33 vòng soát 2) rổ đồ khô 450 / 600 là rổ CÁNH MỞ (khung bắt hồi, cánh bản lề) — không ghi "mặt kéo"
   await chon('BC-KHO-600');
   { const noi = (await S(page, '.bay .noi').allInnerTexts()).join('\n');
-    ok(/mặt kéo rổ/.test(noi) && !/undefined/.test(noi) && !/Ray bi/.test(noi), 'tủ cao kho: ô rổ ghi "mặt kéo rổ", không "undefined", không loại ray ngăn kéo', noi); }
+    ok(/rổ cánh mở/.test(noi) && !/mặt kéo rổ/.test(noi) && !/undefined/.test(noi), 'tủ cao đồ khô cánh mở 600: ô rổ ghi "rổ cánh mở"', noi); }
+  ok((await S(page, '.view [data-phao]').count()) === 0, 'tủ bếp cao: không vùng "+ phào"');
   // tủ chậu: ô thiết bị theo chức năng; chậu không lọt → nút "Chuyển tủ 900" sửa bằng một bước ↶ Lùi
   await chon('BD-CHAU-800');
   ok(await S(page, '[data-bep="tb.chau.ma"]').isVisible() && (await S(page, '[data-bep="tb.hm.ma"]').count()) === 0 && (await S(page, '[data-bep="tb.bep.ma"]').count()) === 0, 'tủ chậu: ô model chậu, không ô bếp nấu / hút mùi');

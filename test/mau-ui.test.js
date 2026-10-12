@@ -377,6 +377,29 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     cham.khongTong = false; cham.ms = 0; KHO[71] = mdfCu;
     eq(await page.evaluate(async () => (await window.MNCFDriver.khoVatLieu({ lam_moi: true })).ds.length), 133, 'đọc lại kho cũ: 133 màu');
 
+    console.log('— (1.33) Tủ chậu: đổ màu không ghi đè ván chống ẩm của thùng; ván lót đá giữ tên ván');
+    r = await page.evaluate(async () => { const C = window.MNCFCore;
+      let a = C.apMau(C.normalize({}), 'BD-CHAU-800'); a = C.datBep(a, { van_chau: 'MDF chống ẩm', van_lot: 10 }); a.ma = 'K9';
+      let b = C.apMau(C.normalize({}), 'BD-CANH-600'); b = C.datBep(b, { van_chau: '', van_lot: 10 }); b.ma = 'K8';
+      const x = await window.MNCF.draw(a, { at: [40000, 0, 0] }), y = await window.MNCF.draw(b, { at: [42000, 0, 0] });
+      // trang giả lập không chép BrMatName vào ô tên ván lúc nhập (Chenfeng thật có) → ghi tay như Chenfeng sẽ ghi
+      const D = window.MNCFDriver, bs = D.all().filter(D.isBoard), tu = t => bs.filter(o => String(o.BoardProcessOption.cabinetName || '').indexOf(t) === 0);
+      for (const o of tu('K9')) if (!/^(Cánh|Xà chân)/.test(o.Name)) Object.assign(o.BoardProcessOption, { boardName: 'MDF chống ẩm', material: 'MDF chống ẩm' });
+      for (const o of tu('K8')) if (o.Name === 'Ván lót đá') Object.assign(o.BoardProcessOption, { boardName: 'MDF lót', material: 'MDF' });
+      for (const o of tu('K8')) if (o.Name === 'Hồi trái') Object.assign(o.BoardProcessOption, { boardName: 'HDF xanh', material: 'HDF' });
+      return [x.ok, y.ok, tu('K9').length, tu('K8').some(o => o.Name === 'Ván lót đá')]; });
+    ok(r[0] && r[1] && r[2] > 5 && r[3], 'vẽ tủ chậu K9 (ván chống ẩm) + tủ cánh K8 có ván lót đá', r);
+    r = await page.evaluate(async () => { const D = window.MNCFDriver, K = await D.khoVatLieu(), m = t => K.ds.find(x => x.ten === t), bs = D.all().filter(D.isBoard);
+      const tu = t => D.tamCuaTu([bs.find(o => String(o.BoardProcessOption.cabinetName || '').indexOf(t) === 0)]);
+      const a = await D.doMauTu(tu('K9'), { thung: m('103T'), mat: m('LUX279PRL') }), b = await D.doMauTu(tu('K8'), { thung: m('103T'), mat: m('LUX279PRL') }, { giu_van: ['HDF xanh'] });
+      return [a.ok, b.ok]; });
+    ok(r[0] && r[1], 'đổ màu 2 tủ bếp', r);
+    m = await xem('K9');
+    eq(Object.keys(m).sort(), ['103T/MDF chống ẩm/MDF chống ẩm/103T', 'LUX279PRL/Acrylic/Acrylic/LUX279PRL'], 'tủ chậu: thùng đổi màu hiển thị 103T nhưng GIỮ tên ván / vật liệu chống ẩm; cánh + xà chân theo màu mặt');
+    ok(/Hồi trái/.test(m['103T/MDF chống ẩm/MDF chống ẩm/103T'] || '') && /Ván lót đá/.test(m['103T/MDF chống ẩm/MDF chống ẩm/103T'] || '') && /Cánh/.test(m['LUX279PRL/Acrylic/Acrylic/LUX279PRL'] || ''), 'hồi, ván lót đá của tủ chậu mang ván chống ẩm', m);
+    m = await xem('K8');
+    ok(m['103T/MDF lót/MDF/103T'] === 'Ván lót đá' && m['103T/HDF xanh/HDF/103T'] === 'Hồi trái' && /Hồi phải/.test(m['103T/MDF/MDF/103T'] || ''), 'tủ thường: ván lót đá giữ tên ván; tên ván truyền qua giu_van (chuẩn bếp của phiên trước) được giữ; tấm khác nhận ván của màu', m);
+
     console.log('— Tải lại trang: các ô màu, màu vừa dùng, lựa chọn tự đổ màu được nhớ');
     const moLai = async () => { await page.reload(); await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCFDriver, null, { timeout: 15000 }); await H.locator('.launch').click(); await theSau(H, 'mausac'); await H.locator('.vlds .vlc').first().waitFor({ timeout: 10000 }); };
     const trangThai = async () => ({ o: (await H.locator('.vlos .vlo').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').replace(' ✕', '').trim()), bat: await H.locator('.vlo.on').getAttribute('data-v'), tudong: await H.locator('[data-ui="vl-tudong"]').isChecked(), gan: (await H.locator('.vlgan .vlg').allInnerTexts()).map(t => t.trim()), anh: await H.locator('.vlo[data-v="thung"] img').count() ? await H.locator('.vlo[data-v="thung"] img').evaluate(i => i.getAttribute('src')) : '' });
