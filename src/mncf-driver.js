@@ -689,14 +689,14 @@
     if (want && !gotHW) warnings.push('Không thấy phụ kiện nào của mẫu ngăn kéo / suốt treo — kiểm tra mã mẫu ở tab Chuẩn xưởng.');
     warnings.push(...baoMau(tm));
     if (tm.ban) warnings.push(BAO_BAN);
-    const dl = doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong });
+    const dl = opt.bo ? null : doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong });      // (1.34) vẽ cả dãy bếp: dò lỗi MỘT lần cuối dãy (D.veDay)
     opt.onStatus('Xong.');
     const h1 = hmMark();
     let steps = 1 + ((fix.fixed || fix.normalized) ? 1 : 0);
     if (h0 && h1 && h1.i > h0.i && h1.i - h0.i <= 6 + tm.so_lenh) steps = h1.i - h0.i;
     D.last = { M, added, offset, steps, mark: h1, id }; nhoVanRieng(M, id);
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + cf.base[i])), kiem_tra: v, do_loi: dl, sua_khoan: fix, so_buoc_hoan_tac: steps, module: mod, kich: Core.heSo(M.spec).kich, tom_tat: Core.summary(M),
-      mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma };
+      mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma, ...(tm.ban ? { ban: true } : {}) };
   };
 
   /* ------------------------------------------------------------------ *
@@ -3061,14 +3061,14 @@
     // trả hướng nhìn về như trước khi vẽ, nhìn vào tủ vừa đặt
     try { const V = root.app.Viewer; if (huongNhin && V.CameraControl && typeof V.CameraControl.LookAt === 'function') V.CameraControl.LookAt(huongNhin); const bs = cuaToi().filter(D.isBoard); if (bs.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(bs); V.UpdateRender(); } catch (e) { /* bỏ qua */ }
     added = cuaToi();
-    const dl = added.some(D.isBoard) ? doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }) : null;
+    const dl = added.some(D.isBoard) && !opt.bo ? doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }) : null;
     const h1 = hmMark();
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : xong;
     D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true }; nhoVanRieng(Msub, id);      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
     opt.onStatus('Xong.');
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset: atW.slice(), goc: gocCuoi, xoay_do: xoay, khung, dat, kiem_tra: v, do_loi: dl, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps,
       module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M),
-      mau_thieu: tm ? gonMauThieu(tm) : [], mau_doi: tm ? tm.doi_ma : [], nk_goc: tm && tm.nk ? { tong: tm.nk.tong, so: tm.nk.so, lui: tm.nk.lui.map(h => ({ khoang: h.khoang, ly_do: h.ly_do })) } : null };
+      ...(tm && tm.ban ? { ban: true } : {}), mau_thieu: tm ? gonMauThieu(tm) : [], mau_doi: tm ? tm.doi_ma : [], nk_goc: tm && tm.nk ? { tong: tm.nk.tong, so: tm.nk.so, lui: tm.nk.lui.map(h => ({ khoang: h.khoang, ly_do: h.ly_do })) } : null };
   };
 
   /* ------------------------------------------------------------------ *
@@ -3859,7 +3859,149 @@
     }
     return () => { if (!tha) { tha = true; giu--; } };
   };
-  for (const k of ['draw', 'update', 'drawRoom', 'veKho']) {
+  /* ------------------------------------------------------------------ *
+   * (bản 1.34) VẼ CẢ DÃY BẾP (thiết kế "dãy bếp" §9). Mỗi tủ vẫn là MỘT D.draw = một module (tủ lệnh gốc / nhập tấm như tủ lẻ); chỗ đặt từng tủ tính sẵn ở lõi
+   * (Core.datDay: `at` = gốc thiết kế + `xoay` — cạnh B chữ L ±90). Cả dãy trong một khoá "mncf-ve-tu" (shared — D.draw lồng bên trong cũng shared) + giữ kết nối.
+   * Cờ `bo` của D.draw: bỏ dò lỗi sau từng tủ — dãy dò MỘT lần ở cuối, trên tấm của mọi tủ trong bộ; xem toàn bộ cũng một lần.
+   * DỪNG (không tự hoàn tác gì): tủ vẽ không xong, Chenfeng còn chờ máy chủ (`ban`), hoặc người dùng đang chạy một lệnh của họ trước tủ kế (không Esc lệnh đó).
+   * Hoàn tác / Cập nhật bộ: theo MÃ TỦ (D.locate → D.cabinetEntities → D.erase) — KHÔNG UNDO theo số bước (người dùng vẽ chen vào là lùi luôn việc của họ, bài học doBocHoi).
+   * ------------------------------------------------------------------ */
+  const khoaVe = async (f) => {
+    let ran = false, res;
+    const run = async () => { ran = true; res = await f(); };
+    try { const nav = root.navigator; if (nav && nav.locks && typeof nav.locks.request === 'function') { await nav.locks.request('mncf-ve-tu', { mode: 'shared' }, run); return res; } }
+    catch (e) { if (ran) throw e; }
+    await run(); return res;
+  };
+  // một loạt tủ: vẽ lần lượt, gọi onTu sau mỗi tủ (giao diện ghi bản ghi NGAY — dừng giữa chừng vẫn biết tủ nào đã có)
+  const veLoat = async (ds, opt, kq) => {
+    const bao = guard(opt.onStatus), N = ds.length;
+    for (let i = 0; i < N; i++) {
+      const x = ds[i], nhan = `Tủ ${i + 1}/${N} (${x.vt})`;
+      // người dùng đang chạy một lệnh của họ (hỏi điểm / chọn tấm / hộp thoại) hoặc lệnh trễ chưa xong: KHÔNG Esc, không vẽ tiếp — dừng, để họ làm xong rồi bấm Vẽ tiếp
+      if (D.busy() || D.dangLenhTre() || hopThoai()) { kq.dung = { i, vt: x.vt, ly_do: 'ban', loi: `Chenfeng đang chạy dở lệnh ${tenLenhCuoi() || 'khác'} — bảng không ngắt lệnh đó` }; break; }
+      bao(`${nhan}…`);
+      let rep;
+      try { rep = await D.draw(x.spec, { at: x.at.slice(), xoay: Number(x.xoay) || 0, id: x.id || undefined, bo: true, onStatus: t => bao(`${nhan}: ${t}`) }); }
+      catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
+      const xong = rep && rep.giai_doan === 'xong';
+      kq.reps.push({ vt: x.vt, id: xong ? rep.id : null, ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [], warnings: (rep && rep.warnings) || [] });
+      if (xong) { kq.xong++; kq.ids.push(rep.id); if (D.last && D.last.id === rep.id) kq.tam.push(...D.last.added); }
+      if (typeof opt.onTu === 'function') { try { await opt.onTu(i, rep, x); } catch (e) { /* lỗi của nơi gọi không làm hỏng lần vẽ */ } }
+      if (!xong || rep.ban) { kq.dung = { i, vt: x.vt, ly_do: rep && rep.ban ? 'may_chu' : 'hong', loi: ((rep && rep.errors) || []).join(' ') || (rep && rep.ban ? 'Chenfeng còn đang chờ máy chủ' : 'tủ chưa vẽ được') }; break; }
+    }
+  };
+  // dò lỗi MỘT lần trên mọi tủ của bộ (tủ vừa vẽ + tủ đã có — theo mã) rồi xem toàn bộ
+  const ketDay = (kq, opt) => {
+    const ids = new Set(kq.ids.concat((opt.ids_cu || []).map(String)));
+    if (ids.size && opt.do_loi !== false) {
+      try {
+        const tap = new Set(kq.tam.filter(e => e && !e.IsErase && D.isBoard(e)));
+        for (const e of D.all()) if (D.isBoard(e) && ids.has(D.tagOf(e))) tap.add(e);
+        const p = D.doLoi([...tap], { kho: opt.kho || null });
+        kq.do_loi = { loi: p.muc.filter(m => m.ket === 'loi' && m.tin.length).map(m => `${m.ten}: ${m.tin[0]}${m.tin.length > 1 ? ` (và ${m.tin.length - 1} chỗ khác)` : ''}`), so_tam: tap.size };
+      } catch (e) { kq.do_loi = null; }
+    }
+    if (kq.xong && opt.zoom !== false) D.zoom();
+  };
+  const kqDay = n => ({ ok: false, tong: n, xong: 0, reps: [], ids: [], tam: [], dung: null, do_loi: null, loi: '' });
+  const truocDay = kq => {
+    if (!D.available()) { kq.loi = 'Không thấy bản vẽ Chenfeng trong trang này.'; return false; }
+    if (D.dangLenhTre()) { kq.loi = 'Chenfeng còn một lệnh tới trễ chưa xong — chờ một chút rồi bấm lại.'; return false; }
+    return true;
+  };
+  const gonKq = kq => { const o = Object.assign({}, kq); delete o.tam; return o; };
+  /**
+   * Vẽ cả dãy. ds = [{ vt, spec, at, xoay, id? }] theo thứ tự vẽ (Core.datDay). opt = { onStatus, onTu(i, rep, x) (chờ xong mới vẽ tủ kế), ids_cu (mã tủ đã có — dò lỗi chung), kho, zoom, do_loi }
+   * @returns {{ ok, tong, xong, reps: [{ vt, id, ok, giai_doan, errors, warnings }], ids, dung: null | { i, vt, ly_do: 'hong' | 'may_chu' | 'ban', loi }, do_loi: { loi: [], so_tam } | null, loi }}
+   */
+  D.veDay = async (ds, opt) => {
+    opt = Object.assign({ onStatus() {} }, opt || {}); ds = Array.isArray(ds) ? ds : [];
+    const kq = kqDay(ds.length);
+    if (!truocDay(kq)) return gonKq(kq);
+    await khoaVe(async () => { await veLoat(ds, opt, kq); ketDay(kq, opt); });
+    kq.ok = !kq.dung && kq.xong === ds.length;
+    return gonKq(kq);
+  };
+  // các đối tượng của một tủ đã vẽ theo mã (tìm lại được thì cả mẫu ngăn kéo / suốt treo; không thì tấm mang mã + lỗ của chúng)
+  const doTu = (x) => {
+    let M = null; try { M = Core.build(x.spec); } catch (e) { M = null; }
+    const loc = M ? D.locate(String(x.id), M) : { ok: false };
+    if (loc.ok) return D.cabinetEntities(String(x.id), M, loc);
+    // không dò lại được theo thông số (tủ đã xoay mà khung module không nói hướng, tủ bị sửa tay…): tấm mang mã + mọi thứ cùng MODULE gốc với chúng
+    // (hộp ngăn kéo / suốt treo là mẫu con của module) + lỗ khoan dính vào — vẫn chỉ theo mã tủ, không đụng đồ khác
+    const tam = D.all().filter(e => D.isBoard(e) && D.tagOf(e) === String(x.id)), goc = new Set(tam.map(rootTpl).filter(Boolean)), co = new Set(tam);
+    if (goc.size === 1 && tam.every(b => goc.has(rootTpl(b)))) for (const e of D.all()) if ((D.isBoard(e) || D.isHardware(e)) && !co.has(e) && goc.has(rootTpl(e)) && !(D.isBoard(e) && D.tagOf(e) && D.tagOf(e) !== String(x.id))) co.add(e);
+    return [...co].concat(D.all().filter(h => D.isHole(h) && (co.has(idOf(h.FId)) || co.has(idOf(h.MId)))));
+  };
+  const xoaLoat = async (ds, opt, kq) => {
+    const bao = guard(opt.onStatus);
+    for (let i = 0; i < ds.length; i++) {
+      const x = ds[i];
+      if (D.busy() || hopThoai()) { kq.con = ds.slice(i).map(y => y.vt); kq.loi = `Chenfeng đang chạy dở lệnh ${tenLenhCuoi() || 'khác'} — chưa xoá tiếp (còn ${ds.length - i} tủ)`; return false; }
+      const ents = doTu(x);
+      if (!ents.some(D.isBoard)) { kq.mat.push(x.vt); vanTu.delete(String(x.id)); continue; }      // không còn trên bản vẽ (người dùng đã xoá)
+      bao(`Bỏ tủ ${x.vt} (${i + 1}/${ds.length})…`);
+      const er = await D.erase(ents);
+      if (!er.ok) { kq.con = ds.slice(i).map(y => y.vt); kq.loi = `Chưa xoá được tủ ${x.vt} (còn ${er.con} đối tượng)`; return false; }
+      kq.xoa.push(x.vt); vanTu.delete(String(x.id));
+      if (D.last && String(D.last.id) === String(x.id)) D.last = null;      // "Hoàn tác lần vẽ này" không còn trỏ vào tủ đã bỏ
+    }
+    return true;
+  };
+  /**
+   * Hoàn tác bộ bếp: bỏ từng tủ theo mã, đi NGƯỢC thứ tự đã vẽ. ds = [{ vt, id, spec (thông số lúc vẽ) }] theo thứ tự đã vẽ.
+   * @returns {{ ok, xoa: [vt], mat: [vt đã không còn trên bản vẽ], con: [vt chưa xoá], loi }}
+   */
+  D.xoaDay = async (ds, opt) => {
+    opt = Object.assign({ onStatus() {} }, opt || {});
+    const kq = { ok: false, xoa: [], mat: [], con: [], loi: '' };
+    if (!D.available()) { kq.loi = 'Không thấy bản vẽ Chenfeng trong trang này.'; return kq; }
+    await khoaVe(async () => { kq.ok = await xoaLoat((Array.isArray(ds) ? ds : []).slice().reverse(), opt, kq); });
+    return kq;
+  };
+  /**
+   * Cập nhật bộ (so dãy mới với dãy đã vẽ ở lõi — Core.doiDay): xoá (tủ bỏ / dời chỗ) → Cập nhật tại chỗ (D.update, giữ lưng + z) → vẽ thêm (tủ mới / dời chỗ).
+   * viec = { xoa: [{ vt, id, spec }], sua: [{ vt, id, spec, specCu, at, xoay }], ve: [{ vt, spec, at, xoay }] } (sua: at / xoay = chỗ trong bộ — dùng khi không dò lại được tủ cũ). opt như D.veDay + onSua(vt, rep).
+   * @returns kết quả như D.veDay + { xoa, sua: [{ vt, id, ok, giai_doan, errors }] }
+   */
+  D.capNhatDay = async (viec, opt) => {
+    opt = Object.assign({ onStatus() {} }, opt || {}); viec = viec || {};
+    const ve = viec.ve || [], kq = Object.assign(kqDay(ve.length), { xoa: { xoa: [], mat: [], con: [], loi: '' }, sua: [] });
+    if (!truocDay(kq)) return gonKq(kq);
+    await khoaVe(async () => {
+      const bao = guard(opt.onStatus);
+      if ((viec.xoa || []).length && !(await xoaLoat(viec.xoa.slice().reverse(), opt, kq.xoa))) { kq.dung = { i: -1, vt: kq.xoa.con[0], ly_do: 'xoa', loi: kq.xoa.loi }; return; }
+      const sua = viec.sua || [];
+      for (let i = 0; i < sua.length; i++) {
+        const x = sua[i];
+        if (D.busy() || hopThoai()) { kq.dung = { i: -1, vt: x.vt, ly_do: 'ban', loi: `Chenfeng đang chạy dở lệnh ${tenLenhCuoi() || 'khác'}` }; return; }
+        bao(`Cập nhật tủ ${x.vt} (${i + 1}/${sua.length})…`);
+        let rep; try { rep = await D.update(x.spec, { id: String(x.id), specCu: x.specCu }, { bo: true, onStatus: t => bao(`Cập nhật tủ ${x.vt}: ${t}`) }); }
+        catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)] }; }
+        // không dò lại được tủ cũ để cập nhật tại chỗ (tủ xoay theo cạnh B mà khung module không nói hướng…): bỏ tủ đó theo mã rồi vẽ lại ở chỗ của bộ, giữ mã tủ
+        if (rep && rep.giai_doan === 'tim' && Array.isArray(x.at)) {
+          const xk = { xoa: [], mat: [], con: [], loi: '' };
+          if (await xoaLoat([{ vt: x.vt, id: x.id, spec: x.specCu }], opt, xk)) {
+            try { rep = await D.draw(x.spec, { at: x.at.slice(), xoay: Number(x.xoay) || 0, id: String(x.id), bo: true, onStatus: t => bao(`Cập nhật tủ ${x.vt}: ${t}`) }); }
+            catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)] }; }
+            if (rep) rep.ve_lai = true;
+          } else rep = { ok: false, giai_doan: 'xoa', errors: [xk.loi] };
+        }
+        const xong = rep && rep.giai_doan === 'xong';
+        kq.sua.push({ vt: x.vt, id: String(x.id), ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [] });
+        if (xong) { kq.ids.push(String(x.id)); if (D.last && String(D.last.id) === String(x.id)) kq.tam.push(...D.last.added); }
+        if (typeof opt.onSua === 'function') { try { await opt.onSua(x.vt, rep, x); } catch (e) { /* bỏ qua */ } }
+        if (!xong || rep.ban) { kq.dung = { i: -1, vt: x.vt, ly_do: rep && rep.ban ? 'may_chu' : 'hong', loi: ((rep && rep.errors) || []).join(' ') || 'chưa cập nhật được' }; return; }
+      }
+      kq.xong = 0;
+      await veLoat(ve, opt, kq);
+      ketDay(kq, opt);
+    });
+    kq.ok = !kq.dung && kq.xong === ve.length;
+    return gonKq(kq);
+  };
+  for (const k of ['draw', 'update', 'drawRoom', 'veKho', 'veDay', 'xoaDay', 'capNhatDay']) {
     const f = D[k]; if (typeof f !== 'function') continue;
     D[k] = async function () { const tha = D.giuKetNoi(); try { return await f.apply(this, arguments); } finally { tha(); } };
   }
