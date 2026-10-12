@@ -42,7 +42,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     await page.goto('https://cfcad.cn/');
     await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCFDriver && window.MNCFCore, null, { timeout: 15000 });
     // (bản 1.31) chuẩn xưởng mới: nóc, đáy phủ hồi + khung mặt hộc kéo — lệnh gốc chỉ vẽ kết cấu cũ (hồi phủ nóc đáy) và số đo của bộ này là hộc kéo khe + xà ẩn → ghim cả hai
-    await page.evaluate(() => { window.MNCFCore.DEFAULT_SPEC.thung.noc_day = 'lot'; window.MNCFCore.DEFAULT_SPEC.ngan_keo.khung_mat = 0; });
+    await page.evaluate(() => { window.MNCFCore.DEFAULT_SPEC.thung.noc_day = 'lot'; window.MNCFCore.DEFAULT_SPEC.ngan_keo.khung_mat = 0; const B = window.MNCFCore.DEFAULT_BEP; if (B) { B.cao_mat = 850; B.noc = 'lien'; } });      // (1.33.1) số đo tủ bếp cũ: mặt đá 850, nóc liền (mặc định mới 860 + 2 giằng → nhập tấm)
     await page.evaluate(() => {
       const C = window.MNCFCore, D = window.MNCFDriver, E = () => window.app.Database.ModelSpace.Entitys;
       window.__thu = {

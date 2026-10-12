@@ -849,8 +849,8 @@ async function tienIch() {
     await H.locator('[data-act="hop-lai"]').click(); await choHoi(h0 + 3);
     ok((await hop()).dlg === '' && /Bấm điểm ĐẦU của tủ/.test(await H.locator('.chip').textContent()), 'Chọn lại chỗ (tủ đặt bằng chuột): hộp đóng, bảng hỏi lại điểm đầu');
     await page.evaluate(() => window.app.Editor.Cancel()); await datXong('Đã huỷ — chưa đặt tủ');
-    // (7a) 1.33 vòng soát: tủ bếp TRÊN đặt bằng chuột — điểm bấm ở sàn, tủ treo ở mặt đá 850 + cách 700 = 1550. Trước khi vẽ, phần soi điện – nước đã phải tính ở cao độ treo
-    //      (ổ +300 sau tủ dưới không dính, công tắc +2000 sau tủ trên thì dính); nút xanh ghi z thật; bấm Vẽ: đáy tủ ở z 1550
+    // (7a) 1.33 vòng soát: tủ bếp TRÊN đặt bằng chuột — điểm bấm ở sàn, tủ treo ở mặt đá 860 + cách 700 = 1560 (1.33.1). Trước khi vẽ, phần soi điện – nước đã phải tính ở cao độ treo
+    //      (ổ +300 sau tủ dưới không dính, công tắc +2000 sau tủ trên thì dính); nút xanh ghi z thật; bấm Vẽ: đáy tủ ở z 1560
     {
       const p0 = await page.evaluate(() => window.MNCF.phong.lay());
       await page.evaluate(p => window.MNCF.phong.dat(Object.assign({}, p, { dn: [{ tuong: 0, loai: 'o_dien', cach: 900, cao: 300 }, { tuong: 0, loai: 'cong_tac', cach: 900, cao: 2000 }] })), p0);
@@ -864,10 +864,10 @@ async function tienIch() {
       await H.locator('[data-act="hop-dong"]').click();
       const dnB = await H.locator('.msgs .msg.dn').allInnerTexts(), nutB = (await H.locator('footer [data-act="draw"]').innerText()).trim();
       ok(dnB.length > 0 && dnB.every(t => !/^Ổ điện 1/.test(t)) && dnB.some(t => /^Công tắc 1/.test(t)), 'tủ trên đặt bằng chuột, chưa vẽ: soi điện – nước ở cao độ treo — công tắc +2000 dính, ổ +300 (sau tủ dưới) không', dnB);
-      ok(/, 1550$/.test(nutB), 'nút xanh ghi z thật của tủ trên (1550), không phải z ở sàn', nutB);
+      ok(/, 1560$/.test(nutB), 'nút xanh ghi z thật của tủ trên (1560), không phải z ở sàn', nutB);
       await H.locator('footer [data-act="draw"]').click(); await choVe();
       const vB = await hopTu();
-      ok(/Đã vẽ xong/.test(vB.kq) && vB.hop[4] === 1550 && vB.hop[0] === 500, 'bấm Vẽ: tủ trên treo đáy ở z 1550, góc trái ở điểm bấm đầu (x 500)', vB.hop);
+      ok(/Đã vẽ xong/.test(vB.kq) && vB.hop[4] === 1560 && vB.hop[0] === 500, 'bấm Vẽ: tủ trên treo đáy ở z 1560, góc trái ở điểm bấm đầu (x 500)', vB.hop);
       await H.locator('[data-act="undo"]').click();
       await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
       ok((await soDoiTuong()) === nB, 'hoàn tác tủ trên: bản vẽ về như trước');
