@@ -1160,6 +1160,7 @@
     if (moved()) return { ok: false, reason: 'Sau lần vẽ đó bản vẽ đã có thao tác khác — hãy dùng Ctrl+Z của Chenfeng để lùi từng bước.' };
     await D.undo(L.steps || 1);
     const left = (L.added || []).filter(e => e && !e.IsErase).length;
+    traVanRieng(L);
     D.last = null;
     return left ? { ok: false, reason: `Đã hoàn tác nhưng còn ${left} đối tượng của lần vẽ — kiểm tra lại bằng Ctrl+Z.` } : { ok: true };
   };
@@ -3255,7 +3256,9 @@
   /** Giao diện gán: mã tủ → thông số đã lưu của tủ đó (hoặc null). */
   D.specTuLuu = null;
   const vanChauCua = s => { try { const b = s && s.loai_sp === 'bep' && s.bep; return b && b.chuc_nang === 'chau' && b.van_chau ? String(b.van_chau).trim() : ''; } catch (e) { return ''; } };
-  const nhoVanRieng = (M, id) => { try { if (id) vanTu.set(String(id), vanChauCua(M && M.spec)); } catch (e) { /* bỏ qua */ } };
+  // (vòng soát 4) nhớ cả giá trị trước đó vào D.last.van_cu: hoàn tác một lần Cập nhật (cùng mã tủ) thì tủ CŨ quay lại bản vẽ → trả lại ván riêng của tủ cũ
+  const nhoVanRieng = (M, id) => { try { if (!id) return; id = String(id); if (D.last && D.last.id != null && String(D.last.id) === id) D.last.van_cu = vanTu.has(id) ? { v: vanTu.get(id) } : null; vanTu.set(id, vanChauCua(M && M.spec)); } catch (e) { /* bỏ qua */ } };
+  const traVanRieng = L => { try { if (!L || L.id == null || !('van_cu' in L)) return; const id = String(L.id); if (L.van_cu) vanTu.set(id, L.van_cu.v); else vanTu.delete(id); } catch (e) { /* bỏ qua */ } };
   const vanCuaMaTu = id => {
     if (!id) return '';
     if (vanTu.has(id)) return vanTu.get(id);

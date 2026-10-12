@@ -2078,6 +2078,13 @@ T('Tủ bếp — sửa theo vòng soát 1.33 lần 3', () => {
     ok(JSON.stringify(s.khoang[0].dot) === JSON.stringify(s3.khoang[0].dot), `${ma} chân ${chan}: đợt giống như áp mẫu sau khi đổi chân`, [s.khoang[0].dot, s3.khoang[0].dot]);
   }
   { const s = ap('BC-KHO-600'); s.khoang[0].dot = [2100]; const s2 = C.datBep(s, { chan: 120 }); ok(s2.khoang[0].dot[0] === 2100, 'đợt người dùng đã nâng (đủ chỗ) thì giữ khi đổi chân', s2.khoang[0].dot); }
+  // (vòng soát 4) đợt người dùng dời mà ô vẫn ≥ cao_min (dù dưới số làm tròn của mẫu): đổi ô khác hay đổi chân vẫn giữ
+  for (const [ma, d] of [['BC-KHO-400', 1870], ['BC-KHO-450', 1955]]) {
+    const s = ap(ma); s.khoang[0].dot = [d];
+    eq(C.datBep(s, { cach_tren: 650 }).khoang[0].dot, [d], `${ma} đợt ${d}: đổi Cách mặt đá không dời đợt`);
+    eq(C.datBep(s, { chan: 90 }).khoang[0].dot, [d], `${ma} đợt ${d}: hạ chân (ô vẫn đủ) giữ đợt`);
+    ok(C.datBep(s, { chan: 150 }).khoang[0].dot[0] > d, `${ma} đợt ${d}: nâng chân 150 (ô thiếu) thì đợt lên`);
+  }
   // #3: cỡ chỉ một hãng có → dòng mua ghi đúng hãng
   const dongPK = ma => C.cutList(C.build(ap(ma))).phu_kien.filter(p => p.bep);
   { const l = dongPK('BD-XN-750').find(p => /bát đĩa/.test(p.ten)); ok(l && /cỡ 750 — Higold$/.test(l.ten) && !/EU133600/.test(l.ghi_chu), 'giá bát đĩa cỡ 750: chỉ Higold', l); }

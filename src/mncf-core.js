@@ -3135,7 +3135,10 @@
     for (const kh of out.khoang || []) {
       const o = (kh.o || [])[0], ma = o && kh.o.length === 1 && o.kieu === 'keo_pk' && (o.tu || 0) === 0 && Array.isArray(o.pk) && o.pk.length === 1 ? o.pk[0] : '';
       if ((ma !== 'kho' && ma !== 'kho_canh') || !Array.isArray(kh.dot) || kh.dot.length !== 1) continue;
-      const z1 = zKho(ma, k1); if (kh.dot[0] === zKho(ma, k0) || kh.dot[0] < z1) kh.dot = [z1];
+      // (vòng soát 4) chỉ khi CHÂN đổi (datBep chạy cho mọi ô của khối Tủ bếp); "đủ chỗ" = ô ≥ cao_min của rổ (không phải số làm tròn của mẫu)
+      if (k0.chan === k1.chan) continue;
+      const z1 = zKho(ma, k1), du = k1.chan + t + LOAI_PK_BEP.find(x => x.ma === ma).cao_min;
+      if (kh.dot[0] === zKho(ma, k0) || kh.dot[0] < du - TOL) kh.dot = [z1];
     }
     return out;
   }

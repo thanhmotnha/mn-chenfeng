@@ -1674,12 +1674,13 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       busy = true; rebuild();
       let rep;
       const neoPhai = !!noi.neo_phai;
+      const specCu = noi.spec ? clone(noi.spec) : null;      // (vòng soát 4) hoàn tác lần Cập nhật này → trả thông số đã lưu của tủ về tủ cũ (đổ màu đọc nó)
       try { rep = await Drv.update(spec, { id: noi.id, specCu: noi.spec, pick: noi.pick, neo_phai: neoPhai }, { onStatus: setStatus }); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
       if (rep.giai_doan === 'xong' && !rep.giu_mau) rep.do_mau = await tuDoMau();      // tủ cũ đã có màu thì bộ điều khiển giữ màu đó (rep.giu_mau); chưa có thì theo ô "tự đổ màu"
       busy = false;
       try {
-        lastRep = rep;
+        lastRep = rep; if (rep.giai_doan === 'xong' && specCu) rep.spec_cu = specCu;
         if (rep.giai_doan === 'xong') { noi = Object.assign({ id: rep.id || noi.id, spec: clone(spec), ten: spec.ma || spec.ten || '' }, neoPhai ? { neo_phai: true } : {}); khoTu.save(noi.id, noi.spec); }
         rebuild(); showReport(rep); setStatus(rep.ok ? 'Đã cập nhật tủ tại chỗ.' : rep.giai_doan === 'xong' ? 'Đã cập nhật nhưng có chỗ cần xem — tab Kết quả.' : 'Chưa cập nhật được — xem tab Kết quả.');
       } catch (e) { setStatus('Lỗi khi hiện kết quả: ' + (e && e.message || e)); }
@@ -3493,7 +3494,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'undo-ch') { if (Drv && !busy) { const coDV = b.dataset.dv === '1'; setStatus('Đang hoàn tác…'); return Drv.undoChuanHoa().then(r => (r.ok && coDV && Drv.undoDayVan ? Drv.undoDayVan().then(d => (d.ok ? r : { ok: true, luu_y: d.reason })) : r)).then(r => { if (r.ok) { setStatus('Đã hoàn tác lần chuẩn hoá vừa rồi.'); $('.report').innerHTML = `<p class="hint tt">Đã hoàn tác lần chuẩn hoá vừa rồi — module trở lại kết cấu gốc của mẫu${r.luu_y ? ` (riêng dày ván chưa trả lại: ${esc(r.luu_y)})` : ''}.</p>`; } else setStatus(r.reason); }); } }
       else if (act === 'undo-dv') { if (Drv && !busy && Drv.undoDayVan) { setStatus('Đang hoàn tác…'); return Drv.undoDayVan().then(r => { if (r.ok) { setStatus('Đã trả dày ván của module về như mẫu.'); $('.report').innerHTML = '<p class="hint tt">Đã trả dày ván của module về như mẫu gốc.</p>'; } else setStatus(r.reason); }); } }
       else if (act === 'unlink') { noi = null; rebuild(); setStatus('Đã bỏ nối — bấm “Vẽ vào Chenfeng” sẽ vẽ một tủ mới.'); }
-      else if (act === 'undo') { if (Drv && lastRep && !busy) { const laKho = !!lastRep.kho, kv = lastRep.khung_ve, kt = lastRep.khung_tu, idTu = lastRep.id; setStatus('Đang hoàn tác…'); return Drv.undoLast().then(r => { if (r.ok) { setStatus('Đã hoàn tác lần vẽ vừa rồi.'); $('.report').innerHTML = '<p class="hint tt">Đã hoàn tác lần vẽ vừa rồi.</p>'; lastRep = null;
+      else if (act === 'undo') { if (Drv && lastRep && !busy) { const laKho = !!lastRep.kho, kv = lastRep.khung_ve, kt = lastRep.khung_tu, idTu = lastRep.id, specCu = lastRep.spec_cu; setStatus('Đang hoàn tác…'); return Drv.undoLast().then(r => { if (r.ok) { if (specCu && idTu) khoTu.save(idTu, specCu); setStatus('Đã hoàn tác lần vẽ vừa rồi.'); $('.report').innerHTML = '<p class="hint tt">Đã hoàn tác lần vẽ vừa rồi.</p>'; lastRep = null;
         // tủ vừa hoàn tác đứng trong một khung của phòng: khung thôi ghi "đã vẽ"; khung do "Đặt tủ theo tường" tự tạo cho lần đó thì bỏ hẳn (tường trống lại)
         if (kt && phong && phong.khung[kt.j] && phong.khung[kt.j].ten === kt.ten && phong.khung[kt.j].tu_id === idTu) { if (kt.tam) { phong.khung.splice(kt.j, 1); selKhung = -1; } else delete phong.khung[kt.j].tu_id; phongStore.save(); renderPhong(); }
         if (laKho) { if (kv && phong && phong.khung[kv.j] && phong.khung[kv.j].ten === kv.ten && /^kho-/.test(phong.khung[kv.j].tu_id || '')) { delete phong.khung[kv.j].tu_id; phongStore.save(); paintPhong(); } return; } noi = null; const rd = $('[data-act="redraw"]'); if (rd) rd.disabled = true; capNoi(); } else setStatus(r.reason); }); } }
