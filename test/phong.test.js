@@ -1031,5 +1031,17 @@ T('Khung là chỗ đặt tủ: giường / vách đang mở đổi sang tủ á
   ok(r.spec.loai_sp === 'tap' && !M.errors.length && M.templates.filter(t => t.loai === 'NGAN_KEO').length === 2 && r.spec.khoang.length === 1 && r.spec.khoang[0].canh === 0, 'táp trong khung: giữ 2 ngăn kéo, không tự chọn ruột tủ áo', [r.spec.khoang, r.ghi_chu]);
 });
 
+// Bản 1.33: tủ bếp chưa đặt theo khung phòng (bộ bếp theo tường là bản 1.34) — khung cũ mở ra là chỗ đặt TỦ ÁO, không lọt ruột bếp (chân lùi, giằng, rổ, đá) vào khung.
+T('Khung là chỗ đặt tủ: tủ bếp đang mở đổi sang tủ áo (bản 1.33)', () => {
+  const q = { ten: 'K1', rong: 2400, cao: 2600, sau: 600, z: 0, mau: '' };
+  for (const ma of ['BD-CHAU-800', 'BD-XN-800', 'BT-CANH-800', 'BC-KHO-600']) {
+    const r = P.tuChoKhung(C, C.apMau(C.DEFAULT_SPEC, ma), q, 'P1', null, -1), M = C.build(r.spec), N = C.normalize(C.DEFAULT_SPEC);
+    ok(!r.spec.loai_sp && !r.spec.bep && !M.errors.length && M.parts.some(p => p.loai === 'HOI') && !M.parts.some(p => /^(GIANG|TREO|MKP)$/.test(p.loai)) && !M.da
+      && JSON.stringify(r.spec.phao) === JSON.stringify(N.phao) && r.spec.chan.cao === N.chan.cao && r.spec.khoang.every(k => k.o.every(c => c.kieu !== 'keo_pk' && !c.cao)), `${ma} trong khung tủ: thành tủ áo hợp lệ, không còn ruột bếp`, [r.spec.loai_sp, M.errors, r.spec.khoang]);
+    ok(r.spec.rong === q.rong && r.spec.cao === q.cao, `${ma}: tủ áo vừa khít khung`);
+    ok(co(r.ghi_chu, /tủ bếp .*đổi sang tủ áo/), `${ma}: ghi chú nói đã đổi sang tủ áo`, r.ghi_chu);
+  }
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

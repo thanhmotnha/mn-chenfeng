@@ -42,7 +42,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.32\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.33\./.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -649,9 +649,113 @@ async function testThuVien(browser) {
   await ctx.close();
 }
 
+// (bản 1.33) TỦ BẾP: ba nhóm thư viện, ô "Tủ bếp" theo chức năng, nút "Chuyển tủ 900 / 1000", chuẩn bếp nhớ qua localStorage mncf.bep.v1
+async function testBep(browser) {
+  console.log('— Tủ bếp (bản 1.33): thư viện, ô Tủ bếp, nút Chuyển tủ, chuẩn bếp nhớ');
+  const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
+  const H = page.locator('#mncf-host');
+  const nhom = await S(page, '#mncf-ui-mau optgroup').evaluateAll(gs => gs.map(g => [g.label, g.querySelectorAll('option').length]));
+  const can = await page.evaluate(() => { const C = window.MNCFCore; return [['Bếp · tủ dưới', C.MAU_BEP_DUOI.length], ['Bếp · tủ trên', C.MAU_BEP_TREN.length], ['Bếp · tủ cao', C.MAU_BEP_CAO.length]]; });
+  ok(can.every(([t, n]) => nhom.some(([l, m]) => l === t && m === n)), 'ô Thư viện có 3 nhóm Bếp · tủ dưới / tủ trên / tủ cao, đủ mục', [nhom, can]);
+  const chon = async ma => { await S(page, '#mncf-ui-mau').selectOption(ma); await S(page, '[data-act="mau"]').click(); await page.waitForFunction(m => { const s = window.MNCF.app.getSpec(); return m ? s.loai_sp === 'bep' && s.ten === window.MNCFCore.apMau(window.MNCFCore.DEFAULT_SPEC, m).ten : !s.loai_sp; }, ma); };
+  const hienCa = sel => page.evaluate(q => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll(q)].map(e => e.getClientRects().length > 0), sel);
+  const loai = () => S(page, '.panel').getAttribute('data-loai');
+  // tủ dưới: không phào / khấu cột / chia thân / khoang của tủ áo — ruột theo chức năng; hình mặc định 3D (có đá)
+  await chon('BD-NK3-600');
+  ok((await loai()) === 'bep-duoi' && (await hienCa('.chi-tu')).every(v => !v), 'tủ bếp dưới: data-loai "bep-duoi", mọi phần riêng của tủ áo (.chi-tu) ẩn', await hienCa('.chi-tu'));
+  ok(await S(page, '.sp').isVisible() && /Tủ bếp/.test(await S(page, '.sp legend').textContent()) && (await page.evaluate(() => window.MNCF.app.getModel().errors.length)) === 0, 'ô "Tủ bếp" hiện, tủ không lỗi');
+  ok((await S(page, '[data-bep="cao_mat"]').inputValue()) === '850' && await S(page, '[data-bep="chan"]').isVisible() && await S(page, '[data-bep="len_lui"]').isVisible() && (await S(page, '[data-bep="cach_tren"]').count()) === 0, 'tủ dưới: ô mặt đá 850, chân, lùi xà chân; không có ô "cách mặt đá" của tủ trên');
+  ok((await S(page, '[data-bep^="tb."]').count()) === 0 && await S(page, '[data-bep-nk="so"]').isVisible() && (await S(page, '[data-bep-nk="cao"]').inputValue()) === '180', 'tủ 3 ngăn kéo: ô số ngăn + cao ngăn trên (180), không ô thiết bị');
+  ok((await S(page, '[data-act="xem-3d"]').getAttribute('aria-pressed')) === 'true', 'tủ dưới: hình mặc định 3D');
+  // (1.33 vòng soát 2) sửa Cao (ô chung) → ô "Cao mặt đá" theo kịp; ô ngăn kéo hiện lại số đang dùng; cao ngăn < 100 không ghi vào chuẩn bếp
+  { const giaTri = q => S(page, q).inputValue();
+    await S(page, '#mncf-ui-mau').focus();
+    await S(page, '[data-k="cao"]').fill('860');
+    await page.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 880);
+    await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelector('[data-bep="cao_mat"]').value === '880', null, { timeout: 3000 }).catch(() => {});
+    ok((await giaTri('[data-bep="cao_mat"]')) === '880', 'gõ Cao 860 ở ô chung: ô "Cao mặt đá" hiện 880 (= thông số), không đứng ở 850', await giaTri('[data-bep="cao_mat"]'));
+    await S(page, '[data-k="cao"]').fill('830');
+    await page.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 850);
+    const nong0 = await page.evaluate(() => window.MNCF.app.getSpec().bep.nk_nong);
+    await S(page, '[data-bep-nk="cao"]').fill('50'); await S(page, '[data-bep-nk="cao"]').press('Tab');
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => { const s = window.MNCF.app.getSpec(), c = s.khoang[0].o.find(x => x.kieu === 'nk_trum'); let l = null; try { l = JSON.parse(localStorage.getItem('mncf.bep.v1')).nk_nong; } catch (e) { l = null; } return { cao: c.cao || null, nong: s.bep.nk_nong, luu: l }; });
+    ok((await giaTri('[data-bep-nk="cao"]')) === '' && !r.cao && r.nong === nong0 && r.luu !== 100, 'gõ ngăn trên 50 rồi rời ô: ô hiện trống (chia đều — số 50 không dùng), chuẩn nk_nong không bị kẹp thành 100', [await giaTri('[data-bep-nk="cao"]'), r, nong0]);
+    await S(page, '[data-bep-nk="so"]').fill('9'); await S(page, '[data-bep-nk="so"]').press('Tab');
+    await page.waitForTimeout(300);
+    ok((await giaTri('[data-bep-nk="so"]')) === '6' && (await page.evaluate(() => window.MNCF.app.getSpec().khoang[0].o.find(x => x.kieu === 'nk_trum').so)) === 6, 'gõ 9 ngăn: ô hiện 6 (số đang dùng)', await giaTri('[data-bep-nk="so"]'));
+    await S(page, '[data-bep-nk="so"]').fill('3'); await S(page, '[data-bep-nk="cao"]').fill('180'); await S(page, '[data-bep-nk="cao"]').press('Tab');
+    await page.waitForFunction(() => { const c = window.MNCF.app.getSpec().khoang[0].o.find(x => x.kieu === 'nk_trum'); return c.so === 3 && (c.cao || [])[0] === 180; });
+  }
+  // tủ trên: giữ ô khoang (đợt, cánh), không phào / khấu cột
+  await chon('BT-CANH-800');
+  ok((await loai()) === 'bep' && await S(page, '.bays').isVisible() && !(await S(page, 'fieldset.khung-tu').first().isVisible()), 'tủ bếp trên: ô khoang hiện; phào / khấu cột ẩn', await loai());
+  ok(await S(page, '[data-bep="cach_tren"]').isVisible() && (await S(page, '[data-bep="cao_mat"]').count()) === 1 && (await S(page, '[data-bep="chan"]').count()) === 0, 'tủ trên: có ô cách mặt đá, không có ô chân');
+  // ô mặt kéo rổ (keo_pk) của tủ cao kho: dòng nội dung ô ghi "mặt kéo rổ" + tên rổ, không "undefined" / loại ray ngăn kéo
+  ok((await S(page, '.view [data-phao]').count()) === 0, 'tủ bếp trên: hình không bày vùng "+ phào" để bấm (tủ bếp không có phào)', await S(page, '.view [data-phao]').count());
+  await chon('BC-KHO-400');
+  { const noi = (await S(page, '.bay .noi').allInnerTexts()).join('\n');
+    ok(/mặt kéo rổ/.test(noi) && !/undefined/.test(noi) && !/Ray bi/.test(noi), 'tủ cao đồ khô kéo 400: ô rổ ghi "mặt kéo rổ", không "undefined", không loại ray ngăn kéo', noi); }
+  // (1.33 vòng soát 2) rổ đồ khô 450 / 600 là rổ CÁNH MỞ (khung bắt hồi, cánh bản lề) — không ghi "mặt kéo"
+  await chon('BC-KHO-600');
+  { const noi = (await S(page, '.bay .noi').allInnerTexts()).join('\n');
+    ok(/rổ cánh mở/.test(noi) && !/mặt kéo rổ/.test(noi) && !/undefined/.test(noi), 'tủ cao đồ khô cánh mở 600: ô rổ ghi "rổ cánh mở"', noi); }
+  ok((await S(page, '.view [data-phao]').count()) === 0, 'tủ bếp cao: không vùng "+ phào"');
+  // tủ chậu: ô thiết bị theo chức năng; chậu không lọt → nút "Chuyển tủ 900" sửa bằng một bước ↶ Lùi
+  await chon('BD-CHAU-800');
+  ok(await S(page, '[data-bep="tb.chau.ma"]').isVisible() && (await S(page, '[data-bep="tb.hm.ma"]').count()) === 0 && (await S(page, '[data-bep="tb.bep.ma"]').count()) === 0, 'tủ chậu: ô model chậu, không ô bếp nấu / hút mùi');
+  await S(page, '[data-bep="tb.chau.ma"]').selectOption('duong_820');
+  await page.waitForFunction(() => window.MNCF.app.getModel().errors.some(t => /Chậu/.test(t)));
+  ok(await S(page, '[data-act="bep-co"]').isVisible() && /Chuyển tủ 900/.test(await S(page, '[data-act="bep-co"]').innerText()), 'chậu 820 trong tủ 800: dòng lỗi + nút "Chuyển tủ 900"', await S(page, '.msgs').innerText());
+  await S(page, '[data-act="bep-co"]').click();
+  await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 900);
+  ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.bep.tb.chau.ma === 'duong_820' && !window.MNCF.app.getModel().errors.length; })) && !(await S(page, '[data-act="bep-co"]').isVisible()), 'bấm: tủ 900, giữ chậu 820, hết lỗi');
+  await S(page, '[data-act="lui"]').click();
+  await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 800);
+  ok((await page.evaluate(() => window.MNCF.app.getSpec().bep.tb.chau.ma)) === 'duong_820' && await S(page, '[data-act="bep-co"]').isVisible(), '↶ Lùi một bước: về tủ 800 (chậu 820, lỗi lại hiện)');
+  // gõ "tự gõ số": hiện ô phủ bì / khoét
+  await S(page, '[data-bep="tb.chau.ma"]').selectOption('tu_chon');
+  ok(await S(page, '[data-bep="tb.chau.khoet.0"]').isVisible() && await S(page, '[data-bep="tb.chau.lap"]').isVisible(), 'chậu "tự gõ số": hiện ô khoét / kiểu lắp');
+  // chuẩn bếp: gõ mặt đá 860 → cao tủ 840; đổi sang tủ áo rồi quay lại tủ bếp vẫn 860 (nhớ ở mncf.bep.v1)
+  await chon('BD-NK3-600');
+  await S(page, '[data-bep="cao_mat"]').fill('860');
+  await page.waitForFunction(() => window.MNCF.app.getSpec().cao === 840);
+  await page.waitForFunction(() => { try { return JSON.parse(localStorage.getItem('mncf.bep.v1')).cao_mat === 860; } catch (e) { return false; } }, null, { timeout: 3000 }).catch(() => {});
+  ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.bep.cao_mat === 860 && JSON.parse(localStorage.getItem('mncf.bep.v1')).cao_mat === 860; })), 'gõ mặt đá 860: cao tủ dưới 840, chuẩn bếp ghi vào mncf.bep.v1');
+  await chon('');
+  ok((await loai()) === 'tu' && (await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !s.bep && s.khoang.length === 3; })) && (await hienCa('.chi-tu')).some(v => v) && (await S(page, '[data-act="xem-3d"]').getAttribute('aria-pressed')) === 'false', 'về tủ áo mặc định: không mang thông số bếp, phần của tủ áo hiện lại, hình đứng');
+  await S(page, '[data-act="lui"]').click();
+  await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
+  ok((await loai()) === 'bep-duoi' && (await hienCa('.chi-tu')).every(v => !v) && (await page.evaluate(() => window.MNCF.app.getSpec().bep.cao_mat)) === 860, '↶ Lùi qua lần đổi tủ bếp → tủ áo: trở lại tủ bếp dưới (mặt đá 860), ô của tủ áo ẩn lại');
+  await chon('');
+  await chon('BD-CANH-600');
+  ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.bep.cao_mat, s.cao]; })).join() === '860,840', 'quay lại tủ bếp: chuẩn mặt đá 860 vẫn còn', await page.evaluate(() => window.MNCF.app.getSpec().bep.cao_mat));
+  await S(page, '[data-act="lui"]').click();
+  await page.waitForFunction(() => !window.MNCF.app.getSpec().loai_sp);
+  ok((await loai()) === 'tu' && (await hienCa('.chi-tu')).some(v => v), '↶ Lùi qua lần đổi tủ áo → tủ bếp: trở lại tủ áo');
+  ok(errs.length === 0, 'không lỗi JS', errs);
+  await ctx.close();
+  // trình duyệt chặn localStorage (ném lỗi mọi lần đọc / ghi): bảng vẫn dựng tủ bếp, gõ chuẩn bếp vẫn chạy, không lỗi JS
+  {
+    const c2 = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await c2.addInitScript(() => { const nem = () => { throw new Error('chặn'); }; Storage.prototype.getItem = nem; Storage.prototype.setItem = nem; Storage.prototype.removeItem = nem; });
+    const p2 = await c2.newPage(), e2 = [];
+    p2.on('pageerror', e => e2.push(String(e)));
+    await p2.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+    await p2.goto('file://' + path.join(DIST, 'mn-chenfeng.html'));
+    await p2.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCF.app.getModel());
+    await S(p2, '#mncf-ui-mau').selectOption('BD-NK3-600'); await S(p2, '[data-act="mau"]').click();
+    await p2.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
+    await S(p2, '[data-bep="cao_mat"]').fill('870');
+    await p2.waitForFunction(() => window.MNCF.app.getSpec().cao === 850);
+    ok(e2.length === 0 && (await p2.evaluate(() => !window.MNCF.app.getModel().errors.length)), 'localStorage bị chặn: tủ bếp vẫn dựng, gõ mặt đá 870 vẫn chạy, không lỗi JS', e2);
+    await c2.close();
+  }
+}
+
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);

@@ -849,6 +849,31 @@ async function tienIch() {
     await H.locator('[data-act="hop-lai"]').click(); await choHoi(h0 + 3);
     ok((await hop()).dlg === '' && /Bấm điểm ĐẦU của tủ/.test(await H.locator('.chip').textContent()), 'Chọn lại chỗ (tủ đặt bằng chuột): hộp đóng, bảng hỏi lại điểm đầu');
     await page.evaluate(() => window.app.Editor.Cancel()); await datXong('Đã huỷ — chưa đặt tủ');
+    // (7a) 1.33 vòng soát: tủ bếp TRÊN đặt bằng chuột — điểm bấm ở sàn, tủ treo ở mặt đá 850 + cách 700 = 1550. Trước khi vẽ, phần soi điện – nước đã phải tính ở cao độ treo
+    //      (ổ +300 sau tủ dưới không dính, công tắc +2000 sau tủ trên thì dính); nút xanh ghi z thật; bấm Vẽ: đáy tủ ở z 1550
+    {
+      const p0 = await page.evaluate(() => window.MNCF.phong.lay());
+      await page.evaluate(p => window.MNCF.phong.dat(Object.assign({}, p, { dn: [{ tuong: 0, loai: 'o_dien', cach: 900, cao: 300 }, { tuong: 0, loai: 'cong_tac', cach: 900, cao: 2000 }] })), p0);
+      const BT = await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'BT-CANH-800'); s.hau = Object.assign({}, s.hau, { t: 6 }); return s; });
+      await page.evaluate(sp => window.MNCF.app.setSpec(sp), BT); await H.locator('.tab[data-tab="tu"]').click();
+      const nB = await soDoiTuong();
+      h0 = await soHoi();
+      await H.locator('[data-act="dat"]').click(); await choHoi(h0 + 1);
+      await page.evaluate(() => window.__MOCK__.clickPoint(500, 0, 0)); await choHoi(h0 + 2);
+      await page.evaluate(() => window.__MOCK__.clickPoint(1500, -30, 0)); await datXong('Đã đặt: xoay');
+      await H.locator('[data-act="hop-dong"]').click();
+      const dnB = await H.locator('.msgs .msg.dn').allInnerTexts(), nutB = (await H.locator('footer [data-act="draw"]').innerText()).trim();
+      ok(dnB.length > 0 && dnB.every(t => !/^Ổ điện 1/.test(t)) && dnB.some(t => /^Công tắc 1/.test(t)), 'tủ trên đặt bằng chuột, chưa vẽ: soi điện – nước ở cao độ treo — công tắc +2000 dính, ổ +300 (sau tủ dưới) không', dnB);
+      ok(/, 1550$/.test(nutB), 'nút xanh ghi z thật của tủ trên (1550), không phải z ở sàn', nutB);
+      await H.locator('footer [data-act="draw"]').click(); await choVe();
+      const vB = await hopTu();
+      ok(/Đã vẽ xong/.test(vB.kq) && vB.hop[4] === 1550 && vB.hop[0] === 500, 'bấm Vẽ: tủ trên treo đáy ở z 1550, góc trái ở điểm bấm đầu (x 500)', vB.hop);
+      await H.locator('[data-act="undo"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+      ok((await soDoiTuong()) === nB, 'hoàn tác tủ trên: bản vẽ về như trước');
+      await page.evaluate(p => window.MNCF.phong.dat(p), p0);
+      await page.evaluate(sp => window.MNCF.app.setSpec(sp), TU_DAT); await H.locator('.tab[data-tab="tu"]').click();
+    }
     // (7b) bản 1.32: giường đặt bằng chuột — điểm thứ hai chỉ cho hướng, giường giữ bề rộng của nó. Đi từ GÓC phòng sang trái rồi đổi nệm rộng:
     //      đầu phải vẫn ở điểm bấm (không đâm qua tường B), lưng sát tường A. "Cập nhật" sau khi đổi nệm dài: lưng vẫn sát tường (không giữ chân giường)
     {

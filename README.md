@@ -12,6 +12,20 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Tủ bếp (bản 1.33)
+
+- Ô **Thư viện** có thêm 3 nhóm **Bếp · tủ dưới / tủ trên / tủ cao**. Mỗi tủ bếp là một module riêng: vẽ từng tủ, đặt bằng Chuột hoặc gõ toạ độ (nút Tường / Hình ẩn).
+- **Chuẩn mặc định** (sửa ở ô Tủ bếp, bảng nhớ trên máy):
+  - Tủ dưới: mặt đá cao 850, đá 20, chân 100, sâu thùng 560, đá đưa ra 20. Hồi xuống sàn, xà chân lùi 50 (vẽ được bằng lệnh của Chenfeng).
+  - Tủ trên: cao 800, sâu 350, đáy cách mặt đá 700 (đặt ở cao độ 1550). Có thanh treo bắt vít nở — hậu 6,5 không giữ được tủ đầy bát.
+  - Tủ cao (tủ kho): 2350 × 560.
+- **Tủ chậu, tủ bếp nấu 800 / 900:** thay nóc bằng 2 thanh giằng; tủ chậu bỏ hậu, kê nhôm lót đáy. Chọn chậu / bếp (hoặc gõ số theo model), bảng kiểm chậu, bếp có lọt tủ không; không lọt thì báo đỏ và có nút **Chuyển tủ 900 / 1000**.
+- **Tủ hút mùi:** máy âm 700 trong tủ 800 (máy 900 cần tủ 950, hoặc dùng hút mùi kính để ô trống). Bảng kiểm khoảng mặt bếp → đáy máy: bếp từ ≥ 650, gas ≥ 700.
+- **Phụ kiện chỉ Higold + Eurogold:** giá xoong nồi / bát đĩa 600–900, gia vị 150–400, thùng gạo 300, thùng rác 300 / 400, giá bát tủ trên (cố định / nâng hạ), tủ đồ khô 400 / 450 / 600. Bảng kiểm lọt lòng của khoang (cỡ tủ − 2 × dày ván) nằm trong dải hãng nhận (cỡ − 38 … cỡ − 32); rổ chỉ có cỡ cố định, khoang lẻ không lắp được.
+- **Bảng kê:** thêm "Phụ kiện bếp" (ghi hãng, mã) và "Gia công đá" (đá không phải tấm ván, không vào bảng cắt).
+- **Xưởng xem lại các số mặc định** (cao mặt đá, chân, lùi xà chân, cao / sâu / khoảng cách tủ trên, cách treo). Số phụ kiện lấy từ trang hãng / đại lý, chưa có catalogue gốc.
+- Chưa có (bản sau): tự xếp cả dãy bếp chữ I theo chiều dài tường, máy rửa bát / lò / khoang tủ lạnh, hút mùi loại kéo, cánh lật, tay nắm Gola, chân nhựa + len suốt dãy; bếp chữ L / U với tủ góc.
+
 ## Thư viện: táp, giường, vách đầu giường (bản 1.32)
 
 - Ô **Thư viện** ở thẻ Tủ chia 4 nhóm: Tủ áo · Táp đầu giường · Giường · Vách đầu giường. Chọn một mục rồi bấm nút bên cạnh. Không ưng thì bấm ↶ Lùi, bảng trả lại cái đang làm.

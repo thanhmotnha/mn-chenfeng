@@ -150,6 +150,14 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     r = await T.ve();
     eq([r.so, r.mat, r.nk.map(x => x.khoa)], [1, [true, true], [['D', 'D']]], 'lần vẽ sau (hai mặt bằng nhau): không ô nào còn bị khoá cao');
 
+    console.log('— (bản 1.33) Tủ bếp 3 ngăn kéo (BD-NK3-600, mặt trên cố định 180): lệnh DRAWER khoá cao hai ô trên, đối chiếu mặt sau khi vẽ');
+    c = await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'BD-NK3-600'); s.ngan_keo.loai.find(x => x.ma === s.ngan_keo.mac_dinh).mau_id = 555001; s.ma = 'BD3'; return window.__thu.chuanBi(s, 70000); });
+    eq([c.loi, c.nk, c.tam === c.tong], [[], 1, true], 'kế hoạch tủ bếp có 1 bước ngăn kéo; tấm của tủ (cả xà chân lùi) đã có đủ');
+    r = await T.ve();
+    eq([r.so, r.xong, r.hong, r.mat, r.buoc], [1, [0, 1, 2], [], [true, true, true], 1], 'ba mặt (271,5 / 271,5 / 180) đúng hộp thiết kế, một bước lịch sử');
+    eq(r.nk.map(x => [x.ket, x.lc.row, x.lc.doorPosType, x.khoa]), [['ok', 3, 0, [180, 271.5, 'D']]], 'hộp nhận 3 ô trùm ngoài: ô trên cùng khoá 180, ô giữa khoá 271,5, ô dưới cùng nhận phần còn lại');
+    eq([r.lc === LC0, r.bao_loi, r.hop, r.busy], [true, 0, false, false], 'lựa chọn của người dùng trả lại, không lỗi tới Chenfeng, hộp đã đóng');
+
     console.log('— Mã mẫu ở Chuẩn xưởng không có trong kho tài khoản → dùng mẫu CÙNG TÊN của tài khoản');
     c = await T.chuanBi({ ma: 'NT2' }, 9000);      // mã mặc định của bảng (không có trong kho giả), tên 三节轨薄底抽
     r = await T.ve();

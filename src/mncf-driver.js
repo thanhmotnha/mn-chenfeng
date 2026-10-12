@@ -694,7 +694,7 @@
     const h1 = hmMark();
     let steps = 1 + ((fix.fixed || fix.normalized) ? 1 : 0);
     if (h0 && h1 && h1.i > h0.i && h1.i - h0.i <= 6 + tm.so_lenh) steps = h1.i - h0.i;
-    D.last = { M, added, offset, steps, mark: h1, id };
+    D.last = { M, added, offset, steps, mark: h1, id }; nhoVanRieng(M, id);
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + cf.base[i])), kiem_tra: v, do_loi: dl, sua_khoan: fix, so_buoc_hoan_tac: steps, module: mod, kich: Core.heSo(M.spec).kich, tom_tat: Core.summary(M),
       mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma };
   };
@@ -817,8 +817,11 @@
       const s = JSON.parse(JSON.stringify(spec)), r1 = v => Math.round(v * 10) / 10;
       s.thung = Object.assign({}, s.thung, { tach: (h0.M.info && h0.M.info.tach) || [] });      // module co giãn thì cách tách thùng giữ như lúc vẽ
       s.rong = r1(spec.rong + kt[0] - k0[0]); s.sau_thung = r1(spec.sau_thung + kt[1] - k0[1]); s.cao = r1(spec.cao + kt[2] - k0[2]);
-      const n = Core.normalize(s);
-      return Core.build(n).errors.length ? null : n;
+      const n = Core.normalize(s), Mn = Core.build(n);
+      // (1.33 vòng soát) tủ bếp: heSo cho Rộng co giãn dù cỡ mới làm rổ / chậu không vừa (lỗi 'bep') — module đổi Rộng trong Chenfeng thì vẫn nhận số đó để bảng báo lỗi phụ kiện,
+      // không trả null (null = bảng mở lại / Cập nhật theo số cũ, lặng lẽ bỏ số người dùng đã đổi). Lỗi khác vẫn là "không nhận".
+      const loiBep = (Mn.kq || []).filter(k => k.muc === 'loi' && k.ma === 'bep').length;
+      return Mn.errors.length > loiBep ? null : n;
     } catch (e) { return null; }
   };
   /** Chạy lệnh MODELING ("建模") của Chenfeng trên các tấm `boards`. phimF: bấm F = chia module theo cụm tấm chạm nhau (mặc định Chenfeng chia theo tên phòng / tên tủ). Trả về số bước lịch sử. */
@@ -905,7 +908,11 @@
       // tham số bị khoá: nói ngay tại ô ghi chú của nó trong bảng Thông số (như BH) — người gõ số ở đó thấy liền vì sao tủ không chạy
       // (1.32) giường: W = dài phủ bì (đuôi → đầu giường), H = cao đầu giường; vách đầu giường: W = dày (tấm ốp + xương — chỉ xem)
       const lsp = Core.loaiSP ? Core.loaiSP(M.spec) : 'tu';
-      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' } : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
+      // (1.33) tủ bếp: Cao là của THÙNG (đá không phải tấm ván); tủ trên co giãn ở đỉnh, đáy giữ chỗ treo. Đổi Rộng trong Chenfeng thì phép kiểm rổ / chậu / bếp không chạy lại → nhắc đổi ở bảng
+      const tangBep = lsp === 'bep' && M.spec.bep ? M.spec.bep.tang : '';
+      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' }
+        : lsp === 'bep' ? { L: 'Rộng phủ bì — đổi Rộng ở bảng Một Nhà để kiểm phụ kiện', W: 'Sâu phủ bì (cả cánh)', H: tangBep === 'tren' ? 'Cao tủ trên — đổi ở đỉnh, đáy giữ nguyên' : tangBep === 'cao' ? 'Cao phủ bì (tủ cao — không có đá)' : 'Cao tới đỉnh thùng (chưa gồm đá)' }
+        : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
       const ngan = lsp === 'giuong' ? { L: 'Rộng', W: 'Dài', H: 'Cao' } : { L: 'Rộng', W: lsp === 'vach' ? 'Dày' : 'Sâu', H: 'Cao' };
       for (const k of Object.keys(moTa)) {
         const kh = kq.khoa.find(x => x.ten === k);
@@ -1013,7 +1020,7 @@
     await chayModeling(tamRoi, true);
     const mauCua = b => { try { return (b.Template && b.Template.Object) || null; } catch (e) { return null; } };
     const ds = [...new Set(tamRoi.map(mauCua).filter(Boolean))];
-    if (!ds.length || !coMauHet(tamRoi)) { const n = buocDaChay(); if (n) await D.undo(n); kq.reason = 'Chenfeng không gom được các tấm phào / chân thành module (lệnh MODELING).'; return kq; }
+    if (!ds.length || !coMauHet(tamRoi)) { const n = buocDaChay(); if (n) await D.undo(n); kq.reason = tamRoi.length < 2 ? 'Chenfeng không gom được tấm rời duy nhất của tủ thành module (lệnh MODELING với MỘT tấm — chưa đo trên Chenfeng thật).' : 'Chenfeng không gom được các tấm phào / chân thành module (lệnh MODELING).'; return kq; }      // (1.33) tủ bếp lệnh gốc chỉ có một tấm rời (xà chân hoặc thanh treo)
     const T = ds.slice().sort((a, b) => b.Objects.length - a.Objects.length)[0];
     let mo = false, loi = '';
     try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_GAN'); mo = true; } } catch (e) { mo = false; }
@@ -1122,8 +1129,12 @@
     }
     // vẽ lại đúng chỗ + đúng hướng cũ: gốc toạ độ thiết kế của tủ cũ trên bản vẽ (tủ xoay thì tính qua khung của module)
     // (bản 1.32) giường / vách: lưng sát tường — đổi dài / dày thì giữ LƯNG (mép sau hộp bao), không giữ gốc thiết kế (đuôi giường / mặt tấm ốp)
+    // (1.33) tủ bếp cũng vậy: đổi sâu thì lưng vẫn sát tường; z giữ của tủ cũ (tủ trên treo ở chỗ cũ)
+    // (1.33 vòng soát) tủ bếp trên: cao độ treo (mặt đá + cách mặt đá) không nằm trong hình học của tủ → đổi "Cách mặt đá" / "Cao mặt đá" thì dời z đúng bằng phần cao độ treo đổi
+    // (tủ người dùng đã dời tay vẫn giữ vị trí tương đối của nó)
+    const zTreo = M => Number(M && M.info && M.info.bep && M.info.bep.z_dat) || 0;
     let off = loc.offset;
-    if (Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), loc.offset[2]]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
+    if (Core.loaiSP && /^(giuong|vach|bep)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), r2(loc.offset[2] + zTreo(Mm) - zTreo(Mc))]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
     const viTri = loc.khung ? { at: apM(loc.khung.G, off).map(r2), xoay: loc.khung.xoay } : { at: off };
     const rep = await D.draw(spec, Object.assign({}, opt, viTri, { corner: undefined, id: ref.id }));
     if (rep.giai_doan !== 'xong') {      // vẽ lại không được → trả tủ cũ về chỗ cũ
@@ -1149,6 +1160,7 @@
     if (moved()) return { ok: false, reason: 'Sau lần vẽ đó bản vẽ đã có thao tác khác — hãy dùng Ctrl+Z của Chenfeng để lùi từng bước.' };
     await D.undo(L.steps || 1);
     const left = (L.added || []).filter(e => e && !e.IsErase).length;
+    traVanRieng(L);
     D.last = null;
     return left ? { ok: false, reason: `Đã hoàn tác nhưng còn ${left} đối tượng của lần vẽ — kiểm tra lại bằng Ctrl+Z.` } : { ok: true };
   };
@@ -1608,6 +1620,10 @@
   // tên tấm của mẫu kho là tiếng Trung → tiếng Việt: khi báo cáo (D.tenTamViet) và khi ghi lại tên tấm của mẫu kho vừa vẽ (D.tenTamMoi — bản 1.19).
   // Tên DÀI / RIÊNG đứng trước tên chung chứa trong nó (抽底板 trước 底板, 左开门板 trước 门板…). Tên đo trên các bộ tủ của kho ngày 04/10/2026.
   const TEN_TAM = [
+    // (1.33) tấm tủ bếp trong kho Chenfeng — tên đoán theo tên quen dùng của phần mềm tủ bếp Trung Quốc, CHƯA thấy trên tấm thật [CĐ]; đứng TRƯỚC tên chung (侧板, 底板, 顶板, 台面…)
+    // Tấm ốp hông / mặt đá chỉ nhận khi tên có chữ tủ bếp (地柜 / 吊柜 / 高柜 / 橱柜): tên trần 台面板 (mặt bàn học, bàn trang điểm) và 见光侧板 (hồi lộ của tủ áo) giữ như 1.32
+    ['踢脚线', 'Xà chân'], ['吊柜侧板', 'Hồi'], ['地柜侧板', 'Hồi'], ['高柜侧板', 'Hồi'], ['吊柜底板', 'Đáy'], ['吊柜顶板', 'Nóc'], ['挡水条', 'Gờ chắn nước'],
+    ['地柜见光侧板', 'Tấm ốp hông'], ['吊柜见光侧板', 'Tấm ốp hông'], ['高柜见光侧板', 'Tấm ốp hông'], ['橱柜见光侧板', 'Tấm ốp hông'], ['转角封板', 'Tấm bịt góc'], ['橱柜台面板', 'Mặt đá'], ['地柜台面板', 'Mặt đá'],
     // (1.32) tấm của module giường / táp trong kho Chenfeng — đứng TRƯỚC tên chung (侧板, 底板, 背板…) vì dò bằng includes theo thứ tự
     ['床头板', 'Đầu giường'], ['床屏', 'Đầu giường'], ['床尾板', 'Đuôi giường'], ['床侧板', 'Hông giường'], ['床边板', 'Hông giường'], ['床铺板', 'Phản giường'], ['床板', 'Phản giường'], ['排骨架', 'Khung vạt'], ['床撑', 'Đà giường'], ['床箱', 'Hộp giường'],
     ['左抽侧', 'Thành trái ngăn kéo'], ['右抽侧', 'Thành phải ngăn kéo'], ['抽侧板', 'Thành ngăn kéo'], ['抽侧', 'Thành ngăn kéo'], ['抽尾板', 'Hậu ngăn kéo'], ['抽尾', 'Hậu ngăn kéo'], ['抽背板', 'Hậu ngăn kéo'],
@@ -3048,7 +3064,7 @@
     const dl = added.some(D.isBoard) ? doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }) : null;
     const h1 = hmMark();
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : xong;
-    D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true };      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
+    D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true }; nhoVanRieng(Msub, id);      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
     opt.onStatus('Xong.');
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset: atW.slice(), goc: gocCuoi, xoay_do: xoay, khung, dat, kiem_tra: v, do_loi: dl, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps,
       module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M),
@@ -3227,8 +3243,39 @@
   const tenMauCua = b => { let md = null; try { md = root.app.Database.DefaultMaterial; } catch (e) { md = null; } const r = vlCua(b); return !r || r === md ? '' : tenVL(r); };      // '' = chưa đổ màu (vật liệu mặc định của bản vẽ)
   const khoaVL = b => { try { if (b.LockMaterial) return true; const st = typeof b.GetMtlLockedStatus === 'function' ? b.GetMtlLockedStatus() : null; return !!(st && (st.partMtlLocked || st.allMtlLocked)); } catch (e) { return false; } };
   // Gán vật liệu + thông tin ván cho từng tấm trong MỘT bước lịch sử. cap = [[tấm, bản ghi vật liệu, nhóm]…] → { so: { nhóm: số tấm đã gán }, khoa, steps, mark }
+  // (1.33, soát 3) ván RIÊNG của tủ chậu: thùng tủ chậu nhập với tên ván / vật liệu = s.bep.van_chau (ván chống ẩm — Core partToCF: mọi tấm nhóm Thùng,
+  // kể cả ván lót đá). Đổ màu lên tủ đó chỉ đổi màu hiển thị, còn tên ván / vật liệu đi ra sản xuất (CD) GHI LẠI = van_chau. Nhận theo TỦ CHỨA tấm
+  // (mã tủ trên tấm → thông số của tủ), KHÔNG theo tên ván đang ghi trên tấm: tên ván có khi do lần đổ màu trước ghi (màu trong kho trùng tên ván
+  // chống ẩm) hoặc tủ áo dùng đúng tên đó — giữ theo tên là tấm dính tên ván cũ mãi. Ván lót đá của tủ dưới thường đổ màu như mọi tấm thùng.
+  // Thông số của tủ: tủ vẽ trong phiên (vanTu, ghi lúc vẽ) → thông số bảng đã lưu của tủ đó trên máy này (D.specTuLuu — giao diện gán, đọc
+  // localStorage mncf.tu.<mã>, như "Sửa tủ đang chọn"). HẠN CHẾ: tủ chậu vẽ ở máy / trình duyệt khác (máy này không có thông số) thì bảng không
+  // biết là tủ chậu → đổ màu ghi tên ván của màu như tủ thường (chưa đánh dấu riêng trên tấm: ghi chú thêm thì trang sản xuất nối vào tên tấm,
+  // ghi chú nội dung rỗng có giữ khi lưu bản vẽ hay không CHƯA ĐO).
+  const vanTu = new Map();      // mã tủ → van_chau ('' = không phải tủ chậu / không có ván riêng) của các tủ vẽ trong phiên
+  D._vanTu = vanTu;      // phép thử xoá để giả tủ vẽ từ phiên trước
+  /** Giao diện gán: mã tủ → thông số đã lưu của tủ đó (hoặc null). */
+  D.specTuLuu = null;
+  const vanChauCua = s => { try { const b = s && s.loai_sp === 'bep' && s.bep; return b && b.chuc_nang === 'chau' && b.van_chau ? String(b.van_chau).trim() : ''; } catch (e) { return ''; } };
+  // (vòng soát 4) nhớ cả giá trị trước đó vào D.last.van_cu: hoàn tác một lần Cập nhật (cùng mã tủ) thì tủ CŨ quay lại bản vẽ → trả lại ván riêng của tủ cũ
+  const nhoVanRieng = (M, id) => { try { if (!id) return; id = String(id); if (D.last && D.last.id != null && String(D.last.id) === id) D.last.van_cu = vanTu.has(id) ? { v: vanTu.get(id) } : null; vanTu.set(id, vanChauCua(M && M.spec)); } catch (e) { /* bỏ qua */ } };
+  const traVanRieng = L => { try { if (!L || L.id == null || !('van_cu' in L)) return; const id = String(L.id); if (L.van_cu) vanTu.set(id, L.van_cu.v); else vanTu.delete(id); } catch (e) { /* bỏ qua */ } };
+  const vanCuaMaTu = id => {
+    if (!id) return '';
+    if (vanTu.has(id)) return vanTu.get(id);
+    let s = null; try { s = typeof D.specTuLuu === 'function' ? D.specTuLuu(id) : null; } catch (e) { s = null; }
+    const v = vanChauCua(s); vanTu.set(id, v); return v;
+  };
+  const laLotDa = b => /^Ván lót đá/.test(String((b && b.Name) || ''));
+  // tấm → van_chau phải ghi (chỉ tấm nhóm thùng + ván lót đá của tủ chậu; ván lót mỏng ≤ 9 nằm nhóm hậu theo Core.nhomMau nhưng nhập là tấm Thùng)
+  const vanRiengCua = (boards) => {
+    const ra = new Map(), co = (boards || []).filter(b => b && !b.IsErase && vanCuaMaTu(D.tagOf(b)));
+    if (!co.length) return ra;
+    const tu = D.tamCuaTu(co), pn = D.phanNhomMau(tu), nh = new Map(tu.map((b, i) => [b, pn.nhom[i]]));
+    for (const b of co) if (nh.get(b) === 'thung' || laLotDa(b)) ra.set(b, vanCuaMaTu(D.tagOf(b)));
+    return ra;
+  };
   const ganVL = (cap, tenLenh) => {
-    const h0 = hmMark(), so = {}; let mo = false, khoa = 0, n = 0;
+    const h0 = hmMark(), so = {}, rieng = vanRiengCua(cap.map(c => c[0])); let mo = false, khoa = 0, n = 0;
     try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd(tenLenh || 'MNCF_MAU'); mo = true; } } catch (e) { mo = false; }
     try {
       for (const [b, rec, nh] of cap) {
@@ -3236,7 +3283,8 @@
         if (khoaVL(b)) { khoa++; continue; }
         b.Material = rec.Id || rec.objectId;
         const g = rec.GoodsInfo || {}, o = b.BoardProcessOption || {};      // vật liệu không mang thông tin ván (vd mua ở cửa hàng): giữ tên ván / vật liệu cũ của tấm, màu = tên vật liệu
-        b.BoardProcessOption = Object.assign({}, o, { boardName: String(g.name || o.boardName || ''), material: String(g.material || o.material || ''), color: String(g.color || tenVL(rec)) });
+        const v = rieng.get(b);      // thùng tủ chậu: chỉ đổi màu, tên ván + vật liệu = ván chống ẩm như lúc nhập
+        b.BoardProcessOption = Object.assign({}, o, { boardName: String((v || g.name || o.boardName) || ''), material: String((v || g.material || o.material) || ''), color: String(g.color || tenVL(rec)) });
         so[nh] = (so[nh] || 0) + 1; n++;
       }
     } finally { if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } } }
@@ -3271,11 +3319,14 @@
    * Đổ màu theo NHÓM cho các tấm của tủ: mau = { thung, mat, hau } (mỗi cái là { id, ten } của D.khoVatLieu, hoặc bỏ trống = giữ nguyên nhóm đó; hậu bỏ trống = theo màu thùng).
    * Một bước hoàn tác. opt.gop_ve = đang tự đổ màu ngay sau một lần vẽ → cộng bước này vào lần vẽ (để "Hoàn tác lần vẽ này" lùi cả hai).
    * opt.hau_rieng = hậu KHÔNG tự theo màu thùng (dùng khi trả lại màu cũ cho tủ vừa cập nhật: hậu của tủ cũ chưa đổ thì để nguyên).
+   * Thùng tủ chậu (ván chống ẩm) chỉ đổi màu hiển thị — xem vanRiengCua.
    * @returns {{ ok, so: { thung, mat, hau }, khoa (số tấm khoá vật liệu bị bỏ qua), steps, mau: { thung, mat, hau } (tên màu đã đổ, '' = giữ nguyên), ten (tên tấm từng nhóm) } | { ok: false, reason }}
    */
+  // (1.33) tấm mặt đá của mẫu tủ bếp trong kho (台面板 → "Mặt đá"): đá không phải ván — không đổ màu ván lên nó
+  const laTamDa = b => /^Mặt đá|(橱柜|地柜)台面板/.test(String((b && b.Name) || ''));      // tên trần 台面板 là mặt bàn gỗ (bàn học, bàn trang điểm) — vẫn đổ màu
   D.doMauTu = async (boards, mau, opt) => {
     opt = opt || {}; mau = mau || {};
-    boards = (boards || []).filter(laTam);
+    boards = (boards || []).filter(b => laTam(b) && !laTamDa(b));
     if (!boards.length) return { ok: false, reason: 'Không có tấm nào để đổ màu — chọn 1 tấm của tủ trên bản vẽ rồi bấm lại.' };
     const can = { thung: mau.thung || null, mat: mau.mat || null, hau: mau.hau || (opt.hau_rieng ? null : mau.thung) || null };
     if (!can.thung && !can.mat && !can.hau) return { ok: false, reason: 'Chưa chọn màu nào.' };
