@@ -762,7 +762,11 @@
           P({ loai: 'GIANG', ten: 'Giằng sau', than: b.code, tu: b.tu, type: 2, x0: bx, x1: bx + c, y0: yG - t, y1: yG, z0: b.z1 - gr, z1: b.z1, big: 1, khoang: i });
         }
         // (bản 1.33) tủ trên: THANH TREO ván dày t dọc mép trên phía trong, áp mặt trước hậu, sát nóc — vít nở xuyên qua nó vào tường (hậu 6,5 không chịu được tủ bát 40–60 kg)
-        if (B && (B.tang === 'tren' || B.chuc_nang === 'tl') && B.treo === 'thanh' && B.thanh_treo > 0) P({ loai: 'TREO', ten: 'Thanh treo', than: b.code, tu: b.tu, type: 2, x0: bx, x1: bx + c, y0: yG - t, y1: yG, z0: b.zt - B.thanh_treo, z1: b.zt, big: 1, khoang: i, ghi_bep: 'thanh treo — vít nở xuyên qua vào tường, khoan cam vào hồi' });
+        // (vòng soát 2 — 1.34) ô trên cùng thấp hơn thanh treo (khoang tủ lạnh máy cao: đợt trên hốc cách nóc 75) → thanh treo đứng trên đợt đó, không đè vào nó
+        if (B && (B.tang === 'tren' || B.chuc_nang === 'tl') && B.treo === 'thanh' && B.thanh_treo > 0) {
+          const dTren = Math.max(-Infinity, ...((s.khoang[i] && s.khoang[i].dot) || []).filter(z => z >= b.zb - TOL && z + t <= b.zt + TOL).map(z => z + t)), zTreo = Math.max(b.zt - B.thanh_treo, dTren);
+          if (b.zt - zTreo >= 30 - TOL) P({ loai: 'TREO', ten: 'Thanh treo', than: b.code, tu: b.tu, type: 2, x0: bx, x1: bx + c, y0: yG - t, y1: yG, z0: zTreo, z1: b.zt, big: 1, khoang: i, ghi_bep: 'thanh treo — vít nở xuyên qua vào tường, khoan cam vào hồi' });
+        }
         if (phu || khongHau) continue;
         // hậu dày lọt lòng / hậu soi rãnh: mỗi khoang 1 tấm
         // (bản 1.34) hốc không hậu (tủ bếp): hậu lọt chia đoạn — đoạn dưới lên tới mặt trên đợt dưới hốc, đoạn trên từ mặt dưới đợt trên hốc (đợt đứng trước hậu)
@@ -3735,15 +3739,20 @@
     const ong = o.ong && typeof o.ong === 'object' && soN(o.ong.s, -1000, 20000) !== null ? { canh: ci(o.ong.canh), s: soN(o.ong.s, -1000, 20000) } : null;
     const cs = o.cua_so && typeof o.cua_so === 'object' && soN(o.cua_so.s0, 0, 20000) !== null && soN(o.cua_so.s1, 0, 20000) !== null ? { canh: ci(o.cua_so.canh), s0: soN(o.cua_so.s0, 0, 20000), s1: soN(o.cua_so.s1, 0, 20000), be: soN(o.cua_so.be, 0, 3000) } : null;
     const chau = { canh: ci(ch.canh), s: soN(ch.s, 0, 20000), co: [800, 900].indexOf(num(ch.co, 0)) >= 0 ? num(ch.co, 0) : null };
-    if (ong && chau.s === null && !('canh' in ch)) chau.canh = ong.canh;      // chậu theo ống thoát
+    // chậu theo ống thoát. (vòng soát 2 — 1.34) ống là thứ cố định trên tường: chậu LUÔN ở cạnh có ống (kéo / gõ chậu sang cạnh kia thì tâm gõ đó bỏ —
+    // trước đây chậu sang cạnh kia mà ống không còn ràng buộc gì, phương án ra sạch dù ống nằm dưới tủ ngăn kéo)
+    if (ong && chau.canh !== ong.canh) { if ('canh' in ch) chau.s = null; chau.canh = ong.canh; }
     const bep = { canh: kieu === 'L' ? (bp.canh === 0 || bp.canh === 1 ? bp.canh : null) : 0, s: soN(bp.s, 0, 20000), co: num(bp.co, 800) === 900 ? 900 : 800 };
     const goc = kieu === 'L' ? { pk: GOC_BEP[o.goc && o.goc.pk] ? o.goc.pk : GOC_MAC_DINH, nep: soN(o.goc && o.goc.nep, 30, 100) || BO.nep_goc, nep_tren: soN(o.goc && o.goc.nep_tren, 30, 100) || BO.nep_goc } : null;
     // (vòng soát 1.34) không nhận ghim tủ góc: chữ L luôn tự đặt tủ góc (X + delta) — ghim chồng lên nó là khoảng âm, mất mọi phương án
     const khoa = {};
     if (o.khoa && typeof o.khoa === 'object') for (const vt of Object.keys(o.khoa)) {
       const q = o.khoa[vt]; if (!q || typeof q !== 'object' || !MAU_BEP_DUOI.some(m => m.ma === q.ma && m.chuc_nang !== 'goc') || soN(q.s0, 0, 20000) === null) continue;
+      if (kieu === 'I' && num(q.canh, 0) === 1) continue;      // (vòng soát 2 — 1.34) chữ L → chữ I: tủ ghim ở cạnh B không còn chỗ — bỏ, không dời lặng lẽ sang dãy I
       khoa[String(vt).slice(0, 12)] = { ma: q.ma, s0: soN(q.s0, 0, 20000), canh: ci(q.canh) };
     }
+    // (vòng soát 2 — 1.34) tủ chậu / bếp đã ghim quyết định cạnh của chậu / bếp (xepBep đặt chậu lên cạnh bo.chau.canh với u0 của ghim — lệch cạnh là chậu nhảy tới chỗ chẳng ai chọn)
+    for (const vt of Object.keys(khoa)) { const m = MAU_BEP_DUOI.find(x => x.ma === khoa[vt].ma); if (m && m.chuc_nang === 'chau') chau.canh = khoa[vt].canh; else if (m && m.chuc_nang === 'bep' && kieu === 'L') bep.canh = khoa[vt].canh; }
     const chuan = {};
     if (o.chuan && typeof o.chuan === 'object') for (const k of KHOA_CHUAN_BEP) if (k in o.chuan) chuan[k] = o.chuan[k];
     return { v: 1, ma: String(o.ma == null || o.ma === '' ? 'B1' : o.ma).trim().slice(0, 16) || 'B1', kieu, canh, tl, cao, chau, bep, hm: o.hm === 'kinh' ? 'kinh' : 'am',
@@ -3970,6 +3979,7 @@
       const keFix = [];
       if (bo.ke) E.forEach((e, i) => { for (const b of ['dau', 'cuoi']) if (e[b] === 'ho' && e.caoBen !== b && R[i].r1 - R[i].r0 >= BO_KE_DAU - TOL) {
         const u0 = b === 'dau' ? R[i].r0 : rn(R[i].r1 - BO_KE_DAU, 2); if (keFix.some(k => k.e === i && k.u0 < u0 + BO_KE_DAU - TOL && u0 < k.u1 - TOL)) continue;
+        if (pins.some(p => p.e === i && p.u0 < u0 + BO_KE_DAU - TOL && u0 < p.u0 + p.w - TOL)) continue;      // (vòng soát 2 — 1.34) đã ghim / "Đổi thành" tủ ở chỗ kệ: tủ ghim thay kệ (thêm cả hai là chồng nhau, mất mọi phương án)
         keFix.push({ e: i, k: 'ke', loai: 'KE', ma: `BD-KE-${BO_KE_DAU}`, w: BO_KE_DAU, u0, u1: rn(u0 + BO_KE_DAU, 2) }); } });
       // các chỗ đặt trên lưới 50 tính từ mép khối cố định gần nhất (đầu vùng; cạnh lẻ: cả từ cuối vùng)
       const choDat = (i, w) => { const r = R[i], out = new Set(); for (let o = 0; o + w <= r.S + TOL; o += 50) { out.add(rn(r.r0 + o, 2)); if (E[i].le || r.S % 50) out.add(rn(r.r1 - w - o, 2)); } return [...out].sort((a, b) => a - b); };
@@ -4006,7 +4016,7 @@
           const fixed = E.map(() => []);
           fixed[c.e].push({ k: 'chau', u0: c.u0, u1: c.u1, ma: `BD-CHAU-${coChau}`, w: coChau, ghim: !!pinChau, vt: pinChau && pinChau.vt });
           fixed[b.e].push({ k: 'bep', u0: b.u0, u1: b.u1, ma: `BD-BEP-${coBep}`, w: coBep, ghim: !!pinBep, vt: pinBep && pinBep.vt });
-          for (const p of pinKhac) fixed[p.e].push({ k: 'ghim', u0: p.u0, u1: rn(p.u0 + p.w, 2), ma: p.ma, w: p.w, ghim: true, vt: p.vt, chuc: p.chuc });
+          for (const p of pinKhac) fixed[p.e].push({ k: 'ghim', u0: p.u0, u1: rn(p.u0 + p.w, 2), ma: p.ma, w: p.w, ghim: true, vt: p.vt, chuc: p.chuc, ...(/^BD-KE-/.test(p.ma) ? { loai: 'KE' } : {}) });      // kệ ghim: tủ trên là kệ hở như kệ tự thêm
           for (const q of keFix) { const o = Object.assign({}, q); delete o.e; fixed[q.e].push(o); }
           let hong = false, cost = 0;
           const lap = E.map((e, i) => {
@@ -4057,6 +4067,7 @@
     // (vòng soát 1.34) đá dài hơn khổ 3200 mà không có mối nối hợp lệ = không sản xuất được: xét tiếp tới khi đủ `so` phương án đá ghép được (tối đa 40),
     // phương án đá hỏng chỉ lấp chỗ còn thiếu và cộng phạt DA_PHAT vào chi phí — danh sách vẫn xếp theo chi phí tăng dần
     const DA_PHAT = 1000, tot = [], daCo = new Set(), so = Math.max(1, Math.min(6, num(opt.so, 3)));
+    let loiGan = null;      // (vòng soát 2 — 1.34) lỗi của phương án rẻ nhất bị kiemDay loại: mọi phương án hỏng thì nói đúng lỗi đó (trước đây chỉ một dòng chung, người dùng không biết sửa gì)
     for (const x of ung) {
       if (tot.filter(p => !p.da_hong).length >= so) break;
       const p = dungPA(bo, Q, G, E, cao, caoW, caoCanh, x);
@@ -4066,12 +4077,13 @@
       if (daCo.size > 40) break;
       const k = kiemDay(bo, p, { nen: opt.nen });
       p.loi = k.loi; p.canh_bao = k.canh_bao; p.luu_y = k.luu_y;
-      if (p.loi.length) continue;
+      if (p.loi.length) { if (!loiGan) loiGan = p.loi.slice(); continue; }
       if (p.da.some(d => !d.hop_le)) { p.cost = rn(p.cost + DA_PHAT, 3); Object.defineProperty(p, 'da_hong', { value: true, enumerable: false }); }
       tot.push(p);
     }
     const pa = tot.sort((a, b) => a.cost - b.cost).slice(0, so);
-    if (!pa.length) return { bo, pa: [], loi_chung: [`Không có phương án nào qua được phép kiểm dãy — ${ung.length ? 'xem lỗi từng tủ (chuẩn bếp / máy).' : ''}`.trim()] };
+    if (!pa.length) return { bo, pa: [], loi_chung: loiGan ? [`Không có phương án nào qua được phép kiểm dãy — phương án gần được nhất còn ${loiGan.length} lỗi:`, ...loiGan.slice(0, 4).concat(loiGan.length > 4 ? [`… và ${loiGan.length - 4} lỗi khác.`] : [])]
+      : ['Không có phương án nào qua được phép kiểm dãy.'] };
     return { bo, pa, loi_chung };
   }
   /** Mặt đặt đồ cạnh TAY NẮM tủ lạnh (phía không bản lề): từ hồi khoang tủ lạnh tới chậu / bếp gần nhất cùng cạnh; tủ cao khác kề tay nắm = 0. */
@@ -4299,6 +4311,8 @@
       if (lech > BO.chau_cua_so + 1) canh_bao.push(`${ten} không đặt được quanh tâm đã chọn ${g(q.s)} — bảng dời về tâm ${g(sT)} (lệch ${g(lech)}); dời ống / tâm, hoặc ghim tủ ${k === 'chau' ? 'chậu' : 'bếp'} đúng chỗ muốn.`);
     }
     if (!ds.some(m => m.chuc === 'chau')) loi.push('Dãy không có tủ chậu.');
+    // (vòng soát 2 — 1.34) ống thoát ở cạnh không có tủ chậu: phép kiểm "ống lọt tủ chậu" ở trên chỉ xét chậu cùng cạnh — chậu cạnh kia là ống bị bỏ qua lặng lẽ
+    else if (bo.ong && E[bo.ong.canh] && !ds.some(m => m.chuc === 'chau' && m.canh === bo.ong.canh)) loi.push(`Ống thoát ở cạnh ${'AB'[bo.ong.canh]} mà tủ chậu ở cạnh ${'AB'[ds.find(m => m.chuc === 'chau').canh]} — chậu phải trùm ống thoát (dời ống hoặc bỏ ô Ống thoát rồi đặt chậu).`);
     if (!ds.some(m => m.chuc === 'bep')) loi.push('Dãy không có tủ bếp nấu.');
     // hút mùi trên bếp
     for (const h of ds.filter(m => m.chuc === 'hm')) { const b = ds.find(m => m.chuc === 'bep' && m.canh === h.canh && m.u0 < h.u1 && m.u1 > h.u0); if (b && Math.abs((h.u0 + h.u1) / 2 - (b.u0 + b.u1) / 2) > 50 + TOL) canh_bao.push(`${ten(h)}: hút mùi lệch tâm bếp ${g(rn(Math.abs((h.u0 + h.u1) / 2 - (b.u0 + b.u1) / 2), 1))} > 50.`); }
@@ -4345,7 +4359,11 @@
     const bo = chuanBo(boIn), q = x && typeof x === 'object' ? x : { s: x }, ci = bo.kieu === 'L' && num(q.canh, 0) === 1 ? 1 : (x && typeof x === 'object' && 'canh' in q ? 0 : null);
     const s = num(q.s, NaN); if (!isFinite(s)) return bo;
     const o = clone(bo);
-    if (vat === 'chau' || vat === 'bep') { o[vat].s = Math.round(s / 50) * 50; if (ci !== null && (vat === 'chau' || bo.kieu === 'L')) o[vat].canh = ci; }
+    if (vat === 'chau' || vat === 'bep') {
+      o[vat].s = Math.round(s / 50) * 50; if (ci !== null && (vat === 'chau' || bo.kieu === 'L')) o[vat].canh = ci;
+      // (vòng soát 2 — 1.34) kéo = chọn chỗ mới: bỏ ghim của chính tủ chậu / bếp (ghim thắng thì lần kéo không có tác dụng, kéo sang cạnh kia thì chậu mang u0 của cạnh cũ)
+      for (const vt of Object.keys(o.khoa || {})) { const m = MAU_BEP_DUOI.find(x => x.ma === o.khoa[vt].ma); if (m && m.chuc_nang === vat) delete o.khoa[vt]; }
+    }
     else if (vat === 'tl' && o.tl) { if (ci !== null) o.tl.canh = ci; const e = o.canh[o.tl.canh]; o.tl.dau = s < e.dai / 2 ? 'dau' : 'cuoi'; }
     return chuanBo(o);
   }
@@ -4534,6 +4552,9 @@
       if (ten === 'L' && cotGiua) { out.ly_do[ten] = 'cot_giua'; return; }
       // (bản 1.32) giường ngăn kéo có sâu hộp kẹp theo đà giữa: Rộng không co giãn đều
       if (ten === 'L' && M0.info.giuong && M0.info.giuong.nk && M0.info.giuong.nk.kep) { out.ly_do[ten] = 'khong_deu'; return; }
+      // (vòng soát 2 — 1.34) tủ bếp mang nẹp bù (phào): Rộng tăng thì nẹp giãn, thùng đứng yên; thu quá bề nẹp thì thùng hẹp lại + phào mất (normBep) — gãy khúc,
+      // module tuyến tính theo nhánh tăng ra phào bề rộng âm khi thu L trong Chenfeng → Rộng chỉ để xem (đổi rộng ở bảng / bộ bếp)
+      if (ten === 'L' && s0.bep && s0.bep.nep && s0.bep.nep.thung > 0) { out.ly_do[ten] = 'khong_deu'; return; }
       let M1 = null, d = 0;
       // giường / vách: số tấm (và vân) phải giữ nguyên khi tăng LẪN khi giảm, tới gấp đôi bước thử (module trong Chenfeng kéo được hai chiều)
       for (const thu of [120, -120, 60, -60]) { M1 = dung(khoa, thu); if (M1 && (!sp2 || (dung(khoa, -thu) && dung(khoa, 2 * thu) && dung(khoa, -2 * thu)))) { d = thu; break; } M1 = null; }
@@ -7104,6 +7125,8 @@
     return { ok: true, offset: best.offset.map(r2), boards: best.boards, thieu: parts.length - best.boards.length, tong: parts.length, khung: kh };
   };
 
+  // nút mẫu (trong cây mẫu của e) mang tên một mẫu của tủ, hoặc nhánh ngăn kéo lệnh gốc "抽屉…空间" — null nếu không có
+  const mauTenCua = (e, ten) => { try { let o = e.Template && e.Template.Object, n = 0; while (o && n++ < 40) { let nm = ''; try { nm = String(o.Name || ''); } catch (er) { /* bỏ qua */ } if (ten.has(nm) || /^抽屉(总|根)?空间$/.test(nm)) return o; o = o.Parent && o.Parent.Object; } } catch (er) { /* bỏ qua */ } return null; };
   /** Mọi đối tượng thuộc một tủ đã vẽ: tấm mang mã + hộp ngăn kéo / suốt treo sinh từ mẫu nằm trong các ô của tủ + lỗ khoan dính tới chúng. Đồ người dùng tự gắn thêm (bản lề, tay nắm…) KHÔNG nằm trong danh sách. */
   D.cabinetEntities = (id, M, loc) => {
     const off = loc.offset, set = new Set(loc.boards), hopE = e => D.hopTheo(e, loc.khung || null);      // tủ đã xoay: mọi phép so nằm trong hệ của tủ
@@ -7118,7 +7141,7 @@
       // mẫu ngăn kéo / suốt treo của tủ: mẫu (ở tầng nào trong cây cũng được — khi tủ đã thành module thì chúng là mẫu con) trùng tên mẫu của tủ
       // (bản 1.26) ngăn kéo vẽ bằng lệnh DRAWER gốc là một nhánh trong cây mẫu của thùng: … → 抽屉总空间 → 抽屉根空间 → 抽屉空间 → <mẫu ngăn kéo>; mẫu mang tên TRONG KHO của tài khoản
       // (có thể khác tên ghi ở Chuẩn xưởng) → nhận cả theo các nút "抽屉…空间" của nhánh đó
-      const mauTen = e => { try { let o = e.Template && e.Template.Object, n = 0; while (o && n++ < 40) { let nm = ''; try { nm = String(o.Name || ''); } catch (er) { /* bỏ qua */ } if (ten.has(nm) || /^抽屉(总|根)?空间$/.test(nm)) return o; o = o.Parent && o.Parent.Object; } } catch (er) { /* bỏ qua */ } return null; };
+      const mauTen = e => mauTenCua(e, ten);
       const theoMau = new Map();
       for (const e of all) {
         if (!(D.isBoard(e) || D.isHardware(e)) || (D.isBoard(e) && D.tagOf(e))) continue;
@@ -10221,6 +10244,19 @@
     catch (e) { if (ran) throw e; }
     await run(); return res;
   };
+  /**
+   * (vòng soát 2 — 1.34) Tủ vẽ "xong" mà CHƯA TRỌN: chưa xoay được, thiếu mẫu ngăn kéo / suốt treo, chưa gom được module, có lỗi đối chiếu tấm.
+   * Tủ lẻ thì thẻ Kết quả nói mấy chuyện này; trong bộ trước đây chúng bị nuốt (bộ vẫn báo vẽ xong, Cập nhật bộ coi tủ đó là đúng). → [mô tả ngắn] (rỗng = trọn)
+   */
+  D.vanDeVe = rep => {
+    if (!rep || rep.giai_doan !== 'xong') return [];
+    const o = [];
+    if (rep.xoay_kq && rep.xoay_kq.ok === false) o.push(`chưa xoay được ${r2(rep.xoay_do || 0)}° (${String(rep.xoay_kq.reason || 'lệnh xoay không chạy').slice(0, 80)})`);
+    if (Array.isArray(rep.mau_thieu) && rep.mau_thieu.length) o.push(`thiếu ${rep.mau_thieu.length} mẫu ngăn kéo / suốt treo`);
+    if (rep.module && rep.module.ok === false && !rep.module.khong_can) o.push(`chưa gom được thành module (${String(rep.module.reason || '').slice(0, 80)})`);
+    if (Array.isArray(rep.errors) && rep.errors.length) o.push(String(rep.errors[0]).slice(0, 120));
+    return o;
+  };
   // một loạt tủ: vẽ lần lượt, gọi onTu sau mỗi tủ (giao diện ghi bản ghi NGAY — dừng giữa chừng vẫn biết tủ nào đã có)
   const veLoat = async (ds, opt, kq) => {
     const bao = guard(opt.onStatus), N = ds.length;
@@ -10233,8 +10269,9 @@
       try { rep = await D.draw(x.spec, { at: x.at.slice(), xoay: Number(x.xoay) || 0, id: x.id || undefined, bo: true, onStatus: t => bao(`${nhan}: ${t}`) }); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
       const xong = rep && rep.giai_doan === 'xong';
-      kq.reps.push({ vt: x.vt, id: xong ? rep.id : null, ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [], warnings: (rep && rep.warnings) || [] });
-      if (xong) { kq.xong++; kq.ids.push(rep.id); if (D.last && D.last.id === rep.id) kq.tam.push(...D.last.added); }
+      const vd = D.vanDeVe(rep);
+      kq.reps.push({ vt: x.vt, id: xong ? rep.id : null, ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [], warnings: (rep && rep.warnings) || [], van_de: vd });
+      if (xong) { kq.xong++; kq.ids.push(rep.id); if (D.last && D.last.id === rep.id) kq.tam.push(...D.last.added); if (vd.length) kq.van_de.push({ vt: x.vt, id: rep.id, tin: vd }); }
       if (typeof opt.onTu === 'function') { try { await opt.onTu(i, rep, x); } catch (e) { /* lỗi của nơi gọi không làm hỏng lần vẽ */ } }
       if (!xong || rep.ban) { kq.dung = { i, vt: x.vt, ly_do: rep && rep.ban ? 'may_chu' : 'hong', loi: ((rep && rep.errors) || []).join(' ') || (rep && rep.ban ? 'Chenfeng còn đang chờ máy chủ' : 'tủ chưa vẽ được') }; break; }
     }
@@ -10252,7 +10289,7 @@
     }
     if (kq.xong && opt.zoom !== false) D.zoom();
   };
-  const kqDay = n => ({ ok: false, tong: n, xong: 0, reps: [], ids: [], tam: [], dung: null, do_loi: null, loi: '' });
+  const kqDay = n => ({ ok: false, tong: n, xong: 0, reps: [], ids: [], tam: [], dung: null, do_loi: null, loi: '', van_de: [] });
   const truocDay = kq => {
     if (!D.available()) { kq.loi = 'Không thấy bản vẽ Chenfeng trong trang này.'; return false; }
     if (D.dangLenhTre()) { kq.loi = 'Chenfeng còn một lệnh tới trễ chưa xong — chờ một chút rồi bấm lại.'; return false; }
@@ -10268,7 +10305,7 @@
     const kq = kqDay(ds.length);
     if (!truocDay(kq)) return gonKq(kq);
     await khoaVe(async () => { await veLoat(ds, opt, kq); ketDay(kq, opt); });
-    kq.ok = !kq.dung && kq.xong === ds.length;
+    kq.ok = !kq.dung && kq.xong === ds.length && !kq.van_de.length;
     return gonKq(kq);
   };
   // các đối tượng của một tủ đã vẽ theo mã (tìm lại được thì cả mẫu ngăn kéo / suốt treo; không thì tấm mang mã + lỗ của chúng)
@@ -10280,6 +10317,20 @@
     // (hộp ngăn kéo / suốt treo là mẫu con của module) + lỗ khoan dính vào — vẫn chỉ theo mã tủ, không đụng đồ khác
     const tam = D.all().filter(e => D.isBoard(e) && D.tagOf(e) === String(x.id)), goc = new Set(tam.map(rootTpl).filter(Boolean)), co = new Set(tam);
     if (goc.size === 1 && tam.every(b => goc.has(rootTpl(b)))) for (const e of D.all()) if ((D.isBoard(e) || D.isHardware(e)) && !co.has(e) && goc.has(rootTpl(e)) && !(D.isBoard(e) && D.tagOf(e) && D.tagOf(e) !== String(x.id))) co.add(e);
+    // (vòng soát 2 — 1.34) tủ CHƯA gom được module (MODELING hỏng): hộp ngăn kéo / suốt treo là mẫu riêng, không mang mã tủ, không chung gốc với tấm —
+    // nhận mẫu mang tên mẫu của tủ (cây mẫu, như cabinetEntities) mà mọi đối tượng của nó nằm gọn trong hộp các tấm mang mã (toạ độ thế giới — tủ xoay ±90 vẫn là hộp thẳng)
+    if (tam.length && M) {
+      const ten = new Set(M.templates.filter(t => t.id).map(t => t.ten));
+      const H = tam.reduce((a, e) => { const b = D.boxOf(e); return [Math.min(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.max(a[3], b[3]), Math.min(a[4], b[4]), Math.max(a[5], b[5])]; }, [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity]);
+      const trong = b => b[0] >= H[0] - 60 && b[1] <= H[1] + 60 && b[2] >= H[2] - 60 && b[3] <= H[3] + 60 && b[4] >= H[4] - 60 && b[5] <= H[5] + 60;
+      const theoMau = new Map();
+      if (ten.size) for (const e of D.all()) {
+        if (co.has(e) || !(D.isBoard(e) || D.isHardware(e)) || (D.isBoard(e) && D.tagOf(e))) continue;
+        const r = mauTenCua(e, ten); if (!r) continue;
+        if (!theoMau.has(r)) theoMau.set(r, []); theoMau.get(r).push(e);
+      }
+      for (const [, list] of theoMau) if (list.every(e => { try { return trong(D.boxOf(e)); } catch (er) { return false; } })) for (const e of list) co.add(e);
+    }
     return [...co].concat(D.all().filter(h => D.isHole(h) && (co.has(idOf(h.FId)) || co.has(idOf(h.MId)))));
   };
   const xoaLoat = async (ds, opt, kq) => {
@@ -10336,8 +10387,9 @@
             if (rep) rep.ve_lai = true;
           } else rep = { ok: false, giai_doan: 'xoa', errors: [xk.loi] };
         }
-        const xong = rep && rep.giai_doan === 'xong';
-        kq.sua.push({ vt: x.vt, id: String(x.id), ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [] });
+        const xong = rep && rep.giai_doan === 'xong', vd = D.vanDeVe(rep);
+        kq.sua.push({ vt: x.vt, id: String(x.id), ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [], van_de: vd });
+        if (xong && vd.length) kq.van_de.push({ vt: x.vt, id: String(x.id), tin: vd });
         if (xong) { kq.ids.push(String(x.id)); if (D.last && String(D.last.id) === String(x.id)) kq.tam.push(...D.last.added); }
         if (typeof opt.onSua === 'function') { try { await opt.onSua(x.vt, rep, x); } catch (e) { /* bỏ qua */ } }
         if (!xong || rep.ban) { kq.dung = { i: -1, vt: x.vt, ly_do: rep && rep.ban ? 'may_chu' : 'hong', loi: ((rep && rep.errors) || []).join(' ') || 'chưa cập nhật được' }; return; }
@@ -10346,7 +10398,7 @@
       await veLoat(ve, opt, kq);
       ketDay(kq, opt);
     });
-    kq.ok = !kq.dung && kq.xong === ve.length;
+    kq.ok = !kq.dung && kq.xong === ve.length && !kq.van_de.length;
     return gonKq(kq);
   };
   for (const k of ['draw', 'update', 'drawRoom', 'veKho', 'veDay', 'xoaDay', 'capNhatDay']) {
@@ -10968,6 +11020,7 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
     let model = null, showDoors = true, busy = false, lastRep = null;
     // (bản 1.34) bộ bếp chữ I / L đang làm (null = đang làm một món lẻ), phương án đang xem, tủ đang chọn, cạnh đang xem mặt đứng… — xem khối BỘ BẾP
     let boBep = null, boPa = 0, boChon = null, boCanh = 0, boThem = false, boNho = null, boGo = null, boTmr = 0, boKeo = null, boKeoXong = 0;
+    let boPaTim = false, boLechNho = null;      // (vòng soát 2 — 1.34) chia lại xong thì chọn phương án gần bộ ĐÃ VẼ nhất (không về phương án 1 — Cập nhật sẽ xếp lại cả dãy)
     let boCho = null, boVe = null;      // (1.34 bước 4) chỗ đặt dãy đang giữ { goc, xoay }; bản ghi bộ đã vẽ { ma, cho, da_ve: [{ vt, id, sig, at, xoay, tang }], tong, dung }
     let noi = null;            // tủ trên bản vẽ mà bảng đang nối tới: { id, spec (thông số LÚC VẼ), ten } — nút "Cập nhật tủ này" sửa đúng tủ đó
     let sel = null;            // đang chọn: null | {loai:'o', khoang, tu} | {loai:'dot', khoang, idx}
@@ -14126,6 +14179,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         let r; try { r = Core.xepBep(b, { nen: nenBo() }); } catch (e) { r = { bo: Core.chuanBo(b), pa: [], loi_chung: ['Không chia được: ' + (e && e.message || e)] }; }
         boNho = { key, b, r, sua: null };
       }
+      if (boPaTim) { boPaTim = false; boPa = paTheoDaVe(boNho.r); }
       return boNho.r;
     }
     const paBo = r => (r.pa.length ? r.pa[clamp(boPa, 0, r.pa.length - 1)] : null);
@@ -14137,7 +14191,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       opt = opt || {};
       const truoc = chup(), o = clone(boBep); f(o);
       boBep = gonBo(Core.chuanBo(o));
-      if (!opt.giuPa) boPa = 0;
+      if (!opt.giuPa) { boPa = 0; boPaTim = true; }
       if (!opt.go) { nho(truoc); boGo = null; }
       luuBo();
       if (opt.go) { clearTimeout(boTmr); boTmr = setTimeout(safe(() => { boTmr = 0; veBoView(); }), 250); }
@@ -14146,7 +14200,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     function vaoBo(kieu) {
       const truoc = chup(), cu = docBoLuu() || {};
       if (cu.kieu !== kieu && cu.bep && typeof cu.bep === 'object') cu.bep = Object.assign({}, cu.bep, { canh: null });      // bộ nhớ là kiểu kia: bếp tự chọn cạnh
-      sel = null; boBep = gonBo(Core.chuanBo(Object.assign({}, cu, { kieu }))); boPa = 0; boChon = null; boCanh = 0; boGo = null; boCho = null; boVe = null; napBoVe();
+      sel = null; boBep = gonBo(Core.chuanBo(Object.assign({}, cu, { kieu }))); boPa = 0; boPaTim = true; boChon = null; boCanh = 0; boGo = null; boCho = null; boVe = null;
+      // (vòng soát 2 — 1.34) bộ nhớ là kiểu kia mà đã vẽ: kiểu này là bộ MỚI (mã khác) — không bám bản ghi + chỗ đặt của bộ kiểu kia (góc trong ≠ đầu trái)
+      const mm = maKhacKieu(boBep.ma, kieu); if (mm) boBep.ma = mm;
+      napBoVe();
       capLoai(); nho(truoc); luuBo();
       setStatus(`Bộ bếp chữ ${kieu}: gõ dài tường, chọn tủ lạnh / + Lò / + Kho — bảng tự chia tủ dưới, tủ trên, nẹp, đá. ↶ Lùi để lấy lại món đang làm.`);
     }
@@ -14316,11 +14373,13 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
     function boInput(t) {
       const k = t.dataset.ui, v = String(t.value).trim().replace(',', '.'), n = parseFloat(v), so = v !== '' && isFinite(n);
       if (boGo !== t) { boGo = t; nho(); }
+      // (vòng soát 2 — 1.34) chữ L, bếp tự chọn cạnh: tâm bếp gõ theo cạnh ĐANG có bếp — ghi luôn cạnh đó (không thì bếp nhảy sang tường kia với cùng số)
+      let bepCanh = null; if (k === 'bo-bep-s' && so && boBep.kieu === 'L' && (boBep.bep || {}).canh == null) { try { const m = (paBo(tinhBo()) || { ds: [] }).ds.find(q => q.chuc === 'bep'); if (m) bepCanh = m.canh; } catch (e) { bepCanh = null; } }
       doiBo(o => {
         if (k === 'bo-dai-a' && so) o.canh[0].dai = n;
         else if (k === 'bo-dai-b' && so && o.canh[1]) o.canh[1].dai = n;
         else if (k === 'bo-chau-s') o.chau.s = so ? n : null;
-        else if (k === 'bo-bep-s') o.bep.s = so ? n : null;
+        else if (k === 'bo-bep-s') { o.bep.s = so ? n : null; if (bepCanh !== null) o.bep.canh = bepCanh; }
         else if (k === 'bo-ong') o.ong = so ? { canh: o.chau.canh || 0, s: n } : null;
         else if (/^bo-tl-ho_/.test(k) && o.tl && so) o.tl[k.slice(6)] = n;
         else if (/^bo-may-/.test(k) && o.tl && so) o.tl.may = Object.assign({ ma: 'tu_chon', rong: 700, sau: 700, cao: 1800 }, typeof o.tl.may === 'object' ? o.tl.may : {}, { [k.slice(7)]: n });
@@ -14347,7 +14406,16 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (act === 'bo-cap-nhat') return capNhatBo();
       if (act === 'bo-hoan-tac') return hoanTacBo();
       const v = b.dataset.v, r = boBep ? tinhBo() : null, pa = r && paBo(r);
-      if (act === 'bo-kieu') { if (v === boBep.kieu) return; boCanh = 0; boChon = null; return doiBo(o => { o.kieu = v === 'L' ? 'L' : 'I'; if (o.bep) o.bep.canh = null; }); }      // đổi kiểu: bếp tự chọn cạnh lại (chữ I ép cạnh 0)
+      if (act === 'bo-kieu') {      // đổi kiểu: bếp tự chọn cạnh lại (chữ I ép cạnh 0)
+        if (v === boBep.kieu) return; boCanh = 0; boChon = null;
+        // (vòng soát 2 — 1.34) bộ kiểu cũ đã vẽ: kiểu mới là bộ MỚI, chỗ đặt chọn lại (chỗ của chữ I là đầu trái, của chữ L là góc trong) — Cập nhật không được dời bộ cũ
+        const kieu = v === 'L' ? 'L' : 'I', cu = boBep.ma, mm = maKhacKieu(cu, kieu), coCho = !!boCho;
+        doiBo(o => { o.kieu = kieu; if (o.bep) o.bep.canh = null; if (mm) o.ma = mm; });
+        boVe = null; boCho = null; napBoVe(); capBoNut();
+        if (mm) setStatus(`Chữ ${kieu}: bộ ${cu} (chữ ${kieu === 'L' ? 'I' : 'L'}) đã vẽ giữ nguyên — đây là bộ mới ${mm}; bấm “Chỗ” để chọn chỗ đặt.`);
+        else if (coCho) setStatus(`Chữ ${kieu}: chọn lại chỗ đặt (bấm “Chỗ”) — ${kieu === 'L' ? 'chữ L đặt theo góc trong' : 'chữ I đặt theo đầu trái'}.`);
+        return;
+      }
       if (act === 'bo-tl') return doiBo(o => { if (!v) o.tl = null; else { o.tl = Object.assign({}, o.tl || {}, { may: v === 'tu_chon' ? Object.assign({ ma: 'tu_chon', rong: 700, sau: 700, cao: 1800 }, o.tl && typeof o.tl.may === 'object' ? o.tl.may : {}) : v }); if (v === 'tu_chon') boThem = true; } });
       if (act === 'bo-cao') return doiBo(o => { const j = o.cao.findIndex(c => c.loai === v); if (j >= 0) o.cao.splice(j, 1); else o.cao.push({ loai: v, rong: v === 'lo' ? 600 : 400 }); o.cao.sort((p, q) => (p.loai === 'lo' ? 0 : 1) - (q.loai === 'lo' ? 0 : 1)); });
       if (act === 'bo-ke') return doiBo(o => { if (o.ke) delete o.ke; else o.ke = true; });
@@ -14369,6 +14437,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
         if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng mở tủ thành tủ lẻ.');      // (vòng soát 1.34)
         let x = null; try { x = Core.tuBo(Object.assign({}, boBep, { chuan: boChuan() }), pa, { nen: nenBo() }).find(q => q.vt === m.vt); } catch (e) { x = null; }
         if (!x) return setStatus(`Tủ ${m.vt} (${m.ma}) chưa mở được thành tủ lẻ.`);
+        if (x.spec.bep) delete x.spec.bep.day;      // (vòng soát 2 — 1.34) tủ lẻ: không còn thuộc dãy — bảng kê in lại dòng Mặt đá (kèm khoét) của nó
         const truoc = chup(), bc = doiLoaiBoCho(x.spec);
         boBep = null; boChon = null; spec = x.spec; noi = null; renderAll(); nho(truoc);
         return setStatus(`Đã mở tủ ${m.vt} (${m.ma}) của bộ thành tủ bếp lẻ${bc}. ↶ Lùi để về bộ bếp.`);
@@ -14392,6 +14461,8 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
           const p = e.type === 'pointerup' ? svgPt(k.g, e) : null;
           if (!p || !boBep) return veBoView();
           const r = tinhBo(), q = uMB(r.bo, paBo(r), p[0], p[1]);
+          // (vòng soát 2 — 1.34) chậu luôn trùm ống thoát: kéo sang cạnh không có ống thì không dời, nói rõ
+          if (k.vat === 'chau' && r.bo.ong && q.canh !== undefined && q.canh !== null && q.canh !== r.bo.ong.canh) { veBoView(); return setStatus(`Chậu phải trùm ống thoát (cạnh ${'AB'[r.bo.ong.canh]}) — muốn đặt chậu cạnh ${'AB'[q.canh]} thì xoá ô Ống thoát trước (hoặc gõ ống mới sau khi kéo).`); }
           doiBo(o => { const x = Core.keoBo(o, k.vat, { canh: q.canh, s: k.vat === 'tl' ? q.u : q.s }); Object.keys(o).forEach(kk => delete o[kk]); Object.assign(o, x); });
           setStatus(`Đã dời ${k.vat === 'chau' ? 'chậu' : k.vat === 'bep' ? 'bếp' : 'tủ lạnh'}${k.vat === 'tl' ? '' : ` — tâm ${hien(Math.round(q.s / 50) * 50)}`}. ↶ Lùi để bỏ.`);
         });
@@ -14414,10 +14485,22 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       const n = boVe.da_ve.length; boVe.da_ve = boVe.da_ve.filter(y => y && co.has(String(y.id))); if (boVe.da_ve.length !== n) luuBoVe();
     }
     // bản ghi của bộ đang làm (theo mã bộ) + chỗ đặt của nó
+    // kiểu của bộ đã vẽ (bản ghi trước vòng soát 2 không ghi kiểu: có tủ cạnh B là chữ L)
+    const kieuBoVe = r => (r.kieu === 'L' || r.kieu === 'I' ? r.kieu : r.da_ve.some(y => y && /^B/.test(y.vt)) ? 'L' : 'I');
+    // mã bộ còn dùng được cho kiểu `kieu`: bản ghi của mã đó là bộ kiểu kia đã vẽ → mã mới (null = giữ mã)
+    function maKhacKieu(ma, kieu) { const r = docBoVe(ma); return r && r.da_ve.length && kieuBoVe(r) !== kieu ? maBoMoi() : null; }
+    // phương án khớp bộ đã vẽ nhất (ít tủ phải sửa / bỏ / vẽ mới); chưa vẽ thì phương án 1
+    function paTheoDaVe(r) {
+      if (!boVeCo() || !r.pa.length || !boVe.cho) return 0;
+      let bi = 0, bn = Infinity;
+      r.pa.forEach((pa, i) => { let ds = null; try { ds = Core.datDay(boKem(), pa, boVe.cho, { nen: nenBo() }); } catch (e) { ds = null; } if (!ds) return; const v = Core.doiDay(boVe.da_ve, ds), n = v.sua.length + v.doi.length + v.bo.length + v.them.length; if (n < bn) { bn = n; bi = i; } });
+      return bi;
+    }
     function napBoVe() {
       if (!boBep) { boVe = null; return; }
       if (boVe && boVe.ma === boBep.ma) return;
       boVe = docBoVe(boBep.ma); locBoVe();
+      if (boVe && kieuBoVe(boVe) !== boBep.kieu) { boVe = null; return; }      // (vòng soát 2 — 1.34) bản ghi của bộ kiểu kia: không phải bộ này
       if (boVe && !boVe.da_ve.length) boVe = null;
       if (boVe && boVe.cho) boCho = clone(boVe.cho);
     }
@@ -14439,9 +14522,12 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       v.textContent = co ? `Bộ ${boVe.ma} đã vẽ ${boVe.da_ve.length}/${boVe.tong}` : `Vẽ bộ bếp${n ? ` (${n} tủ)` : ''}`;
       v.disabled = busy || !pa || !boCho || co;
       v.title = !pa ? 'Bộ còn LỖI (dòng đỏ) — sửa xong mới vẽ được.' : !boCho ? 'Bấm “Chỗ” để chọn chỗ đặt dãy trên bản vẽ trước.' : co ? 'Bộ này đã có trên bản vẽ: sửa rồi bấm Cập nhật; Hoàn tác để bỏ; chọn Chỗ mới để vẽ bộ khác.' : `Vẽ ${n} tủ vào Chenfeng, mỗi tủ một module, đúng chỗ đã chọn`;
-      const doi = thieu && pa && boLech(pa);
+      // (vòng soát 2 — 1.34) bộ đã vẽ đủ cũng so với phương án đang xem: khác thì nói trước khi bấm Cập nhật (nhớ theo phương án — capBoNut gọi luôn)
+      const kLech = co ? JSON.stringify([boVe.ma, boVe.cho, boVe.da_ve.map(y => [y.vt, y.sig, y.xoay])]) : '';
+      const doi = co && pa ? (boLechNho && boLechNho.pa === pa && boLechNho.k === kLech ? boLechNho.v : (boLechNho = { pa, k: kLech, v: boLech(pa) }).v) : '';
       if (t) { t.hidden = !thieu || !!doi; t.disabled = busy || !pa; }
-      if (c && doi) c.title = `Bộ đã sửa sau lần vẽ dừng (${doi}) — bấm Cập nhật để sửa tủ đã vẽ và vẽ nốt.`;
+      if (c && !c.dataset.t0) c.dataset.t0 = c.title;
+      if (c) c.title = doi ? (thieu ? `Bộ đã sửa sau lần vẽ dừng (${doi}) — bấm Cập nhật để sửa tủ đã vẽ và vẽ nốt.` : `Phương án đang xem khác bộ đã vẽ (${doi}) — bấm Cập nhật để vẽ lại các tủ đó.`) : (c.dataset.t0 || c.title);
       if (c) c.disabled = busy || !co || !pa;
       if (h) h.disabled = busy || !co;
       if (ch) ch.disabled = busy;
@@ -14483,6 +14569,10 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
     }
     const boKem = () => Object.assign({}, boBep, { chuan: boChuan() });
     const tomDung = d => (d.ly_do === 'ban' ? `Chenfeng đang chạy dở một lệnh khác (${d.loi.replace(/^Chenfeng đang chạy dở lệnh /, '').replace(/ — .*/, '')}) — làm xong lệnh đó rồi bấm “Vẽ tiếp”` : d.ly_do === 'may_chu' ? 'Chenfeng còn đang chờ máy chủ — lúc mạng ổn bấm “Vẽ tiếp”' : `tủ ${d.vt} chưa vẽ được: ${String(d.loi || '').slice(0, 160)}`);
+    // (vòng soát 2 — 1.34) tủ vẽ xong mà chưa trọn (Drv.vanDeVe): bản ghi mang dấu khác (sig + '|chua_tron', xoay thật) → Cập nhật bộ vẽ lại đúng các tủ đó
+    const vanDe = rep => (Drv && typeof Drv.vanDeVe === 'function' ? Drv.vanDeVe(rep) : []);
+    const ghiTu = (x, rep) => { const vd = vanDe(rep); return { sig: vd.length ? x.sig + '|chua_tron' : x.sig, at: x.at, xoay: rep && rep.xoay_kq && rep.xoay_kq.ok === false ? 0 : x.xoay, tang: x.tang }; };
+    const tomVanDe = ds => (ds && ds.length ? ` — ${ds.length} tủ chưa trọn: ${ds.slice(0, 4).map(q => `${q.vt} (${q.tin.join('; ')})`).join(', ')}${ds.length > 4 ? '…' : ''}. Bấm “Cập nhật” để vẽ lại các tủ đó.` : '');
     const tomDoLoi = dl => (dl && dl.loi.length ? ` Dò lỗi sản xuất cả bộ: ${dl.loi.length} mục lỗi — ${dl.loi[0]}${dl.loi.length > 1 ? '…' : ''}` : dl ? ' Dò lỗi sản xuất cả bộ: không có lỗi.' : '');
     /** Vẽ cả bộ (opt.tiep = vẽ nốt các tủ còn thiếu). opt.onTu: lời gọi thêm sau mỗi tủ (phép thử). → tóm tắt kết quả | null */
     async function veBoBep(opt) {
@@ -14499,7 +14589,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!cho) { setStatus('Bấm “Chỗ” để chọn chỗ đặt dãy trên bản vẽ trước.'); return null; }
       let ds = null; try { ds = Core.datDay(boKem(), pa, cho, { nen: nenBo() }); } catch (e) { ds = null; }
       if (!ds || !ds.length) { setStatus('Chưa tính được chỗ đặt các tủ của bộ.'); return null; }
-      if (!opt.tiep) boVe = { ma: boBep.ma, cho: clone(cho), da_ve: [], tong: ds.length, dung: null };
+      if (!opt.tiep) boVe = { ma: boBep.ma, kieu: boBep.kieu, cho: clone(cho), da_ve: [], tong: ds.length, dung: null };
       // (vòng soát 1.34) bản ghi CỦA LẦN VẼ NÀY: người dùng đổi món giữa chừng (renderAll → boVe = null) thì các tủ vẽ sau vẫn được ghi vào bộ
       const dv = boVe, daCo = new Set(dv.da_ve.map(y => y.vt)), ids_cu = dv.da_ve.map(y => String(y.id));
       const lam = ds.filter(x => !daCo.has(x.vt));
@@ -14514,7 +14604,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
             if (rep && rep.giai_doan === 'xong' && rep.id) {
               try { rep.do_mau = await tuDoMau(); } catch (e) { /* bỏ qua */ }
               khoTu.save(rep.id, y.spec);
-              dv.da_ve.push({ vt: y.vt, id: rep.id, sig: y.sig, at: y.at, xoay: y.xoay, tang: y.tang }); luuBoVe(dv);
+              dv.da_ve.push(Object.assign({ vt: y.vt, id: rep.id }, ghiTu(y, rep))); luuBoVe(dv);
               setStatus(`Bộ ${dv.ma}: đã vẽ ${dv.da_ve.length}/${dv.tong} tủ…`);
             }
             if (typeof opt.onTu === 'function') await opt.onTu(i, rep, x);
@@ -14525,9 +14615,9 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!dv.da_ve.length && boVe === dv) boVe = null;
       if (kq.loi) setStatus(kq.loi);
       else if (kq.dung) setStatus(`Đã vẽ ${dv.da_ve.length}/${ds.length} tủ — dừng: ${tomDung(kq.dung)}. Tủ đã vẽ giữ nguyên; bấm “Vẽ tiếp” để vẽ nốt.`);
-      else setStatus(`Đã vẽ bộ bếp ${dv.ma}: ${ds.length} tủ, mỗi tủ một module.${tomDoLoi(kq.do_loi)}`);
+      else setStatus(`Đã vẽ bộ bếp ${dv.ma}: ${ds.length} tủ, mỗi tủ một module${tomVanDe(kq.van_de) || '.'}${tomDoLoi(kq.do_loi)}`);
       veBoView(); capBoNut();
-      return { ok: !!kq.ok, xong: kq.xong, tong: ds.length, da_ve: dv.da_ve.length, dung: kq.dung ? { i: kq.dung.i, vt: kq.dung.vt, ly_do: kq.dung.ly_do, loi: kq.dung.loi } : null, do_loi: kq.do_loi || null, loi: kq.loi || '' };
+      return { ok: !!kq.ok, xong: kq.xong, tong: ds.length, da_ve: dv.da_ve.length, van_de: kq.van_de || [], dung: kq.dung ? { i: kq.dung.i, vt: kq.dung.vt, ly_do: kq.dung.ly_do, loi: kq.dung.loi } : null, do_loi: kq.do_loi || null, loi: kq.loi || '' };
     }
     async function capNhatBo() {
       if (!Drv || busy || !boBep || typeof Drv.capNhatDay !== 'function') return null;
@@ -14551,20 +14641,21 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       try {
         kq = await Drv.capNhatDay({ xoa, sua: sua.map(q => ({ vt: q.vt, id: q.id, spec: q.spec, specCu: q.specCu, at: q.x.at, xoay: q.x.xoay })), ve: ve.map(x => ({ vt: x.vt, spec: x.spec, at: x.at, xoay: x.xoay })) },
           { ids_cu: dv.da_ve.filter(y => giu.has(y.vt)).map(y => String(y.id)), kho: { dai: spec.van.kho_dai, rong: spec.van.kho_rong }, onStatus: t => setStatus(`Bộ ${dv.ma}: ${t}`),
-            onSua: async (vt, rep) => { const q = sua.find(z => z.vt === vt); if (!q || !rep || rep.giai_doan !== 'xong') return; if (!rep.giu_mau) { try { await tuDoMau(); } catch (e) { /* bỏ qua */ } } khoTu.save(q.id, q.spec); const y = dv.da_ve.find(z => z.vt === vt); if (y) Object.assign(y, { sig: q.x.sig, at: q.x.at, xoay: q.x.xoay, tang: q.x.tang }); luuBoVe(dv); },
-            onTu: async (i, rep) => { const x = ve[i]; if (!rep || rep.giai_doan !== 'xong' || !rep.id) return; try { await tuDoMau(); } catch (e) { /* bỏ qua */ } khoTu.save(rep.id, x.spec); dv.da_ve = dv.da_ve.filter(z => z.vt !== x.vt); dv.da_ve.push({ vt: x.vt, id: rep.id, sig: x.sig, at: x.at, xoay: x.xoay, tang: x.tang }); luuBoVe(dv); } });
+            onSua: async (vt, rep) => { const q = sua.find(z => z.vt === vt); if (!q || !rep || rep.giai_doan !== 'xong') return; if (!rep.giu_mau) { try { await tuDoMau(); } catch (e) { /* bỏ qua */ } } khoTu.save(q.id, q.spec); const y = dv.da_ve.find(z => z.vt === vt); if (y) Object.assign(y, ghiTu(q.x, rep)); luuBoVe(dv); },
+            onTu: async (i, rep) => { const x = ve[i]; if (!rep || rep.giai_doan !== 'xong' || !rep.id) return; try { await tuDoMau(); } catch (e) { /* bỏ qua */ } khoTu.save(rep.id, x.spec); dv.da_ve = dv.da_ve.filter(z => z.vt !== x.vt); dv.da_ve.push(Object.assign({ vt: x.vt, id: rep.id }, ghiTu(x, rep))); luuBoVe(dv); } });
       } catch (e) { kq = { ok: false, dung: { vt: '', ly_do: 'hong', loi: String(e && e.message || e) }, xoa: { xoa: [], mat: [] }, sua: [], loi: '' }; }
       busy = false;
       const bo_ = new Set(((kq.xoa && kq.xoa.xoa) || []).concat((kq.xoa && kq.xoa.mat) || []));
-      dv.da_ve = dv.da_ve.filter(y => !(bo_.has(y.vt) && !ve.some(x => x.vt === y.vt && y.sig === x.sig)));      // tủ đã bỏ (dời chỗ thì bản ghi mới đã thay)
+      const idBo = new Set(xoa.filter(q => bo_.has(q.vt)).map(q => String(q.id)));
+      dv.da_ve = dv.da_ve.filter(y => !idBo.has(String(y.id)));      // tủ đã bỏ theo MÃ TỦ (dời chỗ thì bản ghi mới — mã mới — đã thay; vòng soát 2: dấu có thể mang '|chua_tron')
       dv.tong = ds.length; dv.dung = kq.dung ? { vt: kq.dung.vt, ly_do: kq.dung.ly_do } : null; luuBoVe(dv);
       const soSua = (kq.sua || []).filter(q => q.giai_doan === 'xong').length;
       if (kq.loi) setStatus(kq.loi);
       else if (kq.dung) setStatus(`Cập nhật bộ ${dv.ma} dừng: ${tomDung(kq.dung)}. Bấm Cập nhật lần nữa khi sẵn sàng.`);
-      else setStatus(`Đã cập nhật bộ ${dv.ma}: ${soSua} tủ cập nhật tại chỗ, ${bo_.size} tủ bỏ, ${kq.xong || 0} tủ vẽ mới; ${v.giu.length} tủ giữ nguyên.${tomDoLoi(kq.do_loi)}`);
+      else setStatus(`Đã cập nhật bộ ${dv.ma}: ${soSua} tủ cập nhật tại chỗ, ${bo_.size} tủ bỏ, ${kq.xong || 0} tủ vẽ mới; ${v.giu.length} tủ giữ nguyên${tomVanDe(kq.van_de) || '.'}${tomDoLoi(kq.do_loi)}`);
       if (!dv.da_ve.length && boVe === dv) boVe = null;
       veBoView();
-      return { ok: !!kq.ok, sua: soSua, xoa: bo_.size, ve: kq.xong || 0, giu: v.giu.length, dung: kq.dung || null };
+      return { ok: !!kq.ok, sua: soSua, xoa: bo_.size, ve: kq.xong || 0, giu: v.giu.length, van_de: kq.van_de || [], dung: kq.dung || null };
     }
     async function hoanTacBo() {
       if (!Drv || busy || !boBep || typeof Drv.xoaDay !== 'function') return null;

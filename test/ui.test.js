@@ -1015,6 +1015,15 @@ async function testBoBep(browser) {
     await S(page, '[data-act="bo-canh"][data-v="1"]').click();
     const vts = await S(page, '.bov svg[data-bo="md"] [data-bo-vt]').evaluateAll(es => es.map(e => e.dataset.boVt));
     ok(vts.length > 0 && vts.every(v => v[0] === 'B'), 'mặt đứng cạnh B', vts); }
+  // (vòng soát 2 — 1.34) chữ L, bếp tự chọn cạnh: gõ Tâm bếp theo cạnh đang có bếp → bếp ở lại cạnh đó (không nhảy sang tường kia với cùng số)
+  { const b0 = await bo(); await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.canh = [{ dai: 3800 }, { dai: 2600 }]; o.tl = null; o.ke = false; o.bep = { canh: null, s: null }; window.MNCF.app.setBo(o); });
+    const m = (await kq()).pa[0].ds.find(x => x.chuc === 'bep');
+    const mo = !(await S(page, '[data-ui="bo-bep-s"]').isVisible()); if (mo) await S(page, '[data-act="bo-them"]').click();
+    await S(page, '[data-ui="bo-bep-s"]').fill('2150'); await cho();
+    const b = await bo(), m2 = (await kq()).pa[0].ds.find(x => x.chuc === 'bep');
+    ok(m.canh === 1 && b.bep.canh === m.canh && m2.canh === m.canh, 'gõ Tâm bếp (chữ L): ghi cạnh đang có bếp, bếp ở lại cạnh đó', [m.canh, b.bep, m2.canh]);
+    if (mo) await S(page, '[data-act="bo-them"]').click();
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
   await S(page, '[data-ui="bo-goc"]').selectOption('eu_lh'); await cho();
   ok((await bo()).goc.pk === 'eu_lh' && (await kq()).pa.some(q => q.ds.some(x => /^BD-GOC-990/.test(x.ma))), 'đổi phụ kiện góc → tủ góc 990');
   // Mở thành tủ: tủ đó thành tủ bếp lẻ ở thẻ Tủ (thông số của bộ), ↶ Lùi về bộ
@@ -1022,7 +1031,9 @@ async function testBoBep(browser) {
     await S(page, '[data-act="bo-canh"][data-v="' + m.canh + '"]').click();
     await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).click(); await S(page, '.bokpop [data-act="kpop-bo-mo"]').click();
     const s = await page.evaluate(() => window.MNCF.app.getSpec());
-    ok(s.loai_sp === 'bep' && s.bep.day && s.bep.day.vt === m.vt && (await S(page, '.panel').getAttribute('data-loai')) === 'bep-duoi' && !(await S(page, '.bo').isVisible()), 'Mở thành tủ: tủ bếp lẻ mang mã vị trí trong bộ', s.bep && s.bep.day);
+    ok(s.loai_sp === 'bep' && s.bep.chuc_nang === 'bep' && (await S(page, '.panel').getAttribute('data-loai')) === 'bep-duoi' && !(await S(page, '.bo').isVisible()), 'Mở thành tủ: tủ bếp lẻ đúng thông số của tủ trong bộ', s.bep);
+    // (vòng soát 2 — 1.34) tủ lẻ không còn thuộc dãy: bỏ dấu bep.day → bảng kê / CSV có lại dòng Mặt đá (kèm khoét)
+    ok(!s.bep.day && await page.evaluate(sp => { const C = window.MNCFCore, M = C.build(sp); return /Gia công đá/.test(C.cutListCSV(M)) && M.da.khoet.length === 1; }, s), 'Mở thành tủ: không mang dấu dãy (bep.day), CSV có dòng Gia công đá + khoét bếp', s.bep.day);
     await S(page, '[data-act="lui"]').click();
     ok((await S(page, '.panel').getAttribute('data-loai')) === 'bo-bep' && (await bo()).kieu === 'L', '↶ Lùi: về bộ bếp'); }
   // rời bộ: chọn một tủ lẻ ở Thư viện

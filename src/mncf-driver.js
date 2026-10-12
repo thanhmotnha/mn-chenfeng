@@ -756,6 +756,8 @@
     return { ok: true, offset: best.offset.map(r2), boards: best.boards, thieu: parts.length - best.boards.length, tong: parts.length, khung: kh };
   };
 
+  // nút mẫu (trong cây mẫu của e) mang tên một mẫu của tủ, hoặc nhánh ngăn kéo lệnh gốc "抽屉…空间" — null nếu không có
+  const mauTenCua = (e, ten) => { try { let o = e.Template && e.Template.Object, n = 0; while (o && n++ < 40) { let nm = ''; try { nm = String(o.Name || ''); } catch (er) { /* bỏ qua */ } if (ten.has(nm) || /^抽屉(总|根)?空间$/.test(nm)) return o; o = o.Parent && o.Parent.Object; } } catch (er) { /* bỏ qua */ } return null; };
   /** Mọi đối tượng thuộc một tủ đã vẽ: tấm mang mã + hộp ngăn kéo / suốt treo sinh từ mẫu nằm trong các ô của tủ + lỗ khoan dính tới chúng. Đồ người dùng tự gắn thêm (bản lề, tay nắm…) KHÔNG nằm trong danh sách. */
   D.cabinetEntities = (id, M, loc) => {
     const off = loc.offset, set = new Set(loc.boards), hopE = e => D.hopTheo(e, loc.khung || null);      // tủ đã xoay: mọi phép so nằm trong hệ của tủ
@@ -770,7 +772,7 @@
       // mẫu ngăn kéo / suốt treo của tủ: mẫu (ở tầng nào trong cây cũng được — khi tủ đã thành module thì chúng là mẫu con) trùng tên mẫu của tủ
       // (bản 1.26) ngăn kéo vẽ bằng lệnh DRAWER gốc là một nhánh trong cây mẫu của thùng: … → 抽屉总空间 → 抽屉根空间 → 抽屉空间 → <mẫu ngăn kéo>; mẫu mang tên TRONG KHO của tài khoản
       // (có thể khác tên ghi ở Chuẩn xưởng) → nhận cả theo các nút "抽屉…空间" của nhánh đó
-      const mauTen = e => { try { let o = e.Template && e.Template.Object, n = 0; while (o && n++ < 40) { let nm = ''; try { nm = String(o.Name || ''); } catch (er) { /* bỏ qua */ } if (ten.has(nm) || /^抽屉(总|根)?空间$/.test(nm)) return o; o = o.Parent && o.Parent.Object; } } catch (er) { /* bỏ qua */ } return null; };
+      const mauTen = e => mauTenCua(e, ten);
       const theoMau = new Map();
       for (const e of all) {
         if (!(D.isBoard(e) || D.isHardware(e)) || (D.isBoard(e) && D.tagOf(e))) continue;
@@ -3873,6 +3875,19 @@
     catch (e) { if (ran) throw e; }
     await run(); return res;
   };
+  /**
+   * (vòng soát 2 — 1.34) Tủ vẽ "xong" mà CHƯA TRỌN: chưa xoay được, thiếu mẫu ngăn kéo / suốt treo, chưa gom được module, có lỗi đối chiếu tấm.
+   * Tủ lẻ thì thẻ Kết quả nói mấy chuyện này; trong bộ trước đây chúng bị nuốt (bộ vẫn báo vẽ xong, Cập nhật bộ coi tủ đó là đúng). → [mô tả ngắn] (rỗng = trọn)
+   */
+  D.vanDeVe = rep => {
+    if (!rep || rep.giai_doan !== 'xong') return [];
+    const o = [];
+    if (rep.xoay_kq && rep.xoay_kq.ok === false) o.push(`chưa xoay được ${r2(rep.xoay_do || 0)}° (${String(rep.xoay_kq.reason || 'lệnh xoay không chạy').slice(0, 80)})`);
+    if (Array.isArray(rep.mau_thieu) && rep.mau_thieu.length) o.push(`thiếu ${rep.mau_thieu.length} mẫu ngăn kéo / suốt treo`);
+    if (rep.module && rep.module.ok === false && !rep.module.khong_can) o.push(`chưa gom được thành module (${String(rep.module.reason || '').slice(0, 80)})`);
+    if (Array.isArray(rep.errors) && rep.errors.length) o.push(String(rep.errors[0]).slice(0, 120));
+    return o;
+  };
   // một loạt tủ: vẽ lần lượt, gọi onTu sau mỗi tủ (giao diện ghi bản ghi NGAY — dừng giữa chừng vẫn biết tủ nào đã có)
   const veLoat = async (ds, opt, kq) => {
     const bao = guard(opt.onStatus), N = ds.length;
@@ -3885,8 +3900,9 @@
       try { rep = await D.draw(x.spec, { at: x.at.slice(), xoay: Number(x.xoay) || 0, id: x.id || undefined, bo: true, onStatus: t => bao(`${nhan}: ${t}`) }); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
       const xong = rep && rep.giai_doan === 'xong';
-      kq.reps.push({ vt: x.vt, id: xong ? rep.id : null, ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [], warnings: (rep && rep.warnings) || [] });
-      if (xong) { kq.xong++; kq.ids.push(rep.id); if (D.last && D.last.id === rep.id) kq.tam.push(...D.last.added); }
+      const vd = D.vanDeVe(rep);
+      kq.reps.push({ vt: x.vt, id: xong ? rep.id : null, ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [], warnings: (rep && rep.warnings) || [], van_de: vd });
+      if (xong) { kq.xong++; kq.ids.push(rep.id); if (D.last && D.last.id === rep.id) kq.tam.push(...D.last.added); if (vd.length) kq.van_de.push({ vt: x.vt, id: rep.id, tin: vd }); }
       if (typeof opt.onTu === 'function') { try { await opt.onTu(i, rep, x); } catch (e) { /* lỗi của nơi gọi không làm hỏng lần vẽ */ } }
       if (!xong || rep.ban) { kq.dung = { i, vt: x.vt, ly_do: rep && rep.ban ? 'may_chu' : 'hong', loi: ((rep && rep.errors) || []).join(' ') || (rep && rep.ban ? 'Chenfeng còn đang chờ máy chủ' : 'tủ chưa vẽ được') }; break; }
     }
@@ -3904,7 +3920,7 @@
     }
     if (kq.xong && opt.zoom !== false) D.zoom();
   };
-  const kqDay = n => ({ ok: false, tong: n, xong: 0, reps: [], ids: [], tam: [], dung: null, do_loi: null, loi: '' });
+  const kqDay = n => ({ ok: false, tong: n, xong: 0, reps: [], ids: [], tam: [], dung: null, do_loi: null, loi: '', van_de: [] });
   const truocDay = kq => {
     if (!D.available()) { kq.loi = 'Không thấy bản vẽ Chenfeng trong trang này.'; return false; }
     if (D.dangLenhTre()) { kq.loi = 'Chenfeng còn một lệnh tới trễ chưa xong — chờ một chút rồi bấm lại.'; return false; }
@@ -3920,7 +3936,7 @@
     const kq = kqDay(ds.length);
     if (!truocDay(kq)) return gonKq(kq);
     await khoaVe(async () => { await veLoat(ds, opt, kq); ketDay(kq, opt); });
-    kq.ok = !kq.dung && kq.xong === ds.length;
+    kq.ok = !kq.dung && kq.xong === ds.length && !kq.van_de.length;
     return gonKq(kq);
   };
   // các đối tượng của một tủ đã vẽ theo mã (tìm lại được thì cả mẫu ngăn kéo / suốt treo; không thì tấm mang mã + lỗ của chúng)
@@ -3932,6 +3948,20 @@
     // (hộp ngăn kéo / suốt treo là mẫu con của module) + lỗ khoan dính vào — vẫn chỉ theo mã tủ, không đụng đồ khác
     const tam = D.all().filter(e => D.isBoard(e) && D.tagOf(e) === String(x.id)), goc = new Set(tam.map(rootTpl).filter(Boolean)), co = new Set(tam);
     if (goc.size === 1 && tam.every(b => goc.has(rootTpl(b)))) for (const e of D.all()) if ((D.isBoard(e) || D.isHardware(e)) && !co.has(e) && goc.has(rootTpl(e)) && !(D.isBoard(e) && D.tagOf(e) && D.tagOf(e) !== String(x.id))) co.add(e);
+    // (vòng soát 2 — 1.34) tủ CHƯA gom được module (MODELING hỏng): hộp ngăn kéo / suốt treo là mẫu riêng, không mang mã tủ, không chung gốc với tấm —
+    // nhận mẫu mang tên mẫu của tủ (cây mẫu, như cabinetEntities) mà mọi đối tượng của nó nằm gọn trong hộp các tấm mang mã (toạ độ thế giới — tủ xoay ±90 vẫn là hộp thẳng)
+    if (tam.length && M) {
+      const ten = new Set(M.templates.filter(t => t.id).map(t => t.ten));
+      const H = tam.reduce((a, e) => { const b = D.boxOf(e); return [Math.min(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.max(a[3], b[3]), Math.min(a[4], b[4]), Math.max(a[5], b[5])]; }, [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity]);
+      const trong = b => b[0] >= H[0] - 60 && b[1] <= H[1] + 60 && b[2] >= H[2] - 60 && b[3] <= H[3] + 60 && b[4] >= H[4] - 60 && b[5] <= H[5] + 60;
+      const theoMau = new Map();
+      if (ten.size) for (const e of D.all()) {
+        if (co.has(e) || !(D.isBoard(e) || D.isHardware(e)) || (D.isBoard(e) && D.tagOf(e))) continue;
+        const r = mauTenCua(e, ten); if (!r) continue;
+        if (!theoMau.has(r)) theoMau.set(r, []); theoMau.get(r).push(e);
+      }
+      for (const [, list] of theoMau) if (list.every(e => { try { return trong(D.boxOf(e)); } catch (er) { return false; } })) for (const e of list) co.add(e);
+    }
     return [...co].concat(D.all().filter(h => D.isHole(h) && (co.has(idOf(h.FId)) || co.has(idOf(h.MId)))));
   };
   const xoaLoat = async (ds, opt, kq) => {
@@ -3988,8 +4018,9 @@
             if (rep) rep.ve_lai = true;
           } else rep = { ok: false, giai_doan: 'xoa', errors: [xk.loi] };
         }
-        const xong = rep && rep.giai_doan === 'xong';
-        kq.sua.push({ vt: x.vt, id: String(x.id), ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [] });
+        const xong = rep && rep.giai_doan === 'xong', vd = D.vanDeVe(rep);
+        kq.sua.push({ vt: x.vt, id: String(x.id), ok: !!(rep && rep.ok), giai_doan: rep && rep.giai_doan, errors: (rep && rep.errors) || [], van_de: vd });
+        if (xong && vd.length) kq.van_de.push({ vt: x.vt, id: String(x.id), tin: vd });
         if (xong) { kq.ids.push(String(x.id)); if (D.last && String(D.last.id) === String(x.id)) kq.tam.push(...D.last.added); }
         if (typeof opt.onSua === 'function') { try { await opt.onSua(x.vt, rep, x); } catch (e) { /* bỏ qua */ } }
         if (!xong || rep.ban) { kq.dung = { i: -1, vt: x.vt, ly_do: rep && rep.ban ? 'may_chu' : 'hong', loi: ((rep && rep.errors) || []).join(' ') || 'chưa cập nhật được' }; return; }
@@ -3998,7 +4029,7 @@
       await veLoat(ve, opt, kq);
       ketDay(kq, opt);
     });
-    kq.ok = !kq.dung && kq.xong === ve.length;
+    kq.ok = !kq.dung && kq.xong === ve.length && !kq.van_de.length;
     return gonKq(kq);
   };
   for (const k of ['draw', 'update', 'drawRoom', 'veKho', 'veDay', 'xoaDay', 'capNhatDay']) {

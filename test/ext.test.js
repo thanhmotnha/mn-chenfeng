@@ -972,6 +972,81 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
         await H.locator('[data-act="bo-hoan-tac"]').click();
         await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
         ok((await page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > 110000).length; })) === 0, 'B7: Hoàn tác bộ sạch'); }
+      // (vòng soát 2 — 1.34) mỗi lỗi một phép thử: phương án đã vẽ nhớ được; đổi kiểu I ↔ L là bộ mới; tủ chưa trọn (chưa xoay / thiếu mẫu / chưa gom module) không bị nuốt;
+      // Hoàn tác bộ khi tủ chưa gom được module vẫn bỏ sạch hộp ngăn kéo
+      { const vung = x0 => page.evaluate(x => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > x).length; }, x0);
+        const bo8 = { ma: 'B8', kieu: 'I', canh: [{ dai: 3170 }], tl: null, ong: { canh: 0, s: 2300 } };
+        await page.evaluate(b => window.MNCF.app.setBo(b), bo8);
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [160000, 5000, 0], xoay: 0 }));
+        ok((await page.evaluate(() => window.MNCF.app.getBoKq())).pa.length > 1, 'B8: có ≥ 2 phương án');
+        await H.locator('[data-act="bo-pa"][data-v="1"]').first().click();
+        const r8 = await page.evaluate(() => window.MNCF.app.veBo({}));
+        ok(r8 && r8.ok && (await page.evaluate(() => window.MNCF.app.getBoKq().i)) === 1, 'B8: vẽ theo phương án 2', r8);
+        // (10) rời bộ rồi vào lại: bảng chọn đúng phương án đã vẽ — Cập nhật không xếp lại cả dãy
+        await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();
+        await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
+        ok((await page.evaluate(() => window.MNCF.app.getBo().ma)) === 'B8' && (await page.evaluate(() => window.MNCF.app.getBoKq().i)) === 1 && (await page.evaluate(() => (window.MNCF.app.getBoVe() || { da_ve: [] }).da_ve.length)) === r8.tong, 'vào lại bộ B8: phương án đang xem = phương án đã vẽ (2)', await page.evaluate(() => window.MNCF.app.getBoKq().i));
+        await H.locator('[data-act="bo-cap-nhat"]').click();
+        await choSt('đã đúng như bảng|Đã cập nhật bộ|Cập nhật bộ .* dừng');
+        ok(/đã đúng như bảng/.test(await st()), 'vào lại rồi Cập nhật (không sửa gì): không tủ nào phải vẽ lại', await st());
+        // (8) đổi sang chữ L (Thư viện "Bộ bếp chữ L" hoặc chip Chữ L): bộ MỚI, không bám bản ghi + chỗ đặt của bộ chữ I đã vẽ
+        await H.locator('#mncf-ui-mau').selectOption('@BO-L'); await H.locator('[data-act="mau"]').click();
+        { const b = await page.evaluate(() => window.MNCF.app.getBo());
+          ok(b.kieu === 'L' && b.ma !== 'B8' && (await page.evaluate(() => window.MNCF.app.getBoVe())) === null && (await page.evaluate(() => window.MNCF.app.getBoCho())) === null && !/đã vẽ/.test(await H.locator('[data-act="bo-ve"]').innerText()) && await H.locator('[data-act="bo-cap-nhat"]').isDisabled(), 'Thư viện → Bộ bếp chữ L: bộ mới (mã khác), chưa vẽ, chưa có chỗ — Cập nhật khoá', [b.ma, await H.locator('[data-act="bo-ve"]').innerText()]); }
+        await H.locator('[data-act="lui"]').click();
+        ok((await page.evaluate(() => window.MNCF.app.getBo().ma)) === 'B8' && (await page.evaluate(() => (window.MNCF.app.getBoVe() || { da_ve: [] }).da_ve.length)) === r8.tong, '↶ Lùi: về bộ B8 đã vẽ');
+        await H.locator('[data-act="bo-kieu"][data-v="L"]').click();
+        { const b = await page.evaluate(() => window.MNCF.app.getBo());
+          ok(b.kieu === 'L' && b.ma !== 'B8' && (await page.evaluate(() => window.MNCF.app.getBoVe())) === null && (await page.evaluate(() => window.MNCF.app.getBoCho())) === null && await H.locator('[data-act="bo-cap-nhat"]').isDisabled() && /bộ mới/.test(await st()), 'chip Chữ L: bộ mới, chọn lại chỗ — không Cập nhật được lên bộ chữ I', [b.ma, await st()]); }
+        await H.locator('[data-act="lui"]').click();
+        ok((await page.evaluate(() => window.MNCF.app.getBo().kieu)) === 'I' && (await page.evaluate(() => (window.MNCF.app.getBoVe() || { da_ve: [] }).da_ve.length)) === r8.tong, '↶ Lùi: về bộ B8');
+        await H.locator('[data-act="bo-hoan-tac"]').click();
+        await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
+        ok((await vung(150000)) === 0, 'B8: Hoàn tác bộ sạch');
+        // (9a) ROTATE hỏng: tủ cạnh B nằm thẳng trục — bộ không báo xong trọn, bản ghi ghi đúng xoay thật, Cập nhật xoay lại
+        const bo9 = { ma: 'B9', kieu: 'L', canh: [{ dai: 3050, dau: 'tuong' }, { dai: 2450, cuoi: 'ho', re: 'phai' }], tl: null, ong: { canh: 0, s: 3050 - 2130 }, bep: { canh: 1 } };
+        await page.evaluate(b => window.MNCF.app.setBo(b), bo9);
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [200000, 0, 0], xoay: 0 }));
+        await page.evaluate(() => { const D = window.MNCFDriver; window.__rotGoc = D.rotate; D.rotate = async () => ({ ok: false, steps: 0, reason: 'giả lập: lệnh xoay không chạy' }); });
+        const r9 = await page.evaluate(() => window.MNCF.app.veBo({}));
+        await page.evaluate(() => { window.MNCFDriver.rotate = window.__rotGoc; });
+        { const R = await page.evaluate(() => window.MNCF.app.getBoVe());
+          ok(r9 && !r9.ok && r9.van_de.some(q => /^B/.test(q.vt) && q.tin.some(t => /xoay/.test(t))) && /chưa trọn/.test(await st()) && /xoay/.test(await st()), 'ROTATE hỏng: bộ không báo trọn — nói tủ nào chưa xoay', [r9 && r9.van_de, await st()]);
+          ok(R.da_ve.filter(y => /^B/.test(y.vt)).every(y => y.xoay === 0), 'bản ghi: tủ cạnh B ghi xoay thật (0), không ghi −90', R.da_ve.map(y => [y.vt, y.xoay])); }
+        await H.locator('[data-act="bo-cap-nhat"]').click();
+        await choSt('Đã cập nhật bộ|Cập nhật bộ .* dừng');
+        { const v = await soViTri(); ok(/Đã cập nhật bộ B9/.test(await st()) && !/chưa trọn/.test(await st()) && v.lech.length === 0 && v.chong.length === 0 && Object.entries(v.xoay).every(([vt, a]) => a === (/^B/.test(vt) ? -90 : 0)), 'Cập nhật: tủ cạnh B vẽ lại, xoay −90, đúng chỗ', [await st(), v.lech, v.xoay]); }
+        await H.locator('[data-act="bo-hoan-tac"]').click();
+        await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
+        ok((await vung(190000)) === 0, 'B9: Hoàn tác bộ sạch');
+        // (9b) mẫu ngăn kéo tải hỏng: tủ thiếu hộp ngăn kéo — bộ nói rõ, Cập nhật (mạng ổn lại) vẽ lại đúng các tủ đó
+        await page.evaluate(b => window.MNCF.app.setBo(Object.assign({}, b, { ma: 'B10' })), bo8);
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [240000, 5000, 0], xoay: 0 }));
+        await page.evaluate(() => { window.__MOCK_MAU_LOI__ = new Proxy({}, { get: (t, k) => (t[k] = t[k] || { lan: 99, kieu: 'may_chu' }) }); });
+        const r10 = await page.evaluate(() => window.MNCF.app.veBo({}));
+        await page.evaluate(() => { window.__MOCK_MAU_LOI__ = null; });
+        const thieu = (r10 && r10.van_de || []).filter(q => q.tin.some(t => /thiếu \d+ mẫu/.test(t))).map(q => q.vt);
+        ok(r10 && !r10.ok && thieu.length > 0 && /chưa trọn/.test(await st()) && /thiếu \d+ mẫu/.test(await st()), 'mẫu ngăn kéo hỏng: bộ nói tủ nào thiếu mẫu, không báo xong trọn', [r10, await st()]);
+        await page.evaluate(() => { window.__dem.update = 0; });
+        await H.locator('[data-act="bo-cap-nhat"]').click();
+        await choSt('Đã cập nhật bộ|Cập nhật bộ .* dừng');
+        ok(new RegExp(`Đã cập nhật bộ B10: ${thieu.length} tủ cập nhật tại chỗ`).test(await st()) && !/chưa trọn/.test(await st()) && (await dem()).update === thieu.length, 'mạng ổn, Cập nhật: đúng các tủ thiếu mẫu được vẽ lại tại chỗ', [await st(), thieu]);
+        await H.locator('[data-act="bo-cap-nhat"]').click();
+        await choSt('đã đúng như bảng', 8000);
+        ok(true, 'B10: Cập nhật lần nữa không còn gì');
+        await H.locator('[data-act="bo-hoan-tac"]').click();
+        await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
+        // (11) tủ không gom được module (MODELING hỏng) + cạnh B không dò lại được: Hoàn tác bộ vẫn bỏ sạch hộp ngăn kéo / lỗ
+        await page.evaluate(b => window.MNCF.app.setBo(Object.assign({}, b, { ma: 'B11' })), bo9);
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [300000, 0, 0], xoay: 0 }));
+        await page.evaluate(() => { window.__MOCK_MODELING_FAIL__ = true; });
+        const r11 = await page.evaluate(() => window.MNCF.app.veBo({}));
+        await page.evaluate(() => { window.__MOCK_MODELING_FAIL__ = false; });
+        ok(r11 && r11.da_ve === r11.tong && r11.van_de.some(q => q.tin.some(t => /module/.test(t))), 'MODELING hỏng: bộ nói tủ chưa gom được module', r11 && r11.van_de);
+        ok((await vung(290000)) > 0, 'B11 có trên bản vẽ');
+        await H.locator('[data-act="bo-hoan-tac"]').click();
+        await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
+        ok(/Đã bỏ bộ bếp B11/.test(await st()) && (await vung(290000)) === 0, 'tủ chưa thành module: Hoàn tác bộ bỏ sạch cả hộp ngăn kéo, phụ kiện, lỗ', [await st(), await vung(290000)]); }
       await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
       await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
       ok((await H.locator('.panel').getAttribute('data-loai')) !== 'bo-bep' && await H.locator('footer [data-act="draw"]').isVisible() && !(await H.locator('footer .bohang').isVisible()), 'rời bộ bếp: chân bảng về hàng tủ lẻ');
