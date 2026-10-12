@@ -2034,5 +2034,63 @@ T('Tủ bếp — sửa theo vòng soát 1.33 lần 2', () => {
   { const M = C.build(ap('BT-HM-800')); ok(!loiBep(M).some(t => /ống khói/.test(t)), 'BT-HM-800 mặc định: lỗ ống lọt'); }
 });
 
+T('Tủ bếp — sửa theo vòng soát 1.33 lần 3', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  C.DEFAULT_SPEC.thung.noc_day = 'lot'; C.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
+  const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma)));
+  const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t);
+  const PK = ma => C.LOAI_PK_BEP.find(p => p.ma === ma);
+  // hộp ngăn kéo THẬT (mô hình của lõi: mặt ở z −XYS … H + SYS của mẫu, hộp thấp hơn mép trên mặt SLK, cao hơn mép dưới mặt XLK)
+  const hopNK = (M, tp) => { const p = tp.params, top = tp.pos[2] + tp.box[2] + p.SYS - (p.SLK || 0), day = tp.pos[2] - p.XYS + (p.XLK || 0); return { top, day, cao: top - day }; };
+  const bepNau = (ma, sua) => { const s = ap(ma); s.bep.chuc_nang = 'bep'; s.bep.tb = { bep: { ma: 'doi_730' } }; if (sua) sua(s); return C.build(C.normalize(s)); };
+  // #0: tủ có giằng + ngăn kéo trùm: mặt trên cùng phủ tới mép trên thùng (che giằng), HỘP chỉ cao tới mặt dưới giằng trừ khe
+  { const M = bepNau('BD-NK3-800'), gz = M.info.bep.giang.z0, tps = M.templates.filter(t => t.loai === 'NGAN_KEO').sort((a, b) => a.pos[2] - b.pos[2]), h = hopNK(M, tps[tps.length - 1]);
+    const mat = M.mat_ngan_keo[tps[tps.length - 1].mat];
+    ok(M.info.bep.giang && !M.errors.length, 'BD-NK3-800 chuyển bếp nấu (có giằng): không lỗi', [M.errors, M.warnings]);
+    ok(h.top <= gz - 4.99 && h.cao >= 40, 'BD-NK3-800 bếp nấu: hộp ngăn kéo trên cùng ≥ 40 và đỉnh hộp dưới mặt dưới giằng (trừ khe)', [h, gz]);
+    ok(mat.z + mat.h > gz, '… mặt trên cùng vẫn phủ lên tới mép trên thùng (che giằng)', [mat, gz]);
+    ok(tps.every(tp => hopNK(M, tp).top <= gz + 0.01), '… mọi hộp ngăn kéo dưới giằng', tps.map(tp => hopNK(M, tp))); }
+  // ép hộp quá thấp: mặt trên 100, giằng 200 → hộp không còn chỗ dưới giằng → LỖI
+  { const M = bepNau('BD-NK3-800', s => { s.khoang[0].o[0].cao = [100]; s.bep.giang_rong = 200; });
+    ok(M.errors.some(t => /hộp ngăn kéo/.test(t) && /giằng/.test(t)), 'mặt trên 100 + giằng 200: LỖI hộp ngăn kéo dưới giằng quá thấp', [M.errors, M.warnings]); }
+  // loại không khai SLK (hộp Blum cố định) mà hộp vướng giằng → LỖI (không tự hạ được)
+  { const M = bepNau('BD-NK3-800', s => { s.khoang[0].o[0].loai = 'blum16'; });
+    ok(M.errors.some(t => /giằng/.test(t)), 'hộp ray Blum (không SLK) dưới mặt che giằng: LỖI vướng giằng', [M.errors, M.warnings]); }
+  // kiemBep tính đỉnh hộp theo mô hình mặt / hộp (pos + box + SYS − SLK): tủ không giằng mà hộp cao quá dưới bếp âm → cảnh báo vẫn đúng chỗ
+  { const s = ap('BD-NK3-800'); const M = C.build(C.normalize(s)); ok(!M.errors.length, 'BD-NK3-800 (không giằng) như cũ: sạch', M.errors); }
+  // #1: giá xoong — chỗ ≥ rổ cao + 10 như giá bát; rổ cao hơn ô → LỖI
+  ok(PK('xoong').cao_min >= PK('xoong').cao_ro + 10, 'xoong: cao_min ≥ cao_ro + 10', PK('xoong'));
+  for (const p of C.LOAI_PK_BEP) if (p.lap === 'keo') ok(p.cao_min >= p.cao_ro + 10 || p.cao_max, `${p.ma}: chỗ đặt ≥ rổ cao + 10`, p);
+  { const s = ap('BD-XN-800'); s.khoang[0].o = [{ tu: 0, kieu: 'keo_pk', pk: ['xoong', 'xoong', 'xoong'], cao: [253, 253] }]; const M = C.build(C.normalize(s));
+    ok(loiBep(M).some(t => /xoong/.test(t)), 'ô xoong ~202 (rổ 210): LỖI', [loiBep(M), M.info.bep.ro]); }
+  { const s = ap('BD-XN-800'); s.khoang[0].o = [{ tu: 0, kieu: 'keo_pk', pk: ['gia_vi'] }]; s.cao = 600; s.rong = 400; const M = C.build(C.normalize(s)), r = M.info.bep.ro[0];
+    ok(r.z1 - r.z0 < PK('gia_vi').cao_min && loiBep(M).some(t => /gia vị/i.test(t)), 'ô gia vị thấp: LỖI', [loiBep(M), r]); }
+  // phép kiểm đỉnh rổ (z0 + cao_ro ≤ z1): rổ có cao_min hạ dưới cao_ro (dữ liệu sửa tay) vẫn bị bắt
+  { const p = PK('gia_vi'), cu0 = p.cao_min; p.cao_min = 300; try { const s = ap('BD-GV-400'); s.cao = 560; const M = C.build(C.normalize(s)), r = M.info.bep.ro[0];
+    ok(r.z0 + p.cao_ro > r.z1 && loiBep(M).some(t => /cao tới/.test(t) && /gia vị/i.test(t)), 'rổ cao hơn ô (cao_min nới tay): LỖI đỉnh rổ vượt ô', [loiBep(M), r]); } finally { p.cao_min = cu0; } }
+  // mẫu thư viện bếp sạch lỗi
+  for (const m of C.MAU_BEP_DUOI.concat(C.MAU_BEP_TREN, C.MAU_BEP_CAO)) { const M = C.build(ap(m.ma)); ok(!M.errors.length, `${m.ma}: sạch lỗi`, M.errors); }
+  // #2: tủ đồ khô — đợt tính theo chân hiện tại
+  for (const ma of ['BC-KHO-450', 'BC-KHO-600', 'BC-KHO-400']) for (const chan of [80, 100, 120, 150]) {
+    const s = C.datBep(ap(ma), { chan }), M = C.build(s), r = M.info.bep.ro[0], p = PK(r.pk);
+    ok(!M.errors.length && r.z1 - r.z0 >= p.cao_min - 0.01, `${ma} chân ${chan}: đợt theo chân, ô rổ ≥ ${p.cao_min}`, [M.errors, s.khoang[0].dot, r]);
+    const s2 = ap(ma); s2.bep.chan = chan; const s3 = C.datBep(C.apMau(C.datBep(ap(ma), { chan }), ma), {});
+    ok(JSON.stringify(s.khoang[0].dot) === JSON.stringify(s3.khoang[0].dot), `${ma} chân ${chan}: đợt giống như áp mẫu sau khi đổi chân`, [s.khoang[0].dot, s3.khoang[0].dot]);
+  }
+  { const s = ap('BC-KHO-600'); s.khoang[0].dot = [2100]; const s2 = C.datBep(s, { chan: 120 }); ok(s2.khoang[0].dot[0] === 2100, 'đợt người dùng đã nâng (đủ chỗ) thì giữ khi đổi chân', s2.khoang[0].dot); }
+  // #3: cỡ chỉ một hãng có → dòng mua ghi đúng hãng
+  const dongPK = ma => C.cutList(C.build(ap(ma))).phu_kien.filter(p => p.bep);
+  { const l = dongPK('BD-XN-750').find(p => /bát đĩa/.test(p.ten)); ok(l && /cỡ 750 — Higold$/.test(l.ten) && !/EU133600/.test(l.ghi_chu), 'giá bát đĩa cỡ 750: chỉ Higold', l); }
+  { const l = dongPK('BD-GV-450').find(p => /gia vị/.test(p.ten)); ok(l && /cỡ 450 — Higold$/.test(l.ten) && !/Eurogold EP20/.test(l.ghi_chu), 'giá gia vị cỡ 450: chỉ Higold', l); }
+  { const l = dongPK('BD-XN-800').find(p => /bát đĩa/.test(p.ten)); ok(l && /Higold \/ Eurogold$/.test(l.ten), 'cỡ 800: vẫn Higold / Eurogold', l); }
+  // #8: gợi ý "chuyển sang tủ N" chỉ khi N lớn hơn tủ đang có — coTuChoTB(…, { tren: W }) chỉ xét cỡ > W
+  { const c = { loai: 'chau', lap: 'duong', khoet: [795, 455] };
+    eq([C.coTuChoTB(c, { t: 17.5 }), C.coTuChoTB(c, { t: 17.5, tren: 900 }), C.coTuChoTB(c, { t: 17.5, tren: 1200 })], [900, 1000, null], 'coTuChoTB: tren = W bỏ các cỡ ≤ W'); }
+  { const s = ap('BD-CHAU-800'); s.rong = 1200; s.khoang = [{ rong: 300, canh: 1 }, { rong: 'auto', canh: 2 }]; s.bep.tb.chau = { ma: 'tu_chon', lap: 'duong', phu_bi: [1200, 480], khoet: [1170, 455] };
+    const l = loiBep(C.build(C.normalize(s))); ok(l.some(t => /Chậu/.test(t) && /tủ 1200 chỉ lọt/.test(t)) && !l.some(t => /chuyển sang tủ/.test(t)), 'rộng 1200 hai khoang, chậu không lọt cả tủ: không gợi ý tủ ≤ 1200', l); }
+  { const s = ap('BD-CHAU-800'); s.bep.tb.chau = { ma: 'tu_chon', lap: 'duong', phu_bi: [820, 480], khoet: [795, 455] };
+    const l = loiBep(C.build(C.normalize(s))); ok(l.some(t => /chuyển sang tủ 900/.test(t)), 'tủ 800 một khoang, chậu khoét 795: gợi ý tủ 900', l); }
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

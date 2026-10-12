@@ -98,6 +98,8 @@
       } catch (e) { /* không lưu được thì thôi */ }
     },
   };
+  // (1.33) đổ màu cần biết tấm thuộc tủ chậu nào (giữ ván chống ẩm của thùng) — kể cả tủ vẽ từ phiên trước: đọc thông số đã lưu của tủ theo mã trên tấm
+  if (Drv) { try { Drv.specTuLuu = id => { const l = khoTu.get(id); return l && l.spec ? Core.normalize(l.spec) : null; }; } catch (e) { /* bỏ qua */ } }
 
   // Màu và chữ: mỗi biến lấy giá trị của trang (--mn-*, do bản trang độc lập / artifact khai báo theo giao diện sáng–tối) nếu có,
   // còn không (bảng nổi trong Chenfeng) thì dùng giá trị sáng mặc định ghi ngay đây.
@@ -2724,7 +2726,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!mauS.o.thung && !mauS.o.mat && !mauS.o.hau) return setStatus('Chưa chọn màu: bấm một ô (Thùng / Cánh + phào / Hậu) rồi bấm một màu trong danh sách.');
       const tam = Drv.tamCuaTu(chon), tu = tenTuCua(tam);
       vlKQ('<p class="hint tt">Đang đổ màu…</p>'); setStatus(`Đang đổ màu ${tu} (${tam.length} tấm)… màu dùng lần đầu phải tải từ kho, mất vài giây.`);
-      const r = await Drv.doMauTu(tam, mauS.o, { giu_van: vanGiu() });
+      const r = await Drv.doMauTu(tam, mauS.o);
       if (!r.ok) { vlKQ(`<div class="msg err">${esc(r.reason)}</div>`); return setStatus('Chưa đổ được màu.'); }
       const giu = NHOM_MAU.filter(N => !r.mau[N[0]]).map(N => N[1].toLowerCase());
       vlKQ(`<div class="msg ok">Đã đổ màu ${esc(tu)}: ${esc(dongMau(r) || 'không có tấm nào thuộc nhóm đã chọn màu')}.</div>`
@@ -2788,13 +2790,6 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       vlKQ(`<div class="msg ok">Đã thay ${esc(chuTu)} → ${esc(m.ten)}: ${r.so} tấm ${cho}.</div>` + (r.khoa ? `<div class="msg warn">${esc(khoaMau(r).trim())}</div>` : ''), r.steps > 0);
       setStatus(`Đã thay ${chuTu} → ${m.ten}: ${r.so} tấm.`); vlQuetLai();
     }
-    /** (1.33) Tên ván chống ẩm của tủ chậu (thông số đang làm + chuẩn bếp đã nhớ): đổ màu không ghi đè tên ván này trên tấm — kể cả tủ chậu vẽ từ phiên trước. */
-    function vanGiu() {
-      const ds = [];
-      try { if (spec.bep && spec.bep.van_chau) ds.push(spec.bep.van_chau); } catch (e) { /* bỏ qua */ }
-      try { const c = docChuanBep(); if (c && c.van_chau) ds.push(String(c.van_chau)); } catch (e) { /* bỏ qua */ }
-      return ds;
-    }
     /** Tủ / mẫu kho vừa vẽ xong: đổ màu ngay theo 3 ô (khi ô "tự đổ màu" đang bật). → null (không làm) | kết quả Drv.doMauTu. Không ném lỗi. */
     async function tuDoMau() {
       if (!coMau || !mauS.tu_dong || !(mauS.o.thung || mauS.o.mat || mauS.o.hau)) return null;
@@ -2802,7 +2797,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       try { tam = ((Drv.last && Drv.last.added) || []).filter(e => e && !e.IsErase && Drv.isBoard(e)); } catch (e) { tam = []; }
       if (!tam.length) return null;
       setStatus('Đang đổ màu tủ vừa vẽ…');
-      try { return await Drv.doMauTu(tam, mauS.o, { gop_ve: true, giu_van: vanGiu() }); } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
+      try { return await Drv.doMauTu(tam, mauS.o, { gop_ve: true }); } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
     }
 
     /* ---- ảnh hiện trạng ---- */

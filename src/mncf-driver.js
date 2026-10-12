@@ -694,7 +694,7 @@
     const h1 = hmMark();
     let steps = 1 + ((fix.fixed || fix.normalized) ? 1 : 0);
     if (h0 && h1 && h1.i > h0.i && h1.i - h0.i <= 6 + tm.so_lenh) steps = h1.i - h0.i;
-    D.last = { M, added, offset, steps, mark: h1, id }; nhoVanRieng(M);
+    D.last = { M, added, offset, steps, mark: h1, id }; nhoVanRieng(M, id);
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + cf.base[i])), kiem_tra: v, do_loi: dl, sua_khoan: fix, so_buoc_hoan_tac: steps, module: mod, kich: Core.heSo(M.spec).kich, tom_tat: Core.summary(M),
       mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma };
   };
@@ -3063,7 +3063,7 @@
     const dl = added.some(D.isBoard) ? doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }) : null;
     const h1 = hmMark();
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : xong;
-    D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true }; nhoVanRieng(Msub);      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
+    D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true }; nhoVanRieng(Msub, id);      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
     opt.onStatus('Xong.');
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset: atW.slice(), goc: gocCuoi, xoay_do: xoay, khung, dat, kiem_tra: v, do_loi: dl, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps,
       module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M),
@@ -3242,15 +3242,37 @@
   const tenMauCua = b => { let md = null; try { md = root.app.Database.DefaultMaterial; } catch (e) { md = null; } const r = vlCua(b); return !r || r === md ? '' : tenVL(r); };      // '' = chưa đổ màu (vật liệu mặc định của bản vẽ)
   const khoaVL = b => { try { if (b.LockMaterial) return true; const st = typeof b.GetMtlLockedStatus === 'function' ? b.GetMtlLockedStatus() : null; return !!(st && (st.partMtlLocked || st.allMtlLocked)); } catch (e) { return false; } };
   // Gán vật liệu + thông tin ván cho từng tấm trong MỘT bước lịch sử. cap = [[tấm, bản ghi vật liệu, nhóm]…] → { so: { nhóm: số tấm đã gán }, khoa, steps, mark }
-  // (1.33) ván RIÊNG của tấm — thùng tủ chậu (s.bep.van_chau, ván chống ẩm) và ván lót đá: màu là màu hiển thị, còn TÊN VÁN / vật liệu
-  // đi ra sản xuất (CD) phải giữ. Bảng nhớ mọi tên ván chống ẩm đã vẽ trong phiên (nhoVanRieng); giao diện truyền thêm tên trong chuẩn bếp
-  // (opt.giu_van) cho tủ vẽ từ phiên trước. Giữ theo TÊN VÁN đang ghi trên tấm: tủ thường mà tên ván trùng thì giữ cũng không sai gì.
-  const vanRieng = new Set();
-  const nhoVanRieng = M => { try { const v = M && M.spec && M.spec.bep && M.spec.bep.van_chau; if (v) vanRieng.add(String(v)); } catch (e) { /* bỏ qua */ } };
+  // (1.33, soát 3) ván RIÊNG của tủ chậu: thùng tủ chậu nhập với tên ván / vật liệu = s.bep.van_chau (ván chống ẩm — Core partToCF: mọi tấm nhóm Thùng,
+  // kể cả ván lót đá). Đổ màu lên tủ đó chỉ đổi màu hiển thị, còn tên ván / vật liệu đi ra sản xuất (CD) GHI LẠI = van_chau. Nhận theo TỦ CHỨA tấm
+  // (mã tủ trên tấm → thông số của tủ), KHÔNG theo tên ván đang ghi trên tấm: tên ván có khi do lần đổ màu trước ghi (màu trong kho trùng tên ván
+  // chống ẩm) hoặc tủ áo dùng đúng tên đó — giữ theo tên là tấm dính tên ván cũ mãi. Ván lót đá của tủ dưới thường đổ màu như mọi tấm thùng.
+  // Thông số của tủ: tủ vẽ trong phiên (vanTu, ghi lúc vẽ) → thông số bảng đã lưu của tủ đó trên máy này (D.specTuLuu — giao diện gán, đọc
+  // localStorage mncf.tu.<mã>, như "Sửa tủ đang chọn"). HẠN CHẾ: tủ chậu vẽ ở máy / trình duyệt khác (máy này không có thông số) thì bảng không
+  // biết là tủ chậu → đổ màu ghi tên ván của màu như tủ thường (chưa đánh dấu riêng trên tấm: ghi chú thêm thì trang sản xuất nối vào tên tấm,
+  // ghi chú nội dung rỗng có giữ khi lưu bản vẽ hay không CHƯA ĐO).
+  const vanTu = new Map();      // mã tủ → van_chau ('' = không phải tủ chậu / không có ván riêng) của các tủ vẽ trong phiên
+  D._vanTu = vanTu;      // phép thử xoá để giả tủ vẽ từ phiên trước
+  /** Giao diện gán: mã tủ → thông số đã lưu của tủ đó (hoặc null). */
+  D.specTuLuu = null;
+  const vanChauCua = s => { try { const b = s && s.loai_sp === 'bep' && s.bep; return b && b.chuc_nang === 'chau' && b.van_chau ? String(b.van_chau).trim() : ''; } catch (e) { return ''; } };
+  const nhoVanRieng = (M, id) => { try { if (id) vanTu.set(String(id), vanChauCua(M && M.spec)); } catch (e) { /* bỏ qua */ } };
+  const vanCuaMaTu = id => {
+    if (!id) return '';
+    if (vanTu.has(id)) return vanTu.get(id);
+    let s = null; try { s = typeof D.specTuLuu === 'function' ? D.specTuLuu(id) : null; } catch (e) { s = null; }
+    const v = vanChauCua(s); vanTu.set(id, v); return v;
+  };
   const laLotDa = b => /^Ván lót đá/.test(String((b && b.Name) || ''));
-  const giuVanCua = (b, giu) => { if (laLotDa(b)) return true; let o = null; try { o = b.BoardProcessOption || {}; } catch (e) { o = {}; } const t = String(o.boardName || ''); return !!t && (vanRieng.has(t) || !!(giu && giu.has(t))); };
-  const ganVL = (cap, tenLenh, giu) => {
-    const h0 = hmMark(), so = {}; let mo = false, khoa = 0, n = 0;
+  // tấm → van_chau phải ghi (chỉ tấm nhóm thùng + ván lót đá của tủ chậu; ván lót mỏng ≤ 9 nằm nhóm hậu theo Core.nhomMau nhưng nhập là tấm Thùng)
+  const vanRiengCua = (boards) => {
+    const ra = new Map(), co = (boards || []).filter(b => b && !b.IsErase && vanCuaMaTu(D.tagOf(b)));
+    if (!co.length) return ra;
+    const tu = D.tamCuaTu(co), pn = D.phanNhomMau(tu), nh = new Map(tu.map((b, i) => [b, pn.nhom[i]]));
+    for (const b of co) if (nh.get(b) === 'thung' || laLotDa(b)) ra.set(b, vanCuaMaTu(D.tagOf(b)));
+    return ra;
+  };
+  const ganVL = (cap, tenLenh) => {
+    const h0 = hmMark(), so = {}, rieng = vanRiengCua(cap.map(c => c[0])); let mo = false, khoa = 0, n = 0;
     try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd(tenLenh || 'MNCF_MAU'); mo = true; } } catch (e) { mo = false; }
     try {
       for (const [b, rec, nh] of cap) {
@@ -3258,8 +3280,8 @@
         if (khoaVL(b)) { khoa++; continue; }
         b.Material = rec.Id || rec.objectId;
         const g = rec.GoodsInfo || {}, o = b.BoardProcessOption || {};      // vật liệu không mang thông tin ván (vd mua ở cửa hàng): giữ tên ván / vật liệu cũ của tấm, màu = tên vật liệu
-        const rieng = giuVanCua(b, giu);      // ván chống ẩm / ván lót đá: chỉ đổi màu, giữ tên ván + vật liệu
-        b.BoardProcessOption = Object.assign({}, o, { boardName: String((rieng ? o.boardName : g.name || o.boardName) || ''), material: String((rieng ? o.material : g.material || o.material) || ''), color: String(g.color || tenVL(rec)) });
+        const v = rieng.get(b);      // thùng tủ chậu: chỉ đổi màu, tên ván + vật liệu = ván chống ẩm như lúc nhập
+        b.BoardProcessOption = Object.assign({}, o, { boardName: String((v || g.name || o.boardName) || ''), material: String((v || g.material || o.material) || ''), color: String(g.color || tenVL(rec)) });
         so[nh] = (so[nh] || 0) + 1; n++;
       }
     } finally { if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } } }
@@ -3294,7 +3316,7 @@
    * Đổ màu theo NHÓM cho các tấm của tủ: mau = { thung, mat, hau } (mỗi cái là { id, ten } của D.khoVatLieu, hoặc bỏ trống = giữ nguyên nhóm đó; hậu bỏ trống = theo màu thùng).
    * Một bước hoàn tác. opt.gop_ve = đang tự đổ màu ngay sau một lần vẽ → cộng bước này vào lần vẽ (để "Hoàn tác lần vẽ này" lùi cả hai).
    * opt.hau_rieng = hậu KHÔNG tự theo màu thùng (dùng khi trả lại màu cũ cho tủ vừa cập nhật: hậu của tủ cũ chưa đổ thì để nguyên).
-   * opt.giu_van = tên ván cần GIỮ (ván chống ẩm của tủ chậu vẽ từ phiên trước): tấm mang tên ván đó chỉ đổi màu hiển thị, tên ván + vật liệu giữ nguyên.
+   * Thùng tủ chậu (ván chống ẩm) chỉ đổi màu hiển thị — xem vanRiengCua.
    * @returns {{ ok, so: { thung, mat, hau }, khoa (số tấm khoá vật liệu bị bỏ qua), steps, mau: { thung, mat, hau } (tên màu đã đổ, '' = giữ nguyên), ten (tên tấm từng nhóm) } | { ok: false, reason }}
    */
   // (1.33) tấm mặt đá của mẫu tủ bếp trong kho (台面板 → "Mặt đá"): đá không phải ván — không đổ màu ván lên nó
@@ -3309,8 +3331,7 @@
     if (nap.loi) return { ok: false, reason: nap.loi };
     const rec = {}; N.forEach((k, i) => { rec[k] = nap.rec[i]; });
     const pn = D.phanNhomMau(boards), lastCu = D.last && D.last.mark ? hmMark() : null;
-    const giu = new Set((opt.giu_van || []).filter(Boolean).map(String));
-    const kq = ganVL(boards.map((b, i) => [b, rec[pn.nhom[i]], pn.nhom[i]]), null, giu);
+    const kq = ganVL(boards.map((b, i) => [b, rec[pn.nhom[i]], pn.nhom[i]]));
     if (opt.gop_ve && D.last && kq.steps && lastCu && D.last.mark && lastCu.i === D.last.mark.i && lastCu.rec === D.last.mark.rec) { D.last.steps = (D.last.steps || 1) + kq.steps; D.last.mark = kq.mark; }
     return { ok: true, so: { thung: kq.so.thung || 0, mat: kq.so.mat || 0, hau: kq.so.hau || 0 }, khoa: kq.khoa, steps: kq.steps, mau: { thung: can.thung ? can.thung.ten : '', mat: can.mat ? can.mat.ten : '', hau: can.hau ? can.hau.ten : '' }, ten: pn.ten };
   };

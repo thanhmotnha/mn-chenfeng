@@ -1118,6 +1118,20 @@
         continue;
       }
       if (hopCao(lo, hMin) < 40) { err(`${viTri}: mặt ngăn kéo cao ${g(hMin)} thì hộp ngăn kéo chỉ còn ${g(hopCao(lo, hMin))} (loại "${lo.ten}") — giảm số ngăn hoặc nới ô.`); continue; }
+      // (1.33, vòng soát 3) ô trên cùng của tủ có GIẰNG (zb = mặt dưới giằng): mặt trên cùng vẫn phủ lên tới mép trên thùng (che giằng), còn HỘP phải lọt dưới giằng
+      // trừ KHE_GIANG_NK — kéo ra không vướng giằng trước. Theo mô hình mặt / hộp của mẫu (mặt z −XYS … H + SYS, hộp thấp hơn mép trên mặt SLK) đỉnh hộp thật =
+      // pos + box + SYS − SLK = mép trên mặt − SLK → hạ hộp bằng cách ghi SLK riêng cho mẫu trên cùng (ghi vào params; lệnh gốc không vẽ tủ có giằng nên bước NK không cần).
+      // Loại không có SLK (hộp ray Blum cố định) / chia ô (hộp = mặt) thì không hạ được → LỖI. Phép kiểm "hộp quá thấp" xét hộp thật đó.
+      let slkTren = null;
+      if (c.zTren === null && B && B.noc === 'giang' && !phuHoi) {
+        const coSLK = typeof lo.ts.SLK === 'number' && !('CMG' in lo.ts), slk0 = coSLK ? lo.ts.SLK : 0, xlk0 = typeof lo.ts.XLK === 'number' ? lo.ts.XLK : 0, lim = rn(zb - KHE_GIANG_NK);
+        if (rn(f1 - slk0) > lim + TOL) {
+          if (!coSLK) { err(`${viTri}: hộp ngăn kéo loại "${lo.ten}" cao tới +${g(rn(f1 - slk0))}, vướng giằng trước (mặt dưới giằng +${g(zb)}) — loại này không hạ hộp được: chọn loại ray bi / ray âm hoặc bỏ ngăn trên cùng.`); continue; }
+          slkTren = rn(f1 - lim);
+          const hopTren = rn(caoMat(m - 1) - slkTren - xlk0);
+          if (hopTren < 40) { err(`${viTri}: mặt trên cùng cao ${g(caoMat(m - 1))} phải che giằng ${g(rn(f1 - zb))} nên hộp ngăn kéo dưới giằng chỉ còn ${g(hopTren)} (loại "${lo.ten}") — tăng cao mặt trên cùng hoặc giảm bề rộng giằng.`); continue; }
+        }
+      }
       if (hMax > 450) warn(`${viTri}: mặt ngăn kéo cao ${g(hMax)} (> 450) — nên thêm ngăn hoặc hạ đợt phía trên.`);
       const sauNK = Math.floor((shelfDepth - nk.ho_sau) / nk.buoc_sau + 1e-9) * nk.buoc_sau;
       if (sauNK < 200) { const viCot = shelfDepth < yb0 - TOL; if (viCot && M.info.nk_vuong_cot.indexOf(i) < 0) M.info.nk_vuong_cot.push(i); err(`${viTri}: thùng quá nông cho ngăn kéo (sâu hộp ${g(sauNK)})${viCot ? ` — khoang này có cột phía sau, thùng trước cột chỉ sâu ${g(shelfDepth)}: chuyển ngăn kéo sang khoang khác` : ''}.`); continue; }
@@ -1131,7 +1145,7 @@
         M.templates.push({ loai: 'NGAN_KEO', kieu: 'nk_trum', id: lo.mau_id, ten: lo.ten_mau, ma_loai: lo.ma, ten_loai: lo.ten, tu: c.b.tu, than: c.than, khoang: i, o: [rn(za), rn(zb)], mat: M.mat_ngan_keo.length - 1,
           bac_sau: { tu: rn(shelfDepth - nk.ho_sau), buoc: nk.buoc_sau },
           box: [rn(widths[i]), sauNK, rn(bz1 - bz0)], pos: [bayX(i), 0, rn(bz0)],                      // gốc mẫu y = 0 → mặt nằm ở y = −dày cánh … 0 (mặt phẳng cánh)
-          params: thamSo(lo, tc, rn(fz1 - fz0), { SYS: rn(fz1 - bz1), XYS: rn(bz0 - fz0), ZYS: rn(bayX(i) - fx0), YYS: rn(fx1 - bayX(i) - widths[i]) }) });
+          params: thamSo(lo, tc, rn(fz1 - fz0), Object.assign({ SYS: rn(fz1 - bz1), XYS: rn(bz0 - fz0), ZYS: rn(bayX(i) - fx0), YYS: rn(fx1 - bayX(i) - widths[i]) }, q === m - 1 && slkTren !== null ? { SLK: slkTren } : {})) });
       }
     }
 
@@ -2985,16 +2999,19 @@
     canh_1_duoi: [300, 1200], canh_1_tren: [300, 1200], nep_tuong: [0, 200] };
   /** Phụ kiện bếp làm chuẩn — CHỈ Eurogold / Higold (anh Thanh). Quy luật của hãng: rổ rộng = cỡ tủ − 36 (tủ ván 18); ván 17,5 → lọt = cỡ − 35 vừa rổ, dư 1.
    *  lot(co) = dải lọt lòng [min, max] rổ bắt được ray (max = cỡ − 34 suy từ dải "W262–268" của hãng — [CĐ]); sau_min / cao_min = chỗ rổ cần; cao_ro = rổ cao thật (kiểm rổ lọt dưới giằng / thân bếp âm).
+   *  hang_co = { cỡ: [hãng, nguồn] } — cỡ chỉ một hãng làm (vòng soát 3: bát đĩa 750 / gia vị 450 chỉ Higold): dòng mua ghi đúng hãng đó.
    *  lap: 'keo' = mặt kéo bắt vào rổ (ô keo_pk), 'canh' = rổ cánh mở (ô keo_pk một mã: ô có cánh + bản lề thay mặt kéo), 'tren' = lắp trong tủ trên (spec.bep.pk). */
   // (1.33) Phụ kiện bếp CHỈ hai hãng Higold + Eurogold (anh Thanh 12/10/2026). Cả hai tính lọt lòng = cỡ tủ − 36 (ván 18) — Higold ghi rõ; dải hãng nhận
   // (Eurogold EA300 W262–268, B331 264–268, Higold 307042 264/268) ≈ cỡ − 38 … cỡ − 32 → ván 17 / 17,5 / 18 đều lọt. Số lấy từ trang hãng / đại lý, chưa có catalogue gốc [CĐ].
   // sau_tu = sâu THÙNG tối thiểu hãng ghi (khác sau_min = sâu lọt lòng trước thanh treo): giá bát cố định Higold ghi "thùng sâu ≥ 300", rổ sâu 262 (Higold) / 280 (Eurogold) → lọt lòng ≥ 285 [CĐ]
   const LOAI_PK_BEP = [
-    { ma: 'xoong', ten: 'Giá xoong nồi', tang: 'duoi', lap: 'keo', co: [600, 700, 750, 800, 900], lot: co => [co - 38, co - 32], sau_min: 480, cao_min: 200, cao_ro: 210, hang: 'Higold / Eurogold', nguon: 'Higold Martin 2.0 301731–301735 (lọt 564 × 475 × 210), Diamond 301511–301515; Eurogold EU130 / EP60–EP90 (W565–865 × 480 × 175)' },
+    { ma: 'xoong', ten: 'Giá xoong nồi', tang: 'duoi', lap: 'keo', co: [600, 700, 750, 800, 900], lot: co => [co - 38, co - 32], sau_min: 480, cao_min: 220, cao_ro: 210, hang: 'Higold / Eurogold', nguon: 'Higold Martin 2.0 301731–301735 (lọt 564 × 475 × 210), Diamond 301511–301515; Eurogold EU130 / EP60–EP90 (W565–865 × 480 × 175)' },
     // (vòng soát 2) cao_ro = rổ CAO NHẤT trong các hàng ghi ở nguon (kiểm rổ lọt dưới giằng theo hàng nào xưởng mua cũng được): bát đĩa Higold 210 > Eurogold 175;
     // cao_min / sau_min theo khuyến nghị gộp của phụ kiện (pk-higold-eurogold §3): bát đĩa chỗ ≥ 220, thùng rác cao ≥ 530 / sâu ≥ 510, thùng gạo sâu ≥ 500.
-    { ma: 'bat_duoi', ten: 'Giá bát đĩa tủ dưới', tang: 'duoi', lap: 'keo', co: [600, 700, 750, 800, 900], lot: co => [co - 38, co - 32], sau_min: 480, cao_min: 220, cao_ro: 210, hang: 'Higold / Eurogold', nguon: 'Higold Diamond 2.0 30152x (lọt 564 / 664 / 714 / 764 / 864 × 475 × 210, có cỡ 750); Eurogold EU133600–900 (cao 175)' },
-    { ma: 'gia_vi', ten: 'Giá gia vị, dao thớt', tang: 'duoi', lap: 'keo', co: [150, 200, 250, 300, 350, 400, 450], lot: co => [co - 38, co - 32], sau_min: 480, cao_min: 520, cao_ro: 505, hang: 'Higold / Eurogold', nguon: 'Higold Diamond 2.0 306030 / 306029 / 306031, Martin 2.0 (lọt 264 / 314 / 364 × 465 × 505), 304221 (150), Diamond 2.0 tới cỡ 450; Eurogold EP20–EP40 (lọt 164–364 × 475 × 455), EG150' },
+    { ma: 'bat_duoi', ten: 'Giá bát đĩa tủ dưới', tang: 'duoi', lap: 'keo', co: [600, 700, 750, 800, 900], lot: co => [co - 38, co - 32], sau_min: 480, cao_min: 220, cao_ro: 210, hang: 'Higold / Eurogold', nguon: 'Higold Diamond 2.0 30152x (lọt 564 / 664 / 714 / 764 / 864 × 475 × 210, có cỡ 750); Eurogold EU133600–900 (cao 175)',
+      hang_co: { 750: ['Higold', 'Higold Diamond 2.0 30152x cỡ 750 (lọt 714 × 475 × 210) — Eurogold EU133 không có cỡ 750'] } },
+    { ma: 'gia_vi', ten: 'Giá gia vị, dao thớt', tang: 'duoi', lap: 'keo', co: [150, 200, 250, 300, 350, 400, 450], lot: co => [co - 38, co - 32], sau_min: 480, cao_min: 520, cao_ro: 505, hang: 'Higold / Eurogold', nguon: 'Higold Diamond 2.0 306030 / 306029 / 306031, Martin 2.0 (lọt 264 / 314 / 364 × 465 × 505), 304221 (150), Diamond 2.0 tới cỡ 450; Eurogold EP20–EP40 (lọt 164–364 × 475 × 455), EG150',
+      hang_co: { 450: ['Higold', 'Higold Diamond 2.0 cỡ 450 — Eurogold (EP20–EP40, EU12xx) chỉ tới cỡ 400'] } },
     { ma: 'gao', ten: 'Thùng gạo', tang: 'duoi', lap: 'keo', co: [300], lot: () => [262, 268], sau_min: 500, cao_min: 540, cao_ro: 520, hang: 'Higold / Eurogold', nguon: 'Higold 307042 (264 / 268 × 490 × 520); Eurogold B331 / B332 (lọt 264–268), EGA300' },
     { ma: 'rac', ten: 'Thùng rác', tang: 'duoi', lap: 'keo', co: [300, 400], lot: co => [co - 38, co - 32], sau_min: 510, cao_min: 530, cao_ro: 520, hang: 'Higold / Eurogold', nguon: 'Eurogold EA300 W262–268 × D505 × H520 (tủ 300), EA400 / BA400 W362–368 × D506 × H470 (tủ 400); Higold 307013 (400, gắn cánh) [CĐ]' },
     // (vòng soát 2) tủ đồ khô tách theo KIỂU MỞ của hàng thật: kéo (mặt kéo bắt vào khung rổ, ray đi theo rổ) chỉ có Eurogold M030640 400 lọt ô ~1780 (khung chỉnh cao 1700 – 2200;
@@ -3026,9 +3043,9 @@
     ],
   };
   const TB_MAC_DINH = { chau: W => (W >= 900 ? 'duong_820' : 'don_600'), bep: W => (W >= 900 ? 'ba_750' : 'doi_730'), hm: W => (W >= 950 ? 'am_900' : 'am_700') };
-  const KHE_CHAU = 10, VANH_AM = 20, DA_TRUOC_MIN = 60;      // [CĐ] khe thân / vành chậu tới hồi; chậu âm: vành ra ngoài lỗ khoét; đá trước lỗ khoét tối thiểu (mỏng hơn dễ nứt)
+  const KHE_CHAU = 10, VANH_AM = 20, DA_TRUOC_MIN = 60, KHE_GIANG_NK = 5;      // [CĐ] khe thân / vành chậu tới hồi; chậu âm: vành ra ngoài lỗ khoét; đá trước lỗ khoét tối thiểu (mỏng hơn dễ nứt); hộp ngăn kéo cách mặt dưới giằng
   const CO_TB = { chau: [800, 900, 1000, 1200], bep: [800, 900, 1000, 1200], hm: [800, 950, 1000, 1200] };      // cỡ module của thư viện (hút mùi: mối nối trùng tủ bếp nấu 800 bên dưới)
-  /** Tủ nhỏ nhất (theo cỡ thư viện) chứa được thiết bị — câu "căn chuẩn" của anh Thanh. tb = { loai: 'chau' | 'bep' | 'hm', lap, phu_bi, khoet, rong }; opt.t = dày ván (mặc định chuẩn xưởng). @returns số | null */
+  /** Tủ nhỏ nhất (theo cỡ thư viện) chứa được thiết bị — câu "căn chuẩn" của anh Thanh. tb = { loai: 'chau' | 'bep' | 'hm', lap, phu_bi, khoet, rong }; opt.t = dày ván (mặc định chuẩn xưởng); opt.tren = chỉ xét cỡ lớn hơn số này. @returns số | null */
   function coTuChoTB(tb, opt) {
     tb = tb || {}; const t = num(opt && opt.t, DEFAULT_SPEC.van.t), l = tb.loai, r0 = a => (Array.isArray(a) ? num(a[0], NaN) : NaN);
     const vua = W => {
@@ -3038,7 +3055,8 @@
       if (l === 'hm') return num(tb.rong, NaN) + 10 <= lot + TOL;
       return false;
     };
-    for (const W of CO_TB[l] || []) if (vua(W)) return W;
+    const tren = num(opt && opt.tren, 0);      // (vòng soát 3) chỉ xét cỡ LỚN HƠN tủ đang có (gợi ý "chuyển sang tủ N")
+    for (const W of CO_TB[l] || []) if (W > tren + TOL && vua(W)) return W;
     return null;
   }
   // cỡ rổ dùng cho tủ rộng W: đúng cỡ nếu hãng có; không thì cỡ gần nhất (cách đều thì cỡ nhỏ hơn)
@@ -3112,7 +3130,16 @@
     for (const k of Object.keys(doi)) if (SO_BEP[k]) B[k] = Math.max(SO_BEP[k][0], Math.min(SO_BEP[k][1], num(B[k], DEFAULT_BEP[k])));
     // chiều cao riêng của module chỉ bỏ khi đổi đúng số quyết định chiều cao (tủ trên: cao tủ trên; tủ cao: mặt đá + cách mặt đá + cao tủ trên) hoặc đổi tầng
     if ((B.tang === 'tren' ? ['cao_tren', 'tang'] : ['cao_mat', 'cach_tren', 'cao_tren', 'tang']).some(k => k in doi)) delete B.cao_rieng;
-    return normalize(kichBep(s));
+    const t = num(s.van && s.van.t, DEFAULT_SPEC.van.t), k0 = { chan: num(s.chan && s.chan.cao, NaN), t };
+    const out = normalize(kichBep(s)), k1 = { chan: out.chan.cao, t };
+    // (1.33, vòng soát 3) tủ đồ khô: đợt trên ô rổ tính theo CHÂN lúc áp mẫu (chừa đúng chỗ rổ) — đổi chân thì tính lại như áp mẫu lại; đợt người dùng đã dời
+    // (khác số áp mẫu cũ) mà vẫn đủ chỗ thì giữ, thiếu chỗ thì nâng lên đúng số cần
+    for (const kh of out.khoang || []) {
+      const o = (kh.o || [])[0], ma = o && kh.o.length === 1 && o.kieu === 'keo_pk' && (o.tu || 0) === 0 && Array.isArray(o.pk) && o.pk.length === 1 ? o.pk[0] : '';
+      if ((ma !== 'kho' && ma !== 'kho_canh') || !Array.isArray(kh.dot) || kh.dot.length !== 1) continue;
+      const z1 = zKho(ma, k1); if (kh.dot[0] === zKho(ma, k0) || kh.dot[0] < z1) kh.dot = [z1];
+    }
+    return out;
   }
   const MUC_KIEM_BEP = MUC_KIEM.concat([{ ma: 'bep', ten: 'Phụ kiện, thiết bị bếp (rổ, chậu, bếp nấu, hút mùi)' }]);
   /**
@@ -3139,11 +3166,21 @@
       if (cao < p.cao_min - TOL) err(`${p.ten}: ${cho} cao ${g(cao)} < ${g(p.cao_min)} rổ cần.`);
       else if (p.cao_max && cao > p.cao_max + TOL) warn(`${p.ten}: ${cho} cao ${g(cao)} > ${g(p.cao_max)} — khung rổ chỉnh cao không với tới, thêm / hạ đợt phía trên.`);
     };
-    for (const r of I.ro) kiemPK(r.pk, r.lot, r.sau, rn(r.z1 - r.z0), 'chỗ đặt rổ');
+    // (vòng soát 3) đỉnh rổ (z0 + cao_ro) không được vượt ô của nó (lấn vào rổ / đợt bên trên) — chỉ báo khi ô chưa bị báo thiếu cao (cao_min đã ≥ cao_ro + 10 với rổ kéo)
+    for (const r of I.ro) {
+      const nLoi = M.errors.length; kiemPK(r.pk, r.lot, r.sau, rn(r.z1 - r.z0), 'chỗ đặt rổ');
+      const p = PK(r.pk), top = p ? rn(r.z0 + p.cao_ro) : 0;
+      if (p && M.errors.length === nLoi && top > r.z1 + TOL) err(`${p.ten} cao tới +${g(top)} (rổ cao ${g(p.cao_ro)}), vượt ô của nó (+${g(r.z0)} … +${g(r.z1)}) — lấn vào phía trên; nới ô hoặc chọn rổ thấp hơn.`);
+    }
     if (B.pk) kiemPK(B.pk, lot, I.sau_lot_treo, s.cao, 'thùng');
     // rổ / hộp ngăn kéo kéo ra phải lọt dưới giằng trước; tủ bếp nấu: thấp hơn đỉnh thùng nk_cach_bep (thân bếp âm thò xuống 55 – 70)
     const hop = I.ro.map(r => ({ ten: PK(r.pk).ten, top: rn(r.z0 + PK(r.pk).cao_ro) }));
-    for (const tp of M.templates) if (tp.loai === 'NGAN_KEO') { const lo = s.ngan_keo.loai.find(x => x.ma === tp.ma_loai), slk = lo && typeof lo.ts.SLK === 'number' ? lo.ts.SLK : 0; hop.push({ ten: 'Hộp ngăn kéo', top: rn(tp.pos[2] + tp.box[2] - slk) }); }
+    // (vòng soát 3) đỉnh hộp ngăn kéo theo mô hình mặt / hộp của lõi: mép trên mặt = pos + box + SYS, hộp thấp hơn mép trên mặt SLK (của mẫu đó — ô dưới giằng ghi SLK riêng); chia ô: hộp = mặt
+    for (const tp of M.templates) if (tp.loai === 'NGAN_KEO') {
+      const lo = s.ngan_keo.loai.find(x => x.ma === tp.ma_loai), p = tp.params || {}, sys = typeof p.SYS === 'number' ? p.SYS : 0;
+      const slk = lo && 'CMG' in lo.ts ? 0 : typeof p.SLK === 'number' ? p.SLK : lo && typeof lo.ts.SLK === 'number' ? lo.ts.SLK : 0;
+      hop.push({ ten: 'Hộp ngăn kéo', top: rn(tp.pos[2] + tp.box[2] + sys - slk) });
+    }
     const daBaoTop = new Set();
     for (const h of hop) {
       if (daBaoTop.has(h.ten)) continue;
@@ -3157,8 +3194,8 @@
     const khongLot = (ten, can, tb, loai, khiKhong) => {
       if (!kc) return `${ten} đặt giữa tủ (x ${g(xm)}) đè lên vách giữa hai khoang — gộp khoang (bỏ vách) hoặc dời vách khỏi giữa tủ.`;
       if (dsK.length > 1 && can <= lotMot + TOL) return `${ten} cần lọt lòng ≥ ${g(can)} quanh giữa tủ, khoang ${dsK.indexOf(kc) + 1} chỉ chừa ${g(choTB)} — đè lên vách khoang; gộp khoang (bỏ vách) hoặc dời vách.`;
-      const n = coTuChoTB(Object.assign({ loai }, tb), { t });
-      return `${ten} cần lọt lòng ≥ ${g(can)}, tủ ${g(W)} chỉ lọt ${g(choTB)}${n && n > W ? ` — chuyển sang tủ ${g(n)}` : !n && khiKhong ? ` — ${khiKhong}` : ''}.`;
+      const n = coTuChoTB(Object.assign({ loai }, tb), { t, tren: W });
+      return `${ten} cần lọt lòng ≥ ${g(can)}, tủ ${g(W)} chỉ lọt ${g(choTB)}${n ? ` — chuyển sang tủ ${g(n)}` : khiKhong ? ` — ${khiKhong}` : ''}.`;
     };
     // chậu: dương — thân chậu dưới đá cấn hồi (so khoét); âm — phủ bì + tai kẹp cấn hồi (so phủ bì)
     const c = B.chuc_nang === 'chau' && B.tb.chau;
@@ -3205,7 +3242,7 @@
     const dem = new Map(), dat = (ma, lt) => { const p = LOAI_PK_BEP.find(x => x.ma === ma), k = ma + '|' + coPK(p, coKhoang(lt, W, s.van.t)); dem.set(k, (dem.get(k) || 0) + 1); };
     for (const r of I.ro) dat(r.pk, r.lot);
     if (B.pk) dat(B.pk, I.lot);
-    for (const [k, sl] of dem) { const [ma, c] = k.split('|'), p = LOAI_PK_BEP.find(x => x.ma === ma), co = Number(c), [a, b] = p.lot(co); them(`${p.ten} cỡ ${g(co)} — ${p.hang}`, sl, `lọt lòng cần ${g(a)} – ${g(b)}; ${p.lap === 'keo' ? 'ray giảm chấn đi theo rổ, mặt kéo bắt vít vào rổ' : p.lap === 'canh' ? `khung rổ bắt hồi, cánh mở bản lề (ô cao ≥ ${g(p.cao_min)})` : 'lắp trong tủ trên'}; ${p.nguon}`); }
+    for (const [k, sl] of dem) { const [ma, c] = k.split('|'), p = LOAI_PK_BEP.find(x => x.ma === ma), co = Number(c), [a, b] = p.lot(co); const hc = (p.hang_co && p.hang_co[co]) || [p.hang, p.nguon]; them(`${p.ten} cỡ ${g(co)} — ${hc[0]}`, sl, `lọt lòng cần ${g(a)} – ${g(b)}; ${p.lap === 'keo' ? 'ray giảm chấn đi theo rổ, mặt kéo bắt vít vào rổ' : p.lap === 'canh' ? `khung rổ bắt hồi, cánh mở bản lề (ô cao ≥ ${g(p.cao_min)})` : 'lắp trong tủ trên'}; ${hc[1]}`); }
     if (B.chuc_nang === 'chau') {
       them('Ke góc đáy – hồi (chống xô, tủ chậu không hậu)', 2, 'bắt ở hai góc sau, đáy với hai hồi');
       them('Tấm nhôm lót đáy tủ chậu', 1, `${(I.lot * I.sau_lot / 1e6).toFixed(2).replace('.', ',')} m² (lọt ${g(I.lot)} × ${g(I.sau_lot)}) — [CĐ] nhôm composite 3 mm hay nhôm tấm 0,5 – 1 mm`);
@@ -3219,6 +3256,8 @@
 
   // Mẫu tủ bếp: [mã, tên, chức năng, rộng, số cánh ('tu' = 1 khi ≤ ngưỡng 1 cánh, không thì 2), ruột(B, k) → { dot, o } (k = { cao, chan, t } của module), thêm vào spec.bep]
   const dotGiua = k => Math.round((k.chan + k.t + k.cao - k.t - k.t) / 2);      // một đợt giữa lọt lòng thùng (mặt dưới đợt)
+  // đợt trên ô rổ tủ đồ khô (mặt dưới đợt): 400 kéo chừa ô ~1780 (Eurogold M030640 1700 – 2200), 450 / 600 cánh mở chừa đúng cao_min — datBep tính lại khi đổi chân
+  const zKho = (ma, k) => Math.ceil((k.chan + k.t + (ma === 'kho' ? 1780 : LOAI_PK_BEP.find(x => x.ma === 'kho_canh').cao_min)) / 10) * 10;
   const RUOT_BEP = {
     trong: () => ({ dot: [], o: [] }),
     dot: (B, k) => ({ dot: [dotGiua(k)], o: [] }),
@@ -3226,9 +3265,9 @@
     // (vòng soát 2) mặt trên 330: giá bát Higold cao 210 + chỗ ≥ 220 lọt dưới giằng của tủ bếp nấu (mặt 300 thì rổ chạm giằng +730)
     xn: () => ({ dot: [], o: [{ tu: 0, kieu: 'keo_pk', pk: ['bat_duoi', 'xoong'], cao: [330] }] }),
     pk: ma => () => ({ dot: [], o: [{ tu: 0, kieu: 'keo_pk', pk: [ma] }] }),
-    kho: (B, k) => { const z = Math.ceil((k.chan + k.t + 1780) / 10) * 10; return { dot: [z], o: [{ tu: 0, kieu: 'keo_pk', pk: ['kho'] }] }; },      // 400 kéo (Eurogold M030640 1700 – 2200)
+    kho: (B, k) => ({ dot: [zKho('kho', k)], o: [{ tu: 0, kieu: 'keo_pk', pk: ['kho'] }] }),      // 400 kéo (Eurogold M030640 1700 – 2200)
     // (vòng soát 2) 450 / 600 rổ cánh mở: ô dưới ≥ rổ cao nhất (Higold 1825) + 10 → đợt nâng lên, ô dưới có cánh riêng + bản lề, ô trên đợt + cánh
-    kho_canh: (B, k) => { const p = LOAI_PK_BEP.find(x => x.ma === 'kho_canh'), z = Math.ceil((k.chan + k.t + p.cao_min) / 10) * 10; return { dot: [z], o: [{ tu: 0, kieu: 'keo_pk', pk: ['kho_canh'] }] }; },      // ô dưới ≥ 1720 cho rổ đồ khô 6 tầng; ô trên đợt + cánh
+    kho_canh: (B, k) => ({ dot: [zKho('kho_canh', k)], o: [{ tu: 0, kieu: 'keo_pk', pk: ['kho_canh'] }] }),      // ô dưới ≥ 1720 cho rổ đồ khô 6 tầng; ô trên đợt + cánh
   };
   const MA_TANG_BEP = { duoi: 'BD', tren: 'BT', cao: 'BC' };
   const mauBep = tang => ([ma, ten, chuc, rong, canh, ruot, them]) => ({ ma, ten, loai_sp: 'bep', tang, chuc_nang: chuc, mo_ta: `${g(rong)} × ${g(them && them.cao_rieng ? them.cao_rieng : { duoi: 830, tren: 800, cao: 2350 }[tang])}`,
@@ -5893,7 +5932,7 @@
     const h1 = hmMark();
     let steps = 1 + ((fix.fixed || fix.normalized) ? 1 : 0);
     if (h0 && h1 && h1.i > h0.i && h1.i - h0.i <= 6 + tm.so_lenh) steps = h1.i - h0.i;
-    D.last = { M, added, offset, steps, mark: h1, id }; nhoVanRieng(M);
+    D.last = { M, added, offset, steps, mark: h1, id }; nhoVanRieng(M, id);
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + cf.base[i])), kiem_tra: v, do_loi: dl, sua_khoan: fix, so_buoc_hoan_tac: steps, module: mod, kich: Core.heSo(M.spec).kich, tom_tat: Core.summary(M),
       mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma };
   };
@@ -8262,7 +8301,7 @@
     const dl = added.some(D.isBoard) ? doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }) : null;
     const h1 = hmMark();
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : xong;
-    D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true }; nhoVanRieng(Msub);      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
+    D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true }; nhoVanRieng(Msub, id);      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
     opt.onStatus('Xong.');
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset: atW.slice(), goc: gocCuoi, xoay_do: xoay, khung, dat, kiem_tra: v, do_loi: dl, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps,
       module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M),
@@ -8441,15 +8480,37 @@
   const tenMauCua = b => { let md = null; try { md = root.app.Database.DefaultMaterial; } catch (e) { md = null; } const r = vlCua(b); return !r || r === md ? '' : tenVL(r); };      // '' = chưa đổ màu (vật liệu mặc định của bản vẽ)
   const khoaVL = b => { try { if (b.LockMaterial) return true; const st = typeof b.GetMtlLockedStatus === 'function' ? b.GetMtlLockedStatus() : null; return !!(st && (st.partMtlLocked || st.allMtlLocked)); } catch (e) { return false; } };
   // Gán vật liệu + thông tin ván cho từng tấm trong MỘT bước lịch sử. cap = [[tấm, bản ghi vật liệu, nhóm]…] → { so: { nhóm: số tấm đã gán }, khoa, steps, mark }
-  // (1.33) ván RIÊNG của tấm — thùng tủ chậu (s.bep.van_chau, ván chống ẩm) và ván lót đá: màu là màu hiển thị, còn TÊN VÁN / vật liệu
-  // đi ra sản xuất (CD) phải giữ. Bảng nhớ mọi tên ván chống ẩm đã vẽ trong phiên (nhoVanRieng); giao diện truyền thêm tên trong chuẩn bếp
-  // (opt.giu_van) cho tủ vẽ từ phiên trước. Giữ theo TÊN VÁN đang ghi trên tấm: tủ thường mà tên ván trùng thì giữ cũng không sai gì.
-  const vanRieng = new Set();
-  const nhoVanRieng = M => { try { const v = M && M.spec && M.spec.bep && M.spec.bep.van_chau; if (v) vanRieng.add(String(v)); } catch (e) { /* bỏ qua */ } };
+  // (1.33, soát 3) ván RIÊNG của tủ chậu: thùng tủ chậu nhập với tên ván / vật liệu = s.bep.van_chau (ván chống ẩm — Core partToCF: mọi tấm nhóm Thùng,
+  // kể cả ván lót đá). Đổ màu lên tủ đó chỉ đổi màu hiển thị, còn tên ván / vật liệu đi ra sản xuất (CD) GHI LẠI = van_chau. Nhận theo TỦ CHỨA tấm
+  // (mã tủ trên tấm → thông số của tủ), KHÔNG theo tên ván đang ghi trên tấm: tên ván có khi do lần đổ màu trước ghi (màu trong kho trùng tên ván
+  // chống ẩm) hoặc tủ áo dùng đúng tên đó — giữ theo tên là tấm dính tên ván cũ mãi. Ván lót đá của tủ dưới thường đổ màu như mọi tấm thùng.
+  // Thông số của tủ: tủ vẽ trong phiên (vanTu, ghi lúc vẽ) → thông số bảng đã lưu của tủ đó trên máy này (D.specTuLuu — giao diện gán, đọc
+  // localStorage mncf.tu.<mã>, như "Sửa tủ đang chọn"). HẠN CHẾ: tủ chậu vẽ ở máy / trình duyệt khác (máy này không có thông số) thì bảng không
+  // biết là tủ chậu → đổ màu ghi tên ván của màu như tủ thường (chưa đánh dấu riêng trên tấm: ghi chú thêm thì trang sản xuất nối vào tên tấm,
+  // ghi chú nội dung rỗng có giữ khi lưu bản vẽ hay không CHƯA ĐO).
+  const vanTu = new Map();      // mã tủ → van_chau ('' = không phải tủ chậu / không có ván riêng) của các tủ vẽ trong phiên
+  D._vanTu = vanTu;      // phép thử xoá để giả tủ vẽ từ phiên trước
+  /** Giao diện gán: mã tủ → thông số đã lưu của tủ đó (hoặc null). */
+  D.specTuLuu = null;
+  const vanChauCua = s => { try { const b = s && s.loai_sp === 'bep' && s.bep; return b && b.chuc_nang === 'chau' && b.van_chau ? String(b.van_chau).trim() : ''; } catch (e) { return ''; } };
+  const nhoVanRieng = (M, id) => { try { if (id) vanTu.set(String(id), vanChauCua(M && M.spec)); } catch (e) { /* bỏ qua */ } };
+  const vanCuaMaTu = id => {
+    if (!id) return '';
+    if (vanTu.has(id)) return vanTu.get(id);
+    let s = null; try { s = typeof D.specTuLuu === 'function' ? D.specTuLuu(id) : null; } catch (e) { s = null; }
+    const v = vanChauCua(s); vanTu.set(id, v); return v;
+  };
   const laLotDa = b => /^Ván lót đá/.test(String((b && b.Name) || ''));
-  const giuVanCua = (b, giu) => { if (laLotDa(b)) return true; let o = null; try { o = b.BoardProcessOption || {}; } catch (e) { o = {}; } const t = String(o.boardName || ''); return !!t && (vanRieng.has(t) || !!(giu && giu.has(t))); };
-  const ganVL = (cap, tenLenh, giu) => {
-    const h0 = hmMark(), so = {}; let mo = false, khoa = 0, n = 0;
+  // tấm → van_chau phải ghi (chỉ tấm nhóm thùng + ván lót đá của tủ chậu; ván lót mỏng ≤ 9 nằm nhóm hậu theo Core.nhomMau nhưng nhập là tấm Thùng)
+  const vanRiengCua = (boards) => {
+    const ra = new Map(), co = (boards || []).filter(b => b && !b.IsErase && vanCuaMaTu(D.tagOf(b)));
+    if (!co.length) return ra;
+    const tu = D.tamCuaTu(co), pn = D.phanNhomMau(tu), nh = new Map(tu.map((b, i) => [b, pn.nhom[i]]));
+    for (const b of co) if (nh.get(b) === 'thung' || laLotDa(b)) ra.set(b, vanCuaMaTu(D.tagOf(b)));
+    return ra;
+  };
+  const ganVL = (cap, tenLenh) => {
+    const h0 = hmMark(), so = {}, rieng = vanRiengCua(cap.map(c => c[0])); let mo = false, khoa = 0, n = 0;
     try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd(tenLenh || 'MNCF_MAU'); mo = true; } } catch (e) { mo = false; }
     try {
       for (const [b, rec, nh] of cap) {
@@ -8457,8 +8518,8 @@
         if (khoaVL(b)) { khoa++; continue; }
         b.Material = rec.Id || rec.objectId;
         const g = rec.GoodsInfo || {}, o = b.BoardProcessOption || {};      // vật liệu không mang thông tin ván (vd mua ở cửa hàng): giữ tên ván / vật liệu cũ của tấm, màu = tên vật liệu
-        const rieng = giuVanCua(b, giu);      // ván chống ẩm / ván lót đá: chỉ đổi màu, giữ tên ván + vật liệu
-        b.BoardProcessOption = Object.assign({}, o, { boardName: String((rieng ? o.boardName : g.name || o.boardName) || ''), material: String((rieng ? o.material : g.material || o.material) || ''), color: String(g.color || tenVL(rec)) });
+        const v = rieng.get(b);      // thùng tủ chậu: chỉ đổi màu, tên ván + vật liệu = ván chống ẩm như lúc nhập
+        b.BoardProcessOption = Object.assign({}, o, { boardName: String((v || g.name || o.boardName) || ''), material: String((v || g.material || o.material) || ''), color: String(g.color || tenVL(rec)) });
         so[nh] = (so[nh] || 0) + 1; n++;
       }
     } finally { if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } } }
@@ -8493,7 +8554,7 @@
    * Đổ màu theo NHÓM cho các tấm của tủ: mau = { thung, mat, hau } (mỗi cái là { id, ten } của D.khoVatLieu, hoặc bỏ trống = giữ nguyên nhóm đó; hậu bỏ trống = theo màu thùng).
    * Một bước hoàn tác. opt.gop_ve = đang tự đổ màu ngay sau một lần vẽ → cộng bước này vào lần vẽ (để "Hoàn tác lần vẽ này" lùi cả hai).
    * opt.hau_rieng = hậu KHÔNG tự theo màu thùng (dùng khi trả lại màu cũ cho tủ vừa cập nhật: hậu của tủ cũ chưa đổ thì để nguyên).
-   * opt.giu_van = tên ván cần GIỮ (ván chống ẩm của tủ chậu vẽ từ phiên trước): tấm mang tên ván đó chỉ đổi màu hiển thị, tên ván + vật liệu giữ nguyên.
+   * Thùng tủ chậu (ván chống ẩm) chỉ đổi màu hiển thị — xem vanRiengCua.
    * @returns {{ ok, so: { thung, mat, hau }, khoa (số tấm khoá vật liệu bị bỏ qua), steps, mau: { thung, mat, hau } (tên màu đã đổ, '' = giữ nguyên), ten (tên tấm từng nhóm) } | { ok: false, reason }}
    */
   // (1.33) tấm mặt đá của mẫu tủ bếp trong kho (台面板 → "Mặt đá"): đá không phải ván — không đổ màu ván lên nó
@@ -8508,8 +8569,7 @@
     if (nap.loi) return { ok: false, reason: nap.loi };
     const rec = {}; N.forEach((k, i) => { rec[k] = nap.rec[i]; });
     const pn = D.phanNhomMau(boards), lastCu = D.last && D.last.mark ? hmMark() : null;
-    const giu = new Set((opt.giu_van || []).filter(Boolean).map(String));
-    const kq = ganVL(boards.map((b, i) => [b, rec[pn.nhom[i]], pn.nhom[i]]), null, giu);
+    const kq = ganVL(boards.map((b, i) => [b, rec[pn.nhom[i]], pn.nhom[i]]));
     if (opt.gop_ve && D.last && kq.steps && lastCu && D.last.mark && lastCu.i === D.last.mark.i && lastCu.rec === D.last.mark.rec) { D.last.steps = (D.last.steps || 1) + kq.steps; D.last.mark = kq.mark; }
     return { ok: true, so: { thung: kq.so.thung || 0, mat: kq.so.mat || 0, hau: kq.so.hau || 0 }, khoa: kq.khoa, steps: kq.steps, mau: { thung: can.thung ? can.thung.ten : '', mat: can.mat ? can.mat.ten : '', hau: can.hau ? can.hau.ten : '' }, ten: pn.ten };
   };
@@ -9142,6 +9202,8 @@
       } catch (e) { /* không lưu được thì thôi */ }
     },
   };
+  // (1.33) đổ màu cần biết tấm thuộc tủ chậu nào (giữ ván chống ẩm của thùng) — kể cả tủ vẽ từ phiên trước: đọc thông số đã lưu của tủ theo mã trên tấm
+  if (Drv) { try { Drv.specTuLuu = id => { const l = khoTu.get(id); return l && l.spec ? Core.normalize(l.spec) : null; }; } catch (e) { /* bỏ qua */ } }
 
   // Màu và chữ: mỗi biến lấy giá trị của trang (--mn-*, do bản trang độc lập / artifact khai báo theo giao diện sáng–tối) nếu có,
   // còn không (bảng nổi trong Chenfeng) thì dùng giá trị sáng mặc định ghi ngay đây.
@@ -11768,7 +11830,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!mauS.o.thung && !mauS.o.mat && !mauS.o.hau) return setStatus('Chưa chọn màu: bấm một ô (Thùng / Cánh + phào / Hậu) rồi bấm một màu trong danh sách.');
       const tam = Drv.tamCuaTu(chon), tu = tenTuCua(tam);
       vlKQ('<p class="hint tt">Đang đổ màu…</p>'); setStatus(`Đang đổ màu ${tu} (${tam.length} tấm)… màu dùng lần đầu phải tải từ kho, mất vài giây.`);
-      const r = await Drv.doMauTu(tam, mauS.o, { giu_van: vanGiu() });
+      const r = await Drv.doMauTu(tam, mauS.o);
       if (!r.ok) { vlKQ(`<div class="msg err">${esc(r.reason)}</div>`); return setStatus('Chưa đổ được màu.'); }
       const giu = NHOM_MAU.filter(N => !r.mau[N[0]]).map(N => N[1].toLowerCase());
       vlKQ(`<div class="msg ok">Đã đổ màu ${esc(tu)}: ${esc(dongMau(r) || 'không có tấm nào thuộc nhóm đã chọn màu')}.</div>`
@@ -11832,13 +11894,6 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       vlKQ(`<div class="msg ok">Đã thay ${esc(chuTu)} → ${esc(m.ten)}: ${r.so} tấm ${cho}.</div>` + (r.khoa ? `<div class="msg warn">${esc(khoaMau(r).trim())}</div>` : ''), r.steps > 0);
       setStatus(`Đã thay ${chuTu} → ${m.ten}: ${r.so} tấm.`); vlQuetLai();
     }
-    /** (1.33) Tên ván chống ẩm của tủ chậu (thông số đang làm + chuẩn bếp đã nhớ): đổ màu không ghi đè tên ván này trên tấm — kể cả tủ chậu vẽ từ phiên trước. */
-    function vanGiu() {
-      const ds = [];
-      try { if (spec.bep && spec.bep.van_chau) ds.push(spec.bep.van_chau); } catch (e) { /* bỏ qua */ }
-      try { const c = docChuanBep(); if (c && c.van_chau) ds.push(String(c.van_chau)); } catch (e) { /* bỏ qua */ }
-      return ds;
-    }
     /** Tủ / mẫu kho vừa vẽ xong: đổ màu ngay theo 3 ô (khi ô "tự đổ màu" đang bật). → null (không làm) | kết quả Drv.doMauTu. Không ném lỗi. */
     async function tuDoMau() {
       if (!coMau || !mauS.tu_dong || !(mauS.o.thung || mauS.o.mat || mauS.o.hau)) return null;
@@ -11846,7 +11901,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       try { tam = ((Drv.last && Drv.last.added) || []).filter(e => e && !e.IsErase && Drv.isBoard(e)); } catch (e) { tam = []; }
       if (!tam.length) return null;
       setStatus('Đang đổ màu tủ vừa vẽ…');
-      try { return await Drv.doMauTu(tam, mauS.o, { gop_ve: true, giu_van: vanGiu() }); } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
+      try { return await Drv.doMauTu(tam, mauS.o, { gop_ve: true }); } catch (e) { return { ok: false, reason: String(e && e.message || e) }; }
     }
 
     /* ---- ảnh hiện trạng ---- */
