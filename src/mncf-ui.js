@@ -875,7 +875,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     const cellFor = (i, tu) => { const cs = cellsOf(i); let r = null; for (const c of cs) if (c.tu <= tu + 0.6) r = c; return r || cs[0] || null; };
     const loaiCua = c => { const L = spec.ngan_keo.loai; return L.find(x => x.ma === c.loai) || L.find(x => x.ma === spec.ngan_keo.mac_dinh) || L[0] || null; };
     const tenO = c => { if (c.kieu === 'suot') return TEN_KIEU.suot; if (!c.kieu) return '';
-      if (c.kieu === 'keo_pk') { const ten = [].concat(c.pk || []).map(m => ((Core.LOAI_PK_BEP || []).find(q => q.ma === m) || {}).ten).filter(Boolean); return `${c.so} ${TEN_KIEU.keo_pk}${ten.length ? ' · ' + ten.join(', ') : ''}`; }      // (1.33) mặt kéo bắt vào rổ: không có loại ray ngăn kéo const lo = loaiCua(c); return `${c.so} ${TEN_KIEU[c.kieu]}${lo ? ' · ' + lo.ten : ''}`; };
+      if (c.kieu === 'keo_pk') { const ten = [].concat(c.pk || []).map(m => ((Core.LOAI_PK_BEP || []).find(q => q.ma === m) || {}).ten).filter(Boolean); return `${c.so} ${TEN_KIEU.keo_pk}${ten.length ? ' · ' + ten.join(', ') : ''}`; }      // (1.33) mặt kéo bắt vào rổ: không có loại ray ngăn kéo
+      const lo = loaiCua(c); return `${c.so} ${TEN_KIEU[c.kieu]}${lo ? ' · ' + lo.ten : ''}`; };
     // khoảng cao độ một đợt được phép nằm: trong lọt lòng thân của nó, cách đợt kề ít nhất 20
     function limits(i, j) {
       const d = spec.khoang[i].dot, t = spec.van.t, z = d[j];
@@ -1001,6 +1002,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // Chỗ đặt tủ đang biết: khung / hình / điểm bấm đang chờ vẽ (khungCho) → tủ vừa vẽ (noi.dat) → khung của thẻ Phòng đã vẽ đúng tủ đang nối → toạ độ gõ ở "Đặt tại toạ độ".
     // (1.33 vòng soát) chỗ đặt lấy ở SÀN (khung chờ vẽ, khung của phòng): tủ bếp trên còn được nâng lên cao độ treo lúc vẽ → soi điện – nước ở đúng cao độ đó.
     // noi.dat (góc đã vẽ) và toạ độ gõ là z thật — không cộng.
+    const zTreo = () => (loaiDangLam() === 'bep' && model && model.info && model.info.bep ? Number(model.info.bep.z_dat) || 0 : 0);      // cao độ đáy tủ bếp trên (0: tủ dưới / tủ cao / không phải tủ bếp)
     const nangTreo = g => { const z = zTreo(); return z ? [g[0], g[1], Math.round((g[2] + z) * 100) / 100] : g; };
     function choDatTu() {
       if (khungCho && khungCho.d && Array.isArray(khungCho.d.goc)) return { goc: nangTreo(khungCho.d.goc), xoay: khungCho.d.xoay || 0 };
@@ -1583,7 +1585,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         chipChu.textContent = 'Bấm góc trái – trước của tủ trên ở SÀN (bảng tự nâng lên cao độ treo)… Esc = thôi';
         let p = null; try { p = await Drv.hoiDiem('Một Nhà: bấm góc trái - trước của tủ trên (ở sàn):'); } catch (e) { p = null; }
         if (!p) { chip.hidden = true; panel.hidden = false; busy = false; rebuild(); setStatus('Đã huỷ — chưa vẽ gì.'); return null; }
-        o.corner = p;
+        o.corner = nangTreo(p);
       }
       else if (zBep && kc) o.corner = nangTreo(o.corner);      // chỗ đặt bằng chuột / khung: góc ở sàn
       const neoPhai = !!(kc && kc.lung && kc.lung.phai);
@@ -1629,7 +1631,11 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (nh) nh.textContent = noi ? `Cập nhật tủ ${noi.ten || ''}`.trim() : 'Cập nhật';
       if (rd) rd.setAttribute('aria-label', noi ? `Cập nhật tủ ${noi.ten || ''} trên bản vẽ (mã ${noi.id})` : 'Cập nhật tủ này trên bản vẽ');
       if (th) th.hidden = !noi;
+      // (1.33 vòng soát) tủ bếp trên: ô z = cao độ ĐÁY tủ (z thật); chỗ đặt bằng chuột (ô toạ độ mang góc ở sàn) thì nút ghi z đã nâng lên cao độ treo — đúng chỗ sẽ vẽ
+      const az = $('[data-ui="az"]'), zt = zTreo();
+      if (az) az.title = zt ? `Tủ bếp trên: z = cao độ đáy tủ tính từ sàn (mặt đá + cách mặt đá = ${hien(zt)}). Bảng không cộng thêm gì vào số gõ.` : 'z của góc trái – trước – dưới của cả tủ';
       if (dv) { const ua = $('[data-ui="useAt"]'), c = ['ax', 'ay', 'az'].map(n => { const e = $(`[data-ui="${n}"]`); return e ? String(e.value).trim() : ''; });
+        if (zt && c.every(Boolean) && khungCho && khungCho.d && Array.isArray(khungCho.d.goc)) { const v = c.map(x => parseFloat(x.replace(',', '.'))); if (v.every((x, i) => Math.abs(x - khungCho.d.goc[i]) < 0.01)) c[2] = fmt(nangTreo(v)[2]); }
         dv.textContent = noi ? 'Tủ mới' : ua && ua.checked && c.every(Boolean) ? `Vẽ tại ${c.join(', ')}` : 'Vẽ vào Chenfeng';
         dv.title = noi ? 'Vẽ một tủ MỚI theo số trong bảng (tủ đang nối trên bản vẽ giữ nguyên)' : ''; }
     }

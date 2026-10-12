@@ -283,6 +283,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
         ok(!(await H.locator('.vehang [data-act="dat-tuong"]').isVisible()) && !(await H.locator('.vehang [data-act="hinh"]').isVisible()) && await H.locator('.vehang [data-act="dat"]').isVisible(), `${ma}: giấu nút Tường / Hình (khung của tủ áo), còn nút Chuột`);
         if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
         // (1.33 vòng soát) toạ độ GÕ là toạ độ thật: tủ trên gõ z = cao độ đáy tủ (1550) — bảng không cộng cao độ treo lần nữa; nút xanh ghi đúng chỗ sẽ vẽ
+        if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();      // đang nối tủ vừa vẽ thì nút xanh là "Tủ mới"
         await H.locator('#mncf-ui-ax').fill(String(x)); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill(String(z));
         if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
         ok((await H.locator('footer [data-act="draw"]').innerText()).trim() === `Vẽ tại ${x}, 0, ${z}`, `${ma}: nút xanh ghi "Vẽ tại ${x}, 0, ${z}"`, await H.locator('footer [data-act="draw"]').innerText());
