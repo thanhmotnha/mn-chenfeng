@@ -3446,11 +3446,14 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'del') { spec.khoang.splice(+b.closest('.bay').dataset.i, 1); sel = null; hist = []; capNut(); renderBays(); rebuild(); }
       else if (act === 'mau' || act === 'reset') {      // "Tủ có sẵn" (bản 1.28: gộp "Dùng mẫu" + "Về tủ mẫu"; mục rỗng = tủ mặc định) — một bước ↶ Lùi
         const ma = act === 'reset' ? '' : $('[data-ui="mau"]').value, truoc = chup();
-        let moi;
+        let moi, baoCu = '';
         if (ma) {
           // (1.33) từ món khác sang tủ bếp: lấy chuẩn bếp đã nhớ (mặt đá, chân, sâu…) — mẫu bếp giữ chuẩn của món bếp đang làm, món không phải bếp thì không có
           const cb = laMauBep(ma) && loaiDangLam() !== 'bep' ? docChuanBep() : null;
+          // (bản vá 1.33.1) mặc định cũ bị bỏ (chuẩn lưu ở máy trước 1.33.1, hay tủ bếp đang mở làm ở 1.33.0 — bep.chuan_cu) → báo một dòng: gian bếp làm dở lệch mặt đá
+          const boCu = laMauBep(ma) ? (cb ? chuanCuBo : loaiDangLam() === 'bep' && spec.bep && Array.isArray(spec.bep.chuan_cu) ? spec.bep.chuan_cu.slice() : []) : [];
           moi = Core.apMau(cb ? Object.assign(clone(spec), { loai_sp: 'bep', bep: cb }) : spec, ma);
+          if (moi && moi.bep && Core.baoChuanBepMoi) baoCu = Core.baoChuanBepMoi(boCu.filter(k => Core.MAC_DINH_BEP_CU && moi.bep[k] !== Core.MAC_DINH_BEP_CU[k]));
         }
         else { const keep = Core.veTuAo(spec); moi = Core.normalize(Object.assign(keep, { rong: Core.DEFAULT_SPEC.rong, cao: Core.DEFAULT_SPEC.cao, sau_thung: Core.DEFAULT_SPEC.sau_thung, khoang: clone(Core.DEFAULT_SPEC.khoang), than: clone(Core.DEFAULT_SPEC.than), chan: clone(Core.DEFAULT_SPEC.chan), phao: Object.assign({}, keep.phao, { trai: 50, phai: 50, tren: 50 }) })); }
         if (moi) {
@@ -3459,7 +3462,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           let boK = false; if (!khungCho && !noi && coKhauCot(moi.khau)) { moi.khau = khongKhau(moi.khau.ho); khauCho = null; boK = true; }
           spec = moi; renderAll(); nho(truoc);
           const m = Core.MAU_TU.find(x => x.ma === ma) || [].concat(...(Core.THU_VIEN || []).filter(n => n.loai !== 'tu').map(n => n.ds)).find(x => x.ma === ma);
-          setStatus(`Đã dùng ${m ? `"${m.ten}" — ${m.mo_ta}` : 'tủ mặc định 3 khoang'}${boK ? '; bỏ khấu cột của tủ trước' : ''}${boCho}. ↶ Lùi để lấy lại thông số món đang làm.`);
+          setStatus(`Đã dùng ${m ? `"${m.ten}" — ${m.mo_ta}` : 'tủ mặc định 3 khoang'}${boK ? '; bỏ khấu cột của tủ trước' : ''}${boCho}. ↶ Lùi để lấy lại thông số món đang làm.${baoCu ? ' ' + baoCu : ''}`);
         }
       }
       else if (act === 'lk-add') { let n = 1; while (spec.ngan_keo.loai.some(x => x.ma === 'rieng' + n)) n++; spec.ngan_keo.loai.push({ ma: 'rieng' + n, ten: 'Loại mới ' + n, mau_id: 0, ten_mau: '', ts: {} }); renderSettings(); rebuild(); const inp = $(`#${fid('lk' + (spec.ngan_keo.loai.length - 1) + '-ten')}`); if (inp) { inp.focus(); inp.select(); } }
@@ -3546,6 +3549,9 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (tang === 'duoi') f.push(caoMat, oBep('day_da', 'Đá dày'), oBep('van_lot', 'Ván lót đá', 'title="Ván lót dưới đá (mm), 0 = không lót"'), oBep('dua_da', 'Đá đua', 'title="Đá nhô trước mặt cánh (mm)"'), oBep('chan', 'Chân', 'title="Hồi xuống sàn, đáy ở cao độ này (mm)"'), oBep('len_lui', 'Lùi xà chân', 'title="Xà chân lùi vào trong so với mặt thùng (mm) — chỗ để mũi chân"'));
       else if (tang === 'tren') f.push(oBep('cach_tren', 'Cách mặt đá', 'title="Đáy tủ trên tới mặt đá (mm) — bảng treo tủ ở cao độ mặt đá + khoảng này"'), caoMat, oBep('thanh_treo', 'Thanh treo', 'title="Bản thanh treo áp trước hậu, sát nóc (mm) — vít nở xuyên qua thanh này vào tường"'));
       else f.push(oBep('chan', 'Chân'), oBep('len_lui', 'Lùi xà chân'), caoMat, oBep('cach_tren', 'Cách mặt đá'), oBep('cao_tren', 'Cao tủ trên', 'title="Tủ cao lên tới đỉnh tủ trên: cao = mặt đá + cách mặt đá + cao tủ trên"'));
+      // (1.33.1) nóc tủ dưới: 2 thanh giằng (mặc định — vẽ bằng nhập tấm) / nóc liền (lệnh gốc vẽ được); tủ chậu / bếp nấu luôn giằng, tủ trên / tủ cao luôn nóc liền → không có ô
+      if (tang === 'duoi' && B.chuc_nang !== 'chau' && B.chuc_nang !== 'bep') f.push(chonBep('noc', 'Nóc', [['giang', '2 thanh giằng'], ['lien', 'Nóc liền']], 'title="Giằng: 2 thanh trước / sau thay nóc (vẽ bằng nhập tấm). Nóc liền: một tấm nóc (Chenfeng vẽ bằng lệnh gốc)"'));
+      f.push(chonBep('tay_nam', 'Tay nắm', [['vat', 'Vát cạnh'], ['an_mo', 'Ấn mở'], ['noi', 'Tay nắm nổi'], ['gola', 'Gola'], ['j', 'Nẹp J']], 'title="Vát cạnh: mép cánh vát 45° làm chỗ cầm. Ấn mở: bộ nhấn mở + bản lề không giảm chấn, ngăn kéo ray nhấn mở. Nổi: khách chọn mẫu (bảng không kê)"'));
       const tuChon = loai => tb[loai] && tb[loai].ma === 'tu_chon';
       if (tb.chau) {
         f.push(chonTB('chau', 'Chậu'));
@@ -3597,17 +3603,31 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (l !== loaiTruoc) { const truoc = loaiTruoc; loaiTruoc = l; if (l === 'bep-duoi') datXem3d(true); else if (khongTu() || truoc === 'giuong' || truoc === 'vach' || truoc === 'bep-duoi') datXem3d(khongTu()); }      // tủ bếp dưới: mặc định 3D (thấy đá), bấm 3D để về hình đứng
     }
     // (bản 1.33) chuẩn bếp (mặt đá, chân, sâu…) nhớ ở máy: đổi sang tủ áo rồi quay lại tủ bếp không phải gõ lại. Trình duyệt chặn lưu thì chỉ nhớ trong phiên.
-    let bepDaLuu = '';
+    // (1.33.1) bản lưu ghi kèm `ban` (Core.nangChuanBep): bản lưu trước 1.33.1 mang đúng mặc định cũ (mặt đá 850, tay nắm nổi) = người dùng chưa chọn → nhận mặc định mới
+    // (bản vá 1.33.1) khoá trong spec.bep.chuan_cu (tủ bếp làm ở 1.33.0 mang mặc định cũ) KHÔNG phải lựa chọn của người dùng: không ghi đè lên chuẩn đã lưu
+    // (giữ số đã lưu của khoá đó nếu có — sau khi nâng; không có thì bỏ trống = mặc định mới) — ghi kèm ban 1.33.1 là chốt mặc định cũ thành "đã chọn" mãi
+    let bepDaLuu = '', chuanCuBo = [];
+    const chuoiChuanBep = () => {
+      const c = {}, cc = Array.isArray(spec.bep.chuan_cu) ? spec.bep.chuan_cu : [];
+      let luu = null;
+      if (cc.length) { try { luu = JSON.parse(root.localStorage.getItem(LS_BEP) || 'null'); } catch (e) { luu = null; } luu = luu && typeof luu === 'object' && !Array.isArray(luu) && Core.nangChuanBep ? Core.nangChuanBep(luu).chuan : {}; }
+      for (const k of Core.KHOA_CHUAN_BEP || []) { if (cc.indexOf(k) >= 0) { if (k in luu) c[k] = luu[k]; } else if (k in spec.bep) c[k] = spec.bep[k]; }
+      c.ban = Core.VERSION; return JSON.stringify(c);
+    };
     function luuChuanBep() {
       if (loaiDangLam() !== 'bep' || !spec.bep) return;
-      const c = {}; for (const k of Core.KHOA_CHUAN_BEP || []) if (k in spec.bep) c[k] = spec.bep[k];
-      const t = JSON.stringify(c); if (t === bepDaLuu) return; bepDaLuu = t;
+      const t = chuoiChuanBep(); if (t === bepDaLuu) return; bepDaLuu = t;
       try { root.localStorage.setItem(LS_BEP, t); } catch (e) { /* trình duyệt chặn lưu */ }
     }
     function docChuanBep() {
+      chuanCuBo = [];
       let o = null; try { o = JSON.parse(root.localStorage.getItem(LS_BEP) || 'null'); } catch (e) { o = null; }
       if (!o && bepDaLuu) try { o = JSON.parse(bepDaLuu); } catch (e) { o = null; }
-      return o && typeof o === 'object' && !Array.isArray(o) ? o : null;
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+      if (!Core.nangChuanBep) return o;
+      const r = Core.nangChuanBep(o); chuanCuBo = r.doi;
+      if (o.ban !== r.luu.ban) try { root.localStorage.setItem(LS_BEP, JSON.stringify(r.luu)); } catch (e) { /* trình duyệt chặn lưu */ }      // ghi lại MỘT lần kèm phiên bản
+      return r.chuan;
     }
     const laMauBep = ma => [].concat(...(Core.THU_VIEN || []).filter(n => n.loai === 'bep').map(n => n.ds)).some(x => x.ma === ma);
     /** Ô của "Tủ bếp" (data-bep = khoá trong spec.bep): đi qua Core.datBep — tính lại kích thước module theo chuẩn mới (normBep tính ngược mặt đá, sâu… từ kích thước module, nên ghi thẳng vào spec.bep là mất). */
@@ -3657,6 +3677,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       renderBays(); renderSettings(); rebuild();
     }
     (inCF ? document.documentElement : document.body).appendChild(host);
+    // (1.33.1) món đang mở lúc khởi động là tủ bếp (thông số đã lưu): lần dựng đầu KHÔNG ghi chuẩn của nó đè lên chuẩn đã lưu — bản lưu trước 1.33.1 còn phải được nâng (docChuanBep)
+    if (loaiDangLam() === 'bep' && spec.bep) bepDaLuu = chuoiChuanBep();
     renderAll(); capMau();
     if (coMau) { veO(); veGan(); veDung(); }
     if (Ph) renderPhong();

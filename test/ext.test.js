@@ -338,7 +338,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       await page.waitForFunction(() => /Đã cập nhật|Chưa cập nhật/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
       const u2 = await bd();
       ok(u2.z0 === 0 && u2.x0 === 31000, 'Cập nhật tủ dưới: vẫn đứng ở z 0', u2);
-      // (1.33 vòng soát 2) tủ trên đặt bằng CHUỘT: ô z điền cao độ treo thật (1550); sửa ô x sau đó thì tủ vẫn treo ở 1550 (trước: rơi xuống sàn)
+      // (1.33 vòng soát 2) tủ trên đặt bằng CHUỘT: ô z điền cao độ treo thật (1560); sửa ô x sau đó thì tủ vẫn treo ở 1560 (trước: rơi xuống sàn)
       { await H.locator('.tab[data-tab="tu"]').click();
         if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
         await H.locator('#mncf-ui-mau').selectOption('BT-CANH-600'); await H.locator('[data-act="mau"]').click();
@@ -355,24 +355,24 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
         if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
         const o = async () => ({ ax: await H.locator('#mncf-ui-ax').inputValue(), az: await H.locator('#mncf-ui-az').inputValue(), nut: (await H.locator('footer [data-act="draw"]').innerText()).trim() });
         let v = await o();
-        ok(v.ax === '60000' && v.az === '1550' && /^Vẽ tại 60000, [-\d.]+, 1550$/.test(v.nut), 'tủ trên đặt bằng chuột: ô z = 1550 (cao độ đáy tủ thật, như nút xanh), không phải 0 ở sàn', v);
+        ok(v.ax === '60000' && v.az === '1560' && /^Vẽ tại 60000, [-\d.]+, 1560$/.test(v.nut), 'tủ trên đặt bằng chuột: ô z = 1560 (cao độ đáy tủ thật, như nút xanh), không phải 0 ở sàn', v);
         await H.locator('[data-bep="cach_tren"]').fill('750');
         await page.waitForFunction(() => window.MNCF.app.getSpec().bep.cach_tren === 750, null, { timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(400);
         await H.locator('#mncf-ui-ax').focus();
         v = await o();
-        ok(v.az === '1600' && /, 1600$/.test(v.nut), 'đổi Cách mặt đá 750 sau khi đặt: ô z theo kịp (1600)', v);
+        ok(v.az === '1610' && /, 1610$/.test(v.nut), 'đổi Cách mặt đá 750 sau khi đặt: ô z theo kịp (1610)', v);
         await H.locator('[data-bep="cach_tren"]').fill('700');
         await page.waitForFunction(() => window.MNCF.app.getSpec().bep.cach_tren === 700, null, { timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(400);
         await H.locator('#mncf-ui-ax').fill('60100');
         v = await o();
-        ok(v.az === '1550' && /^Vẽ tại 60100, [-\d.]+, 1550$/.test(v.nut), 'sửa ô x sau khi đặt bằng chuột: nút xanh vẫn ghi z 1550', v);
+        ok(v.az === '1560' && /^Vẽ tại 60100, [-\d.]+, 1560$/.test(v.nut), 'sửa ô x sau khi đặt bằng chuột: nút xanh vẫn ghi z 1560', v);
         await H.locator('footer [data-act="draw"]').click();
         await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 60100) < 1; }, null, { timeout: 30000 });
         await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
         const g = await bd();
-        ok(g.z0 === 1550 && g.x0 === 60100, 'vẽ: tủ trên treo ở z 1550, x 60100 (không rơi xuống sàn)', g);
+        ok(g.z0 === 1560 && g.x0 === 60100, 'vẽ: tủ trên treo ở z 1560, x 60100 (không rơi xuống sàn)', g);
         await H.locator('.tab[data-tab="tu"]').click();
         if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
         await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0'); }      // các phép thử sau chỉ gõ x

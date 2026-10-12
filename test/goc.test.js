@@ -32,7 +32,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     await page.goto('https://cfcad.cn/');
     await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCFDriver && window.MNCFCore, null, { timeout: 15000 });
     // (bản 1.31) chuẩn xưởng mới: nóc, đáy phủ hồi + khung mặt hộc kéo — lệnh gốc chỉ vẽ kết cấu cũ (hồi phủ nóc đáy) và số đo của bộ này là hộc kéo khe + xà ẩn → ghim cả hai
-    await page.evaluate(() => { window.MNCFCore.DEFAULT_SPEC.thung.noc_day = 'lot'; window.MNCFCore.DEFAULT_SPEC.ngan_keo.khung_mat = 0; });
+    await page.evaluate(() => { window.MNCFCore.DEFAULT_SPEC.thung.noc_day = 'lot'; window.MNCFCore.DEFAULT_SPEC.ngan_keo.khung_mat = 0; const B = window.MNCFCore.DEFAULT_BEP; if (B) { B.cao_mat = 850; B.noc = 'lien'; } });      // (1.33.1) số đo tủ bếp cũ: mặt đá 850, nóc liền (mặc định mới 860 + 2 giằng → nhập tấm)
     await page.evaluate(() => {
       const D = window.MNCFDriver, E = () => window.app.Database.ModelSpace.Entitys, song = () => E().filter(e => e && !e.IsErase);
       const lc = () => JSON.stringify(Object.keys(window.__MOCK__.gocSt).map(k => { const st = window.__MOCK__.gocSt[k]; return [k, st.m_Option, st.m_UiOption, st.topBoardOption, st.bottomBoardOption, st.m_BoardProcessOption, st.rectDrillOption, st.autoCutOption]; }));
@@ -204,6 +204,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       eq((await page.evaluate(() => window.__thu.hop('抽面板'))).map(b => b[5] - b[4]), [271.5, 271.5, 180], '… ba mặt ngăn kéo 271,5 / 271,5 / 180 (mặt trên cố định)');
       ht = await page.evaluate(() => window.__thu.hoanTac());
       eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
+      // (1.33.1) mặc định tủ dưới thường là 2 thanh giằng (đầu bộ thử ghim nóc liền để giữ số đo lệnh gốc) → kế hoạch lệnh gốc báo lý do, vẽ bằng nhập tấm
+      ok(await page.evaluate(() => { const C = window.MNCFCore, s = C.datBep(C.apMau(C.DEFAULT_SPEC, 'BD-NK3-600'), { noc: 'giang' }); return s.bep.noc === 'giang' && C.keHoachGoc(s).loi.some(t => /giằng/.test(t)); }), 'BD-NK3-600 nóc 2 giằng: keHoachGoc trả lý do "giằng" (rơi về nhập tấm)');
       const CH = await mau('BD-CHAU-900');
       r = await ve(CH, { corner: [28000, 0, 0] });
       eq([r.ok, r.gd, r.errors, r.goc, r.module && r.module[0]], [true, 'xong', [], false, true], 'BD-CHAU-900: giằng thay nóc, không hậu → vẽ theo cách nhập tấm, vẫn gom module');
