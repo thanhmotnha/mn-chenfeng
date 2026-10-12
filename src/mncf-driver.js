@@ -905,7 +905,11 @@
       // tham số bị khoá: nói ngay tại ô ghi chú của nó trong bảng Thông số (như BH) — người gõ số ở đó thấy liền vì sao tủ không chạy
       // (1.32) giường: W = dài phủ bì (đuôi → đầu giường), H = cao đầu giường; vách đầu giường: W = dày (tấm ốp + xương — chỉ xem)
       const lsp = Core.loaiSP ? Core.loaiSP(M.spec) : 'tu';
-      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' } : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
+      // (1.33) tủ bếp: Cao là của THÙNG (đá không phải tấm ván); tủ trên co giãn ở đỉnh, đáy giữ chỗ treo. Đổi Rộng trong Chenfeng thì phép kiểm rổ / chậu / bếp không chạy lại → nhắc đổi ở bảng
+      const tangBep = lsp === 'bep' && M.spec.bep ? M.spec.bep.tang : '';
+      const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' }
+        : lsp === 'bep' ? { L: 'Rộng phủ bì — đổi Rộng ở bảng Một Nhà để kiểm phụ kiện', W: 'Sâu phủ bì (cả cánh)', H: tangBep === 'tren' ? 'Cao tủ trên — đổi ở đỉnh, đáy giữ nguyên' : 'Cao tới đỉnh thùng (chưa gồm đá)' }
+        : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
       const ngan = lsp === 'giuong' ? { L: 'Rộng', W: 'Dài', H: 'Cao' } : { L: 'Rộng', W: lsp === 'vach' ? 'Dày' : 'Sâu', H: 'Cao' };
       for (const k of Object.keys(moTa)) {
         const kh = kq.khoa.find(x => x.ten === k);
@@ -1013,7 +1017,7 @@
     await chayModeling(tamRoi, true);
     const mauCua = b => { try { return (b.Template && b.Template.Object) || null; } catch (e) { return null; } };
     const ds = [...new Set(tamRoi.map(mauCua).filter(Boolean))];
-    if (!ds.length || !coMauHet(tamRoi)) { const n = buocDaChay(); if (n) await D.undo(n); kq.reason = 'Chenfeng không gom được các tấm phào / chân thành module (lệnh MODELING).'; return kq; }
+    if (!ds.length || !coMauHet(tamRoi)) { const n = buocDaChay(); if (n) await D.undo(n); kq.reason = tamRoi.length < 2 ? 'Chenfeng không gom được tấm rời duy nhất của tủ thành module (lệnh MODELING với MỘT tấm — chưa đo trên Chenfeng thật).' : 'Chenfeng không gom được các tấm phào / chân thành module (lệnh MODELING).'; return kq; }      // (1.33) tủ bếp lệnh gốc chỉ có một tấm rời (xà chân hoặc thanh treo)
     const T = ds.slice().sort((a, b) => b.Objects.length - a.Objects.length)[0];
     let mo = false, loi = '';
     try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_GAN'); mo = true; } } catch (e) { mo = false; }
@@ -1122,8 +1126,9 @@
     }
     // vẽ lại đúng chỗ + đúng hướng cũ: gốc toạ độ thiết kế của tủ cũ trên bản vẽ (tủ xoay thì tính qua khung của module)
     // (bản 1.32) giường / vách: lưng sát tường — đổi dài / dày thì giữ LƯNG (mép sau hộp bao), không giữ gốc thiết kế (đuôi giường / mặt tấm ốp)
+    // (1.33) tủ bếp cũng vậy: đổi sâu thì lưng vẫn sát tường; z giữ của tủ cũ (tủ trên treo ở chỗ cũ)
     let off = loc.offset;
-    if (Core.loaiSP && /^(giuong|vach)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), loc.offset[2]]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
+    if (Core.loaiSP && /^(giuong|vach|bep)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), loc.offset[2]]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
     const viTri = loc.khung ? { at: apM(loc.khung.G, off).map(r2), xoay: loc.khung.xoay } : { at: off };
     const rep = await D.draw(spec, Object.assign({}, opt, viTri, { corner: undefined, id: ref.id }));
     if (rep.giai_doan !== 'xong') {      // vẽ lại không được → trả tủ cũ về chỗ cũ
@@ -1608,6 +1613,8 @@
   // tên tấm của mẫu kho là tiếng Trung → tiếng Việt: khi báo cáo (D.tenTamViet) và khi ghi lại tên tấm của mẫu kho vừa vẽ (D.tenTamMoi — bản 1.19).
   // Tên DÀI / RIÊNG đứng trước tên chung chứa trong nó (抽底板 trước 底板, 左开门板 trước 门板…). Tên đo trên các bộ tủ của kho ngày 04/10/2026.
   const TEN_TAM = [
+    // (1.33) tấm tủ bếp trong kho Chenfeng — tên đoán theo tên quen dùng của phần mềm tủ bếp Trung Quốc, CHƯA thấy trên tấm thật [CĐ]; đứng TRƯỚC tên chung (侧板, 底板, 顶板, 台面…)
+    ['踢脚线', 'Xà chân'], ['吊柜侧板', 'Hồi'], ['地柜侧板', 'Hồi'], ['高柜侧板', 'Hồi'], ['吊柜底板', 'Đáy'], ['吊柜顶板', 'Nóc'], ['挡水条', 'Gờ chắn nước'], ['见光侧板', 'Tấm ốp hông'], ['转角封板', 'Tấm bịt góc'], ['台面板', 'Mặt đá'],
     // (1.32) tấm của module giường / táp trong kho Chenfeng — đứng TRƯỚC tên chung (侧板, 底板, 背板…) vì dò bằng includes theo thứ tự
     ['床头板', 'Đầu giường'], ['床屏', 'Đầu giường'], ['床尾板', 'Đuôi giường'], ['床侧板', 'Hông giường'], ['床边板', 'Hông giường'], ['床铺板', 'Phản giường'], ['床板', 'Phản giường'], ['排骨架', 'Khung vạt'], ['床撑', 'Đà giường'], ['床箱', 'Hộp giường'],
     ['左抽侧', 'Thành trái ngăn kéo'], ['右抽侧', 'Thành phải ngăn kéo'], ['抽侧板', 'Thành ngăn kéo'], ['抽侧', 'Thành ngăn kéo'], ['抽尾板', 'Hậu ngăn kéo'], ['抽尾', 'Hậu ngăn kéo'], ['抽背板', 'Hậu ngăn kéo'],
@@ -3273,9 +3280,11 @@
    * opt.hau_rieng = hậu KHÔNG tự theo màu thùng (dùng khi trả lại màu cũ cho tủ vừa cập nhật: hậu của tủ cũ chưa đổ thì để nguyên).
    * @returns {{ ok, so: { thung, mat, hau }, khoa (số tấm khoá vật liệu bị bỏ qua), steps, mau: { thung, mat, hau } (tên màu đã đổ, '' = giữ nguyên), ten (tên tấm từng nhóm) } | { ok: false, reason }}
    */
+  // (1.33) tấm mặt đá của mẫu tủ bếp trong kho (台面板 → "Mặt đá"): đá không phải ván — không đổ màu ván lên nó
+  const laTamDa = b => /^Mặt đá|台面板/.test(String((b && b.Name) || ''));
   D.doMauTu = async (boards, mau, opt) => {
     opt = opt || {}; mau = mau || {};
-    boards = (boards || []).filter(laTam);
+    boards = (boards || []).filter(b => laTam(b) && !laTamDa(b));
     if (!boards.length) return { ok: false, reason: 'Không có tấm nào để đổ màu — chọn 1 tấm của tủ trên bản vẽ rồi bấm lại.' };
     const can = { thung: mau.thung || null, mat: mau.mat || null, hau: mau.hau || (opt.hau_rieng ? null : mau.thung) || null };
     if (!can.thung && !can.mat && !can.hau) return { ok: false, reason: 'Chưa chọn màu nào.' };

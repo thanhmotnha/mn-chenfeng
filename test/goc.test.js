@@ -180,6 +180,38 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     ht = await page.evaluate(() => window.__thu.hoanTac());
     eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
 
+    // (bản 1.33) TỦ BẾP — tủ trên treo ở z 1550 vẽ trọn bằng lệnh gốc (đáy tủ không nằm trên sàn); tủ 3 ngăn kéo bằng lệnh gốc + DRAWER; tủ chậu (giằng thay nóc, không hậu) nhập tấm có lời báo
+    console.log('— (bản 1.33) Tủ bếp: tủ trên ở z 1550, tủ 3 ngăn kéo, tủ chậu');
+    {
+      await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
+      const mau = ma => page.evaluate(m => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, m); s.hau = Object.assign({}, s.hau, { t: 6 }); return s; }, ma);
+      const hopTu = () => page.evaluate(() => { const D = window.MNCFDriver, b = D.last.added.filter(e => D.isBoard(e) && !e.IsErase).map(D.boxOf); return [Math.min(...b.map(x => x[0])), Math.max(...b.map(x => x[1])), Math.min(...b.map(x => x[4])), Math.max(...b.map(x => x[5]))].map(v => Math.round(v * 10) / 10); });
+      const BT = await mau('BT-CANH-800');
+      r = await ve(BT, { corner: [20000, 0, 1550] });
+      eq([r.ok, r.gd, r.errors, r.goc, r.khop[0] === r.khop[1], r.va_cham, r.lc], [true, 'xong', [], true, true, [], true], 'BT-CANH-800 ở z 1550: vẽ xong bằng lệnh gốc, mọi tấm đúng hộp, lựa chọn hộp thoại trả lại');
+      // tủ bếp lệnh gốc chỉ có MỘT tấm rời (thanh treo / xà chân): lệnh MODELING với một tấm CHƯA ĐO — trang giả lập coi là hỏng (như với mọi tập dưới 2 tấm) → tủ vẫn đủ tấm, tấm rời đứng riêng, có lời báo
+      eq([r.lenh, r.nhap, r.module && [r.module[0], /MỘT tấm — chưa đo/.test(r.module[3])]], ['LE2 TO2 BE1 LA1 DO2', [[1, 0, 'ok']], [false, true]], '… hồi → nóc đáy → hậu → đợt → cánh; thanh treo nhập rời (gom một tấm thành module: chưa đo, lời báo nói rõ)');
+      ok(r.warnings.some(w => /TẤM RỜI/.test(w) && /Thanh treo × 1/.test(w)), '… lời báo kể thanh treo là tấm rời', r.warnings);
+      eq(await hopTu(), [20000, 20800, 1550, 2350], '… đáy tủ ở z 1550, đỉnh 2350 (tủ cao 800)');
+      eq((await page.evaluate(() => window.__thu.hop('Thanh treo'))).map(b => [b[4], b[5]]), [[2252.5, 2332.5]], '… thanh treo sát dưới nóc (80)');
+      ht = await page.evaluate(() => window.__thu.hoanTac());
+      eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
+      const NK = await mau('BD-NK3-600');
+      r = await ve(NK, { corner: [24000, 0, 0] });
+      eq([r.ok, r.gd, r.errors, r.goc, r.nk, r.mat_lech, r.lenh_nk], [true, 'xong', [], true, { tong: 1, so: 1, lui: [] }, [], ['ok']], 'BD-NK3-600: lệnh gốc cho thùng, ba ngăn kéo bằng lệnh DRAWER (ngăn trên 180)');
+      eq([r.nhap, r.module && [r.module[0], /MỘT tấm — chưa đo/.test(r.module[3])]], [[[1, 0, 'ok']], [false, true]], '… xà chân lùi nhập rời (một tấm rời: gom module chưa đo, như tủ trên)');
+      eq((await page.evaluate(() => window.__thu.hop('Xà chân'))).map(b => [b[2], b[3], b[4], b[5]]), [[32.5, 50, 0, 100]], '… xà chân lùi 50: y 32,5 … 50, z 0 … 100');
+      eq((await page.evaluate(() => window.__thu.hop('抽面板'))).map(b => b[5] - b[4]), [271.5, 271.5, 180], '… ba mặt ngăn kéo 271,5 / 271,5 / 180 (mặt trên cố định)');
+      ht = await page.evaluate(() => window.__thu.hoanTac());
+      eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
+      const CH = await mau('BD-CHAU-900');
+      r = await ve(CH, { corner: [28000, 0, 0] });
+      eq([r.ok, r.gd, r.errors, r.goc, r.module && r.module[0]], [true, 'xong', [], false, true], 'BD-CHAU-900: giằng thay nóc, không hậu → vẽ theo cách nhập tấm, vẫn gom module');
+      ok(r.warnings.some(w => /chưa vẽ được bằng lệnh gốc Chenfeng \(giằng thay nóc/.test(w) && /không hậu/.test(w)), '… lời báo nêu đúng lý do (giằng thay nóc, không hậu)', r.warnings);
+      ht = await page.evaluate(() => window.__thu.hoanTac());
+      eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
+    }
+
     // (bản 1.31 — anh Thanh: "phải vẽ đúng theo của Chenfeng") nút ĐO lệnh nóc / đáy bọc hồi: vẽ thử 3 lượt ở chỗ trống, ghi lại, hoàn tác sạch, trả tệp chữ
     console.log('— Đo lệnh nóc / đáy bọc hồi (Hướng dẫn → Đo bọc hồi): vẽ thử, ghi lại, hoàn tác');
     {

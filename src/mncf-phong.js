@@ -512,7 +512,8 @@
     // (bản 1.32) khung là chỗ đặt TỦ: giường / vách đầu giường đang mở trong bảng → đổi sang tủ áo (Chuẩn xưởng giữ nguyên);
     // táp chỉ giữ ngăn kéo của nó khi chỗ đặt cỡ táp (cao ≤ 1000, rộng ≤ 1200) — khung tủ áo (sàn → trần) thì cũng đổi sang tủ áo, không kéo táp cao 2 m
     const lsp = Core.loaiSP ? Core.loaiSP(s) : 'tu', tapNho = lsp === 'tap' && q.cao <= 1000 && q.rong <= 1200;
-    if ((lsp === 'giuong' || lsp === 'vach' || (lsp === 'tap' && !tapNho)) && Core.veTuAo) { s = Core.veTuAo(s); ghi.push(`Khung là chỗ đặt tủ — ${Core.TEN_SP[lsp].toLowerCase()} đang mở trong bảng được đổi sang tủ áo.`); }
+    // (bản 1.33) tủ bếp cũng đổi sang tủ áo: khung phòng chưa có kiểu 'bep' (bộ bếp theo tường là bản 1.34) — không để chân lùi / giằng / rổ / đá lọt vào khung tủ áo
+    if ((lsp === 'giuong' || lsp === 'vach' || lsp === 'bep' || (lsp === 'tap' && !tapNho)) && Core.veTuAo) { s = Core.veTuAo(s); ghi.push(`Khung là chỗ đặt tủ — ${Core.TEN_SP[lsp].toLowerCase()} đang mở trong bảng được đổi sang tủ áo.`); }
     const coMau = q.mau && Core.MAU_TU.find(m => m.ma === q.mau);
     if (coMau) { s = Core.apMau(s, q.mau); dsMau.push(q.mau); }
     else if (q.giu_ruot || tapNho) dsMau.push(tapNho ? 'táp đang mở' : 'ruột đang mở');      // bản 1.16 (tủ theo hình): giữ cách chia khoang đang có trong bảng
