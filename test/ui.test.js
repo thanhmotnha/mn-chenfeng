@@ -671,6 +671,10 @@ async function testBep(browser) {
   await chon('BT-CANH-800');
   ok((await loai()) === 'bep' && await S(page, '.bays').isVisible() && !(await S(page, 'fieldset.khung-tu').first().isVisible()), 'tủ bếp trên: ô khoang hiện; phào / khấu cột ẩn', await loai());
   ok(await S(page, '[data-bep="cach_tren"]').isVisible() && (await S(page, '[data-bep="cao_mat"]').count()) === 1 && (await S(page, '[data-bep="chan"]').count()) === 0, 'tủ trên: có ô cách mặt đá, không có ô chân');
+  // ô mặt kéo rổ (keo_pk) của tủ cao kho: dòng nội dung ô ghi "mặt kéo rổ" + tên rổ, không "undefined" / loại ray ngăn kéo
+  await chon('BC-KHO-600');
+  { const noi = (await S(page, '.bay .noi').allInnerTexts()).join('\n');
+    ok(/mặt kéo rổ/.test(noi) && !/undefined/.test(noi) && !/Ray bi/.test(noi), 'tủ cao kho: ô rổ ghi "mặt kéo rổ", không "undefined", không loại ray ngăn kéo', noi); }
   // tủ chậu: ô thiết bị theo chức năng; chậu không lọt → nút "Chuyển tủ 900" sửa bằng một bước ↶ Lùi
   await chon('BD-CHAU-800');
   ok(await S(page, '[data-bep="tb.chau.ma"]').isVisible() && (await S(page, '[data-bep="tb.hm.ma"]').count()) === 0 && (await S(page, '[data-bep="tb.bep.ma"]').count()) === 0, 'tủ chậu: ô model chậu, không ô bếp nấu / hút mùi');

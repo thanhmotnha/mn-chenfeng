@@ -8,7 +8,7 @@
   if (!Core || typeof document === 'undefined') return;
   const LS_KEY = 'mncf.spec.v2', LS_KEY_CU = 'mncf.spec.v1', LS_WIDE = 'mncf.ui.wide', LS_CHU = 'mncf.ui.chu', LS_BAN = 'mncf.spec.ban', LS_PHONG = 'mncf.phong.v1', LS_MAU = 'mncf.mau.v1', LS_BEP = 'mncf.bep.v1';      // v1 = thông số lưu từ bản 1.0–1.2
   const BUOC_KEO = 5;      // kéo đợt bắt bước 5 mm; gõ số hoặc phím mũi tên thì chính xác tới 1 mm
-  const TEN_KIEU = { nk_am: 'ngăn kéo âm', nk_trum: 'ngăn kéo trùm ngoài', suot: 'suốt treo' };
+  const TEN_KIEU = { nk_am: 'ngăn kéo âm', nk_trum: 'ngăn kéo trùm ngoài', suot: 'suốt treo', keo_pk: 'mặt kéo rổ' };
   /* ---- hình của từng loại ngăn kéo (bản 1.13): mặt cắt nhìn từ trước — 2 hồi tủ, hộp ngăn kéo, đáy, ray. Vẽ bằng SVG nên chạy cả ở trang độc lập / artifact (không tải ảnh ngoài).
    * Nhận dạng theo mã loại, tên mẫu Chenfeng hoặc tên loại: ray bi (ray kẹp hai bên hông) / ray âm (ray nằm dưới đáy) · đáy mỏng (lọt rãnh) / đáy dày · hông soi rãnh · chia ô · khung treo quần · Blum (thành kim loại) · khay bàn phím. */
   const dacDiemNK = x => { const t = `${x.ma || ''} ${x.ten_mau || ''} ${x.ten || ''}`; return {
@@ -874,7 +874,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // ô mà một nội dung {tu} rơi vào — cùng quy tắc với lõi: ô có `tu` lớn nhất mà ≤ tu, không có thì ô thấp nhất
     const cellFor = (i, tu) => { const cs = cellsOf(i); let r = null; for (const c of cs) if (c.tu <= tu + 0.6) r = c; return r || cs[0] || null; };
     const loaiCua = c => { const L = spec.ngan_keo.loai; return L.find(x => x.ma === c.loai) || L.find(x => x.ma === spec.ngan_keo.mac_dinh) || L[0] || null; };
-    const tenO = c => { if (c.kieu === 'suot') return TEN_KIEU.suot; if (!c.kieu) return ''; const lo = loaiCua(c); return `${c.so} ${TEN_KIEU[c.kieu]}${lo ? ' · ' + lo.ten : ''}`; };
+    const tenO = c => { if (c.kieu === 'suot') return TEN_KIEU.suot; if (!c.kieu) return '';
+      if (c.kieu === 'keo_pk') { const ten = [].concat(c.pk || []).map(m => ((Core.LOAI_PK_BEP || []).find(q => q.ma === m) || {}).ten).filter(Boolean); return `${c.so} ${TEN_KIEU.keo_pk}${ten.length ? ' · ' + ten.join(', ') : ''}`; }      // (1.33) mặt kéo bắt vào rổ: không có loại ray ngăn kéo const lo = loaiCua(c); return `${c.so} ${TEN_KIEU[c.kieu]}${lo ? ' · ' + lo.ten : ''}`; };
     // khoảng cao độ một đợt được phép nằm: trong lọt lòng thân của nó, cách đợt kề ít nhất 20
     function limits(i, j) {
       const d = spec.khoang[i].dot, t = spec.van.t, z = d[j];
@@ -998,10 +999,13 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     }
     /* ---- ĐIỆN – NƯỚC của phòng so với tủ đang mở (bản 1.18) ---- */
     // Chỗ đặt tủ đang biết: khung / hình / điểm bấm đang chờ vẽ (khungCho) → tủ vừa vẽ (noi.dat) → khung của thẻ Phòng đã vẽ đúng tủ đang nối → toạ độ gõ ở "Đặt tại toạ độ".
+    // (1.33 vòng soát) chỗ đặt lấy ở SÀN (khung chờ vẽ, khung của phòng): tủ bếp trên còn được nâng lên cao độ treo lúc vẽ → soi điện – nước ở đúng cao độ đó.
+    // noi.dat (góc đã vẽ) và toạ độ gõ là z thật — không cộng.
+    const nangTreo = g => { const z = zTreo(); return z ? [g[0], g[1], Math.round((g[2] + z) * 100) / 100] : g; };
     function choDatTu() {
-      if (khungCho && khungCho.d && Array.isArray(khungCho.d.goc)) return { goc: khungCho.d.goc, xoay: khungCho.d.xoay || 0 };
+      if (khungCho && khungCho.d && Array.isArray(khungCho.d.goc)) return { goc: nangTreo(khungCho.d.goc), xoay: khungCho.d.xoay || 0 };
       if (noi && noi.dat) return noi.dat;
-      if (noi && noi.id && phong && Array.isArray(phong.khung)) { const j = phong.khung.findIndex(k => k.tu_id === noi.id); if (j >= 0) { const d = Ph.datKhung(Ph.hinhHoc(phong), j); if (d) return { goc: d.goc, xoay: d.xoay || 0 }; } }
+      if (noi && noi.id && phong && Array.isArray(phong.khung)) { const j = phong.khung.findIndex(k => k.tu_id === noi.id); if (j >= 0) { const d = Ph.datKhung(Ph.hinhHoc(phong), j); if (d) return { goc: nangTreo(d.goc), xoay: d.xoay || 0 }; } }
       const ua = $('[data-ui="useAt"]');
       if (ua && ua.checked) { const c = ['ax', 'ay', 'az'].map(n => parseFloat(String($(`[data-ui="${n}"]`).value).replace(',', '.'))); if (c.every(v => isFinite(v))) return { goc: c, xoay: 0 }; }
       return null;
@@ -1571,16 +1575,17 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // vẽ đúng vị trí của khung đang mở (thẻ Phòng) hoặc của hình vừa lấy trên mặt bằng → tủ quay theo tường / theo hình (bản 1.16: driver tự đặt + xoay, cả tủ lệnh gốc)
       let kc = khungCho && khungCho.d && o.corner && o.corner.every((v, i) => Math.abs(v - khungCho.d.goc[i]) < 0.01) ? khungCho : null;
       if (kc && kc.lung) { neoLung(); o.corner = kc.d.goc.slice(); }      // (1.32) lưới đỡ: góc đã theo sâu / rộng hiện tại (neoLung chạy mỗi lần dựng lại)
-      // (bản 1.33) tủ bếp trên: điểm bấm / toạ độ / chỗ đặt bằng chuột là ở SÀN — bảng cộng cao độ treo (mặt đá + cách mặt đá) vào z. KHÔNG ghi cao độ treo vào hình học của tủ
-      // (module đổi Cao thì đáy phải đứng yên). Cập nhật giữ z của tủ cũ (driver dò lại chỗ tủ).
-      const zBep = loaiDangLam() === 'bep' && model && model.info.bep ? Number(model.info.bep.z_dat) || 0 : 0;
+      // (bản 1.33) tủ bếp trên: điểm bấm / chỗ đặt bằng chuột là ở SÀN — bảng cộng cao độ treo (mặt đá + cách mặt đá) vào z. KHÔNG ghi cao độ treo vào hình học của tủ
+      // (module đổi Cao thì đáy phải đứng yên). Cập nhật: driver dời z theo phần cao độ treo đổi.
+      // (1.33 vòng soát) toạ độ GÕ ở "Đặt tại toạ độ" (và opt.corner của lời gọi bằng mã) là z THẬT của đáy tủ — không cộng (gõ 1550 mà vẽ ở 3100)
+      const zBep = zTreo();
       if (zBep && !o.at && !o.corner) {
         chipChu.textContent = 'Bấm góc trái – trước của tủ trên ở SÀN (bảng tự nâng lên cao độ treo)… Esc = thôi';
         let p = null; try { p = await Drv.hoiDiem('Một Nhà: bấm góc trái - trước của tủ trên (ở sàn):'); } catch (e) { p = null; }
         if (!p) { chip.hidden = true; panel.hidden = false; busy = false; rebuild(); setStatus('Đã huỷ — chưa vẽ gì.'); return null; }
         o.corner = p;
       }
-      if (zBep && o.corner) o.corner = [o.corner[0], o.corner[1], Math.round((o.corner[2] + zBep) * 100) / 100];
+      else if (zBep && kc) o.corner = nangTreo(o.corner);      // chỗ đặt bằng chuột / khung: góc ở sàn
       const neoPhai = !!(kc && kc.lung && kc.lung.phai);
       if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
       // (bản 1.28) tủ này không đứng vào chỗ đặt đang giữ (bấm điểm / gõ toạ độ khác): khấu cột tự sinh theo cột của chỗ cũ không còn đúng → bỏ

@@ -1808,7 +1808,7 @@ T('Tủ bếp (bản 1.33)', () => {
     ok(MAU.some(m => m.ma === ma), `có mẫu ${ma}`);
   for (const m of MAU) {
     const s = C.apMau(D, m.ma), M = C.build(s), B = s.bep, W = s.rong, hop = M.info.hop;
-    const caoHop = { duoi: 830, tren: B.cao_tren, cao: 2350 }[B.tang];
+    const caoHop = { duoi: 830, tren: B.cao_rieng || B.cao_tren, cao: 2350 }[B.tang];      // mẫu H700 / H900: chiều cao riêng (cao_rieng), chuẩn Cao tủ trên giữ 800
     ok(s.loai_sp === 'bep' && B.tang === m.tang && !M.errors.length && !M.warnings.length, `${m.ma}: dựng được, không lỗi / cảnh báo`, [M.errors, M.warnings]);
     eq(overlapAny(M), [], `${m.ma}: không tấm nào đè nhau`);
     ok(!M.kq.some(x => x.ma === 'lien_ket'), `${m.ma}: tấm nào cũng có chỗ tì`);
@@ -1892,6 +1892,71 @@ T('Tủ bếp (bản 1.33)', () => {
   eq(C.nhomMau([{ ten: 'Xà chân' }, { ten: 'Giằng trước' }, { ten: 'Thanh treo' }, { ten: 'Mặt ngăn kéo (rổ giá xoong nồi)' }]), ['mat', 'thung', 'thung', 'mat'], 'nhóm màu: xà chân + mặt kéo rổ là mặt, giằng + thanh treo là thùng');
   ok(!C.vuaKhoVan(ap('BD-CANH-900')).doi.length, 'vừa khổ ván trả sớm cho tủ bếp');
   ok(/<svg/.test(C.hinh3D(C.build(ap('BD-CHAU-900')))) && (C.build(ap('BD-CHAU-900')).khoi_phu || []).length === 1, 'hình 3D: đá là khối phụ (không phải tấm)');
+});
+
+// Vòng soát đối kháng 1.33 (lõi): mỗi phép thử ứng với một lỗi đã xác nhận.
+T('Tủ bếp — sửa theo vòng soát 1.33', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  C.DEFAULT_SPEC.thung.noc_day = 'lot'; C.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
+  const D = C.DEFAULT_SPEC, ap = (ma, tu) => JSON.parse(JSON.stringify(C.apMau(tu || D, ma)));
+  const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t);
+  // #0 / #9 / #14: ghé tủ bếp không đổi chuẩn nóc / đáy của xưởng (tủ bếp tự dựng 'lot' ngay trong bộ dựng)
+  { const s = C.normalize({ thung: { noc_day: 'phu_hoi' } });
+    for (const ma of ['BD-CANH-600', 'BD-CHAU-800', 'BT-CANH-600', 'BC-KHO-600']) {
+      const b = C.apMau(s, ma), t = C.apMau(b, 'TA2-1000'), t2 = C.apMau(b, 'TA4-2000');
+      ok(b.thung.noc_day === 'phu_hoi' && t.thung.noc_day === 'phu_hoi' && t2.thung.noc_day === 'phu_hoi', `${ma}: phủ hồi → tủ bếp → tủ áo vẫn phủ hồi`, [b.thung.noc_day, t.thung.noc_day]);
+      ok(JSON.stringify(C.build(b).parts) === JSON.stringify(C.build(C.apMau(C.normalize({ thung: { noc_day: 'lot' } }), ma)).parts), `${ma}: tủ bếp vẫn dựng nóc / đáy lọt khi chuẩn xưởng là phủ hồi`);
+      ok(!C.keHoachGoc(b).loi.some(l => /phủ hồi/.test(l)), `${ma}: lệnh gốc không chặn tủ bếp vì chuẩn phủ hồi`);
+    }
+    ok(JSON.stringify(C.build(C.apMau(C.apMau(s, 'BD-CANH-600'), 'TA2-1000')).parts) === JSON.stringify(C.build(C.apMau(s, 'TA2-1000')).parts), 'tủ áo sau khi ghé tủ bếp dựng y như không ghé'); }
+  // #2: giá bát cố định trong tủ trên sâu 320 (sâu chuẩn VN) lọt; tủ quá nông vẫn báo
+  { const s = ap('BT-BAT-600'); s.sau_thung = 320; const M = C.build(s); ok(!M.errors.length, 'giá bát cố định trong tủ trên sâu 320: không lỗi', M.errors); }
+  { const s = ap('BT-BAT-600'); s.sau_thung = 280; ok(loiBep(C.build(s)).some(t => /Giá bát đĩa cố định/.test(t)), 'giá bát cố định trong tủ trên sâu 280: LỖI', loiBep(C.build(s))); }
+  { const s = ap('BT-BAT-800'); s.bep.pk = 'bat_tren_nh'; s.cao = 700; s.sau_thung = 320; ok(loiBep(C.build(s)).some(t => /nâng hạ/.test(t)), 'giá bát nâng hạ vẫn cần sâu lọt lòng ≥ 300'); }
+  // #3 / #7 / #17: Cao gõ cho tủ cao không mất khi sửa ô khác của Tủ bếp; đổi chuẩn chiều cao thì tính lại
+  { let s = ap('BC-KHO-600'); s.cao = 2400; s = C.normalize(s); eq(s.cao, 2400, 'tủ cao gõ Cao 2400');
+    for (const doi of [{ len_lui: 60 }, { chan: 120 }, { day_da: 30 }, { tb: {} }, { nk_nong: 200 }]) eq(C.datBep(s, doi).cao, 2400, `tủ cao 2400 → datBep(${JSON.stringify(doi)}) giữ Cao 2400`);
+    eq(C.datBep(C.datBep(s, { chan: 120 }), { len_lui: 40 }).cao, 2400, 'sửa hai lần liền vẫn giữ');
+    eq(C.datBep(s, { cao_tren: 700 }).cao, 2250, 'đổi Cao tủ trên (chuẩn) → tủ cao tính lại theo chuẩn');
+    eq(C.datBep(s, { cach_tren: 650 }).cao, 2300, 'đổi Cách mặt đá → tủ cao tính lại');
+    ok(C.datBep(s, { len_lui: 60 }).bep.cao_tren === 800, 'Cao gõ của tủ cao không ghi đè chuẩn Cao tủ trên'); }
+  { const M = C.build(C.datBep(ap('BC-KHO-600'), { cao_tren: 900 })); ok(M.errors.some(e => /khổ ván/.test(e)) && !M.errors.some(e => /cao thân dưới/.test(e)), 'tủ cao vượt khổ: lời khuyên theo ô của tủ bếp (không bảo giảm "cao thân dưới" đã bị khoá)', M.errors); }
+  // #18: số ngoài khoảng bị kẹp TRƯỚC khi tính kích thước — ô và module khớp nhau
+  { const s = C.datBep(ap('BD-CANH-600'), { day_da: 300 }); ok(s.bep.day_da === 80 && s.bep.cao_mat === 850 && s.cao === 770, 'đá dày 300 → kẹp 80, mặt đá giữ 850, tủ 770', [s.bep.day_da, s.bep.cao_mat, s.cao]); }
+  { const s = C.datBep(ap('BD-NK3-600'), { cao_mat: 1500 }); ok(s.bep.cao_mat === 1100 && s.cao === 1080, 'mặt đá 1500 → kẹp 1100, tủ 1080', [s.bep.cao_mat, s.cao]); }
+  { const s = C.datBep(ap('BT-CANH-600'), { cao_tren: 5000 }); ok(s.bep.cao_tren === 1200 && s.cao === 1200, 'tủ trên cao 5000 → kẹp 1200', [s.bep.cao_tren, s.cao]); }
+  { const s = C.datBep(ap('BD-CANH-600'), { chan: 120, cao_mat: 860, day_da: 30 }); const t = C.datBep(s, {}); ok(t.cao === s.cao && t.bep.cao_mat === 860 && t.bep.day_da === 30 && t.bep.chan === 120, 'số gõ trong khoảng đi một vòng không đổi', [t.cao, t.bep]); }
+  // #4: dòng bản lề của tủ bếp không ghi hãng ngoài Higold / Eurogold; tủ áo giữ Kolity K53 mặc định
+  for (const ma of ['BD-CHAU-900', 'BT-CANH-600', 'BC-KHO-600']) {
+    const pk = C.cutList(C.build(ap(ma))).phu_kien, bl = pk.find(x => /Bản lề/.test(x.ten));
+    ok(bl && /Higold|Eurogold/.test(bl.ten) && !/Kolity|Imundex/i.test(bl.ten + ' ' + bl.ghi_chu), `${ma}: dòng bản lề là Higold / Eurogold`, bl);
+  }
+  { const pk = C.cutList(C.build(ap('TA2-1000'))).phu_kien.find(x => /Bản lề/.test(x.ten)); ok(D.canh.loai_ban_le === 'k53' && pk && /Kolity K53/.test(pk.ten), 'tủ áo: bản lề mặc định vẫn Kolity K53', pk); }
+  ok(C.LOAI_BAN_LE.some(l => /Higold/.test(l.ten) && /Eurogold/.test(l.ten) && /CĐ/.test(l.ten + l.nguon)), 'LOAI_BAN_LE có loại Higold / Eurogold ghi [CĐ]');
+  // #5 / #11: ván lót đá là tấm thật
+  { const s = C.datBep(ap('BD-BEP-800'), { van_lot: 15 }), M = C.build(s), L = M.parts.filter(p => /Ván lót đá/.test(p.ten));
+    ok(L.length === 1 && L[0].type === 0 && near(L[0].z0, s.cao) && near(L[0].z1, s.cao + 15) && near(L[0].t, 15) && near(L[0].x0, 0) && near(L[0].x1, s.rong), 'van_lot 15 → một tấm "Ván lót đá" dày 15 nằm trên thùng, ngay dưới đá', L.map(box));
+    ok(near(M.da.z, L[0].z1), 'đá nằm trên ván lót');
+    ok(!M.errors.length && !M.warnings.length && C.phieu(M).dat, 'tủ bếp nấu có ván lót: không lỗi / cảnh báo', [M.errors, M.warnings]);
+    ok(['L', 'W', 'H'].every(x => C.heSo(s).bien[x]), 'tủ có ván lót: module vẫn co giãn L / W / H');
+    ok(C.cutList(M).rows.some(r => /Ván lót đá/.test(r.ten)), 'bảng cắt có ván lót đá');
+    ok(C.toChenfeng(M).json.ModelSpace.some(o => o.Type === 'Board' && /Ván lót đá/.test(JSON.stringify(o))), 'ván lót đá vào lệnh nhập Chenfeng'); }
+  { const M = C.build(C.datBep(ap('BD-CANH-600'), { van_lot: 17.5 })); ok(M.parts.some(p => p.ten === 'Ván lót đá' && near(p.z0, 812.5) && near(p.z1, 830)) && !M.errors.length, 'van_lot 17,5: tấm ở z 812,5 – 830', M.errors); }
+  ok(!C.build(ap('BD-BEP-800')).parts.some(p => /lót/i.test(p.ten)), 'van_lot 0: không có ván lót');
+  // #6: chiều cao riêng của mẫu H700 / H900 không thành chuẩn cho mẫu sau
+  { const a = C.apMau(D, 'BT-CANH-600-H700'); eq(a.cao, 700, 'mẫu H700 cao 700');
+    eq(C.apMau(a, 'BT-CANH-600').cao, 800, 'H700 → BT-CANH-600: cao 800 theo danh mục');
+    eq(C.apMau(a, 'BT-HM-800').cao, 800, 'H700 → BT-HM-800: cao 800');
+    const c = C.apMau(C.apMau(D, 'BT-CANH-600-H900'), 'BC-KHO-600'); ok(c.cao === 2350 && !C.build(c).errors.length, 'H900 → tủ cao: 2350, không lỗi', [c.cao, C.build(c).errors]);
+    eq(C.normalize(a).cao, 700, 'mẫu H700 normalize giữ 700');
+    eq(C.datBep(a, { chan: 0, len_lui: 30 }).cao, 700, 'mẫu H700: sửa ô khác giữ 700');
+    eq(C.apMau(C.datBep(C.apMau(D, 'BT-CANH-600'), { cao_tren: 750 }), 'BT-CANH-800').cao, 750, 'chuẩn Cao tủ trên người dùng đặt vẫn đi theo mẫu sau'); }
+  // #10: rổ tính theo khoang chứa nó
+  { const s = ap('BD-XN-900'); s.khoang = [{ rong: 'auto', canh: 1, dot: [], o: [] }, { rong: 600, canh: 0, dot: [], o: [{ tu: 0, kieu: 'keo_pk', pk: ['xoong'] }] }];
+    const M = C.build(C.normalize(s)), pk = C.cutList(M).phu_kien.filter(x => x.bep);
+    ok(!loiBep(M).some(t => /cỡ 900/.test(t)), 'rổ trong khoang 600 của tủ 900: không đòi rổ cỡ 900', loiBep(M));
+    ok(pk.some(x => /Giá xoong nồi cỡ 600/.test(x.ten)) && !pk.some(x => /cỡ 900/.test(x.ten)), 'bảng kê: giá xoong cỡ 600', pk.map(x => x.ten)); }
+  { const s = ap('BC-KHO-600'); s.khoang = [{ rong: 'auto', canh: 1, dot: [], o: [] }, s.khoang[0]]; const M = C.build(C.normalize(s)); ok(loiBep(M).some(t => /đồ khô/.test(t)) && !loiBep(M).some(t => /cỡ 600/.test(t)), 'tủ cao chia 2 khoang: báo rổ theo cỡ của khoang, không theo cỡ tủ 600', loiBep(M)); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

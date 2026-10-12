@@ -817,8 +817,11 @@
       const s = JSON.parse(JSON.stringify(spec)), r1 = v => Math.round(v * 10) / 10;
       s.thung = Object.assign({}, s.thung, { tach: (h0.M.info && h0.M.info.tach) || [] });      // module co giãn thì cách tách thùng giữ như lúc vẽ
       s.rong = r1(spec.rong + kt[0] - k0[0]); s.sau_thung = r1(spec.sau_thung + kt[1] - k0[1]); s.cao = r1(spec.cao + kt[2] - k0[2]);
-      const n = Core.normalize(s);
-      return Core.build(n).errors.length ? null : n;
+      const n = Core.normalize(s), Mn = Core.build(n);
+      // (1.33 vòng soát) tủ bếp: heSo cho Rộng co giãn dù cỡ mới làm rổ / chậu không vừa (lỗi 'bep') — module đổi Rộng trong Chenfeng thì vẫn nhận số đó để bảng báo lỗi phụ kiện,
+      // không trả null (null = bảng mở lại / Cập nhật theo số cũ, lặng lẽ bỏ số người dùng đã đổi). Lỗi khác vẫn là "không nhận".
+      const loiBep = (Mn.kq || []).filter(k => k.muc === 'loi' && k.ma === 'bep').length;
+      return Mn.errors.length > loiBep ? null : n;
     } catch (e) { return null; }
   };
   /** Chạy lệnh MODELING ("建模") của Chenfeng trên các tấm `boards`. phimF: bấm F = chia module theo cụm tấm chạm nhau (mặc định Chenfeng chia theo tên phòng / tên tủ). Trả về số bước lịch sử. */
@@ -1127,8 +1130,11 @@
     // vẽ lại đúng chỗ + đúng hướng cũ: gốc toạ độ thiết kế của tủ cũ trên bản vẽ (tủ xoay thì tính qua khung của module)
     // (bản 1.32) giường / vách: lưng sát tường — đổi dài / dày thì giữ LƯNG (mép sau hộp bao), không giữ gốc thiết kế (đuôi giường / mặt tấm ốp)
     // (1.33) tủ bếp cũng vậy: đổi sâu thì lưng vẫn sát tường; z giữ của tủ cũ (tủ trên treo ở chỗ cũ)
+    // (1.33 vòng soát) tủ bếp trên: cao độ treo (mặt đá + cách mặt đá) không nằm trong hình học của tủ → đổi "Cách mặt đá" / "Cao mặt đá" thì dời z đúng bằng phần cao độ treo đổi
+    // (tủ người dùng đã dời tay vẫn giữ vị trí tương đối của nó)
+    const zTreo = M => Number(M && M.info && M.info.bep && M.info.bep.z_dat) || 0;
     let off = loc.offset;
-    if (Core.loaiSP && /^(giuong|vach|bep)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), loc.offset[2]]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
+    if (Core.loaiSP && /^(giuong|vach|bep)$/.test(Core.loaiSP(Mm.spec))) { const bN = Core.bbox(Mm.parts), bC = Core.bbox(Mc.parts); if (bN && bC) off = [ref.neo_phai ? r2(loc.offset[0] - (bN.x1 - bC.x1)) : loc.offset[0], r2(loc.offset[1] - (bN.y1 - bC.y1)), r2(loc.offset[2] + zTreo(Mm) - zTreo(Mc))]; }      // neo_phai: đặt bằng chuột từ đầu phải → giữ đầu phải
     const viTri = loc.khung ? { at: apM(loc.khung.G, off).map(r2), xoay: loc.khung.xoay } : { at: off };
     const rep = await D.draw(spec, Object.assign({}, opt, viTri, { corner: undefined, id: ref.id }));
     if (rep.giai_doan !== 'xong') {      // vẽ lại không được → trả tủ cũ về chỗ cũ
@@ -1614,7 +1620,9 @@
   // Tên DÀI / RIÊNG đứng trước tên chung chứa trong nó (抽底板 trước 底板, 左开门板 trước 门板…). Tên đo trên các bộ tủ của kho ngày 04/10/2026.
   const TEN_TAM = [
     // (1.33) tấm tủ bếp trong kho Chenfeng — tên đoán theo tên quen dùng của phần mềm tủ bếp Trung Quốc, CHƯA thấy trên tấm thật [CĐ]; đứng TRƯỚC tên chung (侧板, 底板, 顶板, 台面…)
-    ['踢脚线', 'Xà chân'], ['吊柜侧板', 'Hồi'], ['地柜侧板', 'Hồi'], ['高柜侧板', 'Hồi'], ['吊柜底板', 'Đáy'], ['吊柜顶板', 'Nóc'], ['挡水条', 'Gờ chắn nước'], ['见光侧板', 'Tấm ốp hông'], ['转角封板', 'Tấm bịt góc'], ['台面板', 'Mặt đá'],
+    // Tấm ốp hông / mặt đá chỉ nhận khi tên có chữ tủ bếp (地柜 / 吊柜 / 高柜 / 橱柜): tên trần 台面板 (mặt bàn học, bàn trang điểm) và 见光侧板 (hồi lộ của tủ áo) giữ như 1.32
+    ['踢脚线', 'Xà chân'], ['吊柜侧板', 'Hồi'], ['地柜侧板', 'Hồi'], ['高柜侧板', 'Hồi'], ['吊柜底板', 'Đáy'], ['吊柜顶板', 'Nóc'], ['挡水条', 'Gờ chắn nước'],
+    ['地柜见光侧板', 'Tấm ốp hông'], ['吊柜见光侧板', 'Tấm ốp hông'], ['高柜见光侧板', 'Tấm ốp hông'], ['橱柜见光侧板', 'Tấm ốp hông'], ['转角封板', 'Tấm bịt góc'], ['橱柜台面板', 'Mặt đá'], ['地柜台面板', 'Mặt đá'],
     // (1.32) tấm của module giường / táp trong kho Chenfeng — đứng TRƯỚC tên chung (侧板, 底板, 背板…) vì dò bằng includes theo thứ tự
     ['床头板', 'Đầu giường'], ['床屏', 'Đầu giường'], ['床尾板', 'Đuôi giường'], ['床侧板', 'Hông giường'], ['床边板', 'Hông giường'], ['床铺板', 'Phản giường'], ['床板', 'Phản giường'], ['排骨架', 'Khung vạt'], ['床撑', 'Đà giường'], ['床箱', 'Hộp giường'],
     ['左抽侧', 'Thành trái ngăn kéo'], ['右抽侧', 'Thành phải ngăn kéo'], ['抽侧板', 'Thành ngăn kéo'], ['抽侧', 'Thành ngăn kéo'], ['抽尾板', 'Hậu ngăn kéo'], ['抽尾', 'Hậu ngăn kéo'], ['抽背板', 'Hậu ngăn kéo'],
@@ -3281,7 +3289,7 @@
    * @returns {{ ok, so: { thung, mat, hau }, khoa (số tấm khoá vật liệu bị bỏ qua), steps, mau: { thung, mat, hau } (tên màu đã đổ, '' = giữ nguyên), ten (tên tấm từng nhóm) } | { ok: false, reason }}
    */
   // (1.33) tấm mặt đá của mẫu tủ bếp trong kho (台面板 → "Mặt đá"): đá không phải ván — không đổ màu ván lên nó
-  const laTamDa = b => /^Mặt đá|台面板/.test(String((b && b.Name) || ''));
+  const laTamDa = b => /^Mặt đá|(橱柜|地柜)台面板/.test(String((b && b.Name) || ''));      // tên trần 台面板 là mặt bàn gỗ (bàn học, bàn trang điểm) — vẫn đổ màu
   D.doMauTu = async (boards, mau, opt) => {
     opt = opt || {}; mau = mau || {};
     boards = (boards || []).filter(b => laTam(b) && !laTamDa(b));
