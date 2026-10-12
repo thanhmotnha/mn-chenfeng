@@ -1,6 +1,6 @@
 # mn-chenfeng — ghi nhớ cho Claude
 
-Tiện ích "Một Nhà · Vẽ tủ vào Chenfeng" (plugin cho Chenfeng WebCAD cfcad.cn) của Một Nhà Design & Build. Trả lời anh Thanh (Jason) bằng tiếng Việt, ngắn, làm trước nói sau, giao file dùng được ngay.
+Tiện ích "Một Nhà · Vẽ tủ vào Chenfeng" (plugin cho Chenfeng WebCAD cfcad.cn) của Một Nhà Design & Build. Trả lời anh Thanh (Jason) bằng tiếng Việt, ngắn, làm trước nói sau, giao file dùng được ngay. Cần anh chọn / chốt gì thì hỏi bằng hộp tích chọn (AskUserQuestion, có phương án đề xuất), không hỏi bằng danh sách chữ (anh Thanh 12/10/2026).
 
 ## Kho này là KÊNH PHÁT HÀNH
 - Mọi máy đã cài tiện ích tự tải `dist/mn-chenfeng.js` (bảng vẽ tủ, mỗi lần mở Chenfeng) và `dist/mn-chenfeng-sx.js` (trợ lý, mỗi lần mở trang sản xuất) trên nhánh `main` (xem README → Tự cập nhật). **Đẩy lên `main` = phát hành cho xưởng.**
