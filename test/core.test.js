@@ -2230,6 +2230,8 @@ T('Tủ bếp — bản vá soát 1.33.1', () => {
   { const M = nkAm('vat'); ok(!M.errors.length && M.templates.filter(t => t.kieu === 'nk_am').length === 2, 'BC-KHO-600 + 2 hộc âm sau cánh: dựng được', M.errors);
     ok(!pkBep(M).some(x => /vát/.test(x.ten) && /ngăn kéo/.test(x.ten)), 'vát cạnh: không kê vát mặt hộc âm (nằm sau cánh)', pkBep(M)); }
   ok(!pkBep(nkAm('an_mo')).some(x => /[Rr]ay nhấn mở/.test(x.ten)), 'ấn mở: không kê ray nhấn mở cho hộc âm sau cánh', pkBep(nkAm('an_mo')));
+  { const s = ap('BC-KHO-600'); s.khoang[0].o = [{ tu: 0, kieu: 'nk_am', so: 2, loai: 'blum16' }]; s.khoang[0].dot = [1200]; s.bep.tay_nam = 'an_mo'; const M = C.build(C.normalize(s));
+    ok(!M.warnings.some(t => /Ấn mở: hộp ray Blum/.test(t)), 'ấn mở: hộc âm Blum sau cánh không bị báo "Blum không ấn mở được"', M.warnings); }
   // (c) mặt kéo rổ cao của tủ cao: chỗ cầm vát mép đứng (mép trên ở ~1,9 m không với tới), có dòng ghi; mặt kéo tủ dưới vẫn mép trên
   { const M = C.build(ap('BC-KHO-400')), mk = P2(M, 'MKP')[0];
     ok(mk && mk.z1 > 1800 && /mép đứng/.test(mk.gia_cong) && !/mép trên/.test(mk.gia_cong), 'BC-KHO-400: mặt kéo cao vát mép đứng', mk && mk.gia_cong);
@@ -2240,16 +2242,44 @@ T('Tủ bếp — bản vá soát 1.33.1', () => {
     eq([s.cao, s.bep.cao_tren, M.info.bep.z_dat], [350, 800, 2010], 'BT-HM-800 chọn máy kính 700: tủ che ống cao 350, đáy +2010 (đỉnh 2360 = đỉnh dãy)');
     ok(!loiBep(M).length, 'BT-HM-800 + máy kính: không lỗi', loiBep(M));
     s.cao = 400; const s2 = C.normalize(s); eq([s2.bep.cao_tren, s2.bep.cao_rieng, C.build(s2).info.bep.z_dat], [800, 400, 1960], 'gõ Cao 400: chỉ tủ này cao 400 (chuẩn Cao tủ trên vẫn 800), đáy nâng theo'); }
-  { const s = ap('BT-HM-800'); s.bep.tb.hm = { ma: 'kinh_700' }; const n = C.normalize(s), M = C.build(n), l = loiBep(M).find(t => /Giảm cao tủ che ống còn ≤ (\d+)/.test(t));
-    ok(l, 'thông số ghi thẳng máy kính vào tủ cao 800: lỗi khuyên giảm cao', loiBep(M));
+  { const s = ap('BT-HM-800'); s.bep.tb.hm = { ma: 'kinh_700' }; const n = C.normalize(s), M = C.build(n), l = loiBep(M).find(t => /Giảm Cao của tủ này .*≤ (\d+)/.test(t));
+    ok(l && !/BT-HMK|chọn mẫu/.test(l) && /chuẩn Cao tủ trên giữ nguyên/.test(l), 'thông số ghi thẳng máy kính vào tủ cao 800: lỗi khuyên giảm ô Cao của tủ này (chuẩn giữ) — tủ đã là tủ che ống, không khuyên chọn mẫu', loiBep(M));
     const x = +/≤ (\d+)/.exec(l)[1], s2 = JSON.parse(JSON.stringify(n)); s2.cao = x; const n2 = C.normalize(s2);
     ok(!loiBep(C.build(n2)).length && n2.bep.cao_tren === 800, `làm theo lời khuyên (cao ${x}): hết lỗi, chuẩn Cao tủ trên giữ 800`, [loiBep(C.build(n2)), n2.bep]); }
   // (e) Chuẩn xưởng ngăn kéo Blum: mẫu tủ ngăn kéo bếp lấy nóc liền (hộp Blum không hạ dưới giằng được); đặt giằng thì lời báo nêu ô Nóc
   { const t = C.normalize({ ngan_keo: Object.assign({}, D.ngan_keo, { mac_dinh: 'blum16' }) });
     for (const ma of ['BD-NK3-600', 'BD-NK3-400']) { const s = C.apMau(t, ma), M = C.build(s); ok(s.bep.noc === 'lien' && !M.errors.length, `${ma} + Chuẩn xưởng Blum: nóc liền, không lỗi`, [s.bep.noc, M.errors]); }
-    const g2 = C.datBep(C.apMau(t, 'BD-NK3-600'), { noc: 'giang' }), e = C.build(g2).errors.find(x => /Blum/.test(x));
-    ok(e && /[Nn]óc liền/.test(e), 'Blum + giằng: lời báo nêu Nóc liền', e);
     ok(C.apMau(D, 'BD-NK3-600').bep.noc === 'giang', 'Chuẩn xưởng ray bi: tủ ngăn kéo vẫn giằng (chuẩn anh chốt)'); }
+  // (e2) theo KHẢ NĂNG hạ hộp (không theo tên Blum): mọi loại ngăn kéo của Chuẩn xưởng × mọi mẫu bếp trong Thư viện → không lỗi
+  { const tatCa = [].concat(C.MAU_BEP_DUOI, C.MAU_BEP_TREN, C.MAU_BEP_CAO), hong = [];
+    for (const lo of D.ngan_keo.loai) {
+      const t = C.normalize({ ngan_keo: Object.assign({}, D.ngan_keo, { mac_dinh: lo.ma }) });
+      for (const m of tatCa) { const s = C.normalize(C.apMau(t, m.ma)), e = C.build(s).errors; if (e.length) hong.push([lo.ma, m.ma, e[0]]); }
+    }
+    ok(!hong.length, `mọi loại ngăn kéo (${D.ngan_keo.loai.length}) × mọi mẫu bếp (${tatCa.length}): không lỗi`, hong.slice(0, 5)); }
+  for (const ma of ['blum16', 'blum18', 'chia_o', 'ban_phim']) {
+    const t = C.normalize({ ngan_keo: Object.assign({}, D.ngan_keo, { mac_dinh: ma }) }), s = C.normalize(C.apMau(t, 'BD-NK3-600')), M = C.build(s);
+    ok(s.bep.noc === 'lien' && s.bep.noc_tu && !M.errors.length && M.notes.some(x => /Nóc liền thay 2 thanh giằng/.test(x) && x.indexOf(s.bep.noc_tu) >= 0), `${ma}: tủ ngăn kéo bếp tự nóc liền, ghi lý do, không lỗi`, [s.bep, M.errors, M.notes]);
+    const g2 = C.normalize(C.datBep(s, { noc: 'giang' }));
+    ok(g2.bep.noc === 'lien' && !C.build(g2).errors.length, `${ma}: chọn giằng mà loại không hạ được → vẫn tự liền, không lỗi`, g2.bep);
+  }
+  { const t = C.normalize({ ngan_keo: Object.assign({}, D.ngan_keo, { mac_dinh: 'blum16' }) }), s = C.normalize(C.apMau(t, 'BD-NK3-600'));
+    const ve = JSON.parse(JSON.stringify(s)); ve.ngan_keo.mac_dinh = 'bi_mong'; const n = C.normalize(ve);
+    ok(n.bep.noc === 'giang' && !n.bep.noc_tu && !C.build(n).errors.length, 'đổi sang ray bi: nóc tự liền trở về 2 thanh giằng', n.bep);
+    const l = C.normalize(C.datBep(s, { noc: 'lien' })), l2 = JSON.parse(JSON.stringify(l)); l2.ngan_keo.mac_dinh = 'bi_mong';
+    ok(C.normalize(l2).bep.noc === 'lien', 'người dùng tự chọn Nóc liền: đổi ray bi vẫn giữ liền', C.normalize(l2).bep);
+    const d = JSON.parse(JSON.stringify(C.apMau(D, 'BD-NK3-600'))); d.khoang[0].dot = [600]; d.khoang[0].o = [{ tu: 0, kieu: 'nk_trum', so: 2, loai: 'blum16' }];
+    ok(C.normalize(d).bep.noc === 'giang', 'ô Blum có đợt phía trên (không sát giằng): giữ giằng', C.normalize(d).bep); }
+  // (soát 1.33.1 vòng 2) tủ che ống BT-HMK gõ Cao 800: lỗi chỉ khuyên giảm Cao của chính tủ này — không khuyên "chọn mẫu BT-HMK" (đang là nó)
+  { const s = C.apMau(C.normalize({}), 'BT-HMK-700'); s.cao = 800; const e = loiBep(C.build(C.normalize(s)));
+    ok(e.length === 1 && /Giảm Cao của tủ này/.test(e[0]) && !/BT-HMK|chọn mẫu/.test(e[0]), 'BT-HMK-700 cao 800: lỗi khuyên giảm Cao, không khuyên chọn lại mẫu BT-HMK', e); }
+  // (soát 1.33.1 vòng 2) lý do nóc liền đúng theo loại: chia ô CÓ SLK nhưng hộp = mặt ngăn kéo; Blum / bàn phím: không có SLK
+  for (const [ma, coSLK] of [['chia_o', true], ['blum16', false], ['ban_phim', false]]) {
+    const t = C.normalize({ ngan_keo: Object.assign({}, D.ngan_keo, { mac_dinh: ma }) }), M = C.build(C.normalize(C.apMau(t, 'BD-NK3-600'))), n = M.notes.find(x => /Nóc liền thay/.test(x)) || '';
+    ok(coSLK ? !/không có tham số SLK/.test(n) && /mặt ngăn kéo/.test(n) : /không có tham số SLK/.test(n), `${ma}: ghi chú nóc liền nêu đúng lý do (${coSLK ? 'hộp là mặt ngăn kéo' : 'không có SLK'})`, n);
+  }
+  { const r = C.nangChuanBep({ cao_mat: 850, chan: 120 }); ok(r.doi.indexOf('cao_mat') >= 0 && r.doi.indexOf('tay_nam') >= 0, 'bản lưu cũ không ghi tay nắm (lúc đó theo mặc định nổi): cũng báo tay nắm đổi', r.doi);
+    const t = C.baoChuanBepMoi(['cao_mat', 'tay_nam']); ok(/Cao mặt đá 850/.test(t) && /Tay nắm nổi/i.test(t), 'câu báo nói cách đặt lại 850 / tay nắm nổi', t); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

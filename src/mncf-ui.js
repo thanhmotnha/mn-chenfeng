@@ -1122,6 +1122,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // (bản 1.30.1 — anh Thanh: "rất hay báo lỗi bị vượt khổ ván rất mệt") khoang quá rộng so với khổ ván → một nút tự thêm vách (Core.vuaKhoVan), chỉ hiện khi cách đó gỡ được lỗi
       { const vk = model.errors.some(t => /khổ ván/.test(t)) ? vuaKho() : null; if (vk && vk.goi_y) m.push(`<div class="msg warn">${esc(vk.goi_y)}</div>`); if (vk && vk.doi.length && vk.con < vk.truoc) m.push(`<div class="msg err"><button class="sec" data-act="vua-kho">Thêm vách cho vừa khổ ván</button> <span class="hint tt">${vk.con ? 'gỡ bớt' : 'gỡ hết'} lỗi khổ ván ở trên: ${esc(String(vk.spec.khoang.length))} khoang thay cho ${esc(String(spec.khoang.length))}</span></div>`); }
       { const n = bepCo(); if (n) m.push(`<div class="msg err"><button class="sec" data-act="bep-co" data-v="${n}">Chuyển tủ ${esc(String(n))}</button> <span class="hint tt">thiết bị không lọt tủ ${esc(hien(spec.rong))} — tủ ${esc(String(n))} vừa</span></div>`); }      // (bản 1.33) "căn chuẩn" theo thiết bị
+      if (baoChuanBep && loaiDangLam() === 'bep') m.push(`<div class="msg warn" data-ui="bao-chuan-bep">${esc(baoChuanBep)}</div>`);      // (bản vá 1.33.1) lần đầu nâng chuẩn bếp 850 → 860
       model.warnings.forEach(t => m.push(`<div class="msg warn">${esc(t)}</div>`));
       napBep();
       { const bp = $('[data-ui="bep-pk"]'); if (bp) { const ds = (model.phu_kien || []).filter(q => q.bep); bp.textContent = ds.length ? `Phụ kiện: ${ds.map(q => `${q.ten}${q.sl > 1 ? ' × ' + q.sl : ''}`).join(' · ')}` : ''; } }
@@ -1169,7 +1170,6 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       spec = Core.normalize(spec);
       if (loaiDangLam() === 'vach' && Core.vachTuDong) Object.assign(spec.vach, Core.vachTuDong(spec));      // (1.32) vách: số hàng / tầng xương chia theo cỡ đang có, ghi sẵn cho module
       model = Core.build(spec);
-      luuChuanBep();
       // đưa mốc của nội dung ô về đúng mốc của ô chứa nó (mẫu tủ viết tay có thể ghi mốc lệch) — để khi kéo đợt, nội dung đi theo đúng ô
       spec.khoang.forEach((k, i) => { for (const c of k.o) { const o = cellFor(i, c.tu); if (o) c.tu = o.tu; } });
       if (khongLuu !== true) store.save(spec);
@@ -3032,7 +3032,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           if (goPK !== t) { nho(); goPK = t; }
           // (1.33 vòng soát 2) cao ngăn trên ngoài khoảng chuẩn (đang gõ dở, hay số lạ) thì KHÔNG ghi vào chuẩn bếp — datBep sẽ kẹp về mép khoảng mà ô vẫn hiện số gõ
           const kh = (Core.SO_BEP && Core.SO_BEP.nk_nong) || [100, 400];
-          if (t.dataset.bepNk === 'so') c.so = Math.max(1, Math.min(6, Math.round(v))); else { c.cao = [v]; if (v >= kh[0] && v <= kh[1]) spec = Core.datBep(spec, { nk_nong: v }); }
+          if (t.dataset.bepNk === 'so') c.so = Math.max(1, Math.min(6, Math.round(v))); else { c.cao = [v]; if (v >= kh[0] && v <= kh[1]) { spec = Core.datBep(spec, { nk_nong: v }); luuChuanBep(['nk_nong']); } }
           later();
         }
       }
@@ -3041,7 +3041,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         const n = nemCua(spec); setP(spec, t.dataset.k, t.value); spec = Core.normalize(spec);
         const pb = Core.phuBiGiuong(spec, n[0], n[1]); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; napO(); later();
       }
-      else if (t.dataset.k) { if (goPK !== t) { nho(); goPK = t; } setP(spec, t.dataset.k, t.type === 'checkbox' ? t.checked : t.value); if (t.dataset.k === 'giuong.kieu' || t.dataset.k === 'giuong.nk_ben') { spec = Core.normalize(spec); renderSP(); } if (t.dataset.k === 'hau.kieu') { setP(spec, 'hau.t', t.value === 'day' ? getP(spec, 'van.t') : Core.DEFAULT_SPEC.hau.t); spec = Core.normalize(spec); renderSettings(); } else if (t.dataset.k === 'canh.loai_ban_le' || t.dataset.k === 'thung.noc_day' || t.dataset.k === 'ngan_keo.khung_mat') { spec = Core.normalize(spec); renderSettings(); }
+      else if (t.dataset.k) { if (goPK !== t) { nho(); goPK = t; } setP(spec, t.dataset.k, t.type === 'checkbox' ? t.checked : t.value); if (/^(cao|sau_thung|chan\.cao)$/.test(t.dataset.k)) goChuanBep(t); if (t.dataset.k === 'giuong.kieu' || t.dataset.k === 'giuong.nk_ben') { spec = Core.normalize(spec); renderSP(); } if (t.dataset.k === 'hau.kieu') { setP(spec, 'hau.t', t.value === 'day' ? getP(spec, 'van.t') : Core.DEFAULT_SPEC.hau.t); spec = Core.normalize(spec); renderSettings(); } else if (t.dataset.k === 'canh.loai_ban_le' || t.dataset.k === 'thung.noc_day' || t.dataset.k === 'ngan_keo.khung_mat') { spec = Core.normalize(spec); renderSettings(); }
         else if (t.dataset.k === 'ngan_keo.ray' && t.closest('.settings')) { const co = !!(spec.ngan_keo.khung_mat && parseFloat(t.value) > 0), hien = !!$('.settings [data-k="ngan_keo.khe_tren"]'); if (co === hien && !t.__mncfRay) { t.__mncfRay = 1; t.addEventListener('change', () => { spec = Core.normalize(spec); renderSettings(); }, { once: true }); } } later(); }
       else if (t.dataset.b) { if (t.dataset.b !== 'dot' && goPK !== t) { nho(); goPK = t; } readBay(t.closest('.bay')); later(); }
       else if (t.dataset.ui === 'doors') { showDoors = t.checked; paintView(); }
@@ -3448,12 +3448,15 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         const ma = act === 'reset' ? '' : $('[data-ui="mau"]').value, truoc = chup();
         let moi, baoCu = '';
         if (ma) {
-          // (1.33) từ món khác sang tủ bếp: lấy chuẩn bếp đã nhớ (mặt đá, chân, sâu…) — mẫu bếp giữ chuẩn của món bếp đang làm, món không phải bếp thì không có
-          const cb = laMauBep(ma) && loaiDangLam() !== 'bep' ? docChuanBep() : null;
-          // (bản vá 1.33.1) mặc định cũ bị bỏ (chuẩn lưu ở máy trước 1.33.1, hay tủ bếp đang mở làm ở 1.33.0 — bep.chuan_cu) → báo một dòng: gian bếp làm dở lệch mặt đá
-          const boCu = laMauBep(ma) ? (cb ? chuanCuBo : loaiDangLam() === 'bep' && spec.bep && Array.isArray(spec.bep.chuan_cu) ? spec.bep.chuan_cu.slice() : []) : [];
-          moi = Core.apMau(cb ? Object.assign(clone(spec), { loai_sp: 'bep', bep: cb }) : spec, ma);
-          if (moi && moi.bep && Core.baoChuanBepMoi) baoCu = Core.baoChuanBepMoi(boCu.filter(k => Core.MAC_DINH_BEP_CU && moi.bep[k] !== Core.MAC_DINH_BEP_CU[k]));
+          // (bản vá 1.33.1) mẫu bếp lấy chuẩn bếp từ MỘT nguồn: chuẩn đã lưu ở máy (đã nâng — docChuanBep), KHÔNG từ số của món đang mở (tủ bếp làm ở bản
+          // trước, tủ vừa bấm Sửa mang số của nó — giữ cho chính nó, không truyền sang mẫu sau)
+          if (laMauBep(ma)) {
+            const cuMo = loaiDangLam() === 'bep' && spec.bep && Array.isArray(spec.bep.chuan_cu) ? spec.bep.chuan_cu.slice() : [];
+            moi = Core.apMau(Object.assign(clone(spec), { loai_sp: 'bep', bep: docChuanBep() }), ma);
+            // tủ bếp đang mở làm ở bản trước (mặc định cũ) mà chưa có chuẩn lưu nào để nâng: cũng báo một lần (gian bếp làm dở lệch mặt đá)
+            if (moi && moi.bep && !baoChuanBep && !daBaoChuanCu && Core.baoChuanBepMoi) datBao(cuMo.filter(k => Core.MAC_DINH_BEP_CU && moi.bep[k] !== Core.MAC_DINH_BEP_CU[k]));
+            if (baoChuanBep && !daBaoChuanCu) { baoCu = baoChuanBep; daBaoChuanCu = true; }      // dòng trạng thái: một lần; dòng vàng dưới hình còn tới khi đặt lại mặt đá / tay nắm
+          } else moi = Core.apMau(spec, ma);
         }
         else { const keep = Core.veTuAo(spec); moi = Core.normalize(Object.assign(keep, { rong: Core.DEFAULT_SPEC.rong, cao: Core.DEFAULT_SPEC.cao, sau_thung: Core.DEFAULT_SPEC.sau_thung, khoang: clone(Core.DEFAULT_SPEC.khoang), than: clone(Core.DEFAULT_SPEC.than), chan: clone(Core.DEFAULT_SPEC.chan), phao: Object.assign({}, keep.phao, { trai: 50, phai: 50, tren: 50 }) })); }
         if (moi) {
@@ -3602,32 +3605,48 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       renderSP(); const l = loaiHien();
       if (l !== loaiTruoc) { const truoc = loaiTruoc; loaiTruoc = l; if (l === 'bep-duoi') datXem3d(true); else if (khongTu() || truoc === 'giuong' || truoc === 'vach' || truoc === 'bep-duoi') datXem3d(khongTu()); }      // tủ bếp dưới: mặc định 3D (thấy đá), bấm 3D để về hình đứng
     }
-    // (bản 1.33) chuẩn bếp (mặt đá, chân, sâu…) nhớ ở máy: đổi sang tủ áo rồi quay lại tủ bếp không phải gõ lại. Trình duyệt chặn lưu thì chỉ nhớ trong phiên.
-    // (1.33.1) bản lưu ghi kèm `ban` (Core.nangChuanBep): bản lưu trước 1.33.1 mang đúng mặc định cũ (mặt đá 850, tay nắm nổi) = người dùng chưa chọn → nhận mặc định mới
-    // (bản vá 1.33.1) khoá trong spec.bep.chuan_cu (tủ bếp làm ở 1.33.0 mang mặc định cũ) KHÔNG phải lựa chọn của người dùng: không ghi đè lên chuẩn đã lưu
-    // (giữ số đã lưu của khoá đó nếu có — sau khi nâng; không có thì bỏ trống = mặc định mới) — ghi kèm ban 1.33.1 là chốt mặc định cũ thành "đã chọn" mãi
-    let bepDaLuu = '', chuanCuBo = [];
-    const chuoiChuanBep = () => {
-      const c = {}, cc = Array.isArray(spec.bep.chuan_cu) ? spec.bep.chuan_cu : [];
-      let luu = null;
-      if (cc.length) { try { luu = JSON.parse(root.localStorage.getItem(LS_BEP) || 'null'); } catch (e) { luu = null; } luu = luu && typeof luu === 'object' && !Array.isArray(luu) && Core.nangChuanBep ? Core.nangChuanBep(luu).chuan : {}; }
-      for (const k of Core.KHOA_CHUAN_BEP || []) { if (cc.indexOf(k) >= 0) { if (k in luu) c[k] = luu[k]; } else if (k in spec.bep) c[k] = spec.bep[k]; }
-      c.ban = Core.VERSION; return JSON.stringify(c);
-    };
-    function luuChuanBep() {
-      if (loaiDangLam() !== 'bep' || !spec.bep) return;
-      const t = chuoiChuanBep(); if (t === bepDaLuu) return; bepDaLuu = t;
-      try { root.localStorage.setItem(LS_BEP, t); } catch (e) { /* trình duyệt chặn lưu */ }
-    }
+    // (bản 1.33) chuẩn bếp (mặt đá, chân, sâu…) nhớ ở máy: đổi sang tủ áo rồi quay lại tủ bếp không phải gõ lại. Trình duyệt chặn lưu thì chỉ nhớ trong phiên (chuanMem).
+    // (bản vá 1.33.1) MỘT nguồn chuẩn: bản lưu ở máy, đọc qua docChuanBep (Core.nangChuanBep — bản lưu trước 1.33.1 mang mặc định cũ 850 / tay nắm nổi thì nhận mặc
+    // định mới, ghi lại kèm `ban`). Mọi lần ghi đi qua luuChuanBep: đọc (nâng) trước rồi CHỈ gộp các khoá người dùng VỪA đổi ở khối Tủ bếp — dựng lại / mở / Sửa /
+    // Cập nhật một tủ bếp KHÔNG ghi số của tủ đó thành chuẩn (tủ bếp làm ở bản trước giữ 850 cho chính nó, không chốt 850 thành "đã chọn").
+    // (soát 1.33.1 v2) baoDoi = các khoá đang được báo (cao_mat / tay_nam): người dùng đặt khoá nào thì chỉ bỏ khoá đó khỏi dòng báo.
+    // khongGhi: localStorage đọc được mà ghi không được (bộ nhớ đầy) — lúc đó chuanMem mới là bản đúng (bản trên đĩa là bản cũ chưa nâng: đọc lại là nâng + báo lại mãi).
+    let chuanMem = null, baoChuanBep = '', baoDoi = [], daBaoChuanCu = false, khongGhi = false;
+    const datBao = doi => { baoDoi = (doi || []).slice(); baoChuanBep = baoDoi.length && Core.baoChuanBepMoi ? Core.baoChuanBepMoi(baoDoi) : ''; };
+    function ghiChuanBep(o) { chuanMem = o; try { root.localStorage.setItem(LS_BEP, JSON.stringify(o)); khongGhi = false; } catch (e) { khongGhi = true; /* trình duyệt chặn lưu / đầy */ } }
     function docChuanBep() {
-      chuanCuBo = [];
-      let o = null; try { o = JSON.parse(root.localStorage.getItem(LS_BEP) || 'null'); } catch (e) { o = null; }
-      if (!o && bepDaLuu) try { o = JSON.parse(bepDaLuu); } catch (e) { o = null; }
-      if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+      let o = null;
+      if (khongGhi && chuanMem) o = chuanMem;
+      else { try { o = JSON.parse(root.localStorage.getItem(LS_BEP) || 'null'); } catch (e) { o = null; } if (!o) o = chuanMem; }
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return {};
       if (!Core.nangChuanBep) return o;
-      const r = Core.nangChuanBep(o); chuanCuBo = r.doi;
-      if (o.ban !== r.luu.ban) try { root.localStorage.setItem(LS_BEP, JSON.stringify(r.luu)); } catch (e) { /* trình duyệt chặn lưu */ }      // ghi lại MỘT lần kèm phiên bản
+      const r = Core.nangChuanBep(o);
+      if (o.ban !== r.luu.ban) {      // nâng MỘT lần, ghi lại kèm phiên bản; mặc định cũ bị bỏ → báo (lần đầu nâng)
+        ghiChuanBep(r.luu);
+        if (r.doi.length && Core.baoChuanBepMoi) { datBao(r.doi); daBaoChuanCu = false; }
+      }
       return r.chuan;
+    }
+    function luuChuanBep(khoa, nguon) {
+      const B = nguon || spec.bep;
+      if (loaiDangLam() !== 'bep' || !B) return;
+      const c = Object.assign({}, docChuanBep());
+      for (const k of khoa || []) if ((Core.KHOA_CHUAN_BEP || []).indexOf(k) >= 0 && k in B) c[k] = B[k];
+      c.ban = Core.VERSION; ghiChuanBep(c);
+      // người dùng đã đặt khoá đang báo (mặt đá / tay nắm): bỏ khoá đó khỏi dòng báo — khoá còn lại vẫn báo (nó đã đổi mà người dùng chưa biết)
+      if ((khoa || []).some(k => baoDoi.indexOf(k) >= 0)) datBao(baoDoi.filter(k => (khoa || []).indexOf(k) < 0));
+    }
+    /** (soát 1.33.1 v2) Ô chung Cao / Sâu thùng của tủ bếp: đổi kích thước module = đổi chuẩn (normBep tính ngược mặt đá, sâu tủ dưới, cao / sâu tủ trên…) →
+     *  ghi các khoá chuẩn mà lần gõ ô này làm đổi (tủ che ống / tủ cao chiều cao riêng: cao_rieng không phải chuẩn → không ghi). Số đang gõ dở / bị kẹp / ngoài khoảng chuẩn: chưa ghi. */
+    let goBep = null;
+    function goChuanBep(t) {
+      if (loaiDangLam() !== 'bep' || !spec.bep) return;
+      if (!goBep || goBep.t !== t) goBep = { t, bep: clone(spec.bep), khoa: [] };
+      const n = Core.normalize(clone(spec)), v = parseFloat(String(t.value).replace(',', '.'));
+      if (!n.bep || !isFinite(v) || !(Math.abs(+getP(n, t.dataset.k) - v) < 0.01)) return;
+      for (const k of Core.KHOA_CHUAN_BEP || []) if (n.bep[k] !== goBep.bep[k] && goBep.khoa.indexOf(k) < 0) goBep.khoa.push(k);
+      const kh = Core.SO_BEP || {}, khoa = goBep.khoa.filter(k => !kh[k] || (n.bep[k] >= kh[k][0] && n.bep[k] <= kh[k][1]));
+      if (khoa.length) luuChuanBep(khoa, n.bep);
     }
     const laMauBep = ma => [].concat(...(Core.THU_VIEN || []).filter(n => n.loai === 'bep').map(n => n.ds)).some(x => x.ma === ma);
     /** Ô của "Tủ bếp" (data-bep = khoá trong spec.bep): đi qua Core.datBep — tính lại kích thước module theo chuẩn mới (normBep tính ngược mặt đá, sâu… từ kích thước module, nên ghi thẳng vào spec.bep là mất). */
@@ -3636,7 +3655,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (k === 'chuc_nang') {      // đổi chức năng = dựng mẫu cùng tầng của chức năng đó (ruột, thiết bị), cùng rộng nếu thư viện có
         const ds = dsMauBep(B.tang).filter(m => m.chuc_nang === v); if (!ds.length) return false;
         const m = ds.find(x => { const t = Core.apMau(spec, x.ma); return t && t.rong === spec.rong; }) || ds[0];
-        spec = Core.apMau(spec, m.ma); return true;
+        spec = Core.apMau(Object.assign(clone(spec), { bep: docChuanBep() }), m.ma); return true;      // (bản vá 1.33.1) mẫu của chức năng mới lấy chuẩn đã lưu, không số của tủ đang mở
       }
       const so = parseFloat(String(v).replace(',', '.')), chu = chon || /\.(ma|lap|kieu)$/.test(k);
       if (!chu && !isFinite(so)) return false;
@@ -3645,7 +3664,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         const loai = k.split('.')[1]; if (!/\.ma$/.test(k) && tb[loai]) tb[loai].ma = 'tu_chon';      // gõ số của thiết bị = tự gõ theo model
         spec = Core.datBep(spec, { tb });
       } else spec = Core.datBep(spec, { [k]: chu ? v : so });
-      luuChuanBep();      // nhớ ngay (không đợi lần dựng lại — người dùng gõ xong đổi sang món khác liền thì vẫn còn)
+      luuChuanBep([k]);      // nhớ ngay, CHỈ khoá vừa đổi (gộp vào chuẩn đã lưu)
       return true;
     }
     // lỗi chậu / bếp / hút mùi của lõi kèm "chuyển sang tủ N" (Core.coTuChoTB) → một nút làm việc đó
@@ -3677,8 +3696,6 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       renderBays(); renderSettings(); rebuild();
     }
     (inCF ? document.documentElement : document.body).appendChild(host);
-    // (1.33.1) món đang mở lúc khởi động là tủ bếp (thông số đã lưu): lần dựng đầu KHÔNG ghi chuẩn của nó đè lên chuẩn đã lưu — bản lưu trước 1.33.1 còn phải được nâng (docChuanBep)
-    if (loaiDangLam() === 'bep' && spec.bep) bepDaLuu = chuoiChuanBep();
     renderAll(); capMau();
     if (coMau) { veO(); veGan(); veDung(); }
     if (Ph) renderPhong();

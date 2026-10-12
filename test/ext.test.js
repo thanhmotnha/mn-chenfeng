@@ -343,6 +343,11 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
         if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
         await H.locator('#mncf-ui-mau').selectOption('BT-CANH-600'); await H.locator('[data-act="mau"]').click();
         await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'bep' && s.bep.tang === 'tren' && s.rong === 600; });
+        // (bản vá 1.33.1) chuẩn bếp chỉ có MỘT nguồn = bản lưu: "Cách mặt đá 750" gõ ở khối Tủ bếp phía trên là chuẩn người dùng đã chọn → mẫu mới theo 750 (trước: Sửa tủ dưới
+        // ghi đè cả chuẩn bằng số của tủ đó). Đặt lại 700 cho phép thử dưới đây.
+        ok((await page.evaluate(() => window.MNCF.app.getSpec().bep.cach_tren)) === 750, 'mẫu tủ trên mới theo chuẩn đã lưu (Cách mặt đá 750 gõ ở trên), không theo tủ vừa Sửa');
+        await H.locator('[data-bep="cach_tren"]').fill('700');
+        await page.waitForFunction(() => window.MNCF.app.getSpec().bep.cach_tren === 700, null, { timeout: 5000 }).catch(() => {});
         const soHoi = () => page.evaluate(() => (window.__MOCK_HOI__ || []).length), choHoi = n => page.waitForFunction(k => (window.__MOCK_HOI__ || []).length >= k && window.MNCFDriver.busy(), n, { timeout: 8000 });
         const st = () => page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent);
         const h0 = await soHoi();

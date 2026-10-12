@@ -1231,10 +1231,10 @@
       }
       if (B.tay_nam === 'vat') {
         // (1.33.1) tay nắm vát cạnh: mép cầm vát 45° trên tấm cánh / mặt kéo rổ (gia công khi cắt — bảng kê ghi ở dòng tấm); mặt ngăn kéo của mẫu Chenfeng kê ở phụ kiện bếp
-        // (bản vá 1.33.1) mặt kéo rổ của tủ cao có mép trên quá tầm tay (BC-KHO-400: +1908) → vát mép đứng như cánh tủ cao, kèm một dòng ghi
+        // (bản vá 1.33.1) mặt kéo rổ của tủ cao (BC-KHO-400: mép trên +1908, quá tầm tay) → vát mép đứng như cánh tủ cao, kèm một dòng ghi
         const mkCao = [];
         for (const p of M.parts) if (p.loai === 'CANH' || p.loai === 'MKP') {
-          const cao = p.loai === 'MKP' && B.tang === 'cao' && p.z1 > CAM_MKP_MAX + TOL;
+          const cao = p.loai === 'MKP' && B.tang === 'cao';      // mặt kéo rổ của tủ cao: như cánh tủ cao (mép trên ở ~1,9 m không với tới)
           if (cao) mkCao.push(p);
           const mep = cao ? 'mép đứng bên phải' : p.loai === 'MKP' || B.tang === 'duoi' ? 'mép trên' : B.tang === 'tren' ? 'mép dưới' : `mép đứng bên ${p.open === 2 ? 'trái' : 'phải'} (phía mở)`;
           p.gia_cong = `vát cạnh 45° ${mep} làm chỗ cầm (tay nắm vát, ăn ~${g(VAT_SAU)} [CĐ])`;
@@ -3039,13 +3039,13 @@
     if (!doi.length) return '';
     const TEN_TAY = { vat: 'vát cạnh', an_mo: 'ấn mở', noi: 'tay nắm nổi', gola: 'Gola', j: 'nẹp J' };
     const p = doi.map(k => (k === 'cao_mat' ? `mặt đá ${g(DEFAULT_BEP.cao_mat)} (bản trước ${g(MAC_DINH_BEP_CU.cao_mat)})` : `tay nắm ${TEN_TAY[DEFAULT_BEP.tay_nam]} (bản trước ${TEN_TAY[MAC_DINH_BEP_CU.tay_nam]})`));
-    return `Chuẩn bếp mới (anh chốt 12/10/2026): ${p.join(', ')}. Tủ bếp đã vẽ ở bản trước giữ số cũ — gian bếp đang làm dở muốn khớp thì gõ lại ở khối Tủ bếp.`;
+    const lai = doi.map(k => (k === 'cao_mat' ? `Cao mặt đá ${g(MAC_DINH_BEP_CU.cao_mat)}` : `Tay nắm: ${TEN_TAY[MAC_DINH_BEP_CU.tay_nam]}`)).join(', ');
+    return `Chuẩn bếp mới (anh chốt 12/10/2026): ${p.join(', ')}. Tủ bếp đã vẽ ở bản trước giữ số cũ — gian bếp đang làm dở muốn khớp tủ đã vẽ thì đặt lại ${lai} ở khối Tủ bếp (bảng nhớ cho các tủ sau).`;
   }
   /** Kiểu tay nắm tủ bếp: vat = cánh vát cạnh 45° làm chỗ cầm (mép trên cánh tủ dưới / mép dưới cánh tủ trên / mép đứng phía mở của tủ cao), an_mo = ấn mở (bộ nhấn mở + bản lề
    *  không giảm chấn, ngăn kéo ray nhấn mở), noi = tay nắm nổi (khách chọn mẫu, không kê), gola = rãnh nhôm, j = nẹp J. */
   const TAY_NAM_BEP = ['vat', 'an_mo', 'noi', 'gola', 'j'];
-  const VAT_SAU = 10;
-  const CAM_MKP_MAX = 1200;      // [CĐ] mép trên mặt kéo rổ cao hơn số này thì không làm chỗ cầm (với tay kéo cả khối rổ không được) — vát mép đứng      // [CĐ] vát 45° ăn vào mặt cánh ~10 mm (xưởng chốt theo dao)
+  const VAT_SAU = 10;      // [CĐ] vát 45° ăn vào mặt cánh ~10 mm (xưởng chốt theo dao)
   /** Chuẩn bếp (giữ khi đổi mẫu, bảng nhớ ở localStorage mncf.bep.v1) — khác với các khoá riêng của từng module (tang, chuc_nang, noc, pk, tb). */
   const KHOA_CHUAN_BEP = ['cao_mat', 'day_da', 'van_lot', 'chan', 'len_lui', 'sau_duoi', 'dua_da', 'cach_tuong', 'vien_da', 'sau_tren', 'sau_cao', 'giang_rong', 'cao_tren', 'cach_tren', 'treo', 'thanh_treo', 'canh_trum_duoi',
     'bep_loai', 'cach_hm_tu', 'cach_hm_gas', 'nk_nong', 'nk_cach_bep', 'canh_1_duoi', 'canh_1_tren', 'tay_nam', 'nep_tuong', 'van_chau'];
@@ -3152,6 +3152,13 @@
     B.van_chau = String(B.van_chau == null ? '' : B.van_chau).trim();
     // nóc: tủ chậu / bếp nấu luôn giằng; tủ trên, tủ cao luôn nóc liền; tủ dưới khác: giằng (1.33.1 mặc định) hoặc nóc liền (lựa chọn — lệnh gốc vẽ được)
     B.noc = B.chuc_nang === 'chau' || B.chuc_nang === 'bep' ? 'giang' : B.tang !== 'duoi' ? 'lien' : (B.noc === 'giang' || B.noc === 'lien' ? B.noc : (DEFAULT_BEP.noc === 'lien' ? 'lien' : 'giang'));
+    // (bản vá 1.33.1) tủ dưới thường có ô ngăn kéo trên cùng loại KHÔNG hạ hộp được dưới giằng (không SLK / chia ô: hộp ray Blum, khay bàn phím, chia ô) → tự nóc liền,
+    // `noc_tu` = tên loại (kiemBep ghi lý do). Hết ô như thế thì về giằng. Người dùng tự chọn Nóc (datBep) thì bỏ dấu — chọn liền là liền mãi; chọn giằng mà còn loại đó thì lại tự liền.
+    if (B.tang === 'duoi' && B.chuc_nang !== 'chau' && B.chuc_nang !== 'bep') {
+      const kh = nocTuLien(s);
+      if (B.noc_tu) { if (kh) { B.noc = 'lien'; B.noc_tu = kh; } else { B.noc = 'giang'; delete B.noc_tu; } }
+      else if (kh && B.noc === 'giang') { B.noc = 'lien'; B.noc_tu = kh; }
+    } else delete B.noc_tu;
     B.pk = B.tang === 'tren' && LOAI_PK_BEP.some(p => p.ma === B.pk && p.lap === 'tren') ? B.pk : '';
     const tb = B.tb && typeof B.tb === 'object' ? B.tb : {}, W = s.rong;
     B.tb = {};
@@ -3176,6 +3183,20 @@
     for (const k of s.khoang) if (k.o.some(c => c.kieu === 'keo_pk')) k.o = k.o.filter(c => c.kieu !== 'nk_am');
     return B;
   }
+  /** (bản vá 1.33.1) Tên loại ngăn kéo của ô TRÊN CÙNG một khoang (sát giằng) mà hộp không hạ được dưới giằng (không có SLK, hay chia ô: hộp = mặt); '' = không có. */
+  function nocTuLien(s) {
+    const nk = s.ngan_keo || DEFAULT_SPEC.ngan_keo;
+    for (const kh of s.khoang || []) {
+      const dot = Array.isArray(kh.dot) ? kh.dot : [];
+      for (const c of kh.o || []) {
+        if (c.kieu !== 'nk_trum' && c.kieu !== 'nk_am') continue;
+        if (dot.some(z => z > num(c.tu, 0) + TOL)) continue;      // có đợt phía trên: ô không sát giằng
+        const lo = (nk.loai || []).find(x => x.ma === (c.loai || nk.mac_dinh));
+        if (lo && !(typeof lo.ts.SLK === 'number' && !('CMG' in lo.ts))) return lo.ten;
+      }
+    }
+    return '';
+  }
   /** Kích thước module theo chuẩn bếp + tầng (ngược với normBep): tủ dưới cao = mặt đá − đá − ván lót, tủ trên cao = cao_tren, tủ cao = tới đỉnh tủ trên. */
   function kichBep(s) {
     const B = Object.assign({}, DEFAULT_BEP, s.bep && typeof s.bep === 'object' ? s.bep : {}), n = k => num(B[k], DEFAULT_BEP[k]);
@@ -3190,6 +3211,7 @@
     const s = clone(spec || {}); s.loai_sp = 'bep'; doi = doi || {};
     const B = s.bep = Object.assign({}, s.bep && typeof s.bep === 'object' ? s.bep : {}, doi);
     if (Array.isArray(B.chuan_cu)) { B.chuan_cu = B.chuan_cu.filter(k => !(k in doi)); if (!B.chuan_cu.length) delete B.chuan_cu; }      // gõ lại khoá đó = người dùng đã chọn
+    if ('noc' in doi) delete B.noc_tu;      // người dùng tự chọn nóc: không còn là nóc liền tự đặt
     // (bản vá 1.33.1) tủ trên hút mùi đổi máy âm → máy kính: thành tủ che ống (cao riêng CAO_CHE_ONG, thẳng đỉnh dãy — như mẫu BT-HMK); kính → âm: về cao tủ trên chuẩn
     if ('tb' in doi && (B.tang || DEFAULT_BEP.tang) === 'tren' && B.chuc_nang === 'hm') {
       const kinh = q => !!(q && q.hm && tbBep('hm', q.hm, num(s.rong, 0)).kieu === 'kinh'), truoc = kinh(spec && spec.bep && spec.bep.tb), sau = kinh(B.tb);
@@ -3223,6 +3245,8 @@
     o = o && typeof o === 'object' && !Array.isArray(o) ? o : {};
     const cu = !(soBan(o.ban) >= soBan('1.33.1')), chuan = {}, doi = [];
     for (const k of KHOA_CHUAN_BEP) if (k in o) { if (cu && k in MAC_DINH_BEP_CU && o[k] === MAC_DINH_BEP_CU[k]) doi.push(k); else chuan[k] = o[k]; }
+    // (bản vá 1.33.1) bản lưu cũ không ghi khoá đó = lúc ấy đang theo mặc định cũ → nay đổi sang mặc định mới: cũng là "đã đổi" (để báo)
+    if (cu && KHOA_CHUAN_BEP.some(k => k in o)) for (const k of Object.keys(MAC_DINH_BEP_CU)) if (!(k in chuan) && doi.indexOf(k) < 0) doi.push(k);
     return { chuan, luu: Object.assign({}, chuan, { ban: VERSION }), doi };
   }
   const MUC_KIEM_BEP = MUC_KIEM.concat([{ ma: 'bep', ten: 'Phụ kiện, thiết bị bếp (rổ, chậu, bếp nấu, hút mùi)' }]);
@@ -3308,7 +3332,7 @@
         // máy treo tường dưới tủ che ống: khoảng trống dưới tủ (từ mặt kính bếp) phải đủ khoảng cách tối thiểu + thân máy — không thì đỉnh máy cao hơn đáy tủ
         const Q = I.hm || {}, zd = I.z_dat, dinhRow = rn(zd + s.cao), mk = Q.mat_bep, trong = rn(zd - mk), canTrong = rn(can + h.cao);
         if (B.tang !== 'tren') err('Máy hút mùi kính vát chỉ đi với tủ che ống (tủ trên) — tủ này không phải tủ trên.');
-        else if (trong < canTrong - TOL) err(`Máy hút mùi kính thân cao ${g(h.cao)}: đáy máy cách mặt kính bếp ≥ ${g(can)} (bếp ${gas ? 'gas' : 'từ'}) thì đỉnh máy ở +${g(rn(mk + canTrong))}, tủ che ống đáy +${g(zd)} thấp hơn đỉnh máy — khoảng trống dưới tủ chỉ ${g(trong)} < ${g(canTrong)} (khoảng cách + thân máy). Giảm cao tủ che ống còn ≤ ${g(Math.max(0, rn(dinhRow - mk - canTrong)))}.`);
+        else if (trong < canTrong - TOL) err(`Máy hút mùi kính thân cao ${g(h.cao)}: đáy máy cách mặt kính bếp ≥ ${g(can)} (bếp ${gas ? 'gas' : 'từ'}) thì đỉnh máy ở +${g(rn(mk + canTrong))}, tủ che ống đáy +${g(zd)} thấp hơn đỉnh máy — khoảng trống dưới tủ chỉ ${g(trong)} < ${g(canTrong)} (khoảng cách + thân máy). Giảm Cao của tủ này (ô Cao — chỉ tủ này, chuẩn Cao tủ trên giữ nguyên) còn ≤ ${g(Math.max(0, rn(dinhRow - mk - canTrong)))}.`);      // (soát 1.33.1 v2) tủ hút mùi kính luôn là tủ che ống (normBep) — không khuyên "chọn mẫu BT-HMK"
         else if (Q.dinh < zd - TOL) note(`Máy hút mùi kính treo cách mặt kính bếp ${g(Q.cach)} (tối đa ${g(Q.max)}): ống khói lộ ${g(rn(zd - Q.dinh))} giữa đỉnh máy (+${g(Q.dinh)}) và đáy tủ che ống (+${g(zd)}) — ống khói của máy che phần này.`);
         kiemLo();
       } else {
@@ -3325,12 +3349,15 @@
         note('Cánh tủ hút mùi: dừng trên tấm kéo của máy, hoặc dán mặt gỗ vào tấm kéo — xưởng chốt khi có máy.');
       }
     }
+    if (B.noc_tu) {      // (soát 1.33.1 v2) lý do theo loại: có SLK mà có CMG (chia ô) = hộp chính là mặt ngăn kéo; không SLK = không hạ được hộp
+      const lo = ((s.ngan_keo && s.ngan_keo.loai) || []).find(x => x.ten === B.noc_tu), coSLK = !!(lo && lo.ts && typeof lo.ts.SLK === 'number');
+      note(`Nóc liền thay 2 thanh giằng: hộp ngăn kéo loại "${B.noc_tu}" không hạ dưới giằng được (${coSLK ? 'hộp chính là mặt ngăn kéo — hạ hộp là hạ cả mặt' : 'không có tham số SLK để hạ hộp'}) — đổi sang loại ray bi / ray âm thì tủ tự về 2 thanh giằng.`); }
     // (1.33.1) tay nắm ẤN MỞ: rổ kéo của hãng đi kèm ray giảm chấn, hộp ray Blum có giảm chấn — giảm chấn kéo mặt về nên nhấn không bật ra
     if (B.tay_nam === 'an_mo') {
       const roKeo = [...new Set(I.ro.map(r => PK(r.pk)).filter(p => p && p.lap === 'keo').map(p => p.ten))];
       if (roKeo.length) warn(`Ấn mở: ${roKeo.join(', ').toLowerCase()} đi kèm ray giảm chấn của hãng — ray giảm chấn không ấn mở được: mặt kéo rổ cần vát cạnh / tay nắm, hoặc đặt rổ loại ray nhấn mở (hỏi Higold / Eurogold) [CĐ].`);
       // theo Ô của thông số (không theo mẫu đã dựng: ô Blum dưới giằng không hạ hộp được, lỗi + không có mẫu)
-      const blum = s.khoang.some(kh => (kh.o || []).some(c => /^nk_/.test(c.kieu) && /^blum/.test(c.loai || s.ngan_keo.mac_dinh || '')));
+      const blum = s.khoang.some(kh => (kh.o || []).some(c => c.kieu === 'nk_trum' && /^blum/.test(c.loai || s.ngan_keo.mac_dinh || '')));      // hộc âm sau cánh: mở cánh rồi kéo, không ấn mở
       if (blum) warn('Ấn mở: hộp ray Blum (giảm chấn) không ấn mở được — chọn loại ray bi / ray âm rồi thay bằng ray nhấn mở Higold / Eurogold.');
     }
     // đá đua trước mặt cánh: J nhô 25 trước cánh; (1.33.1) vát cạnh: ngón tay luồn dưới mép đá vào chỗ vát — đua chuẩn 20 là đủ [CĐ], dưới đó báo kèm lý do vát
@@ -3388,9 +3415,8 @@
     ap: keep => {
       const cu = keep.loai_sp === 'bep' && keep.bep && typeof keep.bep === 'object' ? keep.bep : {}, chuan = {}, cuCu = Array.isArray(cu.chuan_cu) ? cu.chuan_cu : [];
       for (const x of KHOA_CHUAN_BEP) if (x in cu && cuCu.indexOf(x) < 0) chuan[x] = cu[x];      // giữ chuẩn bếp của người dùng khi đổi mẫu — trừ mặc định cũ của tủ làm trước 1.33.1 (chuan_cu)
-      // (bản vá 1.33.1) ruột có ngăn kéo mà Chuẩn xưởng là hộp ray Blum: hộp Blum không hạ dưới giằng được (LỖI) → mẫu lấy nóc liền
-      const nkBlum = ruot === RUOT_BEP.nk3 && /^blum/.test(String((keep.ngan_keo && keep.ngan_keo.mac_dinh) || DEFAULT_SPEC.ngan_keo.mac_dinh));
-      const Bm = Object.assign({}, DEFAULT_BEP, chuan, { tang, chuc_nang: chuc, noc: nkBlum ? 'lien' : DEFAULT_BEP.noc, pk: '', tb: {} }, clone(them || {}));
+      // (bản vá 1.33.1) ô ngăn kéo loại không hạ hộp được dưới giằng (hộp ray Blum, chia ô, khay bàn phím): normBep tự lấy nóc liền (nocTuLien)
+      const Bm = Object.assign({}, DEFAULT_BEP, chuan, { tang, chuc_nang: chuc, noc: DEFAULT_BEP.noc, pk: '', tb: {} }, clone(them || {}));
       const s = Object.assign(keep, { loai_sp: 'bep', ma: MA_TANG_BEP[tang], ten, rong, bep: Bm });
       kichBep(s);
       const so = canh === 'tu' ? (rong <= (tang === 'tren' ? Bm.canh_1_tren : Bm.canh_1_duoi) ? 1 : 2) : canh;

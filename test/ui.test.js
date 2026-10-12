@@ -794,14 +794,16 @@ async function testBep(browser) {
     await p3.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
     const r = await p3.evaluate(() => { const s = window.MNCF.app.getSpec(); let l = null; try { l = JSON.parse(localStorage.getItem('mncf.bep.v1')); } catch (e) { l = null; } return { b: { cao_mat: s.bep.cao_mat, tay_nam: s.bep.tay_nam, chan: s.bep.chan }, cao: s.cao, luu: l }; });
     const okB = Object.keys(can).every(k => r.b[k] === can[k]);
-    ok(okB && e3.length === 0 && r.cao === r.b.cao_mat - 20 && r.luu && r.luu.ban === window_ver && r.luu.cao_mat === can.cao_mat, ten + ' (bản lưu ghi lại kèm phiên bản)', [r, e3]);
+    ok(okB && e3.length === 0 && r.cao === r.b.cao_mat - 20 && r.luu && r.luu.ban === window_ver && (r.luu.cao_mat === undefined ? 860 : r.luu.cao_mat) === can.cao_mat, ten + ' (bản lưu ghi lại kèm phiên bản)', [r, e3]);
     await c3.close();
   }
   // (bản vá 1.33.1) máy đang mở sẵn một tủ bếp làm ở 1.33.0 (mặt đá 850, tay nắm nổi — mặc định cũ): tủ đó giữ số; gõ ô Chân KHÔNG chốt 850 / nổi vào chuẩn
   // đã lưu (kèm ban 1.33.1); đổi sang mẫu bếp khác (vẫn đang ở tủ bếp) ra chuẩn mới 860 / vát và báo một dòng
-  const lan = async (kho, fn) => {
+  const lan = async (kho, fn, khongGhi) => {
     const c4 = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     await c4.addInitScript(kv => { try { if (!sessionStorage.getItem('da_nap')) { for (const [k, v] of kv) localStorage.setItem(k, v); sessionStorage.setItem('da_nap', '1'); } } catch (e) { /* bỏ qua */ } }, kho);
+    // khongGhi = khoá localStorage đọc được mà ghi thì ném QuotaExceededError (bộ nhớ đầy)
+    if (khongGhi) await c4.addInitScript(k => { const g = Storage.prototype.setItem; Storage.prototype.setItem = function (a, b) { if (a === k) throw new DOMException('đầy', 'QuotaExceededError'); return g.call(this, a, b); }; }, khongGhi);
     const p4 = await c4.newPage(), e4 = [];
     p4.on('pageerror', e => e4.push(String(e)));
     await p4.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
@@ -812,13 +814,21 @@ async function testBep(browser) {
   const C = require('../src/mncf-core.js');
   const s133 = C.datBep(C.apMau(C.normalize({ hau: { t: 6 } }), 'BD-NK3-600'), { cao_mat: 850, tay_nam: 'noi' });
   const docLuu = p => p.evaluate(() => { try { return JSON.parse(localStorage.getItem('mncf.bep.v1')); } catch (e) { return null; } });
-  await lan([['mncf.spec.v2', JSON.stringify(s133)], ['mncf.spec.ban', '1.33.0'], ['mncf.bep.v1', JSON.stringify({ cao_mat: 850, tay_nam: 'noi', chan: 100 })]], async p4 => {
+  const luu0 = JSON.stringify({ cao_mat: 850, tay_nam: 'noi', chan: 100 }), baoRow = p => p.evaluate(() => { const e = document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="bao-chuan-bep"]'); return e ? e.textContent : ''; });
+  await lan([['mncf.spec.v2', JSON.stringify(s133)], ['mncf.spec.ban', '1.33.0'], ['mncf.bep.v1', luu0]], async p4 => {
     const b0 = await p4.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.loai_sp, s.cao, s.bep.cao_mat, s.bep.tay_nam]; });
     ok(JSON.stringify(b0) === JSON.stringify(['bep', 830, 850, 'noi']), 'tủ bếp 1.33.0 đang mở: giữ mặt đá 850, tay nắm nổi', b0);
+    // (bản vá 1.33.1, soát #1) dựng lại tủ (gõ Rộng ở ô chung) KHÔNG ghi chuẩn của tủ đang mở — bản lưu cũ còn nguyên, không bị đóng dấu phiên bản
+    await S(p4, '[data-k="rong"]').fill('700');
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().rong === 700); await p4.waitForTimeout(300);
+    ok((await p4.evaluate(() => localStorage.getItem('mncf.bep.v1'))) === luu0, 'dựng lại tủ bếp 1.33.0: chuẩn lưu ở máy không bị ghi / đóng dấu ban', await p4.evaluate(() => localStorage.getItem('mncf.bep.v1')));
     await S(p4, '[data-bep="chan"]').fill('120');
     await p4.waitForFunction(() => window.MNCF.app.getSpec().chan.cao === 120);
     const l = await docLuu(p4), ch = await p4.evaluate(o => window.MNCFCore.nangChuanBep(o).chuan, l);
     ok(l && l.chan === 120 && ch.cao_mat !== 850 && ch.tay_nam !== 'noi', 'gõ Chân: chuẩn lưu ở máy KHÔNG chốt 850 / nổi (kèm phiên bản mới)', l);
+    ok(l && !('cao_mat' in l) && !('tay_nam' in l) && !('sau_duoi' in l), 'gõ Chân: chỉ ghi khoá vừa đổi (gộp vào chuẩn đã nâng), không chép số của tủ đang mở', l);
+    // (soát #4) đường GHI tới trước (gõ ô Chân) cũng nâng bản lưu cũ — và báo, không lặng lẽ
+    { await p4.waitForTimeout(400); const t = await baoRow(p4); ok(/Chuẩn bếp mới/.test(t) && /Cao mặt đá 850/.test(t), 'gõ Chân (nâng bản lưu cũ): dòng vàng báo chuẩn bếp mới + cách đặt lại 850', t); }
     await S(p4, '#mncf-ui-mau').selectOption('BD-CANH-600'); await S(p4, '[data-act="mau"]').click();
     await p4.waitForFunction(() => window.MNCF.app.getSpec().khoang[0].o.length === 0);
     const b1 = await p4.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.cao, s.bep.cao_mat, s.bep.tay_nam, s.chan.cao]; }), st = await p4.evaluate(inPage.status);
@@ -831,7 +841,86 @@ async function testBep(browser) {
     await p4.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
     const st = await p4.evaluate(inPage.status), c = await p4.evaluate(() => window.MNCF.app.getSpec().bep.cao_mat);
     ok(c === 860 && /Chuẩn bếp mới/.test(st) && /850/.test(st), 'tủ áo → tủ bếp, chuẩn lưu cũ 850: ra 860 và có dòng báo', [c, st]);
+    const t = await baoRow(p4);
+    ok(/Cao mặt đá 850/.test(t) && /Tay nắm: tay nắm nổi/.test(t) && /vát/.test(t), 'dòng vàng dưới hình: chuẩn mới (860, tay nắm vát) + cách đặt lại 850 / tay nắm nổi', t);
+    // làm theo: gõ lại 850 ở khối Tủ bếp → dòng vàng thôi, mẫu sau theo 850 (người dùng đã chọn)
+    await S(p4, '[data-bep="cao_mat"]').fill('850');
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 850); await p4.waitForTimeout(300);
+    { const t2 = await baoRow(p4); ok(!/Cao mặt đá 850/.test(t2) && /Tay nắm: tay nắm nổi/.test(t2), 'đặt lại mặt đá 850: thôi báo mặt đá, còn báo tay nắm (chưa đặt lại)', t2); }
+    await S(p4, '[data-bep="tay_nam"]').selectOption('noi');
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.tay_nam === 'noi'); await p4.waitForTimeout(300);
+    ok(!(await baoRow(p4)), 'đặt lại cả tay nắm nổi: thôi báo');
+    await S(p4, '#mncf-ui-mau').selectOption('BD-NK3-600'); await S(p4, '[data-act="mau"]').click();
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().khoang[0].o.length > 0);
+    ok((await p4.evaluate(() => window.MNCF.app.getSpec().bep.cao_mat)) === 850 && !/Chuẩn bếp mới/.test(await p4.evaluate(inPage.status)), 'mẫu sau theo 850 người dùng đặt, không báo lại');
   });
+  // (soát #5) tủ bếp đang mở mang 850 / nổi (không dấu phiên bản nào — vd mở từ tệp / setSpec), máy chưa lưu chuẩn: dựng lại không ghi chuẩn; mẫu bếp chọn sau lấy
+  // chuẩn đã lưu (= mặc định mới 860 / vát), KHÔNG số của tủ đang mở
+  await lan([], async p4 => {
+    const s850 = C.datBep(C.apMau(C.normalize({ hau: { t: 6 } }), 'BD-CANH-600'), { cao_mat: 850, tay_nam: 'noi' });
+    await p4.evaluate(x => window.MNCF.app.setSpec(x), s850);
+    await p4.waitForTimeout(300);
+    ok((await p4.evaluate(() => localStorage.getItem('mncf.bep.v1'))) === null, 'mở tủ bếp 850: không ghi gì vào chuẩn lưu ở máy');
+    await S(p4, '#mncf-ui-mau').selectOption('BD-CHAU-800'); await S(p4, '[data-act="mau"]').click();
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.chuc_nang === 'chau');
+    const b = await p4.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.cao, s.bep.cao_mat, s.bep.tay_nam]; });
+    ok(JSON.stringify(b) === JSON.stringify([840, 860, 'vat']), 'đang mở tủ bếp 850 → Tủ chậu 800: ra 860 / vát (chuẩn đã lưu), không 850 của tủ đang mở', b);
+  });
+  // (soát #8) tủ bếp 1.33.0 khôi phục lúc mở bảng (như bấm Sửa một tủ vẽ ở 1.33.0), máy CHƯA có chuẩn lưu: đổi chức năng / chọn mẫu ra 860 / vát + báo; gõ ô bếp chỉ ghi khoá đó
+  await lan([['mncf.spec.v2', JSON.stringify(s133)], ['mncf.spec.ban', '1.33.0']], async p4 => {
+    await S(p4, '[data-bep="chuc_nang"]').selectOption('canh');
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.chuc_nang === 'canh');
+    const b = await p4.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.cao, s.bep.cao_mat, s.bep.tay_nam]; });
+    ok(JSON.stringify(b) === JSON.stringify([840, 860, 'vat']), 'tủ bếp 1.33.0 → đổi chức năng: mẫu của chức năng mới ra 860 / vát', b);
+    await S(p4, '[data-bep="len_lui"]').fill('60');
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.len_lui === 60);
+    const l = await docLuu(p4);
+    ok(l && l.len_lui === 60 && l.ban === window_ver && !('cao_mat' in l) && !('tay_nam' in l), 'gõ Lùi xà chân: chuẩn lưu chỉ có khoá đó (+ phiên bản)', l);
+    await S(p4, '[data-act="lui"]').click(); await S(p4, '[data-act="lui"]').click();
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 850);
+    await S(p4, '#mncf-ui-mau').selectOption('BD-NK3-600'); await S(p4, '[data-act="mau"]').click();
+    await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.chuc_nang === 'nk' && window.MNCF.app.getSpec().bep.cao_mat !== 850, null, { timeout: 3000 }).catch(() => {});
+    const b2 = await p4.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.bep.cao_mat, s.bep.tay_nam, s.bep.len_lui]; }), st = await p4.evaluate(inPage.status);
+    ok(JSON.stringify(b2) === JSON.stringify([860, 'vat', 60]) && /Chuẩn bếp mới/.test(st), 'lùi về tủ 1.33.0 rồi chọn mẫu: 860 / vát, giữ lùi 60 đã lưu, báo chuẩn mới', [b2, st]);
+  });
+  const chonMau = async (p, ma) => { await S(p, '#mncf-ui-mau').selectOption(ma); await S(p, '[data-act="mau"]').click(); await p.waitForFunction(m => window.MNCF.app.getSpec().ten && window.MNCFCore.apMau({}, m).ten === window.MNCF.app.getSpec().ten, ma); await p.waitForTimeout(150); };
+  const bepCua = p => p.evaluate(() => { const s = window.MNCF.app.getSpec(); return [s.cao, s.sau_thung, s.bep.cao_mat, s.bep.sau_duoi, s.bep.tay_nam, s.chan.cao]; });
+  // (soát 1.33.1 v2 #1) gõ ô chung Cao / Sâu thùng của tủ bếp dưới = đổi mặt đá / sâu tủ dưới → nhớ vào chuẩn, mẫu sau theo (HEAD 1.33.1 cũ: mẫu sau về 860 / 560)
+  await lan([], async p4 => {
+    await chonMau(p4, 'BD-CANH-600');
+    await S(p4, '[data-k="cao"]').fill('830'); await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 850);
+    await S(p4, '[data-k="sau_thung"]').fill('540'); await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.sau_duoi === 540); await p4.waitForTimeout(300);
+    const l = await docLuu(p4);
+    ok(l && l.cao_mat === 850 && l.sau_duoi === 540 && l.ban === window_ver, 'gõ ô Cao / Sâu thùng của tủ bếp dưới: chuẩn mặt đá 850 / sâu 540 nhớ ở máy', l);
+    await chonMau(p4, 'BD-NK3-600');
+    const b = await bepCua(p4); ok(JSON.stringify(b.slice(0, 4)) === JSON.stringify([830, 540, 850, 540]), 'mẫu sau theo mặt đá 850 / sâu 540 vừa gõ', b);
+    // tủ che ống (chiều cao riêng): gõ Cao không đổi chuẩn Cao tủ trên
+    await chonMau(p4, 'BT-HMK-700');
+    await S(p4, '[data-k="cao"]').fill('300'); await p4.waitForFunction(() => window.MNCF.app.getSpec().cao === 300); await p4.waitForTimeout(300);
+    const l2 = await docLuu(p4); ok(l2 && !('cao_tren' in l2) && l2.cao_mat === 850, 'tủ che ống gõ Cao 300: chuẩn Cao tủ trên không đổi', l2);
+  });
+  // (soát 1.33.1 v2 #2) bản lưu cũ (850 / nổi), gõ mặt đá ngay lần đầu: dòng báo vẫn còn phần tay nắm (chỉ bỏ khoá vừa đặt), chọn mẫu sau có báo tay nắm vát
+  await lan([['mncf.bep.v1', luu0]], async p4 => {
+    await p4.evaluate(x => window.MNCF.app.setSpec(x), C.apMau(C.normalize({ hau: { t: 6 } }), 'BD-NK3-600'));
+    await S(p4, '[data-bep="cao_mat"]').fill('870'); await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.cao_mat === 870); await p4.waitForTimeout(400);
+    const t = await baoRow(p4), l = await docLuu(p4);
+    ok(l && l.cao_mat === 870 && !('tay_nam' in l), 'gõ mặt đá 870 (bản lưu cũ): chuẩn 870, tay nắm cũ "nổi" bị bỏ (nâng)', l);
+    ok(/Tay nắm: tay nắm nổi/.test(t) && !/Cao mặt đá 850/.test(t), 'dòng vàng còn báo tay nắm (khoá chưa đặt), không báo mặt đá (vừa đặt)', t);
+    await chonMau(p4, 'BD-CANH-600');
+    const b = await bepCua(p4), st = await p4.evaluate(inPage.status);
+    ok(b[2] === 870 && b[4] === 'vat' && /tay nắm nổi/i.test(st) && !/Cao mặt đá 850/.test(st), 'mẫu sau: 870 / vát, dòng trạng thái báo tay nắm đổi', [b, st]);
+  });
+  // (soát 1.33.1 v2 #4) localStorage đọc được mà ghi không được (đầy): nâng một lần, báo một lần; số gõ ở khối Tủ bếp vẫn sang mẫu sau (nhớ trong phiên)
+  await lan([['mncf.bep.v1', luu0]], async p4 => {
+    await chonMau(p4, 'BD-CANH-600');
+    ok(/Chuẩn bếp mới/.test(await p4.evaluate(inPage.status)), 'bộ nhớ đầy: lần đầu báo chuẩn bếp mới');
+    await S(p4, '[data-bep="chan"]').fill('120'); await p4.waitForFunction(() => window.MNCF.app.getSpec().chan.cao === 120); await p4.waitForTimeout(300);
+    await chonMau(p4, 'BD-NK3-600');
+    const b = await bepCua(p4), st = await p4.evaluate(inPage.status);
+    ok(b[5] === 120 && b[2] === 860 && !/Chuẩn bếp mới/.test(st), 'bộ nhớ đầy: mẫu sau giữ chân 120 vừa gõ, không báo lại chuẩn mới', [b, st]);
+    await chonMau(p4, 'BD-CANH-600');
+    ok(!/Chuẩn bếp mới/.test(await p4.evaluate(inPage.status)) && (await bepCua(p4))[5] === 120, 'bộ nhớ đầy: chọn mẫu lần ba vẫn không báo lại, chân 120');
+  }, 'mncf.bep.v1');
   await lan([['mncf.bep.v1', JSON.stringify({ cao_mat: 870, ban: '1.33.1' })]], async p4 => {
     await S(p4, '#mncf-ui-mau').selectOption('BD-CANH-600'); await S(p4, '[data-act="mau"]').click();
     await p4.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
