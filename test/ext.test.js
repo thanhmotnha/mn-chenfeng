@@ -1078,6 +1078,8 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
           await page.evaluate(() => { window.__MOCK_FAIL_IMPORT__ = true; });
           const rh = await page.evaluate(() => window.MNCF.app.draw({ corner: [900000, 0, 0] }));
           await page.evaluate(() => { window.__MOCK_FAIL_IMPORT__ = false; });
+          ok((await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.panel').dataset.tabon)) === 'kq', 'Tủ mới hỏng: bảng chuyển sang thẻ Kết quả (nút chân thẻ Tủ ẩn theo thẻ)');
+          await H.locator('.tab[data-tab="tu"]').click();      // nút Cập nhật / Thôi sửa là nút chân thẻ Tủ
           ok(rh && rh.giai_doan !== 'xong' && (await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.bep && s.bep.day && s.bep.day.ma === 'B12'); })) && await H.locator('footer [data-act="redraw"]').isVisible(), 'Sửa A1 → Tủ mới hỏng: thông số vẫn mang bep.day, vẫn nối A1', rh && rh.giai_doan);
           await H.locator('footer [data-act="unlink"]').click();
           ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(), C = window.MNCFCore; return !(s.bep && s.bep.day) && !!C.cutList(C.build(s)).gia_cong_da; }), 'Thôi sửa: bỏ bep.day — tủ lẻ có lại dòng Mặt đá'); }
