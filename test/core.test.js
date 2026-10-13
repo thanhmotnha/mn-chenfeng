@@ -2819,7 +2819,12 @@ T('Dãy bếp (bản 1.34) — vòng soát 3', () => {
     ok(pa.da[0].noi.length ? ke.some(x => /mối nối/.test(x.ghi_chu)) : true, 'có mối nối thì ghi mối nối', ke.map(x => x.ghi_chu));
     ok(/Gia công đá/.test(csv) && csv.split('\n').length >= ke.length + 1, 'CSV đá có dòng Gia công đá', csv);
     const pL = C.xepBep({ kieu: 'I', canh: [{ dai: 3600, dau: 'ho' }], tl: null }), keL = C.keDaDay(pL.bo, pL.pa[0]);
-    ok(keL.some(x => /nhô 20/.test(x.ghi_chu)), 'đầu hở: ghi đá nhô 20', keL.map(x => x.ghi_chu)); }
+    ok(keL.some(x => /nhô 20/.test(x.ghi_chu)), 'đầu hở: ghi đá nhô 20', keL.map(x => x.ghi_chu));
+    // (4b — vòng soát 4) đầu hở mà khối cao (tủ lạnh) đứng ở đầu đó: đá dừng ở mép khối cao → KHÔNG ghi "nhô 20"
+    for (const [b2, ten] of [[{ kieu: 'I', canh: [{ dai: 4200, dau: 'ho' }] }, 'I đầu trái hở + tủ lạnh đầu trái'], [{ kieu: 'L', canh: [{ dai: 3000 }, { dai: 3200, cuoi: 'ho' }], tl: { canh: 1 } }, 'L cuối B hở + tủ lạnh cạnh B']]) {
+      const r2 = C.xepBep(b2), p2 = r2.pa[0], k2 = p2 && C.keDaDay(r2.bo, p2);
+      ok(p2 && p2.ds.some(m => m.tang === 'cao') && !k2.some(x => /nhô 20/.test(x.ghi_chu)), `${ten}: đá tì khối cao, không ghi "nhô 20"`, k2 && k2.map(x => x.ghi_chu));
+    } }
   // (6) phụ trợ đỡ đá của tủ mang nẹp góc: nằm dưới đầu đá cạnh B (mép trước đá A) — nẹp góc rộng cũng không hẫng
   for (const [bo, ten] of [[{ kieu: 'L', canh: [{ dai: 3000 }, { dai: 1825, cuoi: 'ho' }], tl: null }, 'rẽ phải'], [{ kieu: 'L', canh: [{ dai: 3000 }, { dai: 1825, cuoi: 'ho', re: 'trai' }], tl: null }, 'rẽ trái'], [{ kieu: 'L', canh: [{ dai: 3000 }, { dai: 2400 }], tl: null }, 'mặc định']]) {
     const r = C.xepBep(bo), pa = r.pa[0], b1 = pa.ds.find(m => m.canh === 1 && m.tang === 'duoi' && m.nep && m.nep.goc);

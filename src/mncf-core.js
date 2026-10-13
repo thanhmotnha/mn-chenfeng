@@ -4312,8 +4312,10 @@
         const ben = sv => (Math.abs(sv - tm.s0) < 0.5 ? 'trái' : 'phải');
         if (L && d.canh === 0 && dau) ghi.push(`đầu ${ben(dauS)} chạy suốt vào góc trong (đá cạnh B tì vào mép trước tấm này)`);
         if (L && d.canh === 1 && dau) ghi.push(`đầu ${ben(dauS)} tì mép trước đá cạnh A (mối nối góc)`);
-        if (!L && dau && e.dau === 'ho') ghi.push(`đầu ${ben(dauS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
-        if (cuoi && e.cuoi === 'ho') ghi.push(`đầu ${ben(cuoiS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
+        // (vòng soát 4) chỉ ghi "nhô" khi đá thật sự nhô qua mép dãy — khối cao (tủ lạnh / lò / kho) ở đầu hở thì daDay cho đá dừng ở mép khối cao (tì hồi)
+        const nhoDau = d.u0 < -TOL, nhoCuoi = d.u1 > rn(e.dai - (e.du || 0), 2) + TOL;
+        if (!L && dau && e.dau === 'ho' && nhoDau) ghi.push(`đầu ${ben(dauS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
+        if (cuoi && e.cuoi === 'ho' && nhoCuoi) ghi.push(`đầu ${ben(cuoiS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
         for (const x of d.noi) if (Math.abs(x - tm.s0) < 0.5 || Math.abs(x - tm.s1) < 0.5) ghi.push(`mối nối ${ben(x)} ở s ${g(x)} (trên mối nối hai tủ)`);
         for (const q of kh) if (q.s > tm.s0 + TOL && q.s < tm.s1 - TOL) {
           ghi.push(`khoét ${q.m.chuc === 'chau' ? 'chậu' : 'bếp'} ${q.k ? `${g(q.k.r)} × ${g(q.k.s)}` : ''}${q.k && q.k.lap === 'am' ? ' (chậu lắp âm — mài bóng mép)' : q.k && q.k.lap === 'duong' ? ' (lắp dương)' : ''} tâm cách mép trái tấm ${g(rn(q.s - tm.s0, 1))}${q.y !== null ? `, cách mép trước đá ${g(q.y)}` : ''} (tủ ${q.m.vt})`);

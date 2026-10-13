@@ -4329,8 +4329,10 @@
         const ben = sv => (Math.abs(sv - tm.s0) < 0.5 ? 'trái' : 'phải');
         if (L && d.canh === 0 && dau) ghi.push(`đầu ${ben(dauS)} chạy suốt vào góc trong (đá cạnh B tì vào mép trước tấm này)`);
         if (L && d.canh === 1 && dau) ghi.push(`đầu ${ben(dauS)} tì mép trước đá cạnh A (mối nối góc)`);
-        if (!L && dau && e.dau === 'ho') ghi.push(`đầu ${ben(dauS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
-        if (cuoi && e.cuoi === 'ho') ghi.push(`đầu ${ben(cuoiS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
+        // (vòng soát 4) chỉ ghi "nhô" khi đá thật sự nhô qua mép dãy — khối cao (tủ lạnh / lò / kho) ở đầu hở thì daDay cho đá dừng ở mép khối cao (tì hồi)
+        const nhoDau = d.u0 < -TOL, nhoCuoi = d.u1 > rn(e.dai - (e.du || 0), 2) + TOL;
+        if (!L && dau && e.dau === 'ho' && nhoDau) ghi.push(`đầu ${ben(dauS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
+        if (cuoi && e.cuoi === 'ho' && nhoCuoi) ghi.push(`đầu ${ben(cuoiS)} nhô ${g(DA_NHO_HO)} qua ốp hông (đầu hở)`);
         for (const x of d.noi) if (Math.abs(x - tm.s0) < 0.5 || Math.abs(x - tm.s1) < 0.5) ghi.push(`mối nối ${ben(x)} ở s ${g(x)} (trên mối nối hai tủ)`);
         for (const q of kh) if (q.s > tm.s0 + TOL && q.s < tm.s1 - TOL) {
           ghi.push(`khoét ${q.m.chuc === 'chau' ? 'chậu' : 'bếp'} ${q.k ? `${g(q.k.r)} × ${g(q.k.s)}` : ''}${q.k && q.k.lap === 'am' ? ' (chậu lắp âm — mài bóng mép)' : q.k && q.k.lap === 'duong' ? ' (lắp dương)' : ''} tâm cách mép trái tấm ${g(rn(q.s - tm.s0, 1))}${q.y !== null ? `, cách mép trước đá ${g(q.y)}` : ''} (tủ ${q.m.vt})`);
@@ -11393,6 +11395,10 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // ô số của thẻ Tủ (ngoài Chuẩn xưởng) theo thông số hiện tại — sau khi sửa trên hình / lùi
     const napO = () => $$('[data-k]').forEach(i => { if (i.closest('.settings')) return; i.value = fmt(getP(spec, i.dataset.k)); });
     const capNut = () => { const b = $('[data-act="lui"]'); if (b) b.disabled = !hist.length; };
+    // (vòng soát 4 — 1.34) lần vẽ bộ đổi mã bộ (mã cũ là bộ của bản vẽ khác): các bước ↶ Lùi đang mang mã cũ đổi theo — lùi về đó vẫn nhận bộ vừa vẽ (không mời vẽ chồng lần nữa)
+    function doiMaLui(cu, moi) {
+      hist = hist.map(h => { if (h.indexOf('"__bo"') < 0) return h; try { const o = JSON.parse(h); if (o.__bo && o.__bo.bo && o.__bo.bo.ma === cu) { o.__bo.bo.ma = moi; return JSON.stringify(o); } } catch (e) { /* giữ nguyên */ } return h; });
+    }
     function nho(s) { s = s || chup(); if (hist[hist.length - 1] !== s) hist.push(s); if (hist.length > 80) hist.shift(); nhich = null; capNut(); }
     function lui() {
       const nay = chup(); let s = null;
@@ -12151,10 +12157,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       let boKhau = false;
       if (!kc && khauCuaChoCu()) { spec.khau = khongKhau(spec.khau.ho); khauCho = null; boKhau = true; rebuild(); }
       // (vòng soát 3 — 1.34) vẽ MỚI = tủ đứng riêng (Thôi sửa một tủ của dãy, Mở mẫu…): không còn thuộc dãy nào — bỏ bep.day để bảng kê in lại dòng Mặt đá
-      if (spec.bep && spec.bep.day) { Core.roiDay(spec); rebuild(); }
+      // (vòng soát 4) bỏ trên BẢN SAO; chỉ bỏ khỏi thông số của bảng khi lần vẽ xong — vẽ hỏng / Esc mà đang nối một tủ của dãy thì Cập nhật tủ đó vẫn giữ bep.day
+      const roi = !!(spec.bep && spec.bep.day);
       let rep;
-      try { rep = await Drv.draw(spec, o); }
+      try { rep = await Drv.draw(roi ? Core.roiDay(clone(spec)) : spec, o); }
       catch (e) { rep = { ok: false, giai_doan: 'nhap', errors: [String(e && e.message || e)], warnings: [] }; }
+      if (roi && rep.giai_doan === 'xong') Core.roiDay(spec);
       if (rep.giai_doan === 'xong') rep.do_mau = await tuDoMau();      // trước lệnh "xem toàn bộ": bước đổ màu phải nối liền lần vẽ thì "Hoàn tác lần vẽ này" mới lùi được cả hai
       if (boKhau) (rep.warnings = rep.warnings || []).unshift('Đã bỏ khấu cột của chỗ đặt trước — tủ này vẽ ở chỗ khác. Chỗ này có cột thì đặt tủ bằng Tường / Chuột / Hình để bảng tự khấu.');
       // (bản 1.28) vẽ xong đúng chỗ đặt: bỏ chỗ đặt đó (lần Vẽ sau không dựng chồng lên); vẽ hỏng thì GIỮ chỗ đặt — bấm Vẽ lại vẫn đúng chỗ, đúng góc xoay
@@ -14691,7 +14699,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!cho) { setStatus('Bấm “Chỗ” để chọn chỗ đặt dãy trên bản vẽ trước.'); return null; }
       // (vòng soát 3 — 1.34) mã bộ còn bản ghi của bộ đã vẽ ở bản vẽ khác (locBoVe không ghi đè nó nữa): bộ này lấy mã mới — không ghi đè bản ghi kia
       let maDoi = '';
-      if (!opt.tiep) { const cu = docBoVe(boBep.ma); if (cu && cu.da_ve.length) { const m = maBoMoi(); maDoi = ` (mã ${boBep.ma} là bộ đã vẽ ở bản vẽ khác — bộ này lấy mã ${m})`; boBep = gonBo(Core.chuanBo(Object.assign({}, boBep, { ma: m }))); luuBo(); } }
+      if (!opt.tiep) { const cu = docBoVe(boBep.ma); if (cu && cu.da_ve.length) { const m = maBoMoi(); maDoi = ` (mã ${boBep.ma} là bộ đã vẽ ở bản vẽ khác — bộ này lấy mã ${m})`; const maCu = boBep.ma; boBep = gonBo(Core.chuanBo(Object.assign({}, boBep, { ma: m }))); luuBo(); doiMaLui(maCu, m); } }
       let ds = null; try { ds = Core.datDay(boKem(), pa, cho, { nen: nenBo() }); } catch (e) { ds = null; }
       if (!ds || !ds.length) { setStatus('Chưa tính được chỗ đặt các tủ của bộ.'); return null; }
       if (!opt.tiep) boVe = { ma: boBep.ma, kieu: boBep.kieu, cho: clone(cho), da_ve: [], tong: ds.length, dung: null };

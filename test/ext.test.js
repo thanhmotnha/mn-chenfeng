@@ -1074,6 +1074,11 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
           if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();      // nút Sửa tủ nằm sau ⋯
           await H.locator('[data-act="pick"]').click();
           ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.bep && s.bep.day && s.bep.day.ma === 'B12'); })), 'Sửa tủ A1 của bộ: thông số mang bep.day (vẫn thuộc dãy)');
+          // (vòng soát 4) đang Sửa A1 mà bấm "Tủ mới" và lần vẽ hỏng: bep.day GIỮ (Cập nhật A1 không biến nó thành tủ lẻ — đá kê hai lần)
+          await page.evaluate(() => { window.__MOCK_FAIL_IMPORT__ = true; });
+          const rh = await page.evaluate(() => window.MNCF.app.draw({ corner: [900000, 0, 0] }));
+          await page.evaluate(() => { window.__MOCK_FAIL_IMPORT__ = false; });
+          ok(rh && rh.giai_doan !== 'xong' && (await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.bep && s.bep.day && s.bep.day.ma === 'B12'); })) && await H.locator('footer [data-act="redraw"]').isVisible(), 'Sửa A1 → Tủ mới hỏng: thông số vẫn mang bep.day, vẫn nối A1', rh && rh.giai_doan);
           await H.locator('footer [data-act="unlink"]').click();
           ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(), C = window.MNCFCore; return !(s.bep && s.bep.day) && !!C.cutList(C.build(s)).gia_cong_da; }), 'Thôi sửa: bỏ bep.day — tủ lẻ có lại dòng Mặt đá'); }
         await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
@@ -1120,7 +1125,22 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
         await H.locator('[data-act="bo-kieu"][data-v="I"]').click();
         ok(((await page.evaluate(() => window.MNCF.app.getBoVe())) || { da_ve: [] }).da_ve.length === r15.tong, 'chip Chữ I: về đúng bộ B15 đã vẽ');
         await hoanTac();
-        ok((await vung(540000)) === 0, 'B15: Hoàn tác bộ sạch'); }
+        ok((await vung(540000)) === 0, 'B15: Hoàn tác bộ sạch');
+        // (vòng soát 4) mã bộ còn bản ghi của bản vẽ khác → lần vẽ lấy mã mới; ↶ Lùi về bước trước lần vẽ vẫn nhận bộ vừa vẽ (không mời vẽ chồng)
+        await page.evaluate(() => localStorage.setItem('mncf.tu.bo:B16', JSON.stringify({ spec: { ma: 'B16', kieu: 'I', cho: { goc: [0, 0, 0], xoay: 0 }, da_ve: [{ vt: 'A1', id: 'ZZZ999', sig: 'x', at: [0, 0, 0], xoay: 0 }], tong: 1, dung: null }, ban: '1.34.0', luc: Date.now() })));
+        await page.evaluate(b => window.MNCF.app.setBo(Object.assign({}, b, { ma: 'B16' })), boI);
+        await H.locator('[data-act="bo-ke"]').click();      // một bước ↶ Lùi trước lần vẽ (mang mã B16)
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [600000, 5000, 0], xoay: 0 }));
+        const r16 = await page.evaluate(() => window.MNCF.app.veBo({}));
+        const ma16 = (await page.evaluate(() => window.MNCF.app.getBo())).ma, n16 = await vung(590000);
+        ok(r16 && r16.ok && ma16 !== 'B16' && n16 > 0 && JSON.parse(await page.evaluate(() => localStorage.getItem('mncf.tu.bo:B16'))).spec.da_ve[0].id === 'ZZZ999', 'mã B16 của bản vẽ khác: bộ vẽ lấy mã mới, bản ghi B16 giữ nguyên', [ma16, await st()]);
+        await H.locator('[data-act="lui"]').click();
+        { const R = await page.evaluate(() => window.MNCF.app.getBoVe());
+          ok((await page.evaluate(() => window.MNCF.app.getBo())).ma === ma16 && R && R.ma === ma16 && R.da_ve.length === r16.tong && !(await H.locator('[data-act="bo-hoan-tac"]').isDisabled()), '↶ Lùi sau lần vẽ đổi mã: vẫn nhận bộ vừa vẽ, Hoàn tác bộ bật', [(await page.evaluate(() => window.MNCF.app.getBo())).ma, R && R.ma]); }
+        const r16b = await page.evaluate(() => window.MNCF.app.veBo({}));
+        ok(!(r16b && r16b.ok) && (await vung(590000)) === n16, 'bấm Vẽ lần nữa: không vẽ chồng bộ thứ hai', [r16b, await vung(590000), n16]);
+        await hoanTac();
+        ok((await vung(590000)) === 0, 'bộ đổi mã: Hoàn tác bộ sạch'); }
       await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
       await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
       ok((await H.locator('.panel').getAttribute('data-loai')) !== 'bo-bep' && await H.locator('footer [data-act="draw"]').isVisible() && !(await H.locator('footer .bohang').isVisible()), 'rời bộ bếp: chân bảng về hàng tủ lẻ');
