@@ -2386,7 +2386,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
     ok(!h.bien.L && h.ly_do.L === 'khong_deu' && h.bien.W && h.bien.H, 'tủ có nẹp: module co giãn W / H, Rộng chỉ để xem', h.ly_do);
     const n2 = JSON.parse(JSON.stringify(n)); n2.rong = 700; const m2 = C.normalize(n2); ok(m2.bep.nep.phai === 100 && m2.bep.nep.thung === 600, 'Rộng 700: nẹp phải 100, thùng giữ 600', m2.bep.nep); }
   { const s = ap('BD-NK3-600'); s.rong = 650; s.bep.nep = { trai: 50, goc: 'trai' }; const M = C.build(C.normalize(s)), d = P2(M, 'PHU').filter(p => p.y1 > 100);
-    ok(d.length === 1 && near(d[0].y1, 560) && near(d[0].z1, 840) && !overlapAny(M).length, 'nẹp góc: phụ trợ đỡ đá chạy suốt chiều sâu ở đỉnh thân', d.map(box)); }
+    ok(d.length >= 1 && d.every(p => near(p.y1, 560)) && d.some(p => near(p.z1, 840) && p.x0 <= 20 + 0.01 && p.x1 >= 20 - 0.01) && !overlapAny(M).length, 'nẹp góc: phụ trợ đỡ đá chạy suốt chiều sâu ở đỉnh thân, dưới đầu đá cạnh kia (vòng soát 3)', d.map(box)); }
   { const s = ap('BT-CANH-600'); s.rong = 650; s.bep.nep = { trai: 50 }; const M = C.build(C.normalize(s)), ph = P2(M, 'PHAO')[0];
     ok(ph && near(ph.z0, 0) && near(ph.z1, 800) && !M.errors.length && !M.warnings.length, 'tủ trên: phào nẹp cả cao 800', ph && box(ph)); }
   { const s = ap('BD-GV-400'); s.rong = 417.5; s.bep.op = 'phai'; const n = C.normalize(s), M = C.build(n), op = P2(M, 'OP');
@@ -2765,6 +2765,82 @@ T('Dãy bếp (bản 1.34) — vòng soát 2', () => {
   // (7) tủ bếp mang nẹp: thu Rộng trong Chenfeng quá bề nẹp thì gãy khúc (thùng hẹp lại, phào mất) → Rộng chỉ để xem
   { const s = C.apMau(C.normalize({}), 'BD-RAC-300'); s.rong = 370; s.bep.nep = { phai: 70 }; const h = C.heSo(C.normalize(s));
     ok(!h.bien.L && h.ly_do.L === 'khong_deu' && h.bien.W && h.bien.H, 'tủ có nẹp: Rộng khoá (không co giãn đều), Sâu / Cao vẫn co giãn', h.ly_do); }
+});
+
+T('Dãy bếp (bản 1.34) — vòng soát 3', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  const clone = o => JSON.parse(JSON.stringify(o));
+  C.DEFAULT_SPEC.thung.noc_day = 'lot'; C.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
+  const tc = C.DEFAULT_SPEC.van.t_canh, t = C.DEFAULT_SPEC.van.t;
+  const s0T = m => m.s0 + ((m.nep && m.nep.trai) || 0) + (m.op === 'trai' ? tc : 0);
+  // (1) chữ L: cạnh A ngắn (tủ lạnh + tủ góc) — chậu tự sang cạnh B thay vì 0 phương án; tâm chậu gõ / ống thoát thì không tự đổi cạnh
+  { const bo = { kieu: 'L', canh: [{ dai: 2400 }, { dai: 2800 }] }, r = C.xepBep(bo), c = r.pa[0] && r.pa[0].ds.find(m => m.chuc === 'chau' && m.tang === 'duoi');
+    ok(r.pa.length > 0 && c && c.canh === 1 && r.chau_tu === 1 && r.bo.chau.canh === 1, 'L A 2400 / B 2800 (tủ lạnh mặc định): chậu tự sang cạnh B', [r.loi_chung, r.chau_tu]);
+    ok(r.pa.length && r.pa[0].luu_y.some(x => /chậu/i.test(x) && /cạnh B/.test(x)), 'lưu ý nói chậu đã tự sang cạnh B', r.pa[0] && r.pa[0].luu_y);
+    for (const [a, b, lo] of [[2100, 2800, false], [2600, 2800, false], [2700, 2800, true], [2800, 3400, true]]) {
+      const r2 = C.xepBep({ kieu: 'L', canh: [{ dai: a }, { dai: b }], cao: lo ? [{ loai: 'lo' }] : [] });
+      ok(r2.pa.length > 0, `L A ${a} / B ${b}${lo ? ' + lò' : ''}: có phương án (chậu sang B)`, r2.loi_chung);
+    }
+    const r3 = C.xepBep(Object.assign({}, bo, { ong: { canh: 0, s: 1500 } }));
+    ok(!r3.pa.some(p => p.ds.some(m => m.chuc === 'chau' && m.canh === 1)), 'có ống thoát ở cạnh A: chậu không tự sang cạnh B', r3.pa.length);
+    const r4 = C.xepBep({ kieu: 'L', canh: [{ dai: 3400 }, { dai: 3000 }], tl: null });
+    ok(!r4.chau_tu && r4.pa[0].ds.find(m => m.chuc === 'chau').canh === 0, 'cạnh A đủ chỗ: chậu vẫn ở cạnh A (không đổi phương án cũ)'); }
+  // (2) ghim tủ sát tường / sát góc rồi đổi dài vài mm: vẫn có phương án, tủ ghim đúng chỗ (nẹp phía tủ ghim giữ, phần dư sang nẹp / góc bên kia)
+  { const pin = (bo, vt, ma, s0, canh) => Object.assign({}, bo, { khoa: { [vt]: { ma, s0, canh } } });
+    const coGhim = (r, ma, s0, canh) => r.pa.length > 0 && r.pa.every(p => p.ds.some(m => m.ma === ma && m.ghim && m.canh === canh && Math.abs(s0T(m) - s0) < 0.5));
+    for (const d of [4500, 4505, 4510, 4530]) { const r = C.xepBep(pin({ kieu: 'I', canh: [{ dai: d }], tl: null }, 'A1', 'BD-GV-450', 75, 0)); ok(coGhim(r, 'BD-GV-450', 75, 0), `I ${d}, ghim GV-450 sát tường trái: có phương án, tủ ghim đúng chỗ`, r.loi_chung); }
+    const p0 = C.xepBep({ kieu: 'I', canh: [{ dai: 4500 }], tl: null }).pa, bep = p0.map(p => p.ds.find(m => m.chuc === 'bep')).find(m => m && s0T(m) < 1000);
+    if (bep) for (const d of [4510, 4540]) { const r = C.xepBep(pin({ kieu: 'I', canh: [{ dai: d }], tl: null }, bep.vt, bep.ma, s0T(bep), 0)); ok(coGhim(r, bep.ma, s0T(bep), 0), `I ${d}, ghim bếp gần tường trái (s0 ${s0T(bep)}): có phương án`, r.loi_chung); }
+    const L0 = { kieu: 'L', canh: [{ dai: 3050 }, { dai: 3050, re: 'trai' }], tl: null }, pL = C.xepBep(L0).pa[0];
+    for (const [ten, f] of [['B2 kề tủ đầu tường', m => m.canh === 1 && m.ma === 'BD-GV-450'], ['A2 kề tủ góc', m => m.canh === 0 && m.ma === 'BD-CANH-450'], ['B4 tủ mang nẹp góc', m => m.canh === 1 && m.nep && m.nep.goc]]) {
+      const m = pL.ds.find(q => q.tang === 'duoi' && f(q)); if (!m) { ok(false, 'không thấy tủ ' + ten); continue; }
+      for (const dd of [10, 40]) {
+        const bo = clone(L0); bo.canh[m.canh].dai += dd;
+        const r = C.xepBep(pin(bo, m.vt, m.ma, s0T(m), m.canh));
+        ok(coGhim(r, m.ma, s0T(m), m.canh), `L ghim ${ten} (${m.ma}), cạnh ${'AB'[m.canh]} +${dd}: có phương án, tủ ghim đúng chỗ`, r.loi_chung);
+      }
+    }
+    const r5 = C.xepBep(pin({ kieu: 'I', canh: [{ dai: 4510 }], tl: null }, 'A1', 'BD-GV-450', 40, 0));
+    ok(r5.pa.length === 0 && r5.loi_chung.some(x => /ghim/.test(x)), 'ghim không thể giữ được (s0 40 < nẹp tối thiểu): lời báo nhắc tủ đã ghim', r5.loi_chung); }
+  // (3) dãy hai đầu hở: tủ cỡ lẻ bội 5; phần dư < 20 không tủ nào nhận → LƯU Ý nẹp chỉ / silicon, kiemDay không báo "khác dài"
+  for (const d of [3007, 3333, 3020, 3049]) {
+    const r = C.xepBep({ kieu: 'I', canh: [{ dai: d, dau: 'ho', cuoi: 'ho' }], tl: null }), p = r.pa[0];
+    ok(p && p.ds.filter(m => m.le).every(m => Math.abs(m.rong / 5 - Math.round(m.rong / 5)) < 1e-6), `I ${d} hai đầu hở: tủ lẻ bội 5`, p && p.ds.filter(m => m.le).map(m => m.rong));
+    const du = p && (p.canh[0].du || 0);
+    ok(p && du >= 0 && du < 20 && (du > 0.01 ? p.luu_y.some(x => /nẹp chỉ|silicon/.test(x)) : true), `I ${d}: phần dư ${du} có LƯU Ý nẹp chỉ / silicon`, p && [du, p.luu_y]);
+    const dd = p && p.ds.filter(m => m.tang !== 'tren'); ok(p && Math.abs(Math.max(...dd.map(m => m.u1)) - (d - du)) < 0.5 && p.da[0].u1 === d - du + 20, `I ${d}: dãy dừng ở dài − dư, đá nhô 20`, p && [Math.max(...dd.map(m => m.u1)), p.da[0].u1]);
+  }
+  // (4) đá theo dãy ra bảng kê (keDaDay / daDayCSV): mỗi tấm một dòng, có mối nối, khoét chậu / bếp kèm vị trí, đầu nhô
+  { const bo = { kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau' }, ong: { canh: 0, s: 3700 } }, r = C.xepBep(bo), pa = r.pa[0];
+    ok(typeof C.keDaDay === 'function' && typeof C.daDayCSV === 'function', 'có keDaDay + daDayCSV');
+    const ke = C.keDaDay(r.bo, pa), csv = C.daDayCSV(r.bo, pa);
+    ok(ke.length === pa.da.reduce((n, d) => n + d.tam.length, 0), 'mỗi tấm đá một dòng', ke);
+    ok(ke.some(x => /khoét chậu/.test(x.ghi_chu) && /tâm cách mép trái/.test(x.ghi_chu)) && ke.some(x => /khoét bếp/.test(x.ghi_chu)), 'dòng đá có khoét chậu + bếp kèm vị trí', ke.map(x => x.ghi_chu));
+    ok(pa.da[0].noi.length ? ke.some(x => /mối nối/.test(x.ghi_chu)) : true, 'có mối nối thì ghi mối nối', ke.map(x => x.ghi_chu));
+    ok(/Gia công đá/.test(csv) && csv.split('\n').length >= ke.length + 1, 'CSV đá có dòng Gia công đá', csv);
+    const pL = C.xepBep({ kieu: 'I', canh: [{ dai: 3600, dau: 'ho' }], tl: null }), keL = C.keDaDay(pL.bo, pL.pa[0]);
+    ok(keL.some(x => /nhô 20/.test(x.ghi_chu)), 'đầu hở: ghi đá nhô 20', keL.map(x => x.ghi_chu)); }
+  // (6) phụ trợ đỡ đá của tủ mang nẹp góc: nằm dưới đầu đá cạnh B (mép trước đá A) — nẹp góc rộng cũng không hẫng
+  for (const [bo, ten] of [[{ kieu: 'L', canh: [{ dai: 3000 }, { dai: 1825, cuoi: 'ho' }], tl: null }, 'rẽ phải'], [{ kieu: 'L', canh: [{ dai: 3000 }, { dai: 1825, cuoi: 'ho', re: 'trai' }], tl: null }, 'rẽ trái'], [{ kieu: 'L', canh: [{ dai: 3000 }, { dai: 2400 }], tl: null }, 'mặc định']]) {
+    const r = C.xepBep(bo), pa = r.pa[0], b1 = pa.ds.find(m => m.canh === 1 && m.tang === 'duoi' && m.nep && m.nep.goc);
+    const x = C.tuBo(r.bo, pa).find(q => q.vt === b1.vt), M = C.build(x.spec), W = x.spec.rong, dua = x.spec.bep.dua_da;
+    const dd = M.parts.filter(p => p.ten === 'Phụ trợ đỡ đá'), j = b1.nep.goc === 'trai' ? dua : W - dua;      // mối nối đá A – đá B trong toạ độ module
+    const top = Math.max(...dd.map(p => p.z1));
+    ok(dd.length && dd.some(p => p.x0 <= j + 0.01 && p.x1 >= j - 0.01 && p.z1 === top) && dd.every(p => p.y1 - p.y0 > 300), `${ten}: phụ trợ đỡ đá nằm dưới mối nối đá A – B (nẹp góc ${b1.nep[b1.nep.goc]})`, dd.map(p => [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1, j]));
+    ok(!M.errors.length && overlapAny(M).length === 0, `${ten}: tủ nẹp góc không lỗi, không tấm chồng`, [M.errors, overlapAny(M)]);
+  }
+  // (7) tủ trên đầu cạnh B rộng > 1000 lọt lòng: hai khoang (không còn cảnh báo "thêm vách chia khoang" mà trong bộ không làm theo được)
+  { const r = C.xepBep({ kieu: 'L', canh: [{ dai: 2600 }, { dai: 2760, cuoi: 'ho' }], tl: null }), pa = r.pa[0], bt = pa.ds.find(m => m.vt === 'BT1' && m.canh === 1) || pa.ds.find(m => m.canh === 1 && m.tang === 'tren' && m.rong > 1000);
+    ok(bt && bt.rong > 1000, 'có tủ trên đầu cạnh B rộng > 1000', bt);
+    ok(!pa.canh_bao.some(x => /lọt lòng/.test(x)), 'không còn cảnh báo lọt lòng > 1000', pa.canh_bao);
+    const x = C.tuBo(r.bo, pa).find(q => q.vt === bt.vt), M = C.build(x.spec);
+    ok(x.spec.khoang.length === 2 && !M.errors.length && M.info.khoang.every(w => w <= x.spec.kiem.dot_max + 0.01), 'tủ trên đó chia 2 khoang, mỗi khoang ≤ dot_max', [x.spec.khoang, M.info.khoang]); }
+  // (5) tủ thuộc dãy rời khỏi dãy (Thôi sửa → Vẽ mới, Lưu / Mở mẫu): roiDay bỏ bep.day → bảng kê có lại dòng Mặt đá
+  { const r = C.xepBep({ kieu: 'I', canh: [{ dai: 3600 }], tl: null }), x = C.tuBo(r.bo, r.pa[0]).find(q => q.spec.bep.chuc_nang === 'chau');
+    ok(!C.cutList(C.build(x.spec)).gia_cong_da, 'tủ trong dãy: không dòng Mặt đá riêng');
+    ok(typeof C.roiDay === 'function', 'có roiDay');
+    const s2 = C.roiDay(clone(x.spec)); ok(!s2.bep.day && C.cutList(C.build(C.normalize(s2))).gia_cong_da, 'roiDay: bỏ bep.day, có lại dòng Mặt đá');
+    const s3 = C.roiDay(C.normalize({})); ok(s3 && !s3.bep, 'roiDay tủ áo: không đụng'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

@@ -1024,6 +1024,24 @@ async function testBoBep(browser) {
     ok(m.canh === 1 && b.bep.canh === m.canh && m2.canh === m.canh, 'gõ Tâm bếp (chữ L): ghi cạnh đang có bếp, bếp ở lại cạnh đó', [m.canh, b.bep, m2.canh]);
     if (mo) await S(page, '[data-act="bo-them"]').click();
     await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
+  // (vòng soát 3 — 1.34) chữ L, cạnh A ngắn (tủ lạnh + tủ góc): chậu tự sang cạnh B (có dòng báo), ô "Chậu ở" chọn lại cạnh; nút "Bảng đá" tải bảng gia công đá cả dãy
+  { const b0 = await bo();
+    await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.canh = [{ dai: 2400 }, { dai: 2800 }]; o.tl = { may: 'hai_canh_700' }; o.ong = null; o.chau = { canh: 0, s: null, co: null }; o.bep = { canh: null, s: null }; o.khoa = {}; o.ke = false; o.cao = []; window.MNCF.app.setBo(o); });
+    const k = await kq(), c = k.pa[0] && k.pa[0].ds.find(x => x.chuc === 'chau' && x.tang === 'duoi');
+    ok(k.pa.length > 0 && c && c.canh === 1 && await S(page, '[data-ui="bo-chau-tu"]').isVisible(), 'L A 2400 / B 2800 + tủ lạnh: có phương án, chậu tự sang cạnh B, có dòng báo', [k.loi_chung, c && c.canh]);
+    const mo = !(await S(page, '[data-ui="bo-chau-canh"]').isVisible()); if (mo) await S(page, '[data-act="bo-them"]').click();
+    ok((await S(page, '[data-ui="bo-chau-canh"]').inputValue()) === '1', 'ô "Chậu ở" hiện cạnh chậu thật (B)');
+    await S(page, '[data-ui="bo-chau-canh"]').selectOption('1');
+    ok((await bo()).chau.canh === 1 && (await kq()).pa.length > 0 && (await S(page, '[data-ui="bo-chau-tu"]').count()) === 0, 'chọn "Chậu ở cạnh B": bộ ghi cạnh B, hết dòng tự sang');
+    // gõ Tâm chậu: theo cạnh đang có chậu (B)
+    await S(page, '[data-ui="bo-chau-s"]').fill('1900'); await cho();
+    { const b = await bo(), m = (await kq()).pa[0]; ok(b.chau.canh === 1 && b.chau.s === 1900 && m && m.ds.find(x => x.chuc === 'chau').canh === 1, 'gõ Tâm chậu: chậu ở lại cạnh B', [b.chau, m && m.ds.find(x => x.chuc === 'chau')]); }
+    if (mo) await S(page, '[data-act="bo-them"]').click();
+    const [dl] = await Promise.all([page.waitForEvent('download'), S(page, '[data-act="bo-da"]').click()]);
+    const f = path.join(__dirname, '..', 'out', 'ui_test_bo_da.csv'); await dl.saveAs(f);
+    const csv = fs.readFileSync(f, 'utf8'); fs.unlinkSync(f);
+    ok(/_da\.csv$/.test(dl.suggestedFilename()) && /Gia công đá/.test(csv) && /khoét chậu/.test(csv) && /khoét bếp/.test(csv) && /Đá cạnh B/.test(csv), 'Bảng đá: tải CSV gia công đá của dãy (tấm, khoét chậu / bếp)', csv.slice(0, 600));
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
   await S(page, '[data-ui="bo-goc"]').selectOption('eu_lh'); await cho();
   ok((await bo()).goc.pk === 'eu_lh' && (await kq()).pa.some(q => q.ds.some(x => /^BD-GOC-990/.test(x.ma))), 'đổi phụ kiện góc → tủ góc 990');
   // Mở thành tủ: tủ đó thành tủ bếp lẻ ở thẻ Tủ (thông số của bộ), ↶ Lùi về bộ
