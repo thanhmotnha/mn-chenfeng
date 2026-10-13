@@ -42,7 +42,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.33\.1/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.34\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -929,9 +929,156 @@ async function testBep(browser) {
   });
 }
 
+// (bản 1.34) BỘ BẾP CHỮ I / CHỮ L: chọn ở Thư viện → bảng tự chia (Core.xepBep), hình mặt bằng + mặt đứng, phương án ‹ ›, bấm tủ → ô chọn (Đổi thành / Ghim / Mở thành tủ),
+// kéo chậu trên mặt bằng, đầu dãy tường / hở, tủ lạnh / + Lò / + Kho / + Kệ, nút sửa nhanh (một bước ↶ Lùi), nhớ ở localStorage mncf.bobep.v1 (hỏng vẫn chạy)
+async function testBoBep(browser) {
+  console.log('— Bộ bếp chữ I / chữ L (bản 1.34): tự chia, phương án, bấm tủ để đổi, kéo chậu, nhớ lựa chọn');
+  const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
+  const H = page.locator('#mncf-host');
+  const nhom = await S(page, '#mncf-ui-mau optgroup').evaluateAll(gs => gs.map(g => [g.label, [...g.querySelectorAll('option')].map(o => o.value)]));
+  ok(nhom.some(([l, v]) => l === 'Bếp · bộ' && JSON.stringify(v) === JSON.stringify(['@BO-I', '@BO-L'])), 'ô Thư viện có nhóm "Bếp · bộ": Bộ bếp chữ I, chữ L', nhom);
+  const vao = async ma => { await S(page, '#mncf-ui-mau').selectOption(ma); await S(page, '[data-act="mau"]').click(); };
+  const bo = () => page.evaluate(() => window.MNCF.app.getBo());
+  const kq = () => page.evaluate(() => window.MNCF.app.getBoKq());
+  const tt = () => S(page, '[data-ui="bo-tt"]').textContent();
+  const hien = sel => page.evaluate(q => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll(q)].map(e => e.getClientRects().length > 0), sel);
+  const cho = () => page.waitForTimeout(450);      // ô gõ chia lại sau một nhịp ngắn
+  await vao('@BO-I');
+  ok((await S(page, '.panel').getAttribute('data-loai')) === 'bo-bep' && await S(page, '.bo').isVisible() && (await hien('.chi-tu')).every(v => !v) && !(await S(page, '.view').isVisible()) && !(await S(page, '.dims').isVisible()), 'chọn "Bộ bếp chữ I": data-loai "bo-bep", khối Bộ bếp hiện, phần của tủ lẻ (khoang, ô kích thước, hình đứng) ẩn');
+  ok((await S(page, '.bov svg[data-bo="mb"]').count()) === 1 && (await S(page, '.bov svg[data-bo="md"]').count()) === 1, 'có hình mặt bằng + mặt đứng của dãy');
+  ok(!(await S(page, '[data-ui="bo-dai-b"]').isVisible()) && !(await S(page, '[data-ui="bo-goc"]').isVisible()), 'chữ I: không có ô Dài B, Góc');
+  // gõ dài 4500, tủ lạnh 830 → bảng chia ngay; dòng trạng thái theo đúng phương án của lõi
+  await S(page, '[data-ui="bo-dai-a"]').fill('4500'); await cho();
+  await S(page, '[data-act="bo-tl"][data-v="bon_canh_830"]').click();
+  { const b = await bo(), k = await kq(), C = await page.evaluate(b => { const r = window.MNCFCore.xepBep(b); return [r.pa.length, r.pa[0] && r.pa[0].ds.length, r.pa[0] && r.pa[0].so_che]; }, b);
+    ok(b.canh[0].dai === 4500 && b.tl.may === 'bon_canh_830' && k.pa.length === C[0], 'Dài 4500 + tủ lạnh 830 vào bộ; phương án = của lõi', [b.canh, b.tl, k.pa.length, C]);
+    const t = await tt(); ok(new RegExp(`Phương án 1/${C[0]} · ${C[1]} tủ · sơ chế ${C[2]}`).test(t), 'dòng trạng thái: Phương án 1/N · số tủ · sơ chế', [t, C]);
+    ok((await S(page, '[data-act="bo-tl"][data-v="bon_canh_830"]').getAttribute('aria-pressed')) === 'true', 'chip tủ lạnh 830 đang bật'); }
+  // ‹ › đổi phương án (không đổi bộ)
+  { const k0 = await kq(); if (k0.pa.length > 1) { await S(page, '[data-act="bo-pa"][data-v="1"]').click(); const k1 = await kq(), t = await tt();
+      ok(k1.i === 1 && /Phương án 2\//.test(t), '› sang phương án 2', [k1.i, t]); await S(page, '[data-act="bo-pa"][data-v="-1"]').click(); ok((await kq()).i === 0, '‹ về phương án 1'); }
+    else ok(false, 'cần ≥ 2 phương án để thử ‹ ›', k0.pa.length); }
+  // localStorage nhớ lựa chọn
+  ok(await page.evaluate(() => { try { const o = JSON.parse(localStorage.getItem('mncf.bobep.v1')); return o && o.canh[0].dai === 4500 && o.tl.may === 'bon_canh_830' && !('chuan' in o); } catch (e) { return false; } }), 'mncf.bobep.v1 nhớ lựa chọn (không nhớ chuẩn bếp — chuẩn ở mncf.bep.v1)');
+  // bấm một tủ trên mặt đứng → ô chọn nằm NGAY DƯỚI hình (trong dòng chảy), có Đổi thành + Ghim
+  { const p = (await kq()).pa[0], m = p.ds.find(x => x.tang === 'duoi' && x.chuc === 'nk') || p.ds.find(x => x.tang === 'duoi' && ['gv', 'canh'].includes(x.chuc) && !x.nep && !x.op);      // (vòng soát 1.34: phương án 1 có khi không có tủ ngăn kéo)
+    await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).click();
+    ok(await S(page, '.bokpop').isVisible(), 'bấm tủ: ô chọn hiện');
+    const viTri = await page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, a = r.querySelector('.bov svg[data-bo="md"]').getBoundingClientRect(), k = r.querySelector('.bokpop'); return [a.bottom, k.getBoundingClientRect().top, getComputedStyle(k).position]; });
+    ok(viTri[1] >= viTri[0] - 1 && viTri[2] !== 'absolute' && viTri[2] !== 'fixed', 'ô chọn nằm dưới hình, không nổi phủ lên hình', viTri);
+    const doi = await S(page, '.bokpop [data-act="kpop-bo-doi"]').evaluateAll(bs => bs.map(b => b.dataset.v));
+    ok(doi.length > 0 && doi.every(v => new RegExp(`-${m.rong}$`).test(v) && v !== m.ma), 'Đổi thành: mẫu cùng tầng đúng rộng', [m.ma, doi]);
+    // Ghim → vào khoa, một bước ↶ Lùi
+    await S(page, '.bokpop [data-act="kpop-bo-ghim"]').click();
+    const b1 = await bo(); ok(Object.values(b1.khoa).some(q => q.ma === m.ma && q.s0 === m.s0), 'Ghim: tủ vào khoa (mẫu + chỗ)', b1.khoa);
+    ok((await kq()).pa.every(q => q.ds.some(x => x.ma === m.ma && x.s0 === m.s0 && x.ghim)), 'mọi phương án giữ tủ đã ghim');
+    await S(page, '[data-act="lui"]').click();
+    ok(Object.keys((await bo()).khoa).length === 0, '↶ Lùi: bỏ ghim (một bước)');
+    // Đổi thành một mẫu khác cùng rộng
+    await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).click();
+    const ma2 = doi.find(v => /CANH|XN|GV|RAC|GAO/.test(v)) || doi[0];
+    await S(page, `.bokpop [data-act="kpop-bo-doi"][data-v="${ma2}"]`).click();
+    const p2 = (await kq()).pa[0];
+    ok(p2 && p2.ds.some(x => x.ma === ma2 && x.s0 === m.s0), 'Đổi thành: tủ đổi mẫu tại đúng chỗ', [ma2, p2 && p2.ds.map(x => x.ma)]);
+    await S(page, '[data-act="lui"]').click(); }
+  // kéo chậu trên mặt bằng tới tâm s = 2010 (giữa khoảng làm tròn 50 → 2000)
+  { const p = (await kq()).pa[0], c = p.ds.find(x => x.chuc === 'chau');
+    const px = await page.evaluate(([u0, u1, s]) => { const g = document.getElementById('mncf-host').shadowRoot.querySelector('.bov svg[data-bo="mb"]'), M = g.getScreenCTM(), pt = g.createSVGPoint();
+      const f = (x, y) => { pt.x = x; pt.y = y; const q = pt.matrixTransform(M); return [q.x, q.y]; }; return [f((u0 + u1) / 2, 250), f(s, 250)]; }, [c.u0, c.u1, 2010]);
+    await page.mouse.move(px[0][0], px[0][1]); await page.mouse.down(); await page.mouse.move((px[0][0] + px[1][0]) / 2, px[0][1], { steps: 4 }); await page.mouse.move(px[1][0], px[1][1], { steps: 4 }); await page.mouse.up();
+    await page.waitForTimeout(100);
+    const b = await bo(); ok(b.chau.s === 2000, 'kéo chậu: tâm chậu ghi 2000 (làm tròn lưới 50)', b.chau);
+    ok(!(await S(page, '.bokpop').isVisible()), 'kéo xong không mở ô chọn'); }
+  await S(page, '[data-act="lui"]').click(); ok((await bo()).chau.s === null, '↶ Lùi: chậu về tự đặt');
+  // đầu dãy: bấm đầu phải trên mặt bằng → hở (ốp hông), + Kệ → kệ sát đầu hở
+  await S(page, '.bov svg[data-bo="mb"] [data-bo-dau="0:cuoi"]').click();
+  ok((await bo()).canh[0].cuoi === 'ho' && (await kq()).pa[0].ds.some(x => x.op === 'phai'), 'bấm đầu phải: tường → hở, tủ cuối có ốp hông', (await bo()).canh);
+  await S(page, '[data-act="bo-ke"]').click();
+  { const p = (await kq()).pa[0]; ok((await bo()).ke === true && p && p.ds.some(x => x.ma === 'BD-KE-300' && x.op === 'phai') && (await S(page, '[data-act="bo-ke"]').getAttribute('aria-pressed')) === 'true', '+ Kệ: kệ hở sát đầu hở', p && p.ds.map(x => x.ma)); }
+  // + Lò / + Kho
+  await S(page, '[data-act="bo-cao"][data-v="lo"]').click();
+  ok(JSON.stringify((await bo()).cao) === JSON.stringify([{ loai: 'lo', rong: 600 }]) && (await kq()).pa.some(q => q.ds.some(x => x.ma === 'BC-LO-600')) && (await S(page, '[data-act="bo-cao"][data-v="lo"]').getAttribute('aria-pressed')) === 'true', '+ Lò: tủ cao lò vào dãy', await bo());
+  await S(page, '[data-act="bo-cao"][data-v="lo"]').click(); ok((await bo()).cao.length === 0, 'bấm lại + Lò: bỏ');
+  // nút sửa nhanh: tủ lạnh đầu trái, ống thoát sát đầu trái → không xếp được; "Đổi bên tủ lạnh" chỉ hiện khi đỡ hơn, bấm = một bước ↶ Lùi
+  await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'I', canh: [{ dai: 3700 }], tl: { may: 'hai_canh_700', dau: 'dau' }, ong: { canh: 0, s: 600 } }));
+  await page.waitForFunction(() => !!document.getElementById('mncf-host').shadowRoot.querySelector('[data-act="bo-sua-tl"]'), null, { timeout: 5000 }).catch(() => {});
+  ok((await kq()).pa.length === 0 && await S(page, '[data-act="bo-sua-tl"]').isVisible(), 'không xếp được: hiện nút "Đổi bên tủ lạnh"');
+  await S(page, '[data-act="bo-sua-tl"]').click();
+  ok((await bo()).tl.dau === 'cuoi' && (await kq()).pa.length > 0, 'sửa nhanh: tủ lạnh sang đầu phải, có phương án');
+  await S(page, '[data-act="lui"]').click(); ok((await bo()).tl.dau === 'dau', 'sửa nhanh là MỘT bước ↶ Lùi');
+  // chữ L: Dài B + Góc, hai cạnh trên mặt bằng, thẻ cạnh A / B ở mặt đứng (bỏ ống thoát của ca sửa nhanh trước)
+  await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'I', canh: [{ dai: 3050 }], tl: { may: 'bon_canh_830' }, ke: true }));
+  await S(page, '[data-act="bo-kieu"][data-v="L"]').click();
+  ok((await bo()).kieu === 'L' && await S(page, '[data-ui="bo-dai-b"]').isVisible() && await S(page, '[data-ui="bo-goc"]').isVisible() && (await S(page, '[data-ui="bo-goc"]').inputValue()) === 'hg_lh', 'chữ L: hiện Dài B + Góc (mặc định Higold 900/400)');
+  await S(page, '[data-ui="bo-dai-a"]').fill('3050'); await S(page, '[data-ui="bo-dai-b"]').fill('2450'); await cho();
+  { const k = await kq(); ok(k.pa.length > 0 && k.pa[0].ds.some(x => x.chuc === 'goc') && (await S(page, '.bov svg[data-bo="mb"] [data-bo-vt]').evaluateAll(es => new Set(es.map(e => e.dataset.boVt[0])).size)) === 2, 'chữ L: có tủ góc, mặt bằng vẽ cả 2 cạnh', k.loi_chung);
+    await S(page, '[data-act="bo-canh"][data-v="1"]').click();
+    const vts = await S(page, '.bov svg[data-bo="md"] [data-bo-vt]').evaluateAll(es => es.map(e => e.dataset.boVt));
+    ok(vts.length > 0 && vts.every(v => v[0] === 'B'), 'mặt đứng cạnh B', vts); }
+  // (vòng soát 2 — 1.34) chữ L, bếp tự chọn cạnh: gõ Tâm bếp theo cạnh đang có bếp → bếp ở lại cạnh đó (không nhảy sang tường kia với cùng số)
+  { const b0 = await bo(); await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.canh = [{ dai: 3800 }, { dai: 2600 }]; o.tl = null; o.ke = false; o.bep = { canh: null, s: null }; window.MNCF.app.setBo(o); });
+    const m = (await kq()).pa[0].ds.find(x => x.chuc === 'bep');
+    const mo = !(await S(page, '[data-ui="bo-bep-s"]').isVisible()); if (mo) await S(page, '[data-act="bo-them"]').click();
+    await S(page, '[data-ui="bo-bep-s"]').fill('2150'); await cho();
+    const b = await bo(), m2 = (await kq()).pa[0].ds.find(x => x.chuc === 'bep');
+    ok(m.canh === 1 && b.bep.canh === m.canh && m2.canh === m.canh, 'gõ Tâm bếp (chữ L): ghi cạnh đang có bếp, bếp ở lại cạnh đó', [m.canh, b.bep, m2.canh]);
+    if (mo) await S(page, '[data-act="bo-them"]').click();
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
+  // (vòng soát 3 — 1.34) chữ L, cạnh A ngắn (tủ lạnh + tủ góc): chậu tự sang cạnh B (có dòng báo), ô "Chậu ở" chọn lại cạnh; nút "Bảng đá" tải bảng gia công đá cả dãy
+  { const b0 = await bo();
+    await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.canh = [{ dai: 2400 }, { dai: 2800 }]; o.tl = { may: 'hai_canh_700' }; o.ong = null; o.chau = { canh: 0, s: null, co: null }; o.bep = { canh: null, s: null }; o.khoa = {}; o.ke = false; o.cao = []; window.MNCF.app.setBo(o); });
+    const k = await kq(), c = k.pa[0] && k.pa[0].ds.find(x => x.chuc === 'chau' && x.tang === 'duoi');
+    ok(k.pa.length > 0 && c && c.canh === 1 && await S(page, '[data-ui="bo-chau-tu"]').isVisible(), 'L A 2400 / B 2800 + tủ lạnh: có phương án, chậu tự sang cạnh B, có dòng báo', [k.loi_chung, c && c.canh]);
+    const mo = !(await S(page, '[data-ui="bo-chau-canh"]').isVisible()); if (mo) await S(page, '[data-act="bo-them"]').click();
+    ok((await S(page, '[data-ui="bo-chau-canh"]').inputValue()) === '1', 'ô "Chậu ở" hiện cạnh chậu thật (B)');
+    await S(page, '[data-ui="bo-chau-canh"]').selectOption('1');
+    ok((await bo()).chau.canh === 1 && (await kq()).pa.length > 0 && (await S(page, '[data-ui="bo-chau-tu"]').count()) === 0, 'chọn "Chậu ở cạnh B": bộ ghi cạnh B, hết dòng tự sang');
+    // gõ Tâm chậu: theo cạnh đang có chậu (B)
+    await S(page, '[data-ui="bo-chau-s"]').fill('1900'); await cho();
+    { const b = await bo(), m = (await kq()).pa[0]; ok(b.chau.canh === 1 && b.chau.s === 1900 && m && m.ds.find(x => x.chuc === 'chau').canh === 1, 'gõ Tâm chậu: chậu ở lại cạnh B', [b.chau, m && m.ds.find(x => x.chuc === 'chau')]); }
+    if (mo) await S(page, '[data-act="bo-them"]').click();
+    const [dl] = await Promise.all([page.waitForEvent('download'), S(page, '[data-act="bo-da"]').click()]);
+    const f = path.join(__dirname, '..', 'out', 'ui_test_bo_da.csv'); await dl.saveAs(f);
+    const csv = fs.readFileSync(f, 'utf8'); fs.unlinkSync(f);
+    ok(/_da\.csv$/.test(dl.suggestedFilename()) && /Gia công đá/.test(csv) && /khoét chậu/.test(csv) && /khoét bếp/.test(csv) && /Đá cạnh B/.test(csv), 'Bảng đá: tải CSV gia công đá của dãy (tấm, khoét chậu / bếp)', csv.slice(0, 600));
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
+  await S(page, '[data-ui="bo-goc"]').selectOption('eu_lh'); await cho();
+  ok((await bo()).goc.pk === 'eu_lh' && (await kq()).pa.some(q => q.ds.some(x => /^BD-GOC-990/.test(x.ma))), 'đổi phụ kiện góc → tủ góc 990');
+  // Mở thành tủ: tủ đó thành tủ bếp lẻ ở thẻ Tủ (thông số của bộ), ↶ Lùi về bộ
+  { const m = (await kq()).pa[0].ds.find(x => x.chuc === 'bep');
+    await S(page, '[data-act="bo-canh"][data-v="' + m.canh + '"]').click();
+    await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).click(); await S(page, '.bokpop [data-act="kpop-bo-mo"]').click();
+    const s = await page.evaluate(() => window.MNCF.app.getSpec());
+    ok(s.loai_sp === 'bep' && s.bep.chuc_nang === 'bep' && (await S(page, '.panel').getAttribute('data-loai')) === 'bep-duoi' && !(await S(page, '.bo').isVisible()), 'Mở thành tủ: tủ bếp lẻ đúng thông số của tủ trong bộ', s.bep);
+    // (vòng soát 2 — 1.34) tủ lẻ không còn thuộc dãy: bỏ dấu bep.day → bảng kê / CSV có lại dòng Mặt đá (kèm khoét)
+    ok(!s.bep.day && await page.evaluate(sp => { const C = window.MNCFCore, M = C.build(sp); return /Gia công đá/.test(C.cutListCSV(M)) && M.da.khoet.length === 1; }, s), 'Mở thành tủ: không mang dấu dãy (bep.day), CSV có dòng Gia công đá + khoét bếp', s.bep.day);
+    await S(page, '[data-act="lui"]').click();
+    ok((await S(page, '.panel').getAttribute('data-loai')) === 'bo-bep' && (await bo()).kieu === 'L', '↶ Lùi: về bộ bếp'); }
+  // rời bộ: chọn một tủ lẻ ở Thư viện
+  await vao('BD-NK3-600');
+  ok((await S(page, '.panel').getAttribute('data-loai')) === 'bep-duoi' && await page.evaluate(() => window.MNCF.app.getBo() === null), 'chọn tủ lẻ: thôi bộ bếp');
+  // vào lại: nhớ lựa chọn lần trước (chữ L, góc Eurogold)
+  await vao('@BO-L');
+  { const b = await bo(); ok(b.kieu === 'L' && b.canh[0].dai === 3050 && b.goc.pk === 'eu_lh', 'vào lại: nhớ lựa chọn lần trước', b); }
+  ok(errs.length === 0, 'không lỗi JS', errs);
+  await ctx.close();
+  // localStorage hỏng (đọc / ghi ném lỗi): bộ bếp vẫn chạy; màn hẹp không tràn ngang
+  { const c2 = await browser.newContext({ viewport: { width: 390, height: 860 } });
+    await c2.addInitScript(() => { const g = Storage.prototype.getItem, s = Storage.prototype.setItem; Storage.prototype.getItem = function (k) { if (k === 'mncf.bobep.v1') throw new Error('hỏng'); return g.call(this, k); }; Storage.prototype.setItem = function (k, v) { if (k === 'mncf.bobep.v1') throw new Error('hỏng'); return s.call(this, k, v); }; });
+    const p2 = await c2.newPage(), e2 = []; p2.on('pageerror', e => e2.push(String(e)));
+    await p2.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+    await p2.goto('file://' + path.join(DIST, 'mn-chenfeng.html')); await p2.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCF.app.getModel());
+    await S(p2, '#mncf-ui-mau').selectOption('@BO-I'); await S(p2, '[data-act="mau"]').click();
+    await S(p2, '[data-ui="bo-dai-a"]').fill('4200'); await p2.waitForTimeout(450);
+    const k = await p2.evaluate(() => window.MNCF.app.getBoKq());
+    ok(k.pa.length > 0 && (await S(p2, '.panel').getAttribute('data-loai')) === 'bo-bep', 'localStorage hỏng: bộ bếp vẫn chia được');
+    ok((await p2.evaluate(inPage.overflow)) <= 0, 'màn 390: không tràn ngang', await p2.evaluate(inPage.overflow));
+    ok(e2.length === 0, 'không lỗi JS (localStorage hỏng)', e2); await c2.close(); }
+}
+
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBoBep(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);
