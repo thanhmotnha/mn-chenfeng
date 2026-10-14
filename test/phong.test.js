@@ -1029,6 +1029,9 @@ T('Khung là chỗ đặt tủ: giường / vách đang mở đổi sang tủ á
   for (const [rong, cao] of [[1000, 2700], [500, 2700], [2000, 900]]) { const r2 = P.tuChoKhung(C, C.apMau(C.DEFAULT_SPEC, 'TAP2-500'), Object.assign({}, q, { rong, cao }), 'P1', null, -1), M2 = C.build(r2.spec);
     ok(!r2.spec.loai_sp && !M2.errors.length && M2.mat_ngan_keo.every(m => m.h <= 450) && co(r2.ghi_chu, /đổi sang tủ áo/), `táp trong khung ${rong} × ${cao} (không phải cỡ táp): thành tủ áo, không kéo táp to`, [r2.spec.loai_sp, M2.mat_ngan_keo.map(m => m.h)]); }
   ok(r.spec.loai_sp === 'tap' && !M.errors.length && M.templates.filter(t => t.loai === 'NGAN_KEO').length === 2 && r.spec.khoang.length === 1 && r.spec.khoang[0].canh === 0, 'táp trong khung: giữ 2 ngăn kéo, không tự chọn ruột tủ áo', [r.spec.khoang, r.ghi_chu]);
+  // (1.34.1) táp mẫu mới (gờ chắn) trong khung cỡ táp: giữ kết cấu táp (khoá tap), không lỗi
+  { const r3 = P.tuChoKhung(C, C.apMau(C.DEFAULT_SPEC, 'TAP-GO1-450'), Object.assign({}, q, { rong: 480, cao: 600, sau: 400 }), 'P1', null, -1), M3 = C.build(r3.spec);
+    ok(r3.spec.loai_sp === 'tap' && r3.spec.tap && r3.spec.tap.go > 0 && !M3.errors.length && M3.parts.some(p => p.loai === 'GO'), 'táp gờ chắn trong khung: giữ gờ + ngăn kéo', [r3.spec.tap, M3.errors, r3.ghi_chu]); }
 });
 
 // Bản 1.33: tủ bếp chưa đặt theo khung phòng (bộ bếp theo tường là bản 1.34) — khung cũ mở ra là chỗ đặt TỦ ÁO, không lọt ruột bếp (chân lùi, giằng, rổ, đá) vào khung.

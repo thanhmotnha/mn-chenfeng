@@ -2918,7 +2918,8 @@ T('Táp đầu giường (bản 1.34.1)', () => {
   { const ma = theoKieu.E[0], s = ap(ma), M = C0.build(s), q = s.tap;
     ok(near(Math.min(...M.parts.map(p => p.z0)), q.chan_go) && !P(M, 'CHAN').length && near(P(M, 'DAY')[0].z0, q.chan_go), `${ma}: đáy nâng ${q.chan_go} (chân gỗ), không xà đế`, P(M, 'DAY').map(box));
     ok(PK(M, /Chân gỗ/) && PK(M, /Chân gỗ/).sl === 4, `${ma}: 4 chân gỗ rời (phụ kiện)`);
-    ok(PK(M, /khoét/i) && PK(M, /khoét/i).sl === M.mat_ngan_keo.length && !PK(M, /Núm/), `${ma}: tay nắm khoét — gia công từng mặt, không núm`); }
+    ok(PK(M, /khoét/i) && PK(M, /khoét/i).sl === M.mat_ngan_keo.length && !PK(M, /Núm/), `${ma}: tay nắm khoét — gia công từng mặt, không núm`);
+    ok((M.khoi_phu || []).filter(k => k.ten === 'Chân gỗ').length === 4 && M.khoi_phu.every(k => near(k.b[5], q.chan_go)), `${ma}: hình 3D có 4 chân gỗ (khối phụ, không phải tấm)`, M.khoi_phu); }
   // khoá táp: chỉ táp mang s.tap; tủ áo / giường không nhận
   ok(!('tap' in C0.normalize(Object.assign({}, D0, { tap: { go: 80 } }))), 'tủ áo mang khoá tap → bỏ');
   ok(!('tap' in C0.apMau(ap(C0.MAU_TAP[0].ma), 'TA2-1000')) && !('tap' in C0.apMau(ap(C0.MAU_TAP[0].ma), 'G16-T')), 'táp mới → tủ áo / giường: bỏ khoá tap');
