@@ -480,6 +480,8 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
 .bov .bo-nep{fill:rgba(0,0,0,.18);pointer-events:none}.bov .bo-may{fill:none;stroke:var(--muted);stroke-dasharray:5 4;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
 .bov .bo-tren{fill:none;stroke:var(--muted);stroke-dasharray:4 4;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
 .bov .bo-da{fill:rgba(120,120,120,.16);stroke:none;pointer-events:none}
+.bov .bo-kinh{fill:rgba(120,190,215,.35);stroke:var(--ink);stroke-width:.8;vector-effect:non-scaling-stroke;pointer-events:none}.bov .bo-led{stroke:#f2b705;stroke-width:3;vector-effect:non-scaling-stroke;pointer-events:none}
+.bov .bo-tlb{cursor:pointer}.bov .bo-tlb .bo-dr{fill:transparent;stroke:var(--accent);stroke-dasharray:6 4}.bov .bo-tlb.co .bo-dr{fill:rgba(120,130,145,.12);stroke-dasharray:none}.bov .bo-tlb text{fill:var(--accent);text-anchor:middle;pointer-events:none;font-family:var(--font)}.bov .bo-tlb:focus{outline:none}.bov .bo-tlb:focus .bo-dr{stroke-width:2.5}
 .bov .bo-dau{cursor:pointer}.bov .bo-dr{fill:var(--field);stroke:var(--ink);stroke-width:1;vector-effect:non-scaling-stroke}.bov .bo-dau.ho .bo-dr{stroke-dasharray:5 4;fill:transparent}.bov .bo-dau:focus{outline:none}.bov .bo-dau:focus .bo-dr{stroke:var(--accent);stroke-width:2.5}
 .bokpop{border:1px solid var(--accent);border-radius:10px;background:var(--card);padding:9px 10px 10px;margin:6px 0 9px}.bokpop:focus{outline:none}
 .bokpop .kph{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}.bokpop .kph b{font-size:13.5px}.bokpop .kph span{flex:1;min-width:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.bokpop .frow{margin-top:8px}
@@ -608,7 +610,7 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
     let spec = Core.normalize(daLuu.spec || undefined);
     let model = null, showDoors = true, busy = false, lastRep = null;
     // (bản 1.34) bộ bếp chữ I / L đang làm (null = đang làm một món lẻ), phương án đang xem, tủ đang chọn, cạnh đang xem mặt đứng… — xem khối BỘ BẾP
-    let boBep = null, boPa = 0, boChon = null, boCanh = 0, boThem = false, boNho = null, boGo = null, boTmr = 0, boKeo = null, boKeoXong = 0;
+    let boTranNho = 0, boBep = null, boPa = 0, boChon = null, boCanh = 0, boThem = false, boNho = null, boGo = null, boTmr = 0, boKeo = null, boKeoXong = 0;
     let boPaTim = false, boLechNho = null;      // (vòng soát 2 — 1.34) chia lại xong thì chọn phương án gần bộ ĐÃ VẼ nhất (không về phương án 1 — Cập nhật sẽ xếp lại cả dãy)
     let boCho = null, boVe = null;      // (1.34 bước 4) chỗ đặt dãy đang giữ { goc, xoay }; bản ghi bộ đã vẽ { ma, cho, da_ve: [{ vt, id, sig, at, xoay, tang }], tong, dung }
     let noi = null;            // tủ trên bản vẽ mà bảng đang nối tới: { id, spec (thông số LÚC VẼ), ten } — nút "Cập nhật tủ này" sửa đúng tủ đó
@@ -3081,6 +3083,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     rootEl.addEventListener('input', safe(e => {
       const t = e.target;
       if (boBep && t.dataset.ui && /^bo-/.test(t.dataset.ui)) { if (t.tagName !== 'SELECT') boInput(t); return; }      // (1.34) ô của Bộ bếp (ô chọn xử lý ở 'change')
+      if (boBep && t.dataset.ui && /^bok-/.test(t.dataset.ui)) return;      // (1.35) ô trong ô chọn của bộ: áp ở 'change'
       // (bản 1.28) gõ vào ô toạ độ = muốn đặt tủ tại toạ độ đó → tự chọn "Đặt tại toạ độ" (vẽ xong đúng chỗ đặt thì bảng đã bỏ chọn ô này)
       if (t.dataset.ui === 'ax' || t.dataset.ui === 'ay' || t.dataset.ui === 'az') { const ua = $('[data-ui="useAt"]'); if (ua && String(t.value).trim() !== '') ua.checked = true; capNoi(); }
       if (t.dataset.ui === 'useAt') capNoi();      // nút vẽ ghi "Vẽ tại x, y, z" khi đang tích
@@ -3197,6 +3200,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     rootEl.addEventListener('change', safe(e => {
       const t = e.target;
+      if (boBep && t.dataset.ui && /^bok-tl-/.test(t.dataset.ui)) return goMayTL(t);
       if (boBep && t.dataset.ui && /^bo-/.test(t.dataset.ui)) { if (t.tagName === 'SELECT') boChon1(t); else { boGo = null; if (boTmr) { clearTimeout(boTmr); boTmr = 0; veBoView(); } } return; }      // rời ô: chỉ vẽ lại khi còn lần chia đang chờ (vẽ lại lúc bấm nút làm mất lần bấm)
       if (t.dataset.ui === 'file' && t.files && t.files[0]) {
         if (busy) { t.value = ''; return setStatus('Đang vẽ — chờ lần vẽ xong rồi hẵng mở file.'); }      // (vòng soát 1.34)
@@ -3217,7 +3221,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (t.dataset.ed === 'loai') { const c = sel && sel.loai === 'o' ? cellFor(sel.khoang, sel.tu) : null; if (c && c.kieu && c.kieu !== 'suot') setCell(c, c.kieu, c.so, t.value); }
     }));
     rootEl.addEventListener('keydown', safe(e => {
-      if (boBep && (e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('.bov [data-bo-dau]')) { e.preventDefault(); e.target.closest('.bov [data-bo-dau]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true })); return; }
+      if (boBep && (e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('.bov [data-bo-dau], .bov [data-bo-tl]')) { e.preventDefault(); e.target.closest('.bov [data-bo-dau], .bov [data-bo-tl]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true })); return; }
+      if (boBep && e.key === 'Enter' && e.target.dataset && /^bok-tl-/.test(e.target.dataset.ui || '')) { e.preventDefault(); goMayTL(e.target); return; }
       if (boBep && e.key === 'Escape' && boChon && panel.dataset.tabon !== 'phong' && !dlg) { e.preventDefault(); boChon = null; veBoView(); return; }
       if (e.key === 'Escape' && xem && !xem.hidden) { e.preventDefault(); dongXem(); }
       else if (xem && !xem.hidden && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) { e.preventDefault(); buocXem(e.key === 'ArrowRight' ? 1 : -1); }
@@ -3384,7 +3389,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           return;
         } }
       // (1.34) bộ bếp: bấm tủ trên mặt bằng / mặt đứng → ô chọn; bấm đầu dãy → tường ↔ hở
-      if (boBep) { const bd = e.target.closest('.bov [data-bo-dau]'), bvt = e.target.closest('.bov [data-bo-vt]');
+      if (boBep) { const bd = e.target.closest('.bov [data-bo-dau]'), bvt = e.target.closest('.bov [data-bo-vt]'), btl = e.target.closest('.bov [data-bo-tl]');
+        if (btl) { const [i, ben] = btl.dataset.boTl.split(':'); return bamTL(i, ben); }
         if (bd) { const [i, ben] = bd.dataset.boDau.split(':'); doiBo(o => { const c = o.canh[+i]; if (c) c[ben] = c[ben] === 'ho' ? 'tuong' : 'ho'; }); return; }
         if (bvt) { if (Date.now() - boKeoXong < 300) return; boChon = boChon === bvt.dataset.boVt ? null : bvt.dataset.boVt; veBoView(); const k = $('.bokpop'); if (k && !k.hidden && k.scrollIntoView) k.scrollIntoView({ block: 'nearest' }); return; } }
       if (e.target.closest('[data-vach]')) return;      // chọn vách đã làm ở pointerup
@@ -3849,7 +3855,16 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     const paBo = r => (r.pa.length ? r.pa[clamp(boPa, 0, r.pa.length - 1)] : null);
     // mép thùng (trục x của tủ) — ghim / đổi mẫu theo thùng, không theo nẹp / ốp (như tủ ghim của xepBep)
     const s0Thung = m => Math.round((m.s0 + ((m.nep && m.nep.trai) || 0) + (m.op === 'trai' ? spec.van.t_canh : 0)) * 100) / 100;
-    const rongMa = ma => { const k = /-(\d+)(?:-[TP])?$/.exec(ma || ''); return k ? +k[1] : 0; };
+    const rongMa = ma => { const k = /-(\d+(?:\.\d+)?)(?:-[TP])?$/.exec(ma || ''); return k ? +k[1] : 0; };
+    // (bản 1.35) đầu dãy của một tủ lạnh: chữ L — cạnh (đầu xa góc), chữ I — đầu trái / phải (Core.tlBo nhận đúng dạng này)
+    const tlDauBo = (b, m) => (b.kieu === 'L' ? { canh: m.canh === 1 ? 1 : 0 } : { dau: (m.u0 + m.u1) / 2 < b.canh[0].dai / 2 ? 'dau' : 'cuoi' });
+    const tlCua = (b, m) => (m.tl_i === 1 ? b.tl2 : b.tl);
+    const mayTL = tl => { if (!tl) return null; if (tl.may && typeof tl.may === 'object') return tl.may; return (Core.LOAI_TB_BEP.tl || []).find(x => x.ma === tl.may) || null; };
+    // cánh khung kính của một tủ trên (như lõi: giá bát mặc định, hoặc danh sách vị trí; tầng trên kịch trần không làm)
+    // (vòng soát 1.35) chọn theo CHỖ { canh, s } — mã vị trí đánh lại sau mỗi lần chia
+    const laKinhBo = (b, m) => m.tang === 'tren' && !m.t2 && (m.chuc === 'bat' || m.chuc === 'canh') && (b.kinh === 'bat' ? m.chuc === 'bat' : Core.kinhO(b.kinh, m));
+    const choKinh = m => ({ canh: m.canh, s: Math.round((m.s0 + m.dai / 2) * 10) / 10 });
+    const thayBo = (o, x) => { Object.keys(o).forEach(k => delete o[k]); Object.assign(o, x); };
     /** Một bước của bộ: chụp trước → sửa bản sao → chuẩn hoá → nhớ ↶ Lùi + máy → vẽ lại (form nữa trừ khi đang gõ). */
     function doiBo(f, opt) {
       opt = opt || {};
@@ -3880,12 +3895,16 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const f = [];
       f.push(`<legend>Bộ bếp chữ ${L ? 'L' : 'I'}</legend>`);
       f.push(`<div class="frow bohang"><div class="bochip" role="group" aria-label="Kiểu dãy">${nut('bo-kieu', 'I', 'Chữ I', !L, 'Một dãy thẳng')}${nut('bo-kieu', 'L', 'Chữ L', L, 'Hai cạnh, góc trong là tủ góc mù + phụ kiện góc')}</div></div>`);
-      f.push(`<div class="g g3">${ip('bo-dai-a', L ? 'Dài A (cạnh có tủ góc)' : 'Dài tường', b.canh[0].dai, 'title="Dài tường đặt tủ (mm), tính cả nẹp hai đầu. Chữ L: cạnh A đi vào góc, tính từ góc trong"')}${L ? ip('bo-dai-b', 'Dài B', b.canh[1].dai, 'title="Dài cạnh B (mm), tính từ góc trong"') : ''}${sl('bo-hm', 'Hút mùi', [['am', 'Âm tủ'], ['kinh', 'Kính / chữ T']], b.hm)}${L ? sl('bo-goc', 'Góc', Object.keys(Core.GOC_BEP || {}).map(k => [k, Core.GOC_BEP[k].ten]), b.goc.pk, 'title="Phụ kiện góc cho tủ góc mù (chỉ Higold / Eurogold)"') : ''}</div>`);
+      f.push(`<div class="g g3">${ip('bo-dai-a', L ? 'Dài A (cạnh có tủ góc)' : 'Dài tường', b.canh[0].dai, 'title="Dài tường đặt tủ (mm), tính cả nẹp hai đầu. Chữ L: cạnh A đi vào góc, tính từ góc trong"')}${L ? ip('bo-dai-b', 'Dài B', b.canh[1].dai, 'title="Dài cạnh B (mm), tính từ góc trong"') : ''}${sl('bo-hm', 'Hút mùi', [['am', 'Âm tủ'], ['kinh', 'Kính / chữ T']], b.hm)}${b.tran > 0 ? ip('bo-tran', 'Trần', b.tran, 'title="Cao trần chỗ đặt bếp (mm) — tầng trên của tủ trên chồng tới sát trần (khe 10)"') : ''}${L ? sl('bo-goc', 'Góc', Object.keys(Core.GOC_BEP || {}).map(k => [k, Core.GOC_BEP[k].ten]), b.goc.pk, 'title="Phụ kiện góc cho tủ góc mù (chỉ Higold / Eurogold)"') : ''}</div>`);
       f.push(`<div class="bochip" data-ui="bo-tl" role="group" aria-label="Tủ lạnh"><span class="bonhan">Tủ lạnh</span>${nut('bo-tl', '', '—', !tl, 'Không có khoang tủ lạnh')}${(Core.LOAI_TB_BEP.tl || []).map(x => nut('bo-tl', x.ma, String(x.rong), may === x.ma, `${x.ten}: ${x.rong} × ${x.sau} × ${x.cao}`)).join('')}${nut('bo-tl', 'tu_chon', 'gõ', may === 'tu_chon', 'Gõ kích thước máy thật (ở ⋯)')}</div>`);
+      // (bản 1.35) cỡ chung chậu = bếp (700 / 800 / 900; "tự" = theo dài phần dãy dưới — chip ghi cỡ đang dùng) + tủ trên: 2 tầng kịch trần, cánh kính, LED
+      let coThat = 0; try { const rr = tinhBo(), m = (paBo(rr) || { ds: [] }).ds.find(q => q.chuc === 'chau'); coThat = m ? rongMa(m.ma) : 0; } catch (e) { coThat = 0; }
+      f.push(`<div class="bochip" role="group" aria-label="Cỡ chậu và bếp"><span class="bonhan">Chậu = bếp</span>${nut('bo-co', '', b.co === null && coThat ? `tự · ${coThat}` : 'tự', b.co === null, 'Cỡ chung tủ chậu và tủ bếp theo dài dãy (dài 900, vừa 800, ngắn 700)')}${[700, 800, 900].map(c => nut('bo-co', String(c), String(c), b.co === c, `Tủ chậu và tủ bếp cùng rộng ${c} (chậu, bếp nấu phải lọt cỡ này)`)).join('')}</div>`);
+      const kinhOn = b.kinh === 'bat' || (Array.isArray(b.kinh) && b.kinh.length > 0);
+      f.push(`<div class="bochip" role="group" aria-label="Tủ trên"><span class="bonhan">Tủ trên</span>${nut('bo-t2', null, '2 tầng', b.tran > 0, 'Tầng trên chồng kịch trần, mối nối thẳng tầng dưới (gõ cao trần ở ô Trần)')}${nut('bo-kinh', null, 'Kính', kinhOn, 'Cánh khung kính cho tủ giá bát (bấm một tủ trên ở mặt đứng để chọn khoang kính khác)')}${nut('bo-led', null, 'LED', !!b.led, 'Dải LED âm dưới đáy tủ trên (rãnh đáy + LED + nguồn cho cả dãy)')}</div>`);
       f.push(`<div class="bochip" role="group" aria-label="Thêm tủ cao, kệ">${nut('bo-cao', 'lo', '+ Lò', coCao('lo'), 'Tủ cao lò nướng + vi sóng 600, xếp liền khoang tủ lạnh')}${nut('bo-cao', 'kho', '+ Kho', coCao('kho'), 'Tủ kho cao (đồ khô), xếp liền khối cao')}${nut('bo-ke', null, '+ Kệ', !!b.ke, 'Kệ hở 300 sát đầu dãy HỞ (không chạm tường)')}<button class="sec mini" data-act="bo-them" aria-expanded="${boThem}" title="Ô phụ: tâm chậu / bếp, ống thoát, tủ lạnh, hốc vi sóng">⋯</button></div>`);
       const g = [];
       g.push(ip('bo-chau-s', 'Tâm chậu', b.chau.s, 'placeholder="tự" title="Tâm chậu tính dọc tường từ đầu trái khi nhìn vào tường (mm); rỗng = bảng tự đặt"'), ip('bo-bep-s', 'Tâm bếp', b.bep.s, 'placeholder="tự" title="Tâm bếp nấu (mm); rỗng = bảng tự đặt"'), ip('bo-ong', 'Ống thoát', b.ong ? b.ong.s : null, 'placeholder="không" title="Ống thoát nước chờ ở tường, tính từ đầu trái cạnh có chậu (mm) — chậu đặt trùm lên ống"'));
-      g.push(sl('bo-chau-co', 'Chậu', [['', 'tự'], ['800', '800'], ['900', '900']], b.chau.co || ''));
       // (vòng soát 3 — 1.34) chữ L: chọn cạnh của chậu (cạnh đang đặt không đủ chỗ thì bảng tự thử cạnh kia — ô này hiện cạnh chậu THẬT của lần chia)
       if (L) { let cc = b.chau.canh; try { const rr = tinhBo(); if (rr && rr.bo) cc = rr.bo.chau.canh; } catch (e) { /* giữ cạnh của bộ */ } g.push(sl('bo-chau-canh', 'Chậu ở', [[0, 'cạnh A'], [1, 'cạnh B']], cc, b.ong ? `disabled title="Chậu theo ống thoát (cạnh ${'AB'[b.ong.canh]}) — xoá ô Ống thoát để chọn cạnh"` : 'title="Cạnh đặt chậu rửa"')); }
       if (tl) {
@@ -3925,7 +3944,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     const r0 = v => Math.round(v * 10) / 10;
     function svgMB(b, pa, Q) {
-      const L = b.kieu === 'L', WA = b.canh[0].dai, H = L ? b.canh[1].dai : Math.max(Q.F, Q.Pc), m = 200, fs = Math.max(50, Math.min(90, (L ? Math.max(WA, H) : WA) / 45));
+      const L = b.kieu === 'L', WA = b.canh[0].dai, H = L ? Math.max(b.canh[1].dai, Q.F + 520) : Math.max(Q.F + 520, Q.Pc), m = 200, fs = Math.max(50, Math.min(90, (L ? Math.max(WA, H) : WA) / 45));
       const o = [];
       const rect = (h, cls, them) => `<rect x="${r0(h[0])}" y="${r0(h[1])}" width="${r0(Math.max(0, h[2]))}" height="${r0(Math.max(0, h[3]))}" class="${cls}"${them || ''}/>`;
       // tường
@@ -3934,14 +3953,20 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (pa) {
         for (const d of pa.da || []) o.push(rect(hopMB(b, d.canh, d.u0, d.u1, 0, d.sau), 'bo-da'));
         for (const k of pa.ds.filter(q => q.tang !== 'tren')) {
-          const h = hopMB(b, k.canh, k.u0, k.u1, 0, k.tang === 'cao' ? Q.Pc : Q.F), keo = k.chuc === 'chau' || k.chuc === 'bep' || k.chuc === 'tl' ? ` data-bo-keo="${k.chuc}"` : '';
+          const h = hopMB(b, k.canh, k.u0, k.u1, 0, k.tang === 'cao' ? Q.Pc : Q.F), keo = k.chuc === 'chau' || k.chuc === 'bep' || k.chuc === 'tl' ? ` data-bo-keo="${k.chuc}"${k.chuc === 'tl' ? ` data-bo-tli="${k.tl_i === 1 ? 1 : 0}"` : ''}` : '';      // (vòng soát 1.35) tủ lạnh thứ hai kéo đúng nó
           const lb = [h[0] + h[2] / 2, h[1] + h[3] / 2];
           let ic = '';
           if (k.chuc === 'chau') ic = rect([lb[0] - h[2] * 0.3, lb[1] - h[3] * 0.25, h[2] * 0.6, h[3] * 0.5], 'bo-ic');
           else if (k.chuc === 'bep') { const rr = Math.min(h[2], h[3]) * 0.16; ic = `<circle cx="${r0(lb[0] - (h[2] > h[3] ? rr * 1.4 : 0))}" cy="${r0(lb[1] - (h[2] > h[3] ? 0 : rr * 1.4))}" r="${r0(rr)}" class="bo-ic"/><circle cx="${r0(lb[0] + (h[2] > h[3] ? rr * 1.4 : 0))}" cy="${r0(lb[1] + (h[2] > h[3] ? 0 : rr * 1.4))}" r="${r0(rr)}" class="bo-ic"/>`; }
           o.push(`<g data-bo-vt="${esc(k.vt)}"${keo} class="bo-k k-${esc(k.chuc || 'canh')}${k.vt === boChon ? ' on' : ''}${k.ghim ? ' ghim' : ''}"><title>${esc(`${k.vt} · ${k.ma} — ${TEN_CHUC_BO[k.chuc] || ''} ${hien(k.rong)}`)}</title>${rect(h, 'bo-r')}${ic}<text x="${r0(lb[0])}" y="${r0(lb[1] + fs * 0.35)}" font-size="${r0(fs)}">${esc(hien(k.rong))}</text></g>`);
         }
-        for (const k of pa.ds.filter(q => q.tang === 'tren')) o.push(rect(hopMB(b, k.canh, k.u0, k.u1, 0, Q.Pt), 'bo-tren'));
+        for (const k of pa.ds.filter(q => q.tang === 'tren')) o.push(rect(hopMB(b, k.canh, k.u0, k.u1, 0, k.sau_cao ? Q.Pc : Q.Pt), 'bo-tren'));
+      }
+      // (bản 1.35) "+ Tủ lạnh" trước mỗi đầu dãy (không phải góc) — bấm lần nữa bỏ (Core.tlBo)
+      for (const [i, ben] of L ? [[0, 'dau'], [1, 'cuoi']] : [[0, 'dau'], [0, 'cuoi']]) {
+        const dai = b.canh[i].dai, xa = L || ben === 'cuoi', u0 = xa ? Math.max(0, dai - 440) : 0, u1 = xa ? dai : Math.min(dai, 440);
+        const co = [b.tl, b.tl2].some(t => t && (L ? t.canh === i : t.dau === ben)), h = hopMB(b, i, u0, u1, Q.F + 60, Q.F + 500), cx = h[0] + h[2] / 2, cy = h[1] + h[3] / 2;
+        o.push(`<g data-bo-tl="${i}:${ben}" class="bo-tlb${co ? ' co' : ''}" role="button" tabindex="0" aria-pressed="${co}" aria-label="${co ? 'Bỏ tủ lạnh ở đầu này' : 'Thêm tủ lạnh ở đầu này'}"><title>${co ? 'Bỏ khoang tủ lạnh ở đầu này' : 'Thêm khoang tủ lạnh ở đầu này (gõ kích thước máy ở ô chọn của nó)'}</title>${rect(h, 'bo-dr')}<text x="${r0(cx)}" y="${r0(cy - fs * 0.2)}" font-size="${r0(fs * 1.3)}">${co ? '−' : '+'}</text><text x="${r0(cx)}" y="${r0(cy + fs * 0.95)}" font-size="${r0(fs * 0.9)}">Tủ lạnh</text></g>`);
       }
       // đầu dãy (không phải góc): bấm để đổi tường / hở
       const dau = [];
@@ -3956,11 +3981,11 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     function svgMD(b, pa, Q, canh) {
       const e = pa.canh[canh], dai = e ? e.dai : b.canh[canh].dai, mx = 120, fs = Math.max(55, Math.min(85, dai / 45)), o = [];
-      const Y = z => r0(Q.Hc - z);
+      const Top = Math.max(Q.Hc, ...pa.ds.filter(q => q.canh === canh && q.t2).map(q => q.z + (+q.cao || 0))), Y = z => r0(Top - z);
       o.push(`<line x1="${-mx}" y1="${Y(0)}" x2="${r0(dai + mx)}" y2="${Y(0)}" class="bo-san"/>`);
       for (const d of (pa.da || []).filter(q => q.canh === canh)) o.push(`<rect x="${r0(d.s0)}" y="${Y(Q.caoMat)}" width="${r0(d.s1 - d.s0)}" height="${r0(Math.max(8, Q.caoMat - Q.Hd))}" class="bo-da"/>`);
       for (const k of pa.ds.filter(q => q.canh === canh)) {
-        const z0 = k.tang === 'tren' ? k.z : 0, z1 = k.tang === 'duoi' ? Q.Hd : k.tang === 'cao' ? Q.Hc : (/^BT-HMK/.test(k.ma) ? Q.Hc : k.z + Q.Ht);
+        const z0 = k.tang === 'tren' ? k.z : 0, z1 = k.tang === 'duoi' ? Q.Hd : k.tang === 'cao' ? Q.Hc : k.t2 ? k.z + (+k.cao || 0) : (/^BT-HMK/.test(k.ma) ? Q.Hc : k.z + Q.Ht);
         const x = k.s0, w = k.dai, nt = (k.nep && k.nep.trai) || 0, np = (k.nep && k.nep.phai) || 0, op = k.op ? Q.tc : 0;
         const ten = TEN_CHUC_BO[k.chuc] || '', hep = k.rong < 280;
         let them = '';
@@ -3969,10 +3994,12 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         if (op) them += `<rect x="${r0(k.op === 'trai' ? x : x + w - op)}" y="${Y(z1)}" width="${r0(op)}" height="${r0(z1 - z0)}" class="bo-nep"/>`;
         const may = k.chuc === 'tl' && k.may ? (k.may.cao ? k.may : (Core.LOAI_TB_BEP.tl || []).find(q => q.ma === k.may.ma)) : null;
         if (may && may.cao) { const mr = +may.rong || 0, x0 = x + nt + (k.op === 'trai' ? op : 0) + (k.rong - mr) / 2; them += `<rect x="${r0(x0)}" y="${Y(+may.cao)}" width="${r0(mr)}" height="${r0(+may.cao)}" class="bo-may"/>`; }
+        if (laKinhBo(b, k)) { const kk = 70, x0 = x + nt + (k.op === 'trai' ? op : 0); them += `<rect data-bo-kinh="1" x="${r0(x0 + kk)}" y="${Y(z1 - kk)}" width="${r0(Math.max(0, k.rong - 2 * kk))}" height="${r0(Math.max(0, z1 - z0 - 2 * kk))}" class="bo-kinh"/>`; }
+        if (b.led && k.tang === 'tren' && !k.t2 && k.chuc !== 'hm') them += `<line data-bo-led="1" x1="${r0(x + nt + 20)}" y1="${Y(z0) + 12}" x2="${r0(x + w - np - 20)}" y2="${Y(z0) + 12}" class="bo-led"/>`;
         const cx = x + w / 2, cy = (Y(z1) + Y(z0)) / 2;
         o.push(`<g data-bo-vt="${esc(k.vt)}" class="bo-k k-${esc(k.chuc || 'canh')}${k.vt === boChon ? ' on' : ''}${k.ghim ? ' ghim' : ''}"><title>${esc(`${k.vt} · ${k.ma} — ${ten} ${hien(k.rong)}`)}</title><rect x="${r0(x)}" y="${Y(z1)}" width="${r0(w)}" height="${r0(z1 - z0)}" class="bo-r"/>${them}${hep ? '' : `<text x="${r0(cx)}" y="${r0(cy - fs * 0.25)}" font-size="${r0(fs)}">${esc(ten)}</text>`}<text x="${r0(cx)}" y="${r0(cy + fs * (hep ? 0.35 : 1.05))}" font-size="${r0(fs * (hep ? 0.8 : 0.9))}">${esc(hien(k.rong))}</text></g>`);
       }
-      return `<svg data-bo="md" viewBox="${-mx} -80 ${r0(dai + 2 * mx)} ${r0(Q.Hc + 160)}" role="group" aria-label="Mặt đứng cạnh ${'AB'[canh]} — bấm tủ để chọn">${o.join('')}</svg>`;
+      return `<svg data-bo="md" viewBox="${-mx} -80 ${r0(dai + 2 * mx)} ${r0(Top + 160)}" role="group" aria-label="Mặt đứng cạnh ${'AB'[canh]} — bấm tủ để chọn">${o.join('')}</svg>`;
     }
     // nút sửa nhanh (thiết kế §7): thử từng cách, chỉ hiện cách làm bớt LỖI / CẢNH BÁO; bấm = một bước ↶ Lùi
     const diemBo = r => (r.pa.length ? r.pa[0].canh_bao.length : 1000);
@@ -3981,7 +4008,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (act === 'bo-sua-tl') { if (!o.tl) return false; if (o.kieu === 'L') o.tl.canh = o.tl.canh === 1 ? 0 : 1; else o.tl.dau = o.tl.dau === 'cuoi' ? 'dau' : 'cuoi'; return true; }
       if (act === 'bo-sua-bep') { if (o.kieu !== 'L') return false; const m = pa && pa.ds.find(q => q.chuc === 'bep'), c = m ? m.canh : (o.bep && o.bep.canh === 0 ? 0 : 1); o.bep = Object.assign({}, o.bep, { canh: 1 - c, s: null }); return true; }
       if (act === 'bo-sua-goc') { if (o.kieu !== 'L' || !v || v === (o.goc && o.goc.pk)) return false; o.goc = Object.assign({}, o.goc, { pk: v }); return true; }
-      if (act === 'bo-sua-chau') { const m = pa && pa.ds.find(q => q.chuc === 'chau'); if (o.chau && o.chau.co === 800) return false; if (m && !/900/.test(m.ma)) return false; o.chau = Object.assign({}, o.chau, { co: 800 }); return true; }
+      if (act === 'bo-sua-chau') { const m = pa && pa.ds.find(q => q.chuc === 'chau'); if (o.co === 800 || (o.chau && o.chau.co === 800)) return false; if (m && !/900/.test(m.ma)) return false; o.co = 800; o.chau = Object.assign({}, o.chau, { co: 800 }); o.bep = Object.assign({}, o.bep, { co: 800 }); return true; }
       return false;
     }
     function tinhSua() {
@@ -3993,7 +4020,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         if (b.tl) x.push(thu('bo-sua-tl', '', b.kieu === 'L' ? `Tủ lạnh sang cạnh ${b.tl.canh === 1 ? 'A' : 'B'}` : 'Đổi bên tủ lạnh'));
         if (b.kieu === 'L') { const m = paBo(r) && paBo(r).ds.find(q => q.chuc === 'bep'), c = m ? m.canh : (b.bep.canh === 0 ? 0 : 1); x.push(thu('bo-sua-bep', '', `Bếp sang cạnh ${c === 1 ? 'A' : 'B'}`));
           const g = Object.keys(Core.GOC_BEP || {}).filter(k => k !== b.goc.pk).map(k => thu('bo-sua-goc', k, `Góc: ${Core.GOC_BEP[k].ten}`)).filter(Boolean).sort((p, q) => p.d - q.d)[0]; if (g) x.push(g); }
-        x.push(thu('bo-sua-chau', '', 'Chậu 900 → 800'));
+        x.push(thu('bo-sua-chau', '', 'Chậu, bếp 900 → 800'));
         for (const q of x) if (q) out.push(q);
       }
       N.sua = out;
@@ -4016,12 +4043,30 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     function boKpopHTML(pa) {
       const m = pa && boChon ? pa.ds.find(q => q.vt === boChon) : null; if (!m) return '';
-      const chuan = (Core.MAU_BEP_DUOI || []).some(x => x.ma === m.ma) && m.tang === 'duoi' && m.chuc !== 'goc';      // tủ góc: bảng tự đặt, không ghim
-      const doi = m.tang === 'duoi' && ['chau', 'bep', 'goc'].indexOf(m.chuc) < 0 ? (Core.MAU_BEP_DUOI || []).filter(x => x.ma !== m.ma && ['chau', 'bep', 'goc'].indexOf(x.chuc_nang) < 0 && Math.abs(rongMa(x.ma) - m.rong) < 0.5) : [];
-      const tang = m.tang === 'tren' ? 'tủ trên' : m.tang === 'cao' ? 'tủ cao' : 'tủ dưới';
+      // (bản 1.35) khoang chia đều (BD-CANH / NK3 / KE-<rộng>, mọi bề rộng) ghim / đổi được như mẫu thư viện
+      const DEU = /^BD-(NK3|CANH|KE)-\d/, b = Core.chuanBo(boBep);
+      const chuan = ((Core.MAU_BEP_DUOI || []).some(x => x.ma === m.ma) || DEU.test(m.ma)) && m.tang === 'duoi' && m.chuc !== 'goc';      // tủ góc: bảng tự đặt, không ghim
+      const doi = [];
+      if (m.tang === 'duoi' && ['chau', 'bep', 'goc', 'tl'].indexOf(m.chuc) < 0) {
+        const w = m.rong, ws = String(Math.round(w * 10) / 10);
+        for (const x of Core.MAU_BEP_DUOI || []) if (x.ma !== m.ma && ['chau', 'bep', 'goc'].indexOf(x.chuc_nang) < 0 && Math.abs(rongMa(x.ma) - w) < 0.5) doi.push({ ma: x.ma, ten: x.ten.replace(/^Tủ (dưới )?/, ''), tip: x.ten });
+        for (const [k, ten, ok] of [['CANH', 'cánh', true], ['NK3', '3 ngăn kéo', w >= 300 - 0.5], ['KE', 'kệ hở', true]]) {
+          const ma = `BD-${k}-${ws}`; if (ok && ma !== m.ma && !doi.some(q => q.ma === ma || rongMa(q.ma) === w && new RegExp(`^BD-${k}-`).test(q.ma))) doi.push({ ma, ten: `${ten} ${ws}`, tip: `Tủ ${ten} rộng ${ws}` });
+        }
+      }
+      const tang = m.tang === 'tren' ? (m.t2 ? 'tủ trên tầng 2' : 'tủ trên') : m.tang === 'cao' ? 'tủ cao' : 'tủ dưới';
+      // tủ lạnh: kiểu khoang (dương / âm) + kích thước máy — gõ xong (rời ô / Enter) bảng sinh lại khoang
+      let tlH = '';
+      if (m.chuc === 'tl') {
+        const t = tlCua(b, m), my = mayTL(t) || {}, am = t && t.kieu === 'am';
+        const io = (k, ten, v) => `<label>${ten}<input type="text" inputmode="decimal" data-ui="bok-tl-${k}" value="${esc(v ? fmt(+v) : '')}" title="${ten} máy (mm) — rời ô / Enter để sinh lại khoang"></label>`;
+        tlH = `<div class="bochip" role="group" aria-label="Kiểu khoang tủ lạnh"><span class="bonhan">Khoang</span><button class="segb${am ? '' : ' on'}" data-act="kpop-bo-tlk" data-v="duong" aria-pressed="${!am}" title="Tủ lạnh đứng ngoài: hở hông 20, trên 50, không cánh">Dương</button><button class="segb${am ? ' on' : ''}" data-act="kpop-bo-tlk" data-v="am" aria-pressed="${am}" title="Tủ lạnh lắp âm: hở 5 mỗi hông, tủ cao bao quanh có hậu, cánh ốp theo máy + bộ ray dẫn cánh">Âm</button></div>
+<div class="g g3">${io('rong', 'Máy rộng', my.rong)}${io('sau', 'Máy sâu', my.sau)}${io('cao', 'Máy cao', my.cao)}</div>`;
+      }
+      const kinhH = m.tang === 'tren' && !m.t2 && (m.chuc === 'bat' || m.chuc === 'canh') ? (on => `<button class="sec" data-act="kpop-bo-kinh" aria-pressed="${on}" title="${on ? 'Bỏ cánh kính: cánh ván như các tủ khác' : 'Làm cánh khung kính cho tủ này (khung 4 thanh + kính)'}">${on ? 'Bỏ kính' : 'Cánh kính'}</button>`)(laKinhBo(b, m)) : '';
       return `<div class="kph"><b>${esc(m.vt)} · ${esc(TEN_CHUC_BO[m.chuc] || m.ma)}</b><span>${esc(m.ma)} · ${tang} · rộng ${hien(m.rong)}${m.nep ? ` + nẹp ${hien((m.nep.trai || 0) + (m.nep.phai || 0))}` : ''}${m.op ? ' + ốp' : ''}${m.ghim ? ' · đã ghim' : ''}</span><button class="x" data-act="kpop-bo-dong" title="Đóng (Esc)" aria-label="Đóng ô chọn của tủ ${esc(m.vt)}">✕</button></div>
-${doi.length ? `<div class="bochip" role="group" aria-label="Đổi thành"><span class="bonhan">Đổi thành</span>${doi.map(x => `<button class="segb" data-act="kpop-bo-doi" data-v="${esc(x.ma)}" title="${esc(x.ten)} — ghim tại chỗ này">${esc(x.ten.replace(/^Tủ (dưới )?/, ''))}</button>`).join('')}</div>` : ''}
-<div class="frow">${chuan ? `<button class="sec" data-act="kpop-bo-ghim" aria-pressed="${m.ghim ? 'true' : 'false'}" title="${m.ghim ? 'Bỏ ghim: bảng tự chia lại chỗ này' : 'Ghim tủ này đúng mẫu, đúng chỗ — chia lại không đổi nó'}">${m.ghim ? 'Bỏ ghim' : '📌 Ghim'}</button>` : ''}<button class="sec" data-act="kpop-bo-mo" title="Mở tủ này thành tủ bếp lẻ ở thẻ Tủ (đúng thông số trong bộ) — để xem kỹ, vẽ từng tủ. ↶ Lùi về bộ.">Mở thành tủ</button></div>`;
+${tlH}${doi.length ? `<div class="bochip" role="group" aria-label="Đổi thành"><span class="bonhan">Đổi thành</span>${doi.map(x => `<button class="segb" data-act="kpop-bo-doi" data-v="${esc(x.ma)}" title="${esc(x.tip)} — ghim tại chỗ này">${esc(x.ten)}</button>`).join('')}</div>` : ''}
+<div class="frow">${kinhH}${chuan ? `<button class="sec" data-act="kpop-bo-ghim" aria-pressed="${m.ghim ? 'true' : 'false'}" title="${m.ghim ? 'Bỏ ghim: bảng tự chia lại chỗ này' : 'Ghim tủ này đúng mẫu, đúng chỗ — chia lại không đổi nó'}">${m.ghim ? 'Bỏ ghim' : '📌 Ghim'}</button>` : ''}<button class="sec" data-act="kpop-bo-mo" title="Mở tủ này thành tủ bếp lẻ ở thẻ Tủ (đúng thông số trong bộ) — để xem kỹ, vẽ từng tủ. ↶ Lùi về bộ.">Mở thành tủ</button></div>`;
     }
     function veBoView() {
       const bv = $('.bov'); if (!bv || !boBep) return;
@@ -4048,12 +4093,37 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       doiBo(o => {
         if (k === 'bo-dai-a' && so) o.canh[0].dai = n;
         else if (k === 'bo-dai-b' && so && o.canh[1]) o.canh[1].dai = n;
+        else if (k === 'bo-tran' && so && n >= 2000 && n <= 4000) o.tran = n;      // gõ dở (< 2000) chưa áp
         else if (k === 'bo-chau-s') { o.chau.s = so ? n : null; if (chauCanh !== null) o.chau.canh = chauCanh; }
         else if (k === 'bo-bep-s') { o.bep.s = so ? n : null; if (bepCanh !== null) o.bep.canh = bepCanh; }
         else if (k === 'bo-ong') o.ong = so ? { canh: chauCanh !== null ? chauCanh : (o.chau.canh || 0), s: n } : null;
         else if (/^bo-tl-ho_/.test(k) && o.tl && so) o.tl[k.slice(6)] = n;
         else if (/^bo-may-/.test(k) && o.tl && so) o.tl.may = Object.assign({ ma: 'tu_chon', rong: 700, sau: 700, cao: 1800 }, typeof o.tl.may === 'object' ? o.tl.may : {}, { [k.slice(7)]: n });
       }, { go: true });
+    }
+    // (bản 1.35) chọn khoang tủ lạnh ở một đầu (sau khi thêm / đổi) — ô chọn của nó hiện kích thước máy
+    function chonTL(q) {
+      const r = tinhBo(), pa = paBo(r), b = r.bo, m = pa && pa.ds.find(x => x.chuc === 'tl' && JSON.stringify(tlDauBo(b, x)) === JSON.stringify(q));
+      boChon = m ? m.vt : null; veBoView();
+      const k = $('.bokpop'); if (m && k && !k.hidden && k.scrollIntoView) k.scrollIntoView({ block: 'nearest' });
+    }
+    function bamTL(i, ben) {
+      if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng thêm / bỏ tủ lạnh.');
+      const b0 = Core.chuanBo(boBep), L = b0.kieu === 'L', q = L ? { canh: +i === 1 ? 1 : 0 } : { dau: ben === 'cuoi' ? 'cuoi' : 'dau' };
+      const co = [b0.tl, b0.tl2].some(t => t && (L ? t.canh === q.canh : t.dau === q.dau));
+      boChon = null; doiBo(o => thayBo(o, Core.tlBo(o, q)));
+      if (co) return setStatus('Đã bỏ khoang tủ lạnh ở đầu đó — bảng chia lại phần còn lại. ↶ Lùi để lấy lại.');
+      chonTL(q); setStatus('Đã thêm khoang tủ lạnh — gõ kích thước máy (rộng × sâu × cao), chọn Dương / Âm ở ô chọn dưới hình. ↶ Lùi để bỏ.');
+    }
+    function goMayTL(t) {      // ô Máy rộng / sâu / cao trong ô chọn của khoang tủ lạnh: áp khi rời ô / Enter (ô nằm trong hình — vẽ lại lúc gõ là mất ô)
+      const r = tinhBo(), pa = paBo(r), m = pa && boChon ? pa.ds.find(q => q.vt === boChon) : null; if (!m || m.chuc !== 'tl') return;
+      const b0 = Core.chuanBo(boBep), tl = tlCua(b0, m), my = mayTL(tl), k = t.dataset.ui.slice(7), n = parseFloat(String(t.value).trim().replace(',', '.'));
+      const lim = { rong: [400, 1400], sau: [300, 1000], cao: [800, 2300] }[k];
+      if (!lim || !isFinite(n) || n < lim[0] || n > lim[1]) { veBoView(); return setStatus(`Máy ${k === 'rong' ? 'rộng' : k === 'sau' ? 'sâu' : 'cao'} phải trong ${lim ? lim[0] + ' … ' + lim[1] : '?'} mm.`); }
+      if (my && Math.abs(+my[k] - n) < 0.05) return;
+      const q = tlDauBo(b0, m), may = { ma: 'tu_chon', rong: +((my && my.rong) || 700), sau: +((my && my.sau) || 700), cao: +((my && my.cao) || 1800) }; may[k] = n;
+      doiBo(o => thayBo(o, Core.tlBo(o, Object.assign({ may }, q))));
+      chonTL(q); setStatus(`Máy tủ lạnh ${hien(may.rong)} × ${hien(may.sau)} × ${hien(may.cao)} — khoang sinh lại theo máy. ↶ Lùi để bỏ.`);
     }
     function boChon1(t) {      // ô chọn của khối Bộ bếp: một bước ↶ Lùi
       const k = t.dataset.ui, v = t.value;
@@ -4089,7 +4159,20 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
         else if (coCho) setStatus(`Chữ ${kieu}: chọn lại chỗ đặt (bấm “Chỗ”) — ${kieu === 'L' ? 'chữ L đặt theo góc trong' : 'chữ I đặt theo đầu trái'}.`);
         return;
       }
-      if (act === 'bo-tl') return doiBo(o => { if (!v) o.tl = null; else { o.tl = Object.assign({}, o.tl || {}, { may: v === 'tu_chon' ? Object.assign({ ma: 'tu_chon', rong: 700, sau: 700, cao: 1800 }, o.tl && typeof o.tl.may === 'object' ? o.tl.may : {}) : v }); if (v === 'tu_chon') boThem = true; } });
+      if (act === 'bo-tl') return doiBo(o => {
+        if (!v) { o.tl = null; o.tl2 = null; return; }
+        const may = v === 'tu_chon' ? Object.assign({ ma: 'tu_chon', rong: 700, sau: 700, cao: 1800 }, o.tl && typeof o.tl.may === 'object' ? o.tl.may : {}) : v;
+        const mx = typeof may === 'string' ? (Core.LOAI_TB_BEP.tl || []).find(x => x.ma === may) : null;
+        if (v === 'tu_chon') boThem = true;
+        if (!o.tl) { o.tl = { may }; return; }
+        // (bản 1.35) máy lắp âm → khoang âm; máy đứng ngoài đang ở khoang âm → về dương (hở theo kiểu mới)
+        const kieu = mx && mx.kieu === 'am' ? 'am' : mx && o.tl.kieu === 'am' ? 'duong' : o.tl.kieu, b0 = Core.chuanBo(o);
+        thayBo(o, Core.tlBo(o, Object.assign(b0.kieu === 'L' ? { canh: b0.tl.canh } : { dau: b0.tl.dau }, { may }, kieu !== b0.tl.kieu ? { kieu } : {})));
+      });
+      if (act === 'bo-co') return doiBo(o => { const c = v ? +v : null; o.co = c; o.chau = Object.assign({}, o.chau, { co: c }); o.bep = Object.assign({}, o.bep, { co: c }); });
+      if (act === 'bo-t2') return doiBo(o => { if (+o.tran > 0) { boTranNho = +o.tran; o.tran = 0; } else o.tran = boTranNho || 2700; });
+      if (act === 'bo-kinh') return doiBo(o => { const on = o.kinh === 'bat' || (Array.isArray(o.kinh) && o.kinh.length > 0); o.kinh = on ? 'khong' : 'bat'; });
+      if (act === 'bo-led') return doiBo(o => { o.led = !Core.chuanBo(o).led; });
       if (act === 'bo-cao') return doiBo(o => { const j = o.cao.findIndex(c => c.loai === v); if (j >= 0) o.cao.splice(j, 1); else o.cao.push({ loai: v, rong: v === 'lo' ? 600 : 400 }); o.cao.sort((p, q) => (p.loai === 'lo' ? 0 : 1) - (q.loai === 'lo' ? 0 : 1)); });
       if (act === 'bo-ke') return doiBo(o => { if (o.ke) delete o.ke; else o.ke = true; });
       if (act === 'bo-da') { if (!pa) return; let csv = ''; try { csv = Core.daDayCSV(boKem(), pa, { nen: nenBo() }); } catch (e) { return setStatus('Chưa kê được đá của dãy: ' + (e && e.message || e)); } return saveFile(`bo_bep_${boBep.ma}_da.csv`, csv, 'text/csv;charset=utf-8', `Đã tải bảng gia công đá của bộ ${boBep.ma} (CSV): từng tấm, mối nối, khoét chậu / bếp.`); }
@@ -4100,6 +4183,18 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (/^bo-sua-/.test(act)) { const ten = b.textContent; doiBo(o => { suaBo(act, o, v, r); }); setStatus(`Đã sửa nhanh: ${ten}. ↶ Lùi để bỏ.`); return; }
       if (act === 'kpop-bo-dong') { boChon = null; return veBoView(); }
       const m = pa && boChon ? pa.ds.find(q => q.vt === boChon) : null; if (!m) return;
+      if (act === 'kpop-bo-tlk' && m.chuc === 'tl') {      // (bản 1.35) khoang tủ lạnh dương ↔ âm (hở về mặc định của kiểu mới)
+        const b0 = Core.chuanBo(boBep), q = tlDauBo(b0, m), t = tlCua(b0, m); if (!t || t.kieu === v) return;
+        doiBo(o => thayBo(o, Core.tlBo(o, Object.assign({ kieu: v === 'am' ? 'am' : 'duong' }, q, typeof t.may === 'object' ? { may: t.may } : (Core.LOAI_TB_BEP.tl || []).some(x => x.ma === t.may && x.kieu === 'am') && v !== 'am' ? { may: 'hai_canh_700' } : {}))));
+        chonTL(q); return setStatus(`Khoang tủ lạnh ${v === 'am' ? 'âm (hở 5 mỗi hông, tủ cao bao quanh, cánh ốp theo máy)' : 'dương (đứng ngoài, hở 20 mỗi hông)'}. ↶ Lùi để bỏ.`);
+      }
+      if (act === 'kpop-bo-kinh' && m.tang === 'tren') {      // (bản 1.35) chọn khoang cánh kính: chuyển "giá bát" thành danh sách vị trí rồi bật / tắt tủ này
+        const b0 = Core.chuanBo(boBep), on = laKinhBo(b0, m);
+        const ds = b0.kinh === 'bat' ? pa.ds.filter(q => laKinhBo(b0, q)).map(choKinh) : Array.isArray(b0.kinh) ? b0.kinh.slice() : [];
+        const moi = on ? ds.filter(x => !Core.kinhO([x], m)) : ds.concat([choKinh(m)]);
+        doiBo(o => { o.kinh = moi.length ? moi : 'khong'; }, { giuPa: true });
+        boChon = m.vt; veBoView(); return setStatus(`${m.vt}: ${on ? 'bỏ cánh kính' : 'cánh khung kính'}. ↶ Lùi để bỏ.`);
+      }
       if (act === 'kpop-bo-ghim' || act === 'kpop-bo-doi') {
         const s0 = s0Thung(m), ma = act === 'kpop-bo-doi' ? v : m.ma, khoaCu = Object.keys(boBep.khoa || {}).find(k => { const q = boBep.khoa[k]; return k === m.vt_ghim || (q.canh === m.canh && Math.abs(q.s0 - s0) < 0.5); });
         doiBo(o => { o.khoa = Object.assign({}, o.khoa); if (khoaCu) delete o.khoa[khoaCu]; if (act === 'kpop-bo-doi' || !m.ghim) o.khoa[khoaCu || m.vt] = { ma, s0, canh: m.canh }; });
@@ -4122,7 +4217,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       const bv = $('.bov');
       const svgPt = (g, e) => { const M = g.getScreenCTM(); if (!M) return null; const p = g.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const q = p.matrixTransform(M.inverse()); return [q.x, q.y]; };
       if (bv) {
-        bv.addEventListener('pointerdown', safe(e => { const t = e.target.closest('svg[data-bo="mb"] [data-bo-keo]'); if (!t || e.button) return; boKeo = { t, g: t.ownerSVGElement, vat: t.dataset.boKeo, x: e.clientX, y: e.clientY, id: e.pointerId, dang: false }; }));
+        bv.addEventListener('pointerdown', safe(e => { const t = e.target.closest('svg[data-bo="mb"] [data-bo-keo]'); if (!t || e.button) return; boKeo = { t, g: t.ownerSVGElement, vat: t.dataset.boKeo, tli: +(t.dataset.boTli || 0), x: e.clientX, y: e.clientY, id: e.pointerId, dang: false }; }));
         bv.addEventListener('pointermove', safe(e => {
           const k = boKeo; if (!k || e.pointerId !== k.id) return;
           if (!k.dang && Math.hypot(e.clientX - k.x, e.clientY - k.y) >= 4) { k.dang = true; k.p0 = svgPt(k.g, { clientX: k.x, clientY: k.y }); try { k.g.setPointerCapture(e.pointerId); } catch (err) { /* bỏ qua */ } }
@@ -4137,7 +4232,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
           const r = tinhBo(), q = uMB(r.bo, paBo(r), p[0], p[1]);
           // (vòng soát 2 — 1.34) chậu luôn trùm ống thoát: kéo sang cạnh không có ống thì không dời, nói rõ
           if (k.vat === 'chau' && r.bo.ong && q.canh !== undefined && q.canh !== null && q.canh !== r.bo.ong.canh) { veBoView(); return setStatus(`Chậu phải trùm ống thoát (cạnh ${'AB'[r.bo.ong.canh]}) — muốn đặt chậu cạnh ${'AB'[q.canh]} thì xoá ô Ống thoát trước (hoặc gõ ống mới sau khi kéo).`); }
-          doiBo(o => { const x = Core.keoBo(o, k.vat, { canh: q.canh, s: k.vat === 'tl' ? q.u : q.s }); Object.keys(o).forEach(kk => delete o[kk]); Object.assign(o, x); });
+          doiBo(o => { const x = Core.keoBo(o, k.vat, { canh: q.canh, s: k.vat === 'tl' ? q.u : q.s, tl_i: k.tli }); Object.keys(o).forEach(kk => delete o[kk]); Object.assign(o, x); });
           setStatus(`Đã dời ${k.vat === 'chau' ? 'chậu' : k.vat === 'bep' ? 'bếp' : 'tủ lạnh'}${k.vat === 'tl' ? '' : ` — tâm ${hien(Math.round(q.s / 50) * 50)}`}. ↶ Lùi để bỏ.`);
         });
         bv.addEventListener('pointerup', tha); bv.addEventListener('pointercancel', tha);
