@@ -2292,7 +2292,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
   const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma))), t = D.van.t, tc = D.van.t_canh;
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  eq(C.VERSION, '1.34.0', 'phiên bản 1.34.0');
+  eq(C.VERSION, '1.34.1', 'phiên bản 1.34.1');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO], co = ma => MAU.some(m => m.ma === ma);
   for (const ma of ['BC-TL-700', 'BC-TL-830', 'BC-TL-910', 'BC-LO-600', 'BD-KE-150', 'BD-KE-200', 'BD-KE-300', 'BT-KE-150', 'BT-KE-200', 'BT-KE-300',
     'BD-GOC-900-T', 'BD-GOC-900-P', 'BD-GOC-990-T', 'BD-GOC-990-P', 'BD-GOCLA-900-T', 'BD-GOCLA-900-P', 'BT-GOC-900-T', 'BT-GOC-900-P', 'BT-GOC-990-T', 'BT-GOC-990-P', 'BT-GOCLA-900-T', 'BT-GOCLA-900-P']) ok(co(ma), `có mẫu ${ma}`);
@@ -2846,6 +2846,84 @@ T('Dãy bếp (bản 1.34) — vòng soát 3', () => {
     ok(typeof C.roiDay === 'function', 'có roiDay');
     const s2 = C.roiDay(clone(x.spec)); ok(!s2.bep.day && C.cutList(C.build(C.normalize(s2))).gia_cong_da, 'roiDay: bỏ bep.day, có lại dòng Mặt đá');
     const s3 = C.roiDay(C.normalize({})); ok(s3 && !s3.bep, 'roiDay tủ áo: không đụng'); }
+});
+
+// Bản 1.34.1 — TÁP ĐẦU GIƯỜNG làm lại (anh Thanh 14/10/2026: "các mẫu tab đầu giường như này mà, mẫu của em xấu quá, cập nhật lại" + 5 ảnh mẫu):
+// A gờ chắn (hồi + gờ sau nhô trên nóc thụt, bo góc) + hộc mở + 1 ngăn kéo lọt lòng · B gờ + 2 ngăn kéo lọt lòng có thanh ngang giữa · C nóc chồm (đua) + hộc mở + 1 ngăn kéo
+// D hộp 2 ngăn kéo trùm, nóc + đáy phủ, khe tay nắm · E nóc phủ, 2 ngăn kéo tay nắm khoét, chân gỗ rời 4 cái. Khoá mới nằm trong s.tap (chỉ táp có); táp cũ (không s.tap) dựng như 1.32.
+T('Táp đầu giường (bản 1.34.1)', () => {
+  const D0 = C0.DEFAULT_SPEC, ap = ma => C0.apMau(D0, ma), PK = (M, re) => (C0.cutList(M).phu_kien || []).find(x => re.test(x.ten));
+  const CU = ['TAP2-450', 'TAP2-500', 'TAP2-500-C', 'TAP1H-500', 'TAP3-600'];
+  ok(C0.MAU_TAP.length >= 6 && C0.MAU_TAP.length <= 8, 'thư viện táp: 6 – 8 mẫu', C0.MAU_TAP.map(m => m.ma));
+  ok(C0.MAU_TAP.every(m => CU.indexOf(m.ma) < 0 && /^TAP/.test(m.ma) && m.loai_sp === 'tap'), 'mẫu táp mới: mã mới (TAP…), không lẫn mã cũ');
+  ok(C0.THU_VIEN.find(x => x.loai === 'tap').ds === C0.MAU_TAP, 'Thư viện táp = bộ mẫu mới');
+  ok(Array.isArray(C0.MAU_TAP_CU) && CU.every(ma => C0.MAU_TAP_CU.some(m => m.ma === ma)), 'mã cũ còn trong MAU_TAP_CU');
+  for (const ma of CU) { const s = ap(ma), M = C0.build(s); ok(s && s.loai_sp === 'tap' && !('tap' in s) && !M.errors.length && M.templates.some(t => t.kieu === 'nk_trum'), `${ma} (cũ): apMau vẫn dựng như 1.32 — ngăn kéo trùm, không khoá tap`, s && [s.tap, M.errors]); }
+  for (const ma of CU) ok(!/gờ|nóc|chân gỗ|táp/i.test((C0.keHoachGoc(ap(ma)).loi || []).join(' ')), `${ma} (cũ): lệnh gốc như cũ`, C0.keHoachGoc(ap(ma)).loi);
+  const ten = {}; for (const m of C0.MAU_TAP) ten[m.ma] = m.ten;
+  // mỗi kiểu ảnh có ít nhất một mẫu, tên nói rõ kiểu
+  const kieu = { A: s => s.tap.go > 0 && s.khoang[0].dot.length === 1 && s.khoang[0].o.some(o => o.kieu === 'nk_am' && o.so === 1),
+    B: s => s.tap.go > 0 && s.khoang[0].o.some(o => o.kieu === 'nk_am' && o.so === 2), C: s => s.tap.noc === 'phu' && s.tap.dua > 0 && s.khoang[0].dot.length === 1,
+    D: s => s.tap.noc === 'phu' && s.tap.day === 'phu' && s.tap.tay_nam === 'khe' && s.khoang[0].o.some(o => o.kieu === 'nk_trum' && o.so === 2),
+    E: s => s.tap.noc === 'phu' && s.tap.chan_go > 0 && s.tap.tay_nam === 'khoet' };
+  const theoKieu = {}; for (const m of C0.MAU_TAP) { const s = ap(m.ma); for (const k of Object.keys(kieu)) if (kieu[k](s)) (theoKieu[k] = theoKieu[k] || []).push(m.ma); }
+  ok(Object.keys(kieu).every(k => (theoKieu[k] || []).length), 'đủ 5 kiểu ảnh A – E', theoKieu);
+  ok(C0.MAU_TAP.every(m => /gờ|nóc|hộp|chân/i.test(m.ten) && /ngăn kéo|hộc/i.test(m.ten)), 'tên mẫu nói rõ kiểu (gờ / nóc / hộp / chân + ngăn kéo / hộc)', C0.MAU_TAP.map(m => m.ten));
+  ok([400, 450, 500].every(r => C0.MAU_TAP.some(m => ap(m.ma).rong === r)), 'có cỡ rộng 400 / 450 / 500', C0.MAU_TAP.map(m => ap(m.ma).rong));
+  for (const m of C0.MAU_TAP) {
+    const s = ap(m.ma), M = C0.build(s);
+    ok(s.loai_sp === 'tap' && s.tap && !M.errors.length && !M.warnings.length, `${m.ma}: dựng được, không lỗi / cảnh báo`, [M.errors, M.warnings]);
+    eq(overlapAny(M), [], `${m.ma}: không tấm nào đè nhau`);
+    eq(C0.kiemLienKet(M.parts), [], `${m.ma}: tấm nào cũng có chỗ tì`);
+    ok(C0.phieu(M).xong && C0.phieu(M).dat, `${m.ma}: phiếu kiểm đạt`, C0.phieu(M).muc.filter(x => x.ket !== 'dat' && x.ket !== 'khong').map(x => x.ma));
+    const b = C0.bbox(M.parts); ok(near(b.x0, 0) && near(b.x1, s.rong) && near(b.z0, s.tap.chan_go) && near(b.z1, s.cao), `${m.ma}: hộp bao = rộng × cao (chân gỗ: tấm thấp nhất ở cao chân)`, b);
+    ok(M.mat_ngan_keo.length >= 1 && M.templates.filter(t => t.loai === 'NGAN_KEO').length === M.mat_ngan_keo.length, `${m.ma}: có ngăn kéo (mẫu Chenfeng)`);
+    const h = C0.heSo(s); ok(['L', 'W', 'H'].every(k => h.bien[k] && h.bien[k].sai_so < 0.02), `${m.ma}: module co giãn L / W / H`, [h.ly_do, ['L', 'W', 'H'].map(k => h.bien[k] && h.bien[k].sai_so)]);
+    for (const [k, d] of [['rong', 50], ['rong', -50], ['sau_thung', 50], ['sau_thung', -50], ['cao', 50], ['cao', -50]]) {
+      const s2 = JSON.parse(JSON.stringify(s)); s2[k] += d; const M2 = C0.build(s2);
+      ok(!M2.errors.length && M2.parts.length === M.parts.length && M2.templates.length === M.templates.length && !overlapAny(M2).length, `${m.ma}: ${k} ${d > 0 ? '+' : ''}${d} vẫn dựng được, cùng số tấm`, [M2.errors, M2.parts.length, M.parts.length]);
+    }
+    ok(/táp/i.test((C0.keHoachGoc(s).loi || []).join(' ')), `${m.ma}: kết cấu táp mới chưa có lệnh gốc → nhập tấm + gom module (báo lý do)`, C0.keHoachGoc(s).loi);
+    eq(C0.toChenfeng(M).so_tam, M.parts.length, `${m.ma}: nhập đủ tấm`);
+    ok(M.parts.every(p => { const c = C0.cutSize(p); return c.dai <= s.van.kho_dai + 0.01 && c.rong <= s.van.kho_rong + 0.01; }), `${m.ma}: mọi tấm vừa khổ ván`);
+  }
+  // A — gờ chắn: hồi + gờ sau nhô trên nóc thụt, bo góc trên trước hồi (ghi gia công), ngăn kéo lọt lòng phẳng mặt hồi, núm tròn, xà đế lùi giữa 2 hồi
+  { const ma = theoKieu.A[0], s = ap(ma), M = C0.build(s), q = s.tap, t = s.van.t, H = s.cao, hoi = P(M, 'HOI'), noc = P(M, 'NOC')[0], go = P(M, 'GO');
+    ok(hoi.length === 2 && hoi.every(p => near(p.z1, H)) && near(noc.z1, H - q.go) && noc.x0 >= hoi[0].x1 - 0.01, `${ma}: hồi cao suốt, nóc thụt ${q.go} giữa 2 hồi`, [hoi.map(box), box(noc)]);
+    ok(go.length === 1 && near(go[0].z0, noc.z1) && near(go[0].z1, H) && near(go[0].x0, hoi[0].x1) && near(go[0].x1, hoi[1].x0) && go[0].y0 > noc.y0 + 100, `${ma}: gờ sau ván thùng đứng trên nóc, giữa 2 hồi, sát lưng`, go.map(box));
+    ok(P(M, 'HAU').every(p => near(p.z1, H - s.hau.mep)), `${ma}: hậu phủ lên tới đỉnh gờ`, P(M, 'HAU').map(box));
+    ok(q.bo > 0 && hoi.every(p => /bo tròn/.test(p.gia_cong || '')) && C0.cutList(M).rows.filter(r => /Hồi/.test(r.ten)).every(r => /bo tròn/.test(r.ghi_chu)), `${ma}: bo góc trên trước hồi — ghi gia công ở bảng kê`, hoi.map(p => p.gia_cong));
+    const mt = M.mat_ngan_keo[0], k0 = M.info.x_khoang[0], w0 = M.info.khoang[0];
+    ok(M.mat_ngan_keo.length === 1 && !mt.trum && near(mt.y, 0) && near(mt.x, k0 + s.ngan_keo.khe_ben) && near(mt.w, w0 - 2 * s.ngan_keo.khe_ben), `${ma}: 1 ngăn kéo LỌT LÒNG giữa 2 hồi, mặt phẳng mặt hồi`, mt);
+    ok(!P(M, 'XA').length && !P(M, 'NEP').length && !P(M, 'DEM').length, `${ma}: không xà ẩn / nẹp / vách đệm`);
+    const ch = P(M, 'CHAN'); ok(ch.length === 1 && near(ch[0].x0, hoi[0].x1) && near(ch[0].x1, hoi[1].x0) && ch[0].y0 >= 0 && near(ch[0].z1, s.chan.cao) && /Xà đế/.test(ch[0].ten), `${ma}: xà đế lùi giữa 2 hồi`, ch.map(box));
+    ok(PK(M, /Núm tròn/) && PK(M, /Núm tròn/).sl === 1 && !PK(M, /Chân gỗ/), `${ma}: 1 núm tròn, không chân gỗ`);
+    ok(C0.summary(M).some(l => /gờ chắn/i.test(l)), `${ma}: tóm tắt nói gờ chắn`, C0.summary(M)); }
+  // B — 2 ngăn kéo lọt lòng, thanh ngang giữa (ván thùng nằm, phẳng mặt), đáy sát sàn
+  { const ma = theoKieu.B[0], s = ap(ma), M = C0.build(s), t = s.van.t, mt = M.mat_ngan_keo.slice().sort((a, b) => a.z - b.z), th = M.parts.filter(p => p.thanh_nk);
+    ok(mt.length === 2 && th.length === 1 && near(th[0].y0, 0) && th[0].type === 0 && near(th[0].z1 - th[0].z0, t) && th[0].z0 >= mt[0].z + mt[0].h - 0.01 && th[0].z1 <= mt[1].z + 0.01, `${ma}: thanh ngang giữa 2 mặt ngăn kéo`, [th.map(box), mt]);
+    ok(near(P(M, 'DAY')[0].z0, 0) && !P(M, 'CHAN').length, `${ma}: đáy sát sàn, không xà đế`);
+    ok(PK(M, /Núm tròn/).sl === 2, `${ma}: 2 núm tròn`); }
+  // C — nóc chồm: phủ hồi, đua 2 bên + trước; hồi đứng dưới nóc
+  { const ma = theoKieu.C[0], s = ap(ma), M = C0.build(s), q = s.tap, noc = P(M, 'NOC'), hoi = P(M, 'HOI');
+    ok(noc.length === 1 && near(noc[0].x0, 0) && near(noc[0].x1, s.rong) && near(noc[0].y0, -q.dua_truoc) && near(noc[0].z1, s.cao), `${ma}: nóc chồm phủ hồi, đua ${q.dua} hai bên + ${q.dua_truoc} trước`, noc.map(box));
+    ok(hoi.every(p => near(p.z1, noc[0].z0)) && near(hoi[0].x0, q.dua) && near(hoi[1].x1, s.rong - q.dua), `${ma}: hồi đứng dưới nóc, lùi vào ${q.dua}`, hoi.map(box)); }
+  // D — hộp: nóc + đáy phủ, 2 mặt trùm, khe tay nắm giữa 2 mặt, không núm
+  { const ma = theoKieu.D[0], s = ap(ma), M = C0.build(s), q = s.tap, mt = M.mat_ngan_keo.slice().sort((a, b) => a.z - b.z), hoi = P(M, 'HOI'), noc = P(M, 'NOC')[0], day = P(M, 'DAY')[0];
+    ok(mt.length === 2 && mt.every(x => x.trum) && near(mt[1].z - mt[0].z - mt[0].h, q.khe_tn), `${ma}: 2 mặt trùm, khe tay nắm ${q.khe_tn}`, mt);
+    ok(near(day.x0, 0) && near(day.x1, s.rong) && near(noc.x0, 0) && near(noc.x1, s.rong) && hoi.every(p => near(p.z0, day.z1) && near(p.z1, noc.z0)), `${ma}: nóc + đáy phủ hồi`, [box(noc), box(day), hoi.map(box)]);
+    ok(mt[1].z + mt[1].h <= noc.z0 + 0.01 && near(noc.y0, -s.van.t_canh), `${ma}: mặt trên cùng nằm dưới nóc, nóc phẳng mặt ngăn kéo`, [mt[1], box(noc)]);
+    ok(!PK(M, /Núm|Tay nắm/i), `${ma}: khe tay nắm — không kê tay nắm`); }
+  // E — nóc phủ, chân gỗ rời 4 cái (phụ kiện), đáy nâng đúng cao chân, tay nắm khoét (gia công), không núm
+  { const ma = theoKieu.E[0], s = ap(ma), M = C0.build(s), q = s.tap;
+    ok(near(Math.min(...M.parts.map(p => p.z0)), q.chan_go) && !P(M, 'CHAN').length && near(P(M, 'DAY')[0].z0, q.chan_go), `${ma}: đáy nâng ${q.chan_go} (chân gỗ), không xà đế`, P(M, 'DAY').map(box));
+    ok(PK(M, /Chân gỗ/) && PK(M, /Chân gỗ/).sl === 4, `${ma}: 4 chân gỗ rời (phụ kiện)`);
+    ok(PK(M, /khoét/i) && PK(M, /khoét/i).sl === M.mat_ngan_keo.length && !PK(M, /Núm/), `${ma}: tay nắm khoét — gia công từng mặt, không núm`); }
+  // khoá táp: chỉ táp mang s.tap; tủ áo / giường không nhận
+  ok(!('tap' in C0.normalize(Object.assign({}, D0, { tap: { go: 80 } }))), 'tủ áo mang khoá tap → bỏ');
+  ok(!('tap' in C0.apMau(ap(C0.MAU_TAP[0].ma), 'TA2-1000')) && !('tap' in C0.apMau(ap(C0.MAU_TAP[0].ma), 'G16-T')), 'táp mới → tủ áo / giường: bỏ khoá tap');
+  { const s = C0.normalize(Object.assign({}, ap(theoKieu.A[0]), {})); s.tap.noc = 'phu'; const n = C0.normalize(s); ok(n.tap.go === 0, 'nóc phủ thì không gờ (gờ cần nóc thụt)', n.tap); }
+  { const s = ap(theoKieu.E[0]); ok(s.chan.cao === 0, 'chân gỗ / đáy phủ: không xà đế'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);
