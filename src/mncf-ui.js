@@ -1051,6 +1051,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // (1.33 vòng soát) chỗ đặt lấy ở SÀN (khung chờ vẽ, khung của phòng): tủ bếp trên còn được nâng lên cao độ treo lúc vẽ → soi điện – nước ở đúng cao độ đó.
     // noi.dat (góc đã vẽ) và toạ độ gõ là z thật — không cộng.
     const zTreo = () => (loaiDangLam() === 'bep' && model && model.info && model.info.bep ? Number(model.info.bep.z_dat) || 0 : 0);      // cao độ đáy tủ bếp trên (0: tủ dưới / tủ cao / không phải tủ bếp)
+    // (soát 1.34.1) táp CHÂN GỖ rời: chân không phải tấm (không vào lệnh nhập) nên tấm thấp nhất là đáy ở cao chân. Góc đặt của táp (ô toạ độ, điểm bấm, chỗ đặt) là ở SÀN dưới chân
+    // → lúc vẽ bảng cộng cao chân vào z (driver neo góc vào tấm thấp nhất). Khác tủ bếp trên: ô z của táp vẫn là sàn.
+    const zChanGo = () => (loaiDangLam() === 'tap' && model && model.info && model.info.tap ? Number(model.info.tap.chan_go) || 0 : 0);
     const nangTreo = g => { const z = zTreo(); return z ? [g[0], g[1], Math.round((g[2] + z) * 100) / 100] : g; };
     // (1.33 vòng soát 2) ô toạ độ luôn mang z THẬT: chỗ đặt (khung, chuột, hình) ghi góc ở sàn → bảng điền ô z = cao độ treo của tủ bếp trên.
     // Sửa x / y sau đó thì tủ vẫn treo đúng (vẽ theo số gõ, z đã là cao độ đáy tủ). kc.zO = z đã điền — cao độ treo đổi thì ô z đi theo (capTreoO).
@@ -1655,6 +1658,16 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         o.corner = nangTreo(p);
       }
       else if (zBep && kc) o.corner = nangTreo(kc.d.goc.slice());      // chỗ đặt bằng chuột / khung: góc ở sàn → cao độ treo HIỆN TẠI (ô z đã điền đúng số này)
+      const zChan = zChanGo(); let gocSan = null;
+      if (zChan && !o.at) {      // táp chân gỗ: góc ở sàn → nâng lên cao chân (opt.at = gốc thiết kế ở sàn — driver đã cộng hộp bao)
+        if (!o.corner) {
+          chipChu.textContent = 'Bấm góc trái – trước của táp ở SÀN (bảng tự nâng lên cao chân gỗ)… Esc = thôi';
+          let p = null; try { p = await Drv.hoiDiem('Một Nhà: bấm góc trái - trước của táp (ở sàn):'); } catch (e) { p = null; }
+          if (!p) { chip.hidden = true; panel.hidden = false; busy = false; rebuild(); setStatus('Đã huỷ — chưa vẽ gì.'); return null; }
+          o.corner = p;
+        }
+        gocSan = o.corner.slice(); o.corner = [o.corner[0], o.corner[1], Math.round((o.corner[2] + zChan) * 100) / 100];
+      }
       const neoPhai = !!(kc && kc.lung && kc.lung.phai);
       if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
       // (bản 1.28) tủ này không đứng vào chỗ đặt đang giữ (bấm điểm / gõ toạ độ khác): khấu cột tự sinh theo cột của chỗ cũ không còn đúng → bỏ
@@ -1681,7 +1694,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         if (rep.giai_doan === 'xong' && rep.id) {
           noi = { id: rep.id, spec: clone(spec), ten: spec.ma || spec.ten || '' }; khoTu.save(rep.id, noi.spec);
           if (neoPhai) noi.neo_phai = true;      // (1.32) Cập nhật giường / vách đặt từ đầu phải: giữ đầu phải
-          const g0 = o.corner || rep.goc;      // chỗ tủ vừa đặt (góc trái – trước – dưới + góc xoay): để soi điện – nước của phòng lên tủ khi sửa tiếp
+          const g0 = gocSan || o.corner || rep.goc;      // chỗ tủ vừa đặt (góc trái – trước – dưới + góc xoay): để soi điện – nước của phòng lên tủ khi sửa tiếp
           if (Array.isArray(g0) && g0.length === 3 && g0.every(v => isFinite(v))) noi.dat = { goc: g0.slice(), xoay: o.xoay || 0 };
         }
         if (rep.xoay && rep.xoay.ok && !(rep.module && rep.module.ok)) noi = null;      // tủ đã xoay mà không phải module: bảng không dò lại được vị trí → sửa kích thước ở ô Thông số của Chenfeng
@@ -1704,7 +1717,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (th) th.hidden = !noi;
       // (1.33 vòng soát) tủ bếp trên: ô z = cao độ ĐÁY tủ (z thật); chỗ đặt bằng chuột (ô toạ độ mang góc ở sàn) thì nút ghi z đã nâng lên cao độ treo — đúng chỗ sẽ vẽ
       const az = $('[data-ui="az"]'), zt = zTreo();
-      if (az) az.title = zt ? `Tủ bếp trên: z = cao độ đáy tủ tính từ sàn (mặt đá + cách mặt đá = ${hien(zt)}). Bảng không cộng thêm gì vào số gõ.` : 'z của góc trái – trước – dưới của cả tủ';
+      const zc = zChanGo();
+      if (az) az.title = zt ? `Tủ bếp trên: z = cao độ đáy tủ tính từ sàn (mặt đá + cách mặt đá = ${hien(zt)}). Bảng không cộng thêm gì vào số gõ.` : zc ? `Táp chân gỗ: z = sàn dưới chân; bảng nâng thân lên cao chân ${hien(zc)}.` : 'z của góc trái – trước – dưới của cả tủ';
       if (dv) { const ua = $('[data-ui="useAt"]'), c = ['ax', 'ay', 'az'].map(n => { const e = $(`[data-ui="${n}"]`); return e ? String(e.value).trim() : ''; });
         if (zt && c.every(Boolean) && khopCho(c.map(x => parseFloat(x.replace(',', '.'))), khungCho)) c[2] = fmt(nangTreo(khungCho.d.goc)[2]);
         dv.textContent = noi ? 'Tủ mới' : ua && ua.checked && c.every(Boolean) ? `Vẽ tại ${c.join(', ')}` : 'Vẽ vào Chenfeng';
@@ -3537,7 +3551,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           const ke = r.mau.map(m => `${m.ten}: ${Object.keys(m.ts || {}).map(q => `${q}=${m.ts[q]}${m.mt && m.mt[q] ? ' (' + m.mt[q] + ')' : ''}`).join(', ') || '(không đọc được tham số)'}`).join(' · ');
           setStatus(`Thư mục ${r.thu_muc} có ${r.mau.length} mẫu — cập nhật mã cho ${k.capNhat} loại, thêm ${k.them} loại mới. Tham số của từng mẫu — ${ke}`); });
       }
-      else if (act === 'defaults') { const sp = { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan }; if (spec.loai_sp) Object.assign(sp, { loai_sp: spec.loai_sp, ma: spec.ma, ten: spec.ten, phao: spec.phao, khau: spec.khau }, spec.giuong ? { giuong: spec.giuong } : {}, spec.vach ? { vach: spec.vach } : {}, spec.bep ? { bep: spec.bep } : {}); const nem = loaiDangLam() === 'giuong' ? nemCua(spec) : null; spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), sp)); if (nem) { const pb = Core.phuBiGiuong(spec, nem[0], nem[1]); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; } renderAll(true); switchTab('chuan'); }      // giường / vách / táp: về chuẩn xưởng vẫn là giường / vách / táp
+      else if (act === 'defaults') { const sp = { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan }; if (spec.loai_sp) Object.assign(sp, { loai_sp: spec.loai_sp, ma: spec.ma, ten: spec.ten, phao: spec.phao, khau: spec.khau }, spec.giuong ? { giuong: spec.giuong } : {}, spec.vach ? { vach: spec.vach } : {}, spec.bep ? { bep: spec.bep } : {}, spec.tap ? { tap: spec.tap } : {}); const nem = loaiDangLam() === 'giuong' ? nemCua(spec) : null; spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), sp)); if (nem) { const pb = Core.phuBiGiuong(spec, nem[0], nem[1]); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; } renderAll(true); switchTab('chuan'); }      // giường / vách / táp: về chuẩn xưởng vẫn là giường / vách / táp
       else if (act === 'json') { if (model && !model.errors.length) return saveFile(fileBase() + '_chenfeng.json', JSON.stringify(Core.toChenfeng(model).json), 'application/json', 'Đã tải file JSON — kéo thả vào cửa sổ Chenfeng, rồi bấm 1 điểm để đặt.'); }
       else if (act === 'csv') { if (model && !model.errors.length) return saveFile(fileBase() + '_bang_ke.csv', Core.cutListCSV(model), 'text/csv;charset=utf-8', 'Đã tải bảng kê tấm (CSV, mở bằng Excel).'); }
       else if (act === 'save') return saveFile(fileBase() + '_mau_tu.json', JSON.stringify({ mncf: Core.VERSION, spec: Core.roiDay(clone(spec)) }, null, 1), 'application/json', 'Đã lưu mẫu tủ — lần sau bấm "Mở mẫu" để dùng lại.');

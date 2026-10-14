@@ -642,6 +642,10 @@ async function testThuVien(browser) {
   ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.tap && s.tap.go > 0) && window.MNCF.app.getModel().parts.some(p => p.loai === 'GO'); }), 'táp gờ chắn: có khoá tap + gờ sau');
   ok((await S(page, '.panel').getAttribute('data-loai')) === 'tap' && !(await S(page, '.sp').isVisible()) && await S(page, '.bays').isVisible(), 'táp: như tủ thường (có phần khoang), không ô Giường');
   ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.khoang.length === 1 && s.ve_goc === window.MNCFCore.DEFAULT_SPEC.ve_goc && !window.MNCF.app.getModel().errors.length; })), 'táp: 1 khoang, cách vẽ như tủ');
+  // (soát 1.34.1) "Về chuẩn mặc định" giữ kết cấu táp mới (khoá tap) — trước: rơi về táp kiểu 1.32 (mất gờ, chân trước phủ mặt) mà không báo
+  await theSau(page.locator('#mncf-host'), 'chuan'); await S(page, '[data-act="defaults"]').click();
+  ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(), M = window.MNCF.app.getModel(); return s.loai_sp === 'tap' && !!(s.tap && s.tap.go > 0) && M.parts.some(p => p.loai === 'GO') && !M.errors.length; })), 'táp gờ chắn → "Về chuẩn mặc định": vẫn là táp gờ chắn (giữ khoá tap)');
+  await S(page, '.tab[data-tab="tu"]').click();
   await chon('G16-NK'); await chon('');
   ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !('loai_sp' in s) && !s.giuong && s.khoang.length === 3 && !window.MNCF.app.getModel().errors.length; })) && (await S(page, '.panel').getAttribute('data-loai')) === 'tu' && await S(page, '.bays').isVisible(), 'giường → tủ mặc định: tủ 3 khoang, không mang thông số giường');
   ok(JSON.stringify(await nhan()) === JSON.stringify(['Rộng phủ bì', 'Cao phủ bì', 'Sâu thùng']), 'tủ: ô kích thước trở lại', await nhan());

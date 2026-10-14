@@ -386,6 +386,41 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
       ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'tủ bếp: dọn sạch bản vẽ cho các phép thử sau');
     }
+    // (soát 1.34.1) táp CHÂN GỖ rời: chân không phải tấm (không vào lệnh nhập) — góc đặt (ô toạ độ / điểm bấm) là ở SÀN, bảng nâng thân lên cao chân (trước: thân rơi xuống sàn, mất 150)
+    { await H.locator('.tab[data-tab="tu"]').click();
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      await H.locator('#mncf-ui-mau').selectOption('TAP-CHAN2-500'); await H.locator('[data-act="mau"]').click();
+      await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'tap' && s.tap && s.tap.chan_go === 150; });
+      await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.hau = Object.assign({}, s.hau, { t: 6 }); window.MNCF.app.setSpec(s); });
+      const bdT = async () => page.evaluate(() => { const D = window.MNCFDriver, L = D.last, bs = L.added.filter(e => D.isBoard(e) && !e.IsErase), b = bs.map(D.boxOf), T = bs[0] && bs[0].Template && bs[0].Template.Object;
+        return { z0: Math.round(Math.min(...b.map(x => x[4])) * 10) / 10, z1: Math.round(Math.max(...b.map(x => x[5])) * 10) / 10, x0: Math.round(Math.min(...b.map(x => x[0])) * 10) / 10, moTaH: T && T.GetParam('H').description }; });
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      await H.locator('#mncf-ui-ax').fill('40000'); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0');
+      if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+      ok(/sàn/.test(await H.locator('#mncf-ui-az').getAttribute('title') || ''), 'táp chân gỗ: ô z nói rõ là sàn dưới chân', await H.locator('#mncf-ui-az').getAttribute('title'));
+      await H.locator('footer [data-act="draw"]').click();
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 40000) < 1; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      let g = await bdT();
+      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 40000, 'táp chân gỗ gõ z 0: đáy ở 150, đỉnh 580 (không rơi xuống sàn)', g);
+      ok(/chân gỗ/.test(g.moTaH || ''), 'táp chân gỗ: tham số H của module nói rõ chưa gồm chân gỗ', g.moTaH);
+      // đặt bằng điểm bấm (không ô toạ độ): bấm ở sàn → thân nâng lên cao chân
+      await H.locator('.tab[data-tab="tu"]').click();
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      await H.locator('#mncf-ui-useat').uncheck();
+      const h0 = await page.evaluate(() => (window.__MOCK_HOI__ || []).length);
+      await H.locator('footer [data-act="draw"]').click();
+      await page.waitForFunction(k => (window.__MOCK_HOI__ || []).length >= k && window.MNCFDriver.busy(), h0 + 1, { timeout: 8000 });
+      await page.evaluate(() => window.__MOCK__.clickPoint(42000, 0, 0));
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 42000) < 1; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      g = await bdT();
+      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 42000, 'táp chân gỗ bấm điểm ở sàn: đáy ở 150 (bảng nâng lên cao chân)', g);
+      await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
+      await H.locator('.tab[data-tab="tu"]').click();
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'táp chân gỗ: dọn sạch bản vẽ'); }
     // (1.32) mở file giường khi đang giữ chỗ đặt của món khác loại: bỏ chỗ đặt (góc trước tính theo sâu của món cũ)
     { if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
       const g = await page.evaluate(() => window.MNCFCore.apMau(window.MNCFCore.DEFAULT_SPEC, 'G16-T'));

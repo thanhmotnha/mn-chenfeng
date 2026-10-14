@@ -504,7 +504,9 @@
     if (!(t > 0 && tc > 0 && th > 0)) { err('Độ dày ván phải lớn hơn 0.'); return M; }
     if (n < 1) { err('Tủ phải có ít nhất 1 khoang.'); return M; }
 
-    const X0 = pL + (TP ? TP.dua : 0), X1 = W - pR - (TP ? TP.dua : 0), Ztop = H - pT - (TP ? TP.go : 0);      // (1.34.1) táp nóc chồm: hồi lùi vào `dua`; gờ chắn: thân thấp hơn phủ bì
+    // (soát 1.34.1) bên nào có phào thì phào thay phần đua bên đó: hồi áp phụ trợ phào như tủ, nóc chồm chạy tới phào (trước: hồi lùi thêm `dua`, phụ trợ phào hở 20 không bắt vào đâu)
+    const duaL = TP && !(pL > 0) ? TP.dua : 0, duaR = TP && !(pR > 0) ? TP.dua : 0;
+    const X0 = pL + duaL, X1 = W - pR - duaR, Ztop = H - pT - (TP ? TP.go : 0);      // (1.34.1) táp nóc chồm: hồi lùi vào `dua`; gờ chắn: thân thấp hơn phủ bì
     if (X1 - X0 < 2 * t + 50) { err('Bề rộng còn lại sau khi trừ phào quá nhỏ.'); return M; }
 
     /* ---- chia thân theo chiều cao ---- */
@@ -513,7 +515,9 @@
     const bodies = tinhThan(s);
     if (bodies.length === 1 && zd > 0 && zd < Ztop - TOL) warn(`Thân trên chỉ cao ${g(Ztop - zd)} (< 150) nên gộp thành một thân cao ${g(Ztop)}.`);
     const twoBody = bodies.length === 2;
-    const phuHoi = s.thung.noc_day === 'phu_hoi' && !s.bep;      // (bản 1.31) nóc, đáy phủ hồi: hồi / vách kẹp giữa nóc và đáy — (1.33) tủ bếp luôn hồi xuống sàn, nóc / đáy lọt (chuẩn xưởng của tủ áo giữ nguyên)
+    // (soát 1.34.1) táp kiểu mới (s.tap) có nóc / đáy của riêng nó (tap.noc / tap.day: gờ chắn cần nóc LỌT, xà đế lùi không kèm khung đế) → Chuẩn xưởng phủ hồi không áp
+    const phuHoi = s.thung.noc_day === 'phu_hoi' && !s.bep && !TP;
+    if (TP && s.thung.noc_day === 'phu_hoi') note('Táp: nóc / đáy theo kiểu của mẫu táp — Chuẩn xưởng "nóc, đáy phủ hồi" không áp cho táp.', 'than');      // (bản 1.31) nóc, đáy phủ hồi: hồi / vách kẹp giữa nóc và đáy — (1.33) tủ bếp luôn hồi xuống sàn, nóc / đáy lọt (chuẩn xưởng của tủ áo giữ nguyên)
     for (const b of bodies) {
       const dHoi = phuHoi ? b.zt - b.zb : b.z1 - b.z0;
       if (dHoi > s.van.kho_dai + TOL) err(`Thân ${b.code === 'D' ? 'dưới' : 'trên'}: hồi dài ${g(dHoi)} > khổ ván ${g(s.van.kho_dai)} — hồi không cắt được. ${s.bep ? 'Giảm Cao của tủ (hoặc Cao mặt đá / Cách mặt đá / Cao tủ trên ở ô Tủ bếp) cho hồi ≤ khổ ván.' : 'Giảm "cao thân dưới" hoặc chia thêm thân.'}`);
@@ -743,9 +747,10 @@
       const dayT = [], nocT = [];
       if (dayPhu || nocPhu) for (const q of M.info.thung) {
         const a = q.khoang[0], z = q.khoang[1], x0 = vL[a].x0, x1 = vR[z].x1;
-        if (dayPhu) dayT.push(khauNgang(P({ loai: 'DAY', ten: NM.day, than: b.code, tu: b.tu, type: 0, x0, x1, y0: 0, y1: Dc, z0: b.zb - t, z1: b.zb, big: 1, khoang: a, den_khoang: z })));
+        // (1.34.1) táp nóc phẳng mặt ngăn kéo trùm (dua_truoc −1): đáy phủ cũng ra phẳng mặt — hộp có nóc + đáy viền trên dưới mặt (ảnh 9)
+        if (dayPhu) dayT.push(khauNgang(P({ loai: 'DAY', ten: NM.day, than: b.code, tu: b.tu, type: 0, x0, x1, y0: TP && TP.day === 'phu' && TP.noc === 'phu' && TP.dua_truoc < 0 ? -tc : 0, y1: Dc, z0: b.zb - t, z1: b.zb, big: 1, khoang: a, den_khoang: z })));
         // (1.34.1) táp nóc chồm: nóc đua ra ngoài hồi ngoài `dua` mỗi bên và `dua_truoc` phía trước (p.dua: phần hẫng — kiemLienKet nhận hồi lùi vào đó là chỗ tì)
-        const dT = TP && TP.noc === 'phu' ? TP : null, dL = dT && a === 0 ? dT.dua : 0, dR = dT && z === n - 1 ? dT.dua : 0;
+        const dT = TP && TP.noc === 'phu' ? TP : null, dL = dT && a === 0 ? duaL : 0, dR = dT && z === n - 1 ? duaR : 0;
         if (nocPhu) nocT.push(khauNgang(P(Object.assign({ loai: 'NOC', ten: NM.noc, than: b.code, tu: b.tu, type: 0, x0: rn(x0 - dL), x1: rn(x1 + dR), y0: dT ? -(dT.dua_truoc < 0 ? tc : dT.dua_truoc) : 0, y1: Dc, z0: b.zt, z1: b.z1, big: 0, khoang: a, den_khoang: z }, dL || dR ? { dua: Math.max(dL, dR) } : {}))));
       }
       for (let i = 0; i < n; i++) {
@@ -1001,7 +1006,8 @@
     /* ---- cánh: cột cánh theo bề ngang ---- */
     const doorZ = (b) => {
       const isLow = b === bodies[0], isTop = b === topBody;
-      const za = isLow ? (chan > 0 ? chan + khe : kb) + (TP ? b.z0 : 0) : b.z0 + khe / 2;      // (1.34.1) táp chân gỗ: thân bắt đầu ở cao chân
+      // (1.34.1) táp chân gỗ: thân bắt đầu ở cao chân; táp đáy phủ (ảnh 9): mặt dưới cùng đứng TRÊN đáy — thấy cạnh đáy dưới mặt như thấy cạnh nóc trên mặt
+      const za = isLow ? (TP && TP.day === 'phu' ? rn(b.zb + kb) : (chan > 0 ? chan + khe : kb) + (TP ? b.z0 : 0)) : b.z0 + khe / 2;
       // (1.34.1) táp: nóc phủ → mặt trên cùng dừng dưới nóc (nóc chồm che đầu mặt); gờ chắn → dưới đỉnh thân (nóc thụt), không lên tới đỉnh hồi
       const zb = isTop ? (TP ? rn((TP.noc === 'phu' ? b.zt : b.z1) - kb) : pT > 0 ? H - pT - khe : H - kb) : b.z1 - khe / 2;
       return [za, zb];
@@ -1084,9 +1090,12 @@
       if (c.kieu === 'nk_am') {
         // (bản 1.31) khung mặt: thanh ngang `ray` phẳng mặt ngăn kéo thay cho khe trên / khe giữa; mặt cách thanh `khe_ben`
         // (bản 1.34.1) táp: ngăn kéo LỌT LÒNG giữa hai hồi, mặt phẳng mặt hồi (lùi = dày mặt), khe quanh mặt `khe_ben`; giữa 2 mặt là THANH NGANG nằm (ván thùng, phẳng mặt) khi tap.thanh
-        const khung = !TP && !!nk.khung_mat && nk.ray > 0, R = nk.ray, gk = nk.khe_ben, thanhTP = !!TP && TP.thanh > 0;
-        const kTren = TP ? gk : khung ? R + gk : nk.khe_tren, kGiua = TP ? (thanhTP ? t + 2 * gk : khe) : khung ? R + 2 * gk : nk.khe_giua;
-        const luiNK = TP ? t : nk.lui;
+        // (soát 1.34.1) khoang táp có CÁNH: ngăn kéo nằm SAU cánh như tủ áo (lùi nk.lui, vách đệm / nẹp tránh bản lề, khung mặt theo Chuẩn xưởng), không tay nắm —
+        // kiểu lọt lòng phẳng mặt hồi của táp là áp sát lưng cánh (khe 0, núm đâm vào cánh), thanh ngang suốt khoang đâm qua vách đệm / nẹp
+        const TPk = TP && !(k.canh > 0) ? TP : null;
+        const khung = !TPk && !!nk.khung_mat && nk.ray > 0, R = nk.ray, gk = nk.khe_ben, thanhTP = !!TPk && TPk.thanh > 0;
+        const kTren = TPk ? gk : khung ? R + gk : nk.khe_tren, kGiua = TPk ? (thanhTP ? t + 2 * gk : khe) : khung ? R + 2 * gk : nk.khe_giua;
+        const luiNK = TPk ? t : nk.lui;
         const tongMat = cao - kTren - nk.khe_duoi - kGiua * (m - 1);
         const mat = Math.floor(tongMat / m * 2 + 1e-9) / 2, duMat = rn(tongMat - mat * m);      // mặt chẵn 0,5 mm; phần dư dồn vào khe trên cùng
         if (mat < 60) { err(`${viTri}: mặt ngăn kéo chỉ cao ${g(mat)} — giảm số ngăn hoặc nới ô.`); continue; }
@@ -1124,7 +1133,7 @@
           const duoi = q === 0 ? nk.khe_duoi : kGiua / 2, tren = q === m - 1 ? kTren + duMat : kGiua / 2;
           const h = duoi + mat + tren;
           matZ.push([rn(z + duoi), rn(z + duoi + mat)]);
-          M.mat_ngan_keo.push({ khoang: i, x: rn(x0 + nk.khe_ben), z: rn(z + duoi), w: rn(L - 2 * nk.khe_ben), h: rn(mat), y: rn(luiNK - t), t, trum: false });
+          M.mat_ngan_keo.push(Object.assign({ khoang: i, x: rn(x0 + nk.khe_ben), z: rn(z + duoi), w: rn(L - 2 * nk.khe_ben), h: rn(mat), y: rn(luiNK - t), t, trum: false }, TPk ? { tay_nam: TPk.tay_nam === 'khe' ? 'num' : TPk.tay_nam } : {}));      // khe tay nắm (J) chỉ có giữa mặt TRÙM → mặt lọt lòng dùng núm
           M.templates.push({ loai: 'NGAN_KEO', kieu: 'nk_am', id: lo.mau_id, ten: lo.ten_mau, ma_loai: lo.ma, ten_loai: lo.ten, tu: c.b.tu, than: c.than, khoang: i, o: [rn(za), rn(zb)], mat: M.mat_ngan_keo.length - 1,
             bac_sau: { tu: rn(shelfDepth - luiNK - nk.ho_sau), buoc: nk.buoc_sau },      // sâu hộp = floor(tu / buoc) × buoc — nhảy bậc theo cỡ ray
             box: [L, sauNK, rn(h)], pos: [x0, luiNK, rn(z)],     // gốc mẫu = lưng mặt ngăn kéo; mặt NK dày BH nằm phía trước gốc (y = lùi − BH … lùi), hộp từ y = lùi
@@ -1133,7 +1142,7 @@
         }
         // Xà ngăn kéo: ván đứng nằm ngay SAU lưng mặt ngăn kéo, che khe phía trên mỗi mặt (khe luồn tay của mặt vát) và giằng 2 vách đệm lại.
         // Xà phải nằm lọt trong khoảng trống giữa 2 hộp ngăn kéo: hộp thấp hơn mép trên mặt SLK, cao hơn mép dưới mặt XLK (mẫu không khai thì coi như 0).
-        if (TP) {
+        if (TPk) {
           // (1.34.1) táp: thanh ngang giữa 2 mặt ngăn kéo — ván thùng NẰM (thấy cạnh như đợt), sâu `thanh_sau`, kẹp giữa 2 tấm đứng, khoan cam; không xà ẩn / khung mặt
           if (thanhTP) for (let q = 0; q + 1 < m; q++) { const z0 = rn(matZ[q][1] + gk); P({ loai: 'DOT', ten: 'Thanh ngang ngăn kéo', than: c.than, tu: c.b.tu, type: 0, x0: bayX(i), x1: rn(bayX(i) + widths[i]), y0: 0, y1: rn(Math.min(TP.thanh_sau, shelfDepth)), z0, z1: rn(z0 + t), big: 1, khoang: i, thanh_nk: true }); }
         } else if (khung) {
@@ -1232,7 +1241,9 @@
       for (let q = 0, zq = f0; q < m; q++) {
         const fz0 = zq, fz1 = rn(fz0 + caoMat(q)); zq = rn(fz1 + kheF);
         const bz0 = q === 0 ? za : rn(fz0 - kheF / 2), bz1 = q === m - 1 ? zb : rn(fz1 + kheF / 2);     // kheF hộp: chia ô theo tim kheF giữa 2 mặt
-        M.mat_ngan_keo.push({ khoang: i, x: fx0, z: fz0, w: rn(fx1 - fx0), h: rn(fz1 - fz0), y: -tc, t: tc, trum: true });
+        M.mat_ngan_keo.push(Object.assign({ khoang: i, x: fx0, z: fz0, w: rn(fx1 - fx0), h: rn(fz1 - fz0), y: -tc, t: tc, trum: true }, TP ? { tay_nam: TP.tay_nam } : {}));
+        // (1.34.1, ảnh 9) táp khe tay nắm: THANH NGANG nằm giữa khe (ván thùng, phẳng mặt hồi, sâu thanh_sau) — nhìn qua khe thấy cạnh thanh, không thấy xuyên vào lòng tủ
+        if (TP && TP.tay_nam === 'khe' && TP.thanh > 0 && q + 1 < m && kheF >= t) { const z0 = rn(fz1 + (kheF - t) / 2); P({ loai: 'DOT', ten: 'Thanh ngang ngăn kéo', than: c.than, tu: c.b.tu, type: 0, x0: bayX(i), x1: rn(bayX(i) + widths[i]), y0: 0, y1: rn(Math.min(TP.thanh_sau, shelfDepth)), z0, z1: rn(z0 + t), big: 1, khoang: i, thanh_nk: true }); }
         M.templates.push({ loai: 'NGAN_KEO', kieu: 'nk_trum', id: lo.mau_id, ten: lo.ten_mau, ma_loai: lo.ma, ten_loai: lo.ten, tu: c.b.tu, than: c.than, khoang: i, o: [rn(za), rn(zb)], mat: M.mat_ngan_keo.length - 1,
           bac_sau: { tu: rn(shelfDepth - nk.ho_sau), buoc: nk.buoc_sau },
           box: [rn(widths[i]), sauNK, rn(bz1 - bz0)], pos: [bayX(i), 0, rn(bz0)],                      // gốc mẫu y = 0 → mặt nằm ở y = −dày cánh … 0 (mặt phẳng cánh)
@@ -1345,15 +1356,18 @@
     }
     if (TP) {
       // (bản 1.34.1) táp: phụ kiện + gia công theo tay nắm / chân — mặt ngăn kéo là của mẫu Chenfeng (không phải tấm của bảng) nên gia công tay nắm khoét kê ở đây
-      const nMat = M.mat_ngan_keo.length, cao = M.mat_ngan_keo.map(q => `${g(q.w)} × ${g(q.h)}`), pk = [];
-      if (nMat && TP.tay_nam === 'num') pk.push({ ten: 'Núm tròn (tay nắm núm) cho mặt ngăn kéo', sl: nMat, ghi_chu: `bắt vít giữa mặt (${[...new Set(cao)].join('; ')}), tâm cách mép trên ~1/3 cao mặt [CĐ]` });
-      if (nMat && TP.tay_nam === 'khoet') pk.push({ ten: 'Gia công tay nắm khoét chữ U mép trên mặt ngăn kéo (CNC)', sl: nMat, ghi_chu: `khoét ${g(TAP_KHOET[0])} × ${g(TAP_KHOET[1])} giữa mép trên mỗi mặt (${[...new Set(cao)].join('; ')}), dán cạnh lại mép khoét [CĐ] — không tay nắm nổi` });
-      if (nMat && TP.tay_nam === 'khe') note(`Táp: khe tay nắm ${g(TP.khe_tn)} giữa các mặt ngăn kéo (kiểu J) — không tay nắm nổi.`, 'ngan_keo');
+      // (soát 1.34.1) đếm theo tay nắm của TỪNG mặt: mặt sau cánh không tay nắm; táp "khe" mà ô là ngăn kéo lọt lòng thì mặt đó dùng núm
+      const theo = tn => M.mat_ngan_keo.filter(q => q.tay_nam === tn), kc = ds => [...new Set(ds.map(q => `${g(q.w)} × ${g(q.h)}`))].join('; '), pk = [];
+      const mNum = theo('num'), mKhoet = theo('khoet'), mKhe = theo('khe');
+      if (mNum.length) pk.push({ ten: 'Núm tròn (tay nắm núm) cho mặt ngăn kéo', sl: mNum.length, ghi_chu: `bắt vít tâm mặt (${kc(mNum)}) [CĐ]` });
+      if (mKhoet.length) pk.push({ ten: 'Gia công tay nắm khoét chữ U mép trên mặt ngăn kéo (CNC)', sl: mKhoet.length, ghi_chu: `khoét ${g(TAP_KHOET[0])} × ${g(TAP_KHOET[1])} giữa mép trên mỗi mặt (${kc(mKhoet)}), dán cạnh lại mép khoét [CĐ] — không tay nắm nổi` });
+      if (mKhe.length) note(`Táp: khe tay nắm ${g(TP.khe_tn)} giữa các mặt ngăn kéo trùm (kiểu J) — không tay nắm nổi.`, 'ngan_keo');
+      if (TP.tay_nam === 'khe' && mNum.length) note(`Táp: khe tay nắm chỉ có giữa các mặt trùm — ${mNum.length} mặt ngăn kéo lọt lòng dùng núm tròn.`, 'ngan_keo');
       if (TP.chan_go > 0) pk.push({ ten: `Chân gỗ vát cao ${g(TP.chan_go)} (mua sẵn)`, sl: 4, ghi_chu: 'bắt bát chân + vít vào mặt dưới đáy, 4 góc cách mép ~40 [CĐ]' });
       M.phu_kien = pk;
       // chân gỗ: khối phụ cho hình 3D (không phải tấm — không vào bảng cắt / lệnh nhập), 40 × 40 ở 4 góc dưới đáy, cách mép 40
-      if (TP.chan_go > 0) { const d = M.parts.find(p => p.loai === 'DAY'), a = 40, e = 40; if (d) for (const [x, y] of [[d.x0 + e, d.y0 + e], [d.x1 - e - a, d.y0 + e], [d.x0 + e, d.y1 - e - a], [d.x1 - e - a, d.y1 - e - a]]) (M.khoi_phu = M.khoi_phu || []).push({ ten: 'Chân gỗ', b: [rn(x), rn(y), 0, rn(x + a), rn(y + a), rn(TP.chan_go)], mau: '#c9a57a' }); }
-      M.info.tap = { go: TP.go, noc: TP.noc, day: TP.day, dua: TP.dua, chan_go: TP.chan_go, tay_nam: TP.tay_nam };
+      if (TP.chan_go > 0) { const d = M.parts.find(p => p.loai === 'DAY'), a = 40, e = 40; if (d) for (const [x, y] of [[d.x0 + e, d.y0 + e], [d.x1 - e - a, d.y0 + e], [d.x0 + e, d.y1 - e - a], [d.x1 - e - a, d.y1 - e - a]]) (M.khoi_phu = M.khoi_phu || []).push({ ten: 'Chân gỗ', b: [rn(x), rn(y), 0, rn(x + a), rn(y + a), rn(TP.chan_go)], mau: '#c9a57a', vat: [x < (d.x0 + d.x1) / 2 ? -1 : 1, y < (d.y0 + d.y1) / 2 ? -1 : 1] }); }
+      M.info.tap = { go: TP.go, bo: TP.bo, noc: TP.noc, day: TP.day, dua: TP.dua, chan_go: TP.chan_go, tay_nam: TP.tay_nam };
     }
     kiemSX(M, bao, nkRongDaBao);
     for (const f of kiemLienKet(M.parts)) {
@@ -2325,9 +2339,18 @@
       if (loai === 'PHU' && p.type !== 0) continue;
       o += R(p, `fill="${MAU[loai]}" stroke="#39424a" stroke-width="${f(fs / 9)}"${loai === 'HAU' ? ' stroke-opacity=".25"' : ''}`);
     }
+    // (1.34.1) tay nắm của táp trên mặt ngăn kéo: núm tròn ở tâm mặt; khoét chữ U giữa mép trên (TAP_KHOET); khe tay nắm / tay nắm nổi thì không vẽ
+    const tayNamTap = q => {
+      const xc = q.x + q.w / 2;
+      if (q.tay_nam === 'num') return `<circle data-num="1" cx="${f(xc)}" cy="${f(Y(q.z + q.h / 2))}" r="${f(Math.min(16, q.h / 6))}" fill="#fff" stroke="#39424a" stroke-width="${f(fs / 8)}"/>`;
+      if (q.tay_nam === 'khoet') { const a = Math.min(TAP_KHOET[0], q.w * 0.6) / 2, b = Math.min(TAP_KHOET[1], q.h / 3), y1 = Y(q.z + q.h);
+        return `<path data-khoet="1" d="M ${f(xc - a)} ${f(y1)} A ${f(a)} ${f(b)} 0 0 0 ${f(xc + a)} ${f(y1)} Z" fill="#b89b72" stroke="#39424a" stroke-width="${f(fs / 8)}"/>`; }
+      return '';
+    };
     for (const q of M.mat_ngan_keo) if (!q.trum) {
       o += `<rect x="${f(q.x)}" y="${f(Y(q.z + q.h))}" width="${f(q.w)}" height="${f(q.h)}" fill="#d9eed5" stroke="#2d6b38" stroke-width="${f(fs / 7)}"/>`;
-      o += `<text x="${f(q.x + q.w / 2)}" y="${f(Y(q.z + q.h / 2) + fs * 0.35)}" font-size="${f(fs)}" text-anchor="middle" fill="#1f4d29">ngăn kéo ${g(q.w)}×${g(q.h)}</text>`;
+      o += `<text x="${f(q.x + q.w / 2)}" y="${f(Y(q.z + q.h / 2) + fs * 0.35 + (q.tay_nam === 'num' ? Math.min(16, q.h / 6) + fs : 0))}" font-size="${f(fs)}" text-anchor="middle" fill="#1f4d29">ngăn kéo ${g(q.w)}×${g(q.h)}</text>`;
+      o += tayNamTap(q);
     }
     // xà ngăn kéo nằm sau mặt ngăn kéo: vẽ nét đứt đè lên để thấy vị trí
     // (bản 1.31) thanh ngang khung mặt nằm PHẲNG mặt ngăn kéo → vẽ đặc như nẹp; xà ẩn sau khe (kiểu cũ) vẫn nét đứt
@@ -2346,8 +2369,9 @@
     // mặt ngăn kéo trùm ngoài: nằm ở mặt phẳng cánh nên luôn vẽ (kể cả khi tắt "hiện cánh")
     for (const q of M.mat_ngan_keo) if (q.trum) {
       o += `<rect x="${f(q.x)}" y="${f(Y(q.z + q.h))}" width="${f(q.w)}" height="${f(q.h)}" fill="${MAU.CHAN}" fill-opacity=".8" stroke="#245c2f" stroke-width="${f(fs / 6)}"/>`;
-      o += `<line x1="${f(q.x + q.w * 0.42)}" y1="${f(Y(q.z + q.h) + Math.min(q.h * 0.28, fs * 1.6))}" x2="${f(q.x + q.w * 0.58)}" y2="${f(Y(q.z + q.h) + Math.min(q.h * 0.28, fs * 1.6))}" stroke="#245c2f" stroke-width="${f(fs / 4)}" stroke-linecap="round"/>`;
+      if (!q.tay_nam) o += `<line x1="${f(q.x + q.w * 0.42)}" y1="${f(Y(q.z + q.h) + Math.min(q.h * 0.28, fs * 1.6))}" x2="${f(q.x + q.w * 0.58)}" y2="${f(Y(q.z + q.h) + Math.min(q.h * 0.28, fs * 1.6))}" stroke="#245c2f" stroke-width="${f(fs / 4)}" stroke-linecap="round"/>`;
       o += `<text x="${f(q.x + q.w / 2)}" y="${f(Y(q.z + q.h / 2) + fs * 0.7)}" font-size="${f(fs)}" text-anchor="middle" fill="#143b1d">ngăn kéo trùm ${g(q.w)}×${g(q.h)}</text>`;
+      o += tayNamTap(q);
     }
     // ĐIỆN – NƯỚC sau tủ (bản 1.18): opts.dien_nuoc = MNCFPhong.dienNuocChoTu(...).diem (toạ độ thiết kế của tủ).
     //   sau lưng: ô nét đứt đúng cỡ + ký hiệu · dưới đáy: vòng tròn gạch chéo ở chân tủ · sau hồi: vạch ở mép tủ. Điểm trúng tấm tô ĐỎ. Không bắt chuột (ô, đợt, vách vẫn bấm / kéo được).
@@ -2513,6 +2537,23 @@
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     const hop = [];      // { b: [x0,y0,z0,x1,y1,z1], mau, op, attr }
     const them = (b, mau, op, attr) => { if (b[3] - b[0] > 0.01 && b[4] - b[1] > 0.01 && b[5] - b[2] > 0.01) hop.push({ b, mau, op: op == null ? 1 : op, attr: attr || '' }); };
+    // (1.34.1, táp theo ảnh mẫu) KHỐI NHIỀU MẶT — hồi bo góc, núm tròn, mặt ngăn kéo khoét chữ U, chân gỗ vát. mat = [{ pts (đỉnh 3D), n (pháp tuyến ra ngoài) }];
+    // b = hộp bao (chỉ để xếp thứ tự với khối khác); trong khối vẽ các mặt hướng về người nhìn, xa trước gần sau. Khối này không bị cắt khi gỡ vòng.
+    const themKhoi = (mat, mau, ten) => {
+      const all = [].concat(...mat.map(m => m.pts)), b = [0, 1, 2].map(k => Math.min(...all.map(q => q[k]))).concat([0, 1, 2].map(k => Math.max(...all.map(q => q[k]))));
+      if (b[3] - b[0] > 0.01 && b[4] - b[1] > 0.01 && b[5] - b[2] > 0.01) hop.push({ b, mau, op: 1, attr: '', mat, ten });
+    };
+    // lăng trụ: biên dạng 2D (u, v) trên mặt phẳng vuông góc trục `ax` (u = trục ax+1, v = trục ax+2), kéo từ a0 tới a1 theo trục ax
+    const langTru = (ax, bd, a0, a1) => {
+      const ku = (ax + 1) % 3, kv = (ax + 2) % 3, dt = bd.reduce((S, q, i) => S + q[0] * bd[(i + 1) % bd.length][1] - bd[(i + 1) % bd.length][0] * q[1], 0);
+      const P = dt < 0 ? bd.slice().reverse() : bd.slice(), d3 = (q, a) => { const v = [0, 0, 0]; v[ax] = a; v[ku] = q[0]; v[kv] = q[1]; return v; }, out = [];
+      const n0 = [0, 0, 0], n1 = [0, 0, 0]; n0[ax] = -1; n1[ax] = 1;
+      out.push({ pts: P.map(q => d3(q, a0)).reverse(), n: n0 }, { pts: P.map(q => d3(q, a1)), n: n1 });
+      for (let i = 0; i < P.length; i++) { const q = P[i], r2 = P[(i + 1) % P.length], n = [0, 0, 0]; n[ku] = r2[1] - q[1]; n[kv] = -(r2[0] - q[0]); const L = Math.hypot(n[ku], n[kv]); if (L < 1e-9) continue; n[ku] /= L; n[kv] /= L;
+        out.push({ pts: [d3(q, a0), d3(r2, a0), d3(r2, a1), d3(q, a1)], n, cong: !!(q.c && r2.c) }); }
+      return out;
+    };
+    const cung = (cu, cv, ru, rv, t0, t1, so) => { const o = []; for (let i = 0; i <= so; i++) { const a = t0 + (t1 - t0) * i / so, q = [cu + ru * Math.cos(a), cv + rv * Math.sin(a)]; q.c = true; o.push(q); } return o; };      // điểm trên cung mang cờ c: dải mặt giữa hai điểm cung vẽ nét mờ
     // tấm khoét quanh cột (đáy / nóc / đợt của tủ khấu cột — p.khau: dải x0 … x1 bị cắt từ y0 tới mép sau): chia theo từng khoảng ngang thành các khối,
     // khối nào nằm trong dải khoét thì chỉ sâu tới y0 của chỗ khoét — không vẽ xuyên qua cột / hộp che cột
     const khoiTam = p => {
@@ -2529,18 +2570,38 @@
     for (const p of M.parts) {
       if (p.loai === 'CANH' && !opts.canh) continue;
       const attr = opts.tuong_tac && p.loai === 'PHAO' ? ` data-phao="${benPhao(p, s)}" style="cursor:pointer"` : '';
+      const bo = p.loai === 'HOI' && !(p.khau || []).length && /bo tròn góc trên phía trước R(\d+(?:[.,]\d+)?)/.exec(p.gia_cong || '');
+      if (bo) {      // (1.34.1) hồi táp bo góc trên phía trước: biên dạng (y, z) bo cung R ở góc (y0, z1), kéo theo bề dày x
+        const R = Math.min(+bo[1].replace(',', '.'), p.y1 - p.y0, p.z1 - p.z0);
+        themKhoi(langTru(0, [[p.y0, p.z0], [p.y1, p.z0], [p.y1, p.z1]].concat(cung(p.y0 + R, p.z1 - R, R, R, Math.PI / 2, Math.PI, 8)), p.x0, p.x1), MAU.HOI, 'Hồi bo');
+        continue;
+      }
       for (const b of khoiTam(p)) them(b, MAU[p.loai] || '#ccc', p.loai === 'CANH' ? 0.45 : p.loai === 'HAU' ? 0.9 : 1, attr);
     }
     for (const q of M.mat_ngan_keo || []) {
       if (q.trum && !opts.canh) { /* mặt trùm nằm ở mặt phẳng cánh: vẫn vẽ như hình đứng */ }
-      const y0 = q.y != null ? q.y : (q.trum ? -(q.t || 18) : 0);
-      them([q.x, y0, q.z, q.x + q.w, y0 + (q.t || 18), q.z + q.h], q.trum ? MAU.CHAN : '#d9eed5', 1, '');
+      const y0 = q.y != null ? q.y : (q.trum ? -(q.t || 18) : 0), mauMat = q.trum ? MAU.CHAN : '#d9eed5', xc = q.x + q.w / 2;
+      if (q.tay_nam === 'khoet') {      // (1.34.1) mặt táp khoét chữ U giữa mép trên: biên dạng (z, x) kéo theo bề dày y
+        const a = Math.min(TAP_KHOET[0], q.w * 0.6) / 2, bk = Math.min(TAP_KHOET[1], q.h / 3), z1 = q.z + q.h;
+        const U = []; for (let i = 0; i <= 10; i++) { const a2 = Math.PI * i / 10, pt = [z1 - bk * Math.sin(a2), xc + a * Math.cos(a2)]; pt.c = true; U.push(pt); }
+        themKhoi(langTru(1, [[q.z, q.x], [q.z, q.x + q.w], [z1, q.x + q.w]].concat(U, [[z1, q.x]]), y0, y0 + (q.t || 18)), mauMat, 'Mặt khoét');
+      } else them([q.x, y0, q.z, q.x + q.w, y0 + (q.t || 18), q.z + q.h], mauMat, 1, '');
+      if (q.tay_nam === 'num') { const r0 = Math.min(16, q.h / 6); themKhoi(langTru(1, cung(q.z + q.h / 2, xc, r0, r0, 0, 2 * Math.PI, 12).slice(0, 12), y0 - 22, y0), '#f4f1ea', 'Núm'); }
     }
     for (const tp of M.templates || []) if (tp.loai === 'SUOT') {
       const z = tp.pos[2] + tp.box[2] - s.suot.cach_dot - 15, yc = tp.pos[1] + tp.box[1] / 2;
       them([tp.pos[0] + 8, yc - 8, z - 8, tp.pos[0] + tp.box[0] - 8, yc + 8, z + 8], '#59616b', 1, '');
     }
-    for (const k of M.khoi_phu || []) them(k.b.slice(), k.mau || '#cfcac2', 0.95, '');      // (bản 1.33) mặt đá tủ bếp: khối phụ, không phải tấm
+    for (const k of M.khoi_phu || []) {
+      if (k.vat) {      // (1.34.1) chân gỗ vát: đầu trên = hộp k.b, đầu dưới nhỏ lại 2/3 và choãi ra ngoài theo k.vat
+        const [x0, y0, z0, x1, y1, z1] = k.b, a = (x1 - x0) / 3, dx = k.vat[0] * a, dy = k.vat[1] * a, xm = (x0 + x1) / 2 + dx, ym = (y0 + y1) / 2 + dy, h = (x1 - x0) / 3;
+        const T = [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], B = [[xm - h, ym - h, z0], [xm + h, ym - h, z0], [xm + h, ym + h, z0], [xm - h, ym + h, z0]];
+        const mat = [{ pts: T, n: [0, 0, 1] }, { pts: B.slice().reverse(), n: [0, 0, -1] }];
+        for (let i = 0; i < 4; i++) { const j = (i + 1) % 4, pts = [B[i], B[j], T[j], T[i]], e1 = pts[1].map((v, k2) => v - pts[0][k2]), e2 = pts[3].map((v, k2) => v - pts[0][k2]);
+          const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]], L = Math.hypot(...n); mat.push({ pts, n: n.map(v => v / L) }); }
+        themKhoi(mat, k.mau || '#cfcac2', k.ten);
+      } else them(k.b.slice(), k.mau || '#cfcac2', 0.95, '');
+    }      // (bản 1.33) mặt đá tủ bếp: khối phụ, không phải tấm
     const D = s.sau_thung;
     for (const k of (M.info && M.info.khau) || []) {
       const c = k.cot; if (!c) continue;
@@ -2615,7 +2676,7 @@
         const ung = c.slice().sort((i, j) => ((hop[i].op < 1) - (hop[j].op < 1)) || (Math.max(...[0, 1, 2].map(k => hop[j].b[k + 3] - hop[j].b[k])) - Math.max(...[0, 1, 2].map(k => hop[i].b[k + 3] - hop[i].b[k]))));
         let cat = null;
         for (const i of ung) {
-          const A = hop[i];
+          const A = hop[i]; if (A.mat) continue;
           for (const j of c) if (j !== i) for (let k = 0; k < 3; k++) for (const mp of [hop[j].b[k], hop[j].b[k + 3]]) {
             if (mp > A.b[k] + 1 && mp < A.b[k + 3] - 1) { const lech = Math.abs(mp - (A.b[k] + A.b[k + 3]) / 2) / (A.b[k + 3] - A.b[k]); if (!cat || lech < cat.lech) cat = { i, k, mp, lech }; }
           }
@@ -2652,6 +2713,14 @@
     for (const i of xep) {
       const h = hop[i];
       let g2 = `<g${h.attr}${h.op < 1 ? ` fill-opacity="${h.op}"` : ''}>`;
+      if (h.mat) {
+        const tam = m2 => dot([0, 1, 2].map(k => m2.pts.reduce((S, q) => S + q[k], 0) / m2.pts.length), d);
+        for (const m2 of h.mat.filter(m2 => dot(m2.n, d) > 1e-9).sort((A, B) => tam(A) - tam(B))) {
+          const ks = (Math.abs(m2.n[2]) * 1.08 + Math.abs(m2.n[1]) * 1 + Math.abs(m2.n[0]) * 0.86) / (Math.abs(m2.n[0]) + Math.abs(m2.n[1]) + Math.abs(m2.n[2]));
+          g2 += `<polygon points="${m2.pts.map(chieu).map(q => f(q[0]) + ',' + f(q[1])).join(' ')}" fill="${sang(h.mau, ks)}" stroke="#39424a" stroke-width="${sw}" stroke-opacity="${m2.cong ? '.12' : '.55'}" stroke-linejoin="round"/>`;
+        }
+        o += g2 + '</g>'; continue;
+      }
       for (const [k, mat] of MAT) {
         const nn = [0, 0, 0]; nn[k] = mat;
         if (dot(nn, d) <= 1e-9) continue;
@@ -4590,7 +4659,7 @@
     ['TAP-GO2-450', 'Táp gờ chắn · 2 ngăn kéo lọt lòng 450', 450, 400, 560, 0, TAP_B, () => ({ dot: [], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] })],
     ['TAP-CHOM-450', 'Táp nóc chồm · hộc mở + 1 ngăn kéo 450', 450, 380, 550, 40, { noc: 'phu', dua: 20, dua_truoc: 20, tay_nam: 'num' }, () => ({ dot: [230], o: [{ tu: 0, kieu: 'nk_am', so: 1 }] })],
     ['TAP-HOP2-450', 'Táp hộp · 2 ngăn kéo trùm, khe tay nắm 450', 450, 400, 480, 0, { noc: 'phu', day: 'phu', dua_truoc: -1, tay_nam: 'khe', khe_tn: 25 }, () => ({ dot: [], o: [{ tu: 0, kieu: 'nk_trum', so: 2 }] })],
-    ['TAP-CHAN2-500', 'Táp nóc phủ · 2 ngăn kéo tay nắm khoét, chân gỗ 500', 500, 400, 580, 0, { noc: 'phu', dua: 15, dua_truoc: 15, day: 'phu', chan_go: 150, tay_nam: 'khoet' }, () => ({ dot: [], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] })],
+    ['TAP-CHAN2-500', 'Táp nóc phủ · 2 ngăn kéo tay nắm khoét, chân gỗ 500', 500, 400, 580, 0, { noc: 'phu', dua: 15, dua_truoc: 15, day: 'phu', chan_go: 150, tay_nam: 'khoet', thanh: 0 }, () => ({ dot: [], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] })],
   ].map(([ma, ten, rong, sau, cao, chan, tap, k]) => ({ ma, ten, loai_sp: 'tap',
     mo_ta: `${g(rong)} × ${g(sau)} × ${g(cao)}${tap.go ? `, gờ ${g(tap.go)}` : ''}${tap.chan_go ? `, chân gỗ ${g(tap.chan_go)}` : chan ? `, xà đế ${g(chan)}` : ''}, ${TAY_NAM_TAP[tap.tay_nam]}`,
     ap: keep => Object.assign(keep, { loai_sp: 'tap', ma: 'TAP', ten, rong, cao, sau_thung: sau, khoang: [Object.assign({ rong: 'auto', canh: 0 }, k())], than: Object.assign({}, keep.than, { cao_duoi: 0 }), phao: Object.assign({}, keep.phao, { trai: 0, phai: 0, tren: 0 }), chan: Object.assign({}, keep.chan, { cao: chan }), khau: khongKhauSP(keep), tap: Object.assign({}, DEFAULT_TAP, tap) }) }));
@@ -7436,6 +7505,7 @@
       const tangBep = lsp === 'bep' && M.spec.bep ? M.spec.bep.tang : '';
       const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' }
         : lsp === 'bep' ? { L: 'Rộng phủ bì — đổi Rộng ở bảng Một Nhà để kiểm phụ kiện', W: 'Sâu phủ bì (cả cánh)', H: tangBep === 'tren' ? 'Cao tủ trên — đổi ở đỉnh, đáy giữ nguyên' : tangBep === 'cao' ? 'Cao phủ bì (tủ cao — không có đá)' : 'Cao tới đỉnh thùng (chưa gồm đá)' }
+        : lsp === 'tap' && M.info.tap && M.info.tap.chan_go > 0 ? { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: `Cao thân (chưa gồm chân gỗ ${so(M.info.tap.chan_go)})` }      // (soát 1.34.1) chân gỗ rời không phải tấm
         : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
       const ngan = lsp === 'giuong' ? { L: 'Rộng', W: 'Dài', H: 'Cao' } : { L: 'Rộng', W: lsp === 'vach' ? 'Dày' : 'Sâu', H: 'Cao' };
       for (const k of Object.keys(moTa)) {
@@ -11615,6 +11685,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     // (1.33 vòng soát) chỗ đặt lấy ở SÀN (khung chờ vẽ, khung của phòng): tủ bếp trên còn được nâng lên cao độ treo lúc vẽ → soi điện – nước ở đúng cao độ đó.
     // noi.dat (góc đã vẽ) và toạ độ gõ là z thật — không cộng.
     const zTreo = () => (loaiDangLam() === 'bep' && model && model.info && model.info.bep ? Number(model.info.bep.z_dat) || 0 : 0);      // cao độ đáy tủ bếp trên (0: tủ dưới / tủ cao / không phải tủ bếp)
+    // (soát 1.34.1) táp CHÂN GỖ rời: chân không phải tấm (không vào lệnh nhập) nên tấm thấp nhất là đáy ở cao chân. Góc đặt của táp (ô toạ độ, điểm bấm, chỗ đặt) là ở SÀN dưới chân
+    // → lúc vẽ bảng cộng cao chân vào z (driver neo góc vào tấm thấp nhất). Khác tủ bếp trên: ô z của táp vẫn là sàn.
+    const zChanGo = () => (loaiDangLam() === 'tap' && model && model.info && model.info.tap ? Number(model.info.tap.chan_go) || 0 : 0);
     const nangTreo = g => { const z = zTreo(); return z ? [g[0], g[1], Math.round((g[2] + z) * 100) / 100] : g; };
     // (1.33 vòng soát 2) ô toạ độ luôn mang z THẬT: chỗ đặt (khung, chuột, hình) ghi góc ở sàn → bảng điền ô z = cao độ treo của tủ bếp trên.
     // Sửa x / y sau đó thì tủ vẫn treo đúng (vẽ theo số gõ, z đã là cao độ đáy tủ). kc.zO = z đã điền — cao độ treo đổi thì ô z đi theo (capTreoO).
@@ -12219,6 +12292,16 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         o.corner = nangTreo(p);
       }
       else if (zBep && kc) o.corner = nangTreo(kc.d.goc.slice());      // chỗ đặt bằng chuột / khung: góc ở sàn → cao độ treo HIỆN TẠI (ô z đã điền đúng số này)
+      const zChan = zChanGo(); let gocSan = null;
+      if (zChan && !o.at) {      // táp chân gỗ: góc ở sàn → nâng lên cao chân (opt.at = gốc thiết kế ở sàn — driver đã cộng hộp bao)
+        if (!o.corner) {
+          chipChu.textContent = 'Bấm góc trái – trước của táp ở SÀN (bảng tự nâng lên cao chân gỗ)… Esc = thôi';
+          let p = null; try { p = await Drv.hoiDiem('Một Nhà: bấm góc trái - trước của táp (ở sàn):'); } catch (e) { p = null; }
+          if (!p) { chip.hidden = true; panel.hidden = false; busy = false; rebuild(); setStatus('Đã huỷ — chưa vẽ gì.'); return null; }
+          o.corner = p;
+        }
+        gocSan = o.corner.slice(); o.corner = [o.corner[0], o.corner[1], Math.round((o.corner[2] + zChan) * 100) / 100];
+      }
       const neoPhai = !!(kc && kc.lung && kc.lung.phai);
       if (kc && kc.d.xoay) o.xoay = kc.d.xoay;
       // (bản 1.28) tủ này không đứng vào chỗ đặt đang giữ (bấm điểm / gõ toạ độ khác): khấu cột tự sinh theo cột của chỗ cũ không còn đúng → bỏ
@@ -12245,7 +12328,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         if (rep.giai_doan === 'xong' && rep.id) {
           noi = { id: rep.id, spec: clone(spec), ten: spec.ma || spec.ten || '' }; khoTu.save(rep.id, noi.spec);
           if (neoPhai) noi.neo_phai = true;      // (1.32) Cập nhật giường / vách đặt từ đầu phải: giữ đầu phải
-          const g0 = o.corner || rep.goc;      // chỗ tủ vừa đặt (góc trái – trước – dưới + góc xoay): để soi điện – nước của phòng lên tủ khi sửa tiếp
+          const g0 = gocSan || o.corner || rep.goc;      // chỗ tủ vừa đặt (góc trái – trước – dưới + góc xoay): để soi điện – nước của phòng lên tủ khi sửa tiếp
           if (Array.isArray(g0) && g0.length === 3 && g0.every(v => isFinite(v))) noi.dat = { goc: g0.slice(), xoay: o.xoay || 0 };
         }
         if (rep.xoay && rep.xoay.ok && !(rep.module && rep.module.ok)) noi = null;      // tủ đã xoay mà không phải module: bảng không dò lại được vị trí → sửa kích thước ở ô Thông số của Chenfeng
@@ -12268,7 +12351,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       if (th) th.hidden = !noi;
       // (1.33 vòng soát) tủ bếp trên: ô z = cao độ ĐÁY tủ (z thật); chỗ đặt bằng chuột (ô toạ độ mang góc ở sàn) thì nút ghi z đã nâng lên cao độ treo — đúng chỗ sẽ vẽ
       const az = $('[data-ui="az"]'), zt = zTreo();
-      if (az) az.title = zt ? `Tủ bếp trên: z = cao độ đáy tủ tính từ sàn (mặt đá + cách mặt đá = ${hien(zt)}). Bảng không cộng thêm gì vào số gõ.` : 'z của góc trái – trước – dưới của cả tủ';
+      const zc = zChanGo();
+      if (az) az.title = zt ? `Tủ bếp trên: z = cao độ đáy tủ tính từ sàn (mặt đá + cách mặt đá = ${hien(zt)}). Bảng không cộng thêm gì vào số gõ.` : zc ? `Táp chân gỗ: z = sàn dưới chân; bảng nâng thân lên cao chân ${hien(zc)}.` : 'z của góc trái – trước – dưới của cả tủ';
       if (dv) { const ua = $('[data-ui="useAt"]'), c = ['ax', 'ay', 'az'].map(n => { const e = $(`[data-ui="${n}"]`); return e ? String(e.value).trim() : ''; });
         if (zt && c.every(Boolean) && khopCho(c.map(x => parseFloat(x.replace(',', '.'))), khungCho)) c[2] = fmt(nangTreo(khungCho.d.goc)[2]);
         dv.textContent = noi ? 'Tủ mới' : ua && ua.checked && c.every(Boolean) ? `Vẽ tại ${c.join(', ')}` : 'Vẽ vào Chenfeng';
@@ -14101,7 +14185,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           const ke = r.mau.map(m => `${m.ten}: ${Object.keys(m.ts || {}).map(q => `${q}=${m.ts[q]}${m.mt && m.mt[q] ? ' (' + m.mt[q] + ')' : ''}`).join(', ') || '(không đọc được tham số)'}`).join(' · ');
           setStatus(`Thư mục ${r.thu_muc} có ${r.mau.length} mẫu — cập nhật mã cho ${k.capNhat} loại, thêm ${k.them} loại mới. Tham số của từng mẫu — ${ke}`); });
       }
-      else if (act === 'defaults') { const sp = { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan }; if (spec.loai_sp) Object.assign(sp, { loai_sp: spec.loai_sp, ma: spec.ma, ten: spec.ten, phao: spec.phao, khau: spec.khau }, spec.giuong ? { giuong: spec.giuong } : {}, spec.vach ? { vach: spec.vach } : {}, spec.bep ? { bep: spec.bep } : {}); const nem = loaiDangLam() === 'giuong' ? nemCua(spec) : null; spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), sp)); if (nem) { const pb = Core.phuBiGiuong(spec, nem[0], nem[1]); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; } renderAll(true); switchTab('chuan'); }      // giường / vách / táp: về chuẩn xưởng vẫn là giường / vách / táp
+      else if (act === 'defaults') { const sp = { rong: spec.rong, cao: spec.cao, sau_thung: spec.sau_thung, khoang: spec.khoang, than: spec.than, chan: spec.chan }; if (spec.loai_sp) Object.assign(sp, { loai_sp: spec.loai_sp, ma: spec.ma, ten: spec.ten, phao: spec.phao, khau: spec.khau }, spec.giuong ? { giuong: spec.giuong } : {}, spec.vach ? { vach: spec.vach } : {}, spec.bep ? { bep: spec.bep } : {}, spec.tap ? { tap: spec.tap } : {}); const nem = loaiDangLam() === 'giuong' ? nemCua(spec) : null; spec = Core.normalize(Object.assign(clone(Core.DEFAULT_SPEC), sp)); if (nem) { const pb = Core.phuBiGiuong(spec, nem[0], nem[1]); spec.rong = pb.rong; spec.sau_thung = pb.sau_thung; } renderAll(true); switchTab('chuan'); }      // giường / vách / táp: về chuẩn xưởng vẫn là giường / vách / táp
       else if (act === 'json') { if (model && !model.errors.length) return saveFile(fileBase() + '_chenfeng.json', JSON.stringify(Core.toChenfeng(model).json), 'application/json', 'Đã tải file JSON — kéo thả vào cửa sổ Chenfeng, rồi bấm 1 điểm để đặt.'); }
       else if (act === 'csv') { if (model && !model.errors.length) return saveFile(fileBase() + '_bang_ke.csv', Core.cutListCSV(model), 'text/csv;charset=utf-8', 'Đã tải bảng kê tấm (CSV, mở bằng Excel).'); }
       else if (act === 'save') return saveFile(fileBase() + '_mau_tu.json', JSON.stringify({ mncf: Core.VERSION, spec: Core.roiDay(clone(spec)) }, null, 1), 'application/json', 'Đã lưu mẫu tủ — lần sau bấm "Mở mẫu" để dùng lại.');
