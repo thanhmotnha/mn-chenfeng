@@ -12011,6 +12011,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const j = $('.pri[data-act="json"]'); if (j) j.disabled = model.errors.length > 0;
       renderBar();
     }
+    // tên tủ bếp mang cỡ ở cuối ("Tủ gia vị, dao thớt 600"): gõ Rộng thì cỡ trong tên theo rộng mới (tên đi vào nhãn tủ trên Chenfeng / bảng kê)
+    let tenRongCu = null;
+    const tenTheoRong = cu => { if (cu != null) { tenRongCu = cu; return; } if (tenRongCu == null) return; const w = Math.round(spec.rong * 10) / 10, re = new RegExp(`(\\D)${String(tenRongCu).replace('.', '\\.')}$`); if (spec.ten && w !== tenRongCu && re.test(spec.ten)) spec.ten = spec.ten.replace(re, `$1${w}`); tenRongCu = null; };
     let rongBepCu = null;      // (soát 1.34.1) rộng tủ bếp lúc bắt đầu gõ ô Rộng — rebuild tính lại số cánh rồi bỏ
     function rebuild(khongLuu) {
       if (!busy) setStatus('');      // thông báo của thao tác trước không còn đúng nữa (đang vẽ thì giữ lời nhắc của Chenfeng)
@@ -12022,7 +12025,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       let canhBep = null;
       if (rongBepCu != null) {
         if (loaiDangLam() !== 'bep') rongBepCu = null;
-        else if (Core.canhBepTheoRong && spec.rong >= 100) { const r = Core.canhBepTheoRong(spec, rongBepCu); rongBepCu = null; if (r.doi) { spec = r.spec; canhBep = r.so; } }
+        else if (Core.canhBepTheoRong && spec.rong >= 100) { const r = Core.canhBepTheoRong(spec, rongBepCu); tenTheoRong(rongBepCu); rongBepCu = null; if (r.doi) { spec = r.spec; canhBep = r.so; } tenTheoRong(null); }
       }
       if (loaiDangLam() === 'vach' && Core.vachTuDong) Object.assign(spec.vach, Core.vachTuDong(spec));      // (1.32) vách: số hàng / tầng xương chia theo cỡ đang có, ghi sẵn cho module
       model = Core.build(spec);
@@ -14304,7 +14307,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         sel = null; nho(truoc); capLoai(); renderBays(); napO(); rebuild();
         setStatus(`${spec.ten}${model.errors.length ? ' — tủ còn lỗi (dòng đỏ).' : '.'} ↶ Lùi để lấy lại chức năng trước.`);
       }
-      else if (act === 'bep-co') { const n = +b.dataset.v; if (n > 0 && loaiDangLam() === 'bep') { nho(); const w0 = spec.rong; spec.rong = n; spec = Core.normalize(spec); const cb = Core.canhBepTheoRong ? Core.canhBepTheoRong(spec, w0) : null; if (cb && cb.doi) spec = cb.spec; sel = null; napO(); renderBays(); rebuild(); setStatus(`Đã chuyển sang tủ ${n}${cb && cb.doi ? `, ${cb.so} cánh` : ''}${model.errors.length ? ' — tủ còn lỗi (dòng đỏ).' : '.'} Bấm ↶ Lùi nếu muốn trả lại.`); } }
+      else if (act === 'bep-co') { const n = +b.dataset.v; if (n > 0 && loaiDangLam() === 'bep') { nho(); const w0 = spec.rong; spec.rong = n; tenTheoRong(w0); tenTheoRong(null); spec = Core.normalize(spec); const cb = Core.canhBepTheoRong ? Core.canhBepTheoRong(spec, w0) : null; if (cb && cb.doi) spec = cb.spec; sel = null; napO(); renderBays(); rebuild(); setStatus(`Đã chuyển sang tủ ${n}${cb && cb.doi ? `, ${cb.so} cánh` : ''}${model.errors.length ? ' — tủ còn lỗi (dòng đỏ).' : '.'} Bấm ↶ Lùi nếu muốn trả lại.`); } }
       else if (act === 'vua-kho') { const r = vuaKho(); if (r && r.doi.length) { nho(); spec = r.spec; sel = null; renderBays(); rebuild(); setStatus(r.doi.join(' ') + (model.errors.length ? ' Tủ còn lỗi (dòng đỏ).' : ' Bấm ↶ Lùi nếu muốn trả lại.')); } }
       else if (act === 'lk-md') { const x = spec.ngan_keo.loai.find(q => q.ma === b.dataset.v); if (x) { spec.ngan_keo.mac_dinh = x.ma; rebuild(); renderSettings(); setStatus(`Loại ngăn kéo mặc định: ${x.ten}.`); } }
       else if (act === 'nap-kt') { const N = root.__MNCF_NAP__; if (N && N.kiemTra) { setStatus('Đang hỏi kho…'); N.kiemTra().then(r => setStatus(!r.ok ? 'Không vào được kho GitHub — đang dùng v' + Core.VERSION + '. Kiểm tra mạng rồi thử lại.' : r.co_moi ? 'Có bản mới v' + r.phien_ban + ' trên kho (' + r.nguon + ') — bấm F5 tải lại trang Chenfeng để dùng (nhớ lưu bản vẽ trước).' : 'Đang dùng bản mới nhất: v' + Core.VERSION + '.'), () => setStatus('Không kiểm tra được bản mới.')); } }

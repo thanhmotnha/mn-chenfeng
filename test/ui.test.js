@@ -867,7 +867,8 @@ async function testBep(browser) {
     ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(), M = window.MNCF.app.getModel(); return s.khoang[0].canh === 1 && !M.warnings.some(t => /Cánh chỉ rộng/.test(t)); }), 'gõ Rộng 300: 1 cánh (như chip), không cảnh báo cánh hẹp', await page.evaluate(() => [window.MNCF.app.getSpec().khoang[0].canh, window.MNCF.app.getModel().warnings]));
     await S(page, '[data-k="rong"]').fill('800'); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 800);
     await page.waitForFunction(() => window.MNCF.app.getSpec().khoang[0].canh === 2, null, { timeout: 3000 }).catch(() => {});
-    ok((await spec()).khoang[0].canh === 2, 'gõ lại Rộng 800: 2 cánh'); }
+    ok((await spec()).khoang[0].canh === 2, 'gõ lại Rộng 800: 2 cánh');
+    ok(/800$/.test((await spec()).ten || ''), 'tên tủ mang cỡ mới (không còn "… 600" khi tủ rộng 800)', (await spec()).ten); }
   // (soát 1.34.1) tủ bếp nấu hẹp: nút Chuyển tủ đi thẳng tới cỡ lọt bếp (800), không dừng ở 600 vì lỗi rổ
   { await S(page, '#mncf-ui-mau').selectOption('@BEP-duoi'); await S(page, '[data-act="mau"]').click();
     await page.waitForFunction(() => window.MNCF.app.getSpec().bep && window.MNCF.app.getSpec().bep.tang === 'duoi' && window.MNCF.app.getSpec().bep.chuc_nang === 'canh');
