@@ -548,6 +548,7 @@
     // trần chỗ đặt khung (bản 1.20) → lõi kiểm thân tủ ráp nằm rồi lật đứng có lọt trần không. Khung treo không lật từ sàn lên nên không kiểm.
     { const qH = H && j >= 0 && H.khung && H.khung[j]; if (qH) s.kiem = Object.assign({}, s.kiem, { tran: (qH.z0 > 0.5 || !(qH.w && qH.w.cao > 0)) ? 0 : qH.w.cao }); }
     s = Core.normalize(s);
+    if (tapNho && Core.tapTuDong) s = Core.tapTuDong(s).spec;      // (1.34.1) táp theo kiểu: ruột chia lại theo cao của khung (người dùng chưa sửa ruột)
     // sâu khung = sâu phủ bì kể cả cánh → trừ phần cánh nhô ra trước thùng
     const bb = Core.bbox(Core.build(s).parts);
     if (bb) { const sauPB = bb.y1 - bb.y0; s.sau_thung = rn(s.sau_thung + (q.sau - sauPB), 1); }

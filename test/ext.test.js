@@ -15,6 +15,17 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
   { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
   { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] } ] };
 
+// (1.34.1 — thư viện bếp gọn) mẫu bếp theo mã đi đường của người dùng: Thư viện "Tủ bếp <tầng>" → gõ Rộng → chip chức năng (bước đã đúng thì bỏ)
+async function chonBepExt(page, H, ma) {
+  const r = await page.evaluate(ma => { const C = window.MNCFCore, m = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO].find(x => x.ma === ma); return m ? { tang: m.tang, kieu: m.kieu, rong: m.co, ten: m.ten } : null; }, ma);
+  if (!r || !r.kieu || !r.rong) throw new Error('mã bếp không thuộc chip: ' + ma);
+  await H.locator('#mncf-ui-mau').selectOption('@BEP-' + r.tang); await H.locator('[data-act="mau"]').click();
+  await page.waitForFunction(t => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'bep' && s.bep && s.bep.tang === t; }, r.tang);
+  let go = false;
+  if (await page.evaluate(w => window.MNCF.app.getSpec().rong !== w, r.rong)) { go = true; await H.locator('[data-k="rong"]').fill(String(r.rong)); await page.waitForFunction(w => window.MNCF.app.getSpec().rong === w, r.rong); }
+  if (go || await page.evaluate(k => window.MNCFCore.kieuBep(window.MNCF.app.getSpec()) !== k, r.kieu)) await H.locator(`[data-act="bep-kieu"][data-v="${r.kieu}"]`).click();
+  await page.waitForFunction(t => window.MNCF.app.getSpec().ten === t, r.ten);
+}
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mncf-ext-'));
   const ctx = await chromium.launchPersistentContext(dir, { channel: 'chromium', headless: true, viewport: { width: 1500, height: 900 },
@@ -268,6 +279,19 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, `${ma}: hoàn tác sạch`);
       await H.locator('.tab[data-tab="tu"]').click();
     }
+    /* --- (soát 1.34.1) nút kiểu táp: sâu phủ bì đổi (C nóc chồm ra trước 20) → bỏ chỗ đặt như ô Thư viện; cùng sâu thì giữ --- */
+    {
+      await H.locator('.tab[data-tab="tu"]').click();
+      await H.locator('#mncf-ui-mau').selectOption('TAP-GO1'); await H.locator('[data-act="mau"]').click();
+      await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'tap');
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      await H.locator('#mncf-ui-ax').fill('4000'); if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+      await H.locator('.sp [data-act="tap-kieu"][data-kieu="B"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().tap.kieu === 'B');
+      ok(await H.locator('#mncf-ui-useat').isChecked(), 'táp A → B (cùng sâu phủ bì 400): giữ chỗ đặt');
+      await H.locator('.sp [data-act="tap-kieu"][data-kieu="C"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().tap.kieu === 'C');
+      const st = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent);
+      ok(!(await H.locator('#mncf-ui-useat').isChecked()) && /bỏ chỗ đặt của món trước/.test(st), 'táp B → C (sâu phủ bì 420): bỏ chỗ đặt, có báo', st);
+    }
     /* --- (bản 1.33) TỦ BẾP: 3 module cạnh nhau — tủ chậu (nhập tấm), tủ 3 ngăn kéo, tủ trên treo ở z 1550 (bảng tự cộng cao độ treo vào toạ độ) --- */
     {
       await H.locator('.tab[data-tab="tu"]').click();
@@ -277,8 +301,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       const kq = {};
       for (const [ma, x, z, ten] of [['BD-CHAU-900', 30000, 0, 'BD'], ['BD-NK3-600', 31000, 0, 'BD'], ['BT-CANH-800', 32000, 1550, 'BT'], ['BC-KHO-400', 33000, 0, 'BC']]) {
         await H.locator('.tab[data-tab="tu"]').click();      // vẽ xong bảng sang thẻ Kết quả
-        await H.locator('#mncf-ui-mau').selectOption(ma); await H.locator('[data-act="mau"]').click();
-        await page.waitForFunction(m => window.MNCF.app.getSpec().ten === window.MNCFCore.apMau(window.MNCFCore.DEFAULT_SPEC, m).ten, ma);
+        await chonBepExt(page, H, ma);      // (1.34.1) Thư viện "Tủ bếp <tầng>" → gõ Rộng → chip chức năng
         await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.hau = Object.assign({}, s.hau, { t: 6 }); window.MNCF.app.setSpec(s); });
         ok(!(await H.locator('.vehang [data-act="dat-tuong"]').isVisible()) && !(await H.locator('.vehang [data-act="hinh"]').isVisible()) && await H.locator('.vehang [data-act="dat"]').isVisible(), `${ma}: giấu nút Tường / Hình (khung của tủ áo), còn nút Chuột`);
         if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
@@ -341,7 +364,7 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       // (1.33 vòng soát 2) tủ trên đặt bằng CHUỘT: ô z điền cao độ treo thật (1560); sửa ô x sau đó thì tủ vẫn treo ở 1560 (trước: rơi xuống sàn)
       { await H.locator('.tab[data-tab="tu"]').click();
         if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
-        await H.locator('#mncf-ui-mau').selectOption('BT-CANH-600'); await H.locator('[data-act="mau"]').click();
+        await H.locator('#mncf-ui-mau').selectOption('@BEP-tren'); await H.locator('[data-act="mau"]').click();      // (1.34.1) Tủ bếp trên = tủ trên cánh 600
         await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'bep' && s.bep.tang === 'tren' && s.rong === 600; });
         // (bản vá 1.33.1) chuẩn bếp chỉ có MỘT nguồn = bản lưu: "Cách mặt đá 750" gõ ở khối Tủ bếp phía trên là chuẩn người dùng đã chọn → mẫu mới theo 750 (trước: Sửa tủ dưới
         // ghi đè cả chuẩn bằng số của tủ đó). Đặt lại 700 cho phép thử dưới đây.
@@ -386,6 +409,41 @@ const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t:
       if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
       ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'tủ bếp: dọn sạch bản vẽ cho các phép thử sau');
     }
+    // (soát 1.34.1) táp CHÂN GỖ rời: chân không phải tấm (không vào lệnh nhập) — góc đặt (ô toạ độ / điểm bấm) là ở SÀN, bảng nâng thân lên cao chân (trước: thân rơi xuống sàn, mất 150)
+    { await H.locator('.tab[data-tab="tu"]').click();
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      await H.locator('#mncf-ui-mau').selectOption('TAP-CHAN2'); await H.locator('[data-act="mau"]').click();
+      await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'tap' && s.tap && s.tap.chan_go === 150; });
+      await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.hau = Object.assign({}, s.hau, { t: 6 }); window.MNCF.app.setSpec(s); });
+      const bdT = async () => page.evaluate(() => { const D = window.MNCFDriver, L = D.last, bs = L.added.filter(e => D.isBoard(e) && !e.IsErase), b = bs.map(D.boxOf), T = bs[0] && bs[0].Template && bs[0].Template.Object;
+        return { z0: Math.round(Math.min(...b.map(x => x[4])) * 10) / 10, z1: Math.round(Math.max(...b.map(x => x[5])) * 10) / 10, x0: Math.round(Math.min(...b.map(x => x[0])) * 10) / 10, moTaH: T && T.GetParam('H').description }; });
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      await H.locator('#mncf-ui-ax').fill('40000'); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0');
+      if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+      ok(/sàn/.test(await H.locator('#mncf-ui-az').getAttribute('title') || ''), 'táp chân gỗ: ô z nói rõ là sàn dưới chân', await H.locator('#mncf-ui-az').getAttribute('title'));
+      await H.locator('footer [data-act="draw"]').click();
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 40000) < 1; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      let g = await bdT();
+      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 40000, 'táp chân gỗ gõ z 0: đáy ở 150, đỉnh 580 (không rơi xuống sàn)', g);
+      ok(/chân gỗ/.test(g.moTaH || ''), 'táp chân gỗ: tham số H của module nói rõ chưa gồm chân gỗ', g.moTaH);
+      // đặt bằng điểm bấm (không ô toạ độ): bấm ở sàn → thân nâng lên cao chân
+      await H.locator('.tab[data-tab="tu"]').click();
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      await H.locator('#mncf-ui-useat').uncheck();
+      const h0 = await page.evaluate(() => (window.__MOCK_HOI__ || []).length);
+      await H.locator('footer [data-act="draw"]').click();
+      await page.waitForFunction(k => (window.__MOCK_HOI__ || []).length >= k && window.MNCFDriver.busy(), h0 + 1, { timeout: 8000 });
+      await page.evaluate(() => window.__MOCK__.clickPoint(42000, 0, 0));
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 42000) < 1; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      g = await bdT();
+      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 42000, 'táp chân gỗ bấm điểm ở sàn: đáy ở 150 (bảng nâng lên cao chân)', g);
+      await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
+      await H.locator('.tab[data-tab="tu"]').click();
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'táp chân gỗ: dọn sạch bản vẽ'); }
     // (1.32) mở file giường khi đang giữ chỗ đặt của món khác loại: bỏ chỗ đặt (góc trước tính theo sâu của món cũ)
     { if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
       const g = await page.evaluate(() => window.MNCFCore.apMau(window.MNCFCore.DEFAULT_SPEC, 'G16-T'));

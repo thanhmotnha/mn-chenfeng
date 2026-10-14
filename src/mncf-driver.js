@@ -914,6 +914,7 @@
       const tangBep = lsp === 'bep' && M.spec.bep ? M.spec.bep.tang : '';
       const moTa = lsp === 'giuong' ? { L: 'Rộng phủ bì', W: 'Dài phủ bì (đuôi → đầu giường)', H: 'Cao đầu giường' } : lsp === 'vach' ? { L: 'Rộng vách', W: 'Dày (tấm ốp + xương)', H: 'Cao vách' }
         : lsp === 'bep' ? { L: 'Rộng phủ bì — đổi Rộng ở bảng Một Nhà để kiểm phụ kiện', W: 'Sâu phủ bì (cả cánh)', H: tangBep === 'tren' ? 'Cao tủ trên — đổi ở đỉnh, đáy giữ nguyên' : tangBep === 'cao' ? 'Cao phủ bì (tủ cao — không có đá)' : 'Cao tới đỉnh thùng (chưa gồm đá)' }
+        : lsp === 'tap' && M.info.tap && M.info.tap.chan_go > 0 ? { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: `Cao thân (chưa gồm chân gỗ ${so(M.info.tap.chan_go)})` }      // (soát 1.34.1) chân gỗ rời không phải tấm
         : { L: 'Rộng phủ bì', W: 'Sâu phủ bì (cả cánh)', H: 'Cao phủ bì' };
       const ngan = lsp === 'giuong' ? { L: 'Rộng', W: 'Dài', H: 'Cao' } : { L: 'Rộng', W: lsp === 'vach' ? 'Dày' : 'Sâu', H: 'Cao' };
       for (const k of Object.keys(moTa)) {
