@@ -1610,7 +1610,7 @@ T('Giường, táp, vách đầu giường (bản 1.32)', () => {
     ok(M.parts.every(p => { const c = C0.cutSize(p); return c.dai <= s.van.kho_dai + 0.01 && c.rong <= s.van.kho_rong + 0.01; }), `mẫu ${m.ma}: mọi tấm vừa khổ ván`);
     ok(C0.phieu(M).xong && C0.phieu(M).dat, `mẫu ${m.ma}: phiếu kiểm đạt`, C0.phieu(M).muc.filter(x => x.ket !== 'dat').map(x => x.ma));
   }
-  eq(C0.THU_VIEN.map(x => x.loai), ['tu', 'tap', 'giuong', 'vach', 'bep', 'bep', 'bep'], 'thư viện: tủ áo, táp, giường, vách (bản 1.33: + 3 nhóm tủ bếp)');
+  eq(C0.THU_VIEN.map(x => x.loai), ['tu', 'tap', 'giuong', 'vach', 'bep'], 'thư viện: tủ áo, táp, giường, vách, bếp (1.34.1: một nhóm bếp 3 mục)');
   ok(C0.THU_VIEN[0].ds === C0.MAU_TU, 'thư viện tủ áo = bộ mẫu tủ áo');
   // GIƯỜNG: phủ bì theo nệm, lòng giường đúng khe
   for (const [ma, nem] of [['G12-T', [1200, 2000]], ['G16-T', [1600, 2000]], ['G18-B', [1800, 2000]], ['G16-NK', [1600, 2000]]]) {
@@ -1807,7 +1807,7 @@ T('Tủ bếp (bản 1.33)', () => {
   { const s = ap('TA2-1000'); s.khoang[0].o = [{ tu: 0, kieu: 'keo_pk', pk: ['xoong'] }, { tu: 0, kieu: 'nk_trum', so: 2, cao: [180] }]; const n = C.normalize(s); ok(n.khoang[0].o.length === 1 && !('cao' in n.khoang[0].o[0]), 'tủ áo: bỏ ô mặt kéo rổ và cao mặt riêng (chỉ của tủ bếp)', n.khoang[0].o); }
   // thư viện
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO];
-  eq(C.THU_VIEN.filter(x => x.loai === 'bep').map(x => x.ds), [C.MAU_BEP_DUOI, C.MAU_BEP_TREN, C.MAU_BEP_CAO], 'thư viện: 3 nhóm tủ bếp (dưới / trên / cao)');
+  eq(C.THU_VIEN.filter(x => x.loai === 'bep').map(x => x.ds), [C.MAU_BEP_TV], 'thư viện (1.34.1): một nhóm bếp — Tủ bếp dưới / trên / cao; MAU_BEP_* chỉ còn cho Bộ bếp');
   for (const ma of ['BD-CHAU-800', 'BD-CHAU-900', 'BD-BEP-800', 'BD-BEP-900', 'BD-NK3-400', 'BD-NK3-600', 'BD-NK3-900', 'BD-XN-800', 'BD-GV-200', 'BD-GV-400', 'BD-GAO-300', 'BD-RAC-300', 'BD-RAC-400', 'BD-CANH-300', 'BD-CANH-900', 'BT-CANH-300', 'BT-CANH-800', 'BT-BAT-600', 'BT-BAT-900', 'BT-HM-800', 'BT-HM-950', 'BC-KHO-400', 'BC-KHO-450', 'BC-KHO-600'])
     ok(MAU.some(m => m.ma === ma), `có mẫu ${ma}`);
   for (const m of MAU) {
@@ -2854,7 +2854,7 @@ T('Dãy bếp (bản 1.34) — vòng soát 3', () => {
 T('Táp đầu giường (bản 1.34.1)', () => {
   const D0 = C0.DEFAULT_SPEC, ap = ma => C0.apMau(D0, ma), PK = (M, re) => (C0.cutList(M).phu_kien || []).find(x => re.test(x.ten));
   const CU = ['TAP2-450', 'TAP2-500', 'TAP2-500-C', 'TAP1H-500', 'TAP3-600'];
-  ok(C0.MAU_TAP.length >= 6 && C0.MAU_TAP.length <= 8, 'thư viện táp: 6 – 8 mẫu', C0.MAU_TAP.map(m => m.ma));
+  ok(C0.MAU_TAP.length === 5 && C0.MAU_TAP.map(m => m.kieu).join('') === 'ABCDE', 'thư viện táp: 5 mục theo KIỂU A – E (không liệt kê cỡ)', C0.MAU_TAP.map(m => [m.ma, m.kieu]));
   ok(C0.MAU_TAP.every(m => CU.indexOf(m.ma) < 0 && /^TAP/.test(m.ma) && m.loai_sp === 'tap'), 'mẫu táp mới: mã mới (TAP…), không lẫn mã cũ');
   ok(C0.THU_VIEN.find(x => x.loai === 'tap').ds === C0.MAU_TAP, 'Thư viện táp = bộ mẫu mới');
   ok(Array.isArray(C0.MAU_TAP_CU) && CU.every(ma => C0.MAU_TAP_CU.some(m => m.ma === ma)), 'mã cũ còn trong MAU_TAP_CU');
@@ -2867,9 +2867,10 @@ T('Táp đầu giường (bản 1.34.1)', () => {
     D: s => s.tap.noc === 'phu' && s.tap.day === 'phu' && s.tap.tay_nam === 'khe' && s.khoang[0].o.some(o => o.kieu === 'nk_trum' && o.so === 2),
     E: s => s.tap.noc === 'phu' && s.tap.chan_go > 0 && s.tap.tay_nam === 'khoet' };
   const theoKieu = {}; for (const m of C0.MAU_TAP) { const s = ap(m.ma); for (const k of Object.keys(kieu)) if (kieu[k](s)) (theoKieu[k] = theoKieu[k] || []).push(m.ma); }
-  ok(Object.keys(kieu).every(k => (theoKieu[k] || []).length), 'đủ 5 kiểu ảnh A – E', theoKieu);
+  ok(Object.keys(kieu).every(k => (theoKieu[k] || []).length === 1 && C0.MAU_TAP.find(m => m.ma === theoKieu[k][0]).kieu === k), 'mỗi kiểu ảnh A – E đúng một mục, khớp m.kieu', theoKieu);
   ok(C0.MAU_TAP.every(m => /gờ|nóc|hộp|chân/i.test(m.ten) && /ngăn kéo|hộc/i.test(m.ten)), 'tên mẫu nói rõ kiểu (gờ / nóc / hộp / chân + ngăn kéo / hộc)', C0.MAU_TAP.map(m => m.ten));
-  ok([400, 450, 500].every(r => C0.MAU_TAP.some(m => ap(m.ma).rong === r)), 'có cỡ rộng 400 / 450 / 500', C0.MAU_TAP.map(m => ap(m.ma).rong));
+  ok(C0.MAU_TAP.every(m => !/\d{3}/.test(m.ten) && !/\d{3}$/.test(m.ma)), 'tên / mã mẫu táp không mang cỡ', C0.MAU_TAP.map(m => [m.ma, m.ten]));
+  for (const m of C0.MAU_TAP) eq(ap(m.ma), C0.tapTheoKieu(m.kieu, null, D0), `${m.ma}: apMau = tapTheoKieu(${m.kieu}, cỡ mặc định)`);
   for (const m of C0.MAU_TAP) {
     const s = ap(m.ma), M = C0.build(s);
     ok(s.loai_sp === 'tap' && s.tap && !M.errors.length && !M.warnings.length, `${m.ma}: dựng được, không lỗi / cảnh báo`, [M.errors, M.warnings]);
@@ -2955,7 +2956,7 @@ T('Táp đầu giường (bản 1.34.1)', () => {
     eq(M.parts.map(p => p.loai + ':' + box(p).join(',')), M0.parts.map(p => p.loai + ':' + box(p).join(',')), `${m.ma} + Chuẩn xưởng phủ hồi: tấm như với Chuẩn xưởng 'lot' (nóc / đáy theo mẫu táp)`);
   }
   // (soát 1.34.1) khoang táp có CÁNH: ngăn kéo lọt lòng nằm sau cánh như tủ áo (lùi nk.lui, vách đệm / nẹp), không núm (núm đâm vào lưng cánh), không thanh ngang của táp
-  for (const ma of ['TAP-GO1-450', 'TAP-CHOM-450', 'TAP-GO2-450']) {
+  for (const ma of ['TAP-GO1', 'TAP-CHOM', 'TAP-GO2']) {
     const s = ap(ma); s.khoang[0].canh = 1; const n = C0.normalize(s), M = C0.build(n), d3 = C0.hinh3D(M, { du_lieu: true });
     ok(!M.errors.length && !overlapAny(M).length, `${ma} + 1 cánh: không lỗi, không tấm đè (thanh ngang × vách đệm / nẹp)`, [M.errors, overlapAny(M)]);
     ok(M.mat_ngan_keo.every(q => q.y >= n.ngan_keo.lui - n.van.t - 0.01 && q.y > 0.5 && !q.tay_nam), `${ma} + 1 cánh: mặt ngăn kéo lùi sau cánh (y ≥ lùi − dày), không tay nắm`, M.mat_ngan_keo.map(q => [q.y, q.tay_nam]));
@@ -2963,16 +2964,166 @@ T('Táp đầu giường (bản 1.34.1)', () => {
     ok(!M.parts.some(p => p.thanh_nk), `${ma} + 1 cánh: không thanh ngang táp`);
   }
   // (soát 1.34.1) táp "khe tay nắm" mà ô đổi sang ngăn kéo lọt lòng: khe J chỉ có ở mặt trùm → mặt lọt lòng dùng núm (kê phụ kiện), ghi chú không nói khe 25
-  { const s = ap('TAP-HOP2-450'); s.khoang[0].o[0].kieu = 'nk_am'; const M = C0.build(C0.normalize(s));
+  { const s = ap('TAP-HOP2'); s.khoang[0].o[0].kieu = 'nk_am'; const M = C0.build(C0.normalize(s));
     ok(!M.errors.length && M.mat_ngan_keo.length === 2 && M.mat_ngan_keo.every(q => !q.trum && q.tay_nam === 'num'), 'HOP2 đổi sang lọt lòng: mặt lọt lòng mang núm', M.mat_ngan_keo.map(q => [q.trum, q.tay_nam]));
     ok(PK(M, /Núm/) && PK(M, /Núm/).sl === 2, 'HOP2 đổi sang lọt lòng: kê 2 núm', C0.cutList(M).phu_kien);
     ok(!M.notes.some(x => /khe tay nắm 25/.test(x)) && M.notes.some(x => /núm/i.test(x)), 'HOP2 đổi sang lọt lòng: ghi chú không nói khe tay nắm, nói dùng núm', M.notes); }
   // (soát 1.34.1) táp nóc chồm + phào hai bên: phào thay phần đua bên đó — hồi áp phụ trợ phào, nóc chạy tới phào
-  { const s = ap('TAP-CHOM-450'); s.phao.trai = s.phao.phai = 20; const n = C0.normalize(s), M = C0.build(n), hoi = P(M, 'HOI').sort((a, b) => a.x0 - b.x0), phu = P(M, 'PHU').sort((a, b) => a.x0 - b.x0), noc = P(M, 'NOC')[0];
+  { const s = ap('TAP-CHOM'); s.phao.trai = s.phao.phai = 20; const n = C0.normalize(s), M = C0.build(n), hoi = P(M, 'HOI').sort((a, b) => a.x0 - b.x0), phu = P(M, 'PHU').sort((a, b) => a.x0 - b.x0), noc = P(M, 'NOC')[0];
     ok(!M.errors.length && hoi.length === 2 && phu.length === 2 && near(phu[0].x1, hoi[0].x0) && near(phu[1].x0, hoi[1].x1), 'nóc chồm + phào: phụ trợ phào áp vào hồi (không hở)', [phu.map(box), hoi.map(box)]);
     ok(near(noc.x0, 20) && near(noc.x1, n.rong - 20) && !overlapAny(M).length, 'nóc chồm + phào: nóc chạy giữa hai phào', box(noc)); }
   // tủ áo: hình 3D không đổi (không có khối nhiều mặt)
   { const d = C0.hinh3D(C0.build(D0), { du_lieu: true }); ok(d.hop.every(h => !h.mat), 'tủ áo: 3D toàn khối hộp như cũ'); }
+});
+
+T('Táp theo kiểu: gõ cỡ, ruột tự chia (bản 1.34.1)', () => {
+  const D0 = C0.DEFAULT_SPEC, K = C0.KIEU_TAP, KS = Object.keys(K);
+  eq(KS, ['A', 'B', 'C', 'D', 'E'], 'KIEU_TAP: A … E');
+  ok(KS.every(k => K[k].nut && K[k].nut.length <= 10 && K[k].co.length === 3), 'mỗi kiểu có nhãn nút ngắn + cỡ mặc định', KS.map(k => K[k].nut));
+  const long = M => { const d = M.parts.filter(p => p.loai === 'DAY'), n = M.parts.filter(p => p.loai === 'NOC'); return [Math.max(...d.map(p => p.z1)), Math.min(...n.map(p => p.z0))]; };
+  // quét cỡ táp VN (rộng 400 – 550, sâu 350 – 420, cao 450 – 700): dựng được, đúng cỡ gõ, không đè, đủ chỗ tì, ruột theo luật
+  for (const k of KS) {
+    let truoc = null;
+    for (const cao of [450, 500, 550, 600, 650, 700]) for (const [rong, sau] of [[400, 350], [450, 400], [550, 420]]) {
+      const s = C0.tapTheoKieu(k, { rong, sau, cao }, D0), M = C0.build(s), b = C0.bbox(M.parts), ten = `${k} ${rong} × ${sau} × ${cao}`;
+      ok(s.loai_sp === 'tap' && s.tap.kieu === k && s.rong === rong && s.sau_thung === sau && s.cao === cao && typeof s.tap.tu_dong === 'string', `${ten}: táp kiểu ${k} đúng cỡ gõ, có dấu tự chia`, [s.tap.kieu, s.rong, s.sau_thung, s.cao]);
+      ok(!M.errors.length && !M.warnings.length && !overlapAny(M).length && !C0.kiemLienKet(M.parts).length, `${ten}: không lỗi / cảnh báo / đè / thiếu chỗ tì`, [M.errors, M.warnings, overlapAny(M)]);
+      ok(near(b.x1 - b.x0, rong) && near(b.z1, cao), `${ten}: hộp bao rộng × cao`, b);
+      const [z0, z1] = long(M), L = z1 - z0, mt = M.mat_ngan_keo, k0 = s.khoang[0];
+      if (K[k].hoc) {
+        ok(k0.dot.length <= 1 && mt.length === 1, `${ten}: hộc mở + 1 ngăn kéo`, [k0.dot, mt.length]);
+        if (k0.dot.length) { const zone = k0.dot[0] - z0, hoc = z1 - k0.dot[0] - s.van.t;
+          ok(zone >= C0.TAP_RUOT.nk_min - 5 && zone <= C0.TAP_RUOT.nk_max + 5 && hoc >= C0.TAP_RUOT.hoc_min, `${ten}: vùng ngăn kéo ${zone} trong ${C0.TAP_RUOT.nk_min} … ${C0.TAP_RUOT.nk_max}, hộc ${hoc} ≥ ${C0.TAP_RUOT.hoc_min}`);
+          if (truoc && truoc.rong === rong) ok(k0.dot[0] >= truoc.dot - 0.01, `${ten}: cao hơn → đợt không hạ (ngăn kéo / hộc lớn theo)`, [truoc.dot, k0.dot[0]]);
+          truoc = { rong, dot: k0.dot[0] }; }
+      } else {
+        const so = k0.o[0].so;
+        ok(k0.dot.length === 0 && mt.length === so && so >= 1 && so <= 3, `${ten}: ${so} ngăn kéo`, [k0.dot, mt.length]);
+        ok(so === 1 || L / so >= C0.TAP_RUOT.ngan_min, `${ten}: lòng mỗi ngăn ≥ ${C0.TAP_RUOT.ngan_min}`, L / so);
+        ok(so === 3 || L / so <= C0.TAP_RUOT.ngan_max, `${ten}: lòng mỗi ngăn ≤ ${C0.TAP_RUOT.ngan_max} (cao quá thì thêm ngăn)`, L / so);
+      }
+    }
+  }
+  // cỡ mặc định của kiểu = số chọn hiện tại của thư viện; mã / tên không mang cỡ
+  for (const k of KS) { const s = C0.tapTheoKieu(k, null, D0); eq([s.rong, s.sau_thung, s.cao], K[k].co, `${k}: không gõ cỡ → cỡ mặc định`); }
+  // A cao 700: hộc + ngăn kéo cùng lớn; B cao 700: 3 ngăn; E thấp 450: vẫn 2 ngăn ≥ 130
+  ok(C0.tapTheoKieu('A', { cao: 700 }).khoang[0].dot[0] > C0.tapTheoKieu('A', { cao: 600 }).khoang[0].dot[0], 'A cao 700: đợt cao hơn A 600 (ngăn kéo lớn theo)');
+  ok(C0.tapTheoKieu('B', { cao: 700 }).khoang[0].o[0].so === 3, 'B cao 700: 3 ngăn kéo');
+  // đổi kiểu GIỮ cỡ đang gõ; Chuẩn xưởng giữ nguyên
+  { const keep = JSON.parse(JSON.stringify(D0)); keep.van.t = 17; const a = C0.tapTheoKieu('A', { rong: 520, sau: 410, cao: 640 }, keep), d = C0.doiKieuTap(a, 'D');
+    ok(d.tap.kieu === 'D' && d.rong === 520 && d.sau_thung === 410 && d.cao === 640 && d.van.t === 17 && d.tap.day === 'phu' && !d.tap.go, 'đổi A → D: giữ 520 × 410 × 640 + Chuẩn xưởng, kết cấu theo D', [d.rong, d.sau_thung, d.cao, d.tap]);
+    eq(C0.doiKieuTap(d, 'A'), a, 'đổi lại D → A: y như táp A cỡ đó'); }
+  // gõ cỡ: ruột chia lại khi người dùng chưa sửa ruột; sửa ruột rồi thì giữ
+  { const s = C0.tapTheoKieu('A', null, D0); eq(C0.tapTuDong(s).doi, false, 'cỡ không đổi: không chia lại');
+    const s2 = JSON.parse(JSON.stringify(s)); s2.cao = 700; const r = C0.tapTuDong(C0.normalize(s2));
+    ok(r.doi && JSON.stringify(r.spec.khoang) === JSON.stringify(C0.tapTheoKieu('A', { rong: s.rong, sau: s.sau_thung, cao: 700 }, D0).khoang), 'gõ cao 700: ruột = tapTheoKieu cỡ mới', [r.spec.khoang, s.khoang]);
+    ok(C0.tapTuDong(r.spec).doi === false, 'chia lại rồi: lần sau không đổi nữa (dấu mới)');
+    { const sn = JSON.parse(JSON.stringify(s)); sn.khoang[0].o[0].tu = 50; sn.cao = 700; ok(C0.tapTuDong(C0.normalize(sn)).doi, 'ô sát đáy bị bảng dời mốc về mặt dưới đáy (50): vẫn coi là ruột tự chia'); }
+    const s3 = JSON.parse(JSON.stringify(r.spec)); s3.khoang[0].dot = [200]; s3.cao = 560; const r3 = C0.tapTuDong(C0.normalize(s3));
+    ok(!r3.doi && r3.spec.khoang[0].dot[0] === 200, 'người dùng kéo đợt: thôi tự chia, giữ ruột của người dùng', r3.spec.khoang);
+    const s4 = JSON.parse(JSON.stringify(r.spec)); s4.khoang[0].canh = 1; s4.cao = 600; const r4 = C0.tapTuDong(C0.normalize(s4));
+    ok(r4.doi && r4.spec.khoang[0].canh === 1, 'thêm cánh: vẫn tự chia, giữ cánh', r4.spec.khoang);
+    const B = JSON.parse(JSON.stringify(C0.tapTheoKieu('B', null, D0))); B.cao = 720; const rb = C0.tapTuDong(C0.normalize(B));
+    ok(rb.doi && rb.spec.khoang[0].o[0].so === 3 && !C0.build(rb.spec).errors.length, 'B gõ cao 720: thành 3 ngăn kéo', rb.spec.khoang); }
+  // không kiểu (táp cũ, tủ) → không đụng
+  { const cu = C0.apMau(D0, 'TAP2-500'); ok(!C0.tapTuDong(Object.assign({}, cu, { cao: 700 })).doi, 'táp cũ (không khoá tap): không tự chia');
+    ok(!C0.tapTuDong(D0).doi, 'tủ áo: không tự chia');
+    const x = C0.normalize(Object.assign(JSON.parse(JSON.stringify(C0.tapTheoKieu('A', null, D0))), {})); x.tap.kieu = 'Z'; ok(!('kieu' in C0.normalize(x).tap) && !('tu_dong' in C0.normalize(x).tap), 'kiểu lạ: bỏ kiểu + dấu'); }
+  // module co giãn (heSo) với cỡ đã gõ
+  for (const k of KS) { const h = C0.heSo(C0.tapTheoKieu(k, { rong: 520, sau: 390, cao: 640 }, D0)); ok(['L', 'W', 'H'].every(x => h.bien[x] && h.bien[x].sai_so < 0.02), `${k} 520 × 390 × 640: module co giãn L / W / H`, h.ly_do); }
+});
+
+T('Thư viện bếp gọn: chip chức năng, giữ rộng (bản 1.34.1)', () => {
+  const D = C0.DEFAULT_SPEC, J = x => JSON.stringify(x), K = C0.KIEU_BEP, MAU = [...C0.MAU_BEP_DUOI, ...C0.MAU_BEP_TREN, ...C0.MAU_BEP_CAO];
+  // ô Thư viện: đúng 3 mục bếp, không mục nào mang cỡ
+  eq(C0.MAU_BEP_TV.map(m => [m.ma, m.ten]), [['@BEP-duoi', 'Tủ bếp dưới'], ['@BEP-tren', 'Tủ bếp trên'], ['@BEP-cao', 'Tủ bếp cao']], 'Thư viện bếp: Tủ bếp dưới / trên / cao');
+  const tv = [].concat(...C0.THU_VIEN.filter(n => n.loai === 'bep').map(n => n.ds));
+  ok(tv.length === 3 && !tv.some(m => MAU.indexOf(m) >= 0), 'ô Thư viện không còn mẫu bếp theo cỡ', tv.map(m => m.ma));
+  ok(J(C0.apMau(D, '@BEP-duoi')) === J(C0.apMau(D, 'BD-CANH-600')) && J(C0.apMau(D, '@BEP-tren')) === J(C0.apMau(D, 'BT-CANH-600')) && J(C0.apMau(D, '@BEP-cao')) === J(C0.apMau(D, 'BC-KHO-600')), 'mục Thư viện = tủ mặc định của tầng (cánh 600 / tủ trên cánh 600 / đồ khô cánh 600)');
+  // chip theo tầng
+  eq(K.duoi.map(x => x.ma), ['canh', 'nk', 'chau', 'bep', 'xn', 'gv', 'rac', 'gao', 'ke', 'goc'], 'chip tủ dưới');
+  eq(K.tren.map(x => x.ma), ['canh', 'bat', 'hm', 'hmk', 'ke', 'goc'], 'chip tủ trên');
+  eq(K.cao.map(x => x.ma), ['kho', 'kho_canh', 'tl', 'lo'], 'chip tủ cao');
+  ok(['duoi', 'tren', 'cao'].every(t => K[t].every(x => x.nut && x.nut.length <= 12)), 'nhãn chip ngắn (bảng ít chữ)');
+  // dùng chung với MAU_BEP_*: cùng kiểu + cùng cỡ = y hệt mẫu; chip nhận ra kiểu của mẫu
+  for (const m of MAU) {
+    if (!m.kieu) continue;
+    const a = C0.apMau(D, m.ma), b = C0.bepTheoKieu(D, m.kieu, { tang: m.tang, rong: a.rong, goc_pk: m.goc_pk, ben: m.goc_ben, may: m.may });
+    ok(J(a) === J(b), `${m.ma}: bepTheoKieu(${m.kieu}, ${a.rong}) = mẫu`);
+    ok(C0.kieuBep(a) === m.kieu, `${m.ma}: chip đang bấm = ${m.kieu}`, C0.kieuBep(a));
+  }
+  ok(MAU.filter(m => !m.kieu).every(m => /-H\d+$|BATCD/.test(m.ma)), 'chỉ biến thể (H700 / H900, giá bát cố định) không thuộc chip', MAU.filter(m => !m.kieu).map(m => m.ma));
+  ok(C0.bepTheoKieu(D, 'tl', { tang: 'duoi' }) === null && C0.bepTheoKieu(D, 'zz', { tang: 'cao' }) === null, 'kiểu không có ở tầng đó → null');
+  ok(C0.kieuBep(D) === '' && C0.kieuBep(C0.apMau(D, 'TA2-1000')) === '', 'tủ áo: không chip nào');
+  // GIỮ rộng: đổi chức năng ở rộng 550 (không có trong thư viện) → vẫn 550, ruột của chức năng mới
+  { let s = C0.bepTheoKieu(D, 'canh', { tang: 'duoi', rong: 550 });
+    ok(s.rong === 550 && s.ten === 'Tủ cánh 550' && !C0.build(s).errors.length, 'tủ cánh 550: dựng được', C0.build(s).errors);
+    s = C0.bepTheoKieu(s, 'nk', { rong: s.rong });
+    ok(s.rong === 550 && s.bep.chuc_nang === 'nk' && s.khoang[0].o.some(o => o.kieu === 'nk_trum') && !C0.build(s).errors.length, 'đổi sang ngăn kéo: giữ 550, ruột 3 ngăn kéo', [s.rong, s.khoang]);
+    const g = C0.bepTheoKieu(s, 'gv', { rong: s.rong }), Mg = C0.build(g);
+    ok(g.rong === 550 && Mg.errors.some(t => /Đặt tủ rộng 450/.test(t)), 'gia vị 550: rổ lệch cỡ hãng → báo kèm "Đặt tủ rộng 450" (nút Chuyển tủ của bảng)', Mg.errors);
+    const k = C0.bepTheoKieu(D, 'kho', { tang: 'cao', rong: 600 });
+    ok(k.rong === 600 && C0.build(k).errors.some(t => /Đặt tủ rộng 400/.test(t)), 'đồ khô kéo 600 (rổ chỉ 400): báo + "Đặt tủ rộng 400"'); }
+  // thiết bị: cỡ lạ lấy máy của mẫu lớn nhất ≤ rộng (lọt), đúng cỡ thì máy của mẫu
+  { const h = C0.bepTheoKieu(D, 'hm', { tang: 'tren', rong: 900 }), c = C0.bepTheoKieu(D, 'chau', { tang: 'duoi', rong: 1000 }), c7 = C0.bepTheoKieu(D, 'chau', { tang: 'duoi', rong: 700 });
+    ok(h.rong === 900 && h.bep.tb.hm.ma === 'am_700' && !C0.build(h).errors.length, 'hút mùi 900: máy âm 700 (mẫu 800), lọt', h.bep.tb.hm.ma);
+    ok(c.rong === 1000 && c.bep.tb.chau.ma === 'am_780' && !C0.build(c).errors.length, 'chậu 1000: chậu của mẫu 900, lọt', c.bep.tb.chau.ma);
+    ok(c7.rong === 700 && c7.bep.tb.chau.ma === 'am_don_600', 'chậu 700 (nhỏ hơn mọi mẫu): chậu của mẫu nhỏ nhất', c7.bep.tb.chau.ma); }
+  // tủ góc: rộng theo phụ kiện góc; giữ phụ kiện / phía mù của tủ góc đang mở
+  { const g0 = C0.bepTheoKieu(D, 'goc', { tang: 'duoi', rong: 600 });
+    ok(g0.rong === 900 && g0.bep.goc_pk === 'hg_lh', 'góc mù: rộng theo phụ kiện góc (Higold liên hoàn 900), không giữ 600');
+    const p = C0.bepTheoKieu(D, 'goc', { tang: 'duoi', goc_pk: 'eu_lh', ben: 'phai' });
+    ok(J(p) === J(C0.apMau(D, 'BD-GOC-990-P')), 'góc mù Eurogold liên hoàn, mù phải = BD-GOC-990-P');
+    ok(J(C0.bepTheoKieu(p, 'goc', {})) === J(p), 'chọn lại góc mù: giữ phụ kiện + phía mù của tủ đang mở'); }
+  // khoang tủ lạnh: rộng theo máy; gõ rộng → máy có khoang gần nhất
+  { const t = C0.bepTheoKieu(D, 'tl', { tang: 'cao' }), t2 = C0.bepTheoKieu(D, 'tl', { tang: 'cao', rong: 1000 });
+    ok(t.bep.tb.tl.ma === 'hai_canh_700' && J(C0.bepTheoKieu(D, 'tl', { tang: 'cao', may: 'sbs_910' })) === J(C0.apMau(D, 'BC-TL-910')), 'tủ lạnh: mặc định máy 2 cánh 700; chọn máy = mẫu khoang của máy đó');
+    ok(t2.bep.tb.tl.ma === 'sbs_910', 'tủ lạnh gõ rộng 1000 → máy side-by-side 910', t2.bep.tb.tl.ma); }
+  // chuẩn bếp + Chuẩn xưởng giữ nguyên khi đổi chức năng
+  { const s = C0.datBep(C0.apMau(D, 'BD-CANH-600'), { cao_mat: 870 }); s.van = Object.assign({}, s.van, { t: 17 });
+    const n = C0.bepTheoKieu(C0.normalize(s), 'xn', { rong: 650 });
+    ok(n.rong === 650 && n.bep.cao_mat === 870 && n.cao === 850 && n.van.t === 17, 'đổi sang giá bát + xoong 650: giữ mặt đá 870 + ván 17', [n.rong, n.bep.cao_mat, n.cao, n.van.t]); }
+  // quét: mọi chip × rộng 300 … 1000 dựng được, đúng rộng (trừ góc / tủ lạnh), chip nhận lại đúng kiểu, không tấm đè nhau
+  for (const t of ['duoi', 'tren', 'cao']) for (const x of K[t]) for (let w = 300; w <= 1000; w += 50) {
+    const s = C0.bepTheoKieu(D, x.ma, { tang: t, rong: w }); let M = null;
+    try { M = C0.build(s); } catch (e) { ok(false, `${t}/${x.ma} ${w}: ném lỗi`, e.message); continue; }
+    if (x.ma !== 'goc' && x.ma !== 'tl') ok(s.rong === w, `${t}/${x.ma} ${w}: giữ rộng`, s.rong);
+    ok(s.bep.tang === t && C0.kieuBep(s) === x.ma, `${t}/${x.ma} ${w}: tầng + chip`, [s.bep.tang, C0.kieuBep(s)]);
+    eq(overlapAny(M), [], `${t}/${x.ma} ${w}: không tấm nào đè nhau`);
+  }
+});
+
+T('Soát táp / thư viện bếp (bản 1.34.1)', () => {
+  const D = C0.DEFAULT_SPEC, J = x => JSON.stringify(x);
+  // bấm lại nút kiểu táp: giữ phào + cánh của khoang (chỉ ruột + kết cấu theo kiểu), xà đế theo kiểu
+  { const s = C0.tapTheoKieu('C', null, D); s.phao.trai = s.phao.phai = 40; s.chan.cao = 80; s.khoang[0].canh = 1;
+    const n = C0.normalize(s), d = C0.doiKieuTap(n, 'C');
+    ok(d.phao.trai === 40 && d.phao.phai === 40 && d.khoang[0].canh === 1 && d.rong === n.rong, 'bấm lại kiểu C: giữ phào trái / phải 40 và cánh của khoang', [d.phao, d.khoang[0].canh]);
+    ok(d.chan.cao === C0.KIEU_TAP.C.chan, 'bấm lại kiểu: xà đế về cao của kiểu', d.chan.cao);
+    ok(d.tap.tu_dong && C0.tapTuDong(d).doi === false, 'bấm lại kiểu: ruột là ruột tự chia (dấu khớp)');
+    const a = C0.doiKieuTap(C0.tapTheoKieu('A', null, D), 'B');
+    ok(J(a) === J(C0.tapTheoKieu('B', { rong: 450, sau: 400, cao: 600 }, D)), 'táp không phào / cánh: đổi kiểu y như trước'); }
+  // táp hẹp: lời báo đúng cho táp + rộng tối thiểu của kiểu; đặt đúng số đó thì hết lỗi
+  for (const k of ['A', 'B', 'C', 'E']) {
+    const M = C0.build(C0.tapTheoKieu(k, { rong: 300 }, D)), e = M.errors.find(t => /ngăn kéo/.test(t)) || '', m = /táp rộng ≥ (\d+)/.exec(e);
+    ok(m && !/vách đệm|bản lề/.test(e), `táp ${k} rộng 300: lời báo nói rộng tối thiểu của táp, không nhắc vách đệm / bản lề`, e);
+    if (m) { const M2 = C0.build(C0.tapTheoKieu(k, { rong: +m[1] }, D)), M3 = C0.build(C0.tapTheoKieu(k, { rong: +m[1] - 5 }, D));
+      ok(!M2.errors.length && M3.errors.length > 0, `táp ${k}: rộng ${m[1]} hết lỗi, ${+m[1] - 5} còn lỗi`, [M2.errors, M3.errors]); }
+  }
+  { const s = C0.normalize(Object.assign(C0.clone ? C0.clone(D) : JSON.parse(J(D)), { rong: 320, khoang: [{ rong: 'auto', canh: 0, dot: [], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }], phao: { trai: 0, phai: 0, tren: 0 } }));
+    ok(C0.build(s).errors.some(t => /quá hẹp cho ngăn kéo âm/.test(t)), 'tủ áo hẹp: lời báo cũ giữ nguyên'); }
+  // tủ bếp gõ Rộng: số cánh theo luật của chức năng (như chip), chỉ khi số cánh đang là số tự chia ở rộng cũ
+  { const tc = (s, w) => C0.bepTheoKieu(s, C0.kieuBep(s), { rong: w }).khoang[0].canh;
+    const ca = [['tren', 'canh', 600, 300], ['duoi', 'canh', 600, 1200], ['tren', 'bat', 800, 300], ['cao', 'kho_canh', 600, 1200], ['tren', 'canh', 300, 800]];
+    for (const [tang, kieu, w0, w1] of ca) {
+      const s0 = C0.bepTheoKieu(D, kieu, { tang, rong: w0 }), s = C0.normalize(Object.assign(JSON.parse(J(s0)), { rong: w1 })), r = C0.canhBepTheoRong(s, w0);
+      ok(r.doi && r.spec.khoang[0].canh === tc(s0, w1) && r.spec.rong === w1, `${tang}/${kieu} ${w0} → gõ ${w1}: ${tc(s0, w1)} cánh như chip`, [r.doi, r.spec.khoang[0].canh]);
+      ok(!C0.build(r.spec).warnings.some(t => /Cánh chỉ rộng|dễ xệ/.test(t)), `${tang}/${kieu} ${w1}: không cảnh báo cánh hẹp / xệ`, C0.build(r.spec).warnings);
+    }
+    const s0 = C0.bepTheoKieu(D, 'canh', { tang: 'duoi', rong: 600 }); s0.khoang[0].canh = 2;      // người dùng chọn 2 cánh ở 600 (luật: 1)
+    ok(!C0.canhBepTheoRong(C0.normalize(Object.assign(JSON.parse(J(s0)), { rong: 700 })), 600).doi, 'số cánh người dùng đã sửa: gõ rộng không đổi');
+    ok(!C0.canhBepTheoRong(C0.normalize(Object.assign(JSON.parse(J(s0)), { rong: 700 })), 30).doi, 'rộng cũ không hợp lệ: không đổi');
+    ok(!C0.canhBepTheoRong(C0.tapTheoKieu('A', null, D), 400).doi && !C0.canhBepTheoRong(D, 400).doi, 'táp / tủ áo: không đụng'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);
