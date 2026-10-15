@@ -778,6 +778,7 @@
         const p = so3(); if (!p) return;
         const ten = state.lenh; state = null; svc.IsReady = false;
         // bản thật (đo 04/10/2026): lỗ cửa nằm TRÊN một tường — hộp bao = bề rộng lỗ dọc tường × bề dày tường × cao lỗ; bấm chỗ không có tường thì không có lỗ nào
+        // (1.36) chỉ nhận điểm trên mặt RightCurves (mép trong của lần dựng tường). CHƯA ĐO: Chenfeng thật nhận điểm trên mặt NGOÀI (LeftCurves) thế nào — bảng luôn đặt trên RightCurves
         const tw = ents.find(w => { if (!(w instanceof RoomWallLine) || w.IsErase) return false; const A = w.RightCurves[0].StartPoint, B = w.RightCurves[0].EndPoint, dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, t = ((p[0] - A.x) * dx + (p[1] - A.y) * dy) / L; return t >= -1 && t <= L + 1 && Math.abs(-(p[0] - A.x) * dy + (p[1] - A.y) * dx) / L <= 1; });
         if (!tw) { setTimeout(() => fireEnd(ten, [], []), 20); return; }
         const A = tw.RightCurves[0].StartPoint, B = tw.RightCurves[0].EndPoint, Lw = Math.hypot(B.x - A.x, B.y - A.y) || 1, u = [(B.x - A.x) / Lw, (B.y - A.y) / Lw], n = [-u[1] * tw.day, u[0] * tw.day];

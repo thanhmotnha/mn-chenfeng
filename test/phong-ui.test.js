@@ -1265,6 +1265,7 @@ async function tPhongDaDo() {
     await B.locator('.pdo-r').nth(1).locator('[data-act="do-lay"]').click();      // …thì lấy sang Bếp (không có ảnh)
     await page.waitForTimeout(1300); SX.tre = 0;
     eq1([(await lay()).ten.slice(0, 3), await H.locator('.thumb').count()], ['Bếp', 0], 'lấy phòng khác giữa lúc ảnh phòng trước còn đang tải: dãy ảnh là của phòng SAU (không có ảnh), ảnh phòng trước không lẫn vào');
+    { const c = await page.evaluate(() => window.MNCF.phong.nha()); eq1([c.phong.length, c.phong.filter(p => p.nguon_do === 'ct0000000001/muc000000001').length, c.phong[c.phong.length - 1].nguon_do, c.chon === c.phong[c.phong.length - 1].id], [3, 1, 'ct0000000001/muc000000001'.replace('1/muc000000001', '1/muc000000002'), true], '(bản 1.36) lấy phòng đo KHÁC: thêm phòng mới vào công trình (không đè phòng đang có), chọn nó; phòng đo trước vẫn còn nguyên'); }
     await B.locator('.pdo-r').first().locator('[data-act="do-lay"]').click();
     await cho(async () => (await H.locator('.thumb').count()) === 1, 4000);
 
@@ -1337,12 +1338,288 @@ async function tPhongDaDo() {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ }
 }
 
+/* ---- NHÀ NHIỀU PHÒNG (bản 1.36 — anh Thanh 14/10/2026: "1 nhà nó có 5 phòng thì phải cho vẽ được 5 phòng thì nội thất vẽ vào mới ok chứ") ----
+ * Thẻ Phòng làm việc theo CÔNG TRÌNH: danh sách phòng, ghép phòng vào tường phòng khác (tường chung vẽ một lần, cửa thông khoét một lỗ), vẽ phòng đang chọn hoặc cả nhà.
+ * Phòng của bản ≤ 1.35 (mncf.phong.v1) tự thành phòng 1 của "Công trình mặc định" — không mất dữ liệu đang có. */
+async function tNha() {
+  console.log('— NHÀ NHIỀU PHÒNG (bản 1.36)');
+  const PhN = require(path.join(__dirname, '..', 'src', 'mncf-phong.js'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mncf-nha-'));
+  const ctx = await chromium.launchPersistentContext(dir, { channel: 'chromium', headless: true, viewport: { width: 1500, height: 900 }, args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`] });
+  try {
+    await ctx.route('https://api.cfcad.cn/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"err_code":1,"err_msg":"no"}' }));
+    await require('./kho-gia.js')(ctx);
+    await ctx.route('https://cfcad.cn/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }));
+    // phòng anh đang có ở bản 1.35: có khung đã vẽ tủ + bản ghi lần vẽ phòng
+    const CU0 = { ten: 'Phòng cũ', cao: 2700, day: 110, goc: [5000, 0, 0], tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200 }],
+      khung: [{ ten: 'K1', tuong: 0, cach: 500, rong: 2000, cao: 2700, sau: 600, tu_id: 'MNCF-cu-1' }] };
+    const HC = PhN.hinhHoc(CU0), CU = Object.assign({}, CU0, { da_ve: PhN.banGhiPhong(PhN.phanPhong(HC, 110), {}) });
+    await ctx.addInitScript(p => { try { if (location.hostname === 'cfcad.cn' && !localStorage.getItem('mncf.nha.v1') && !sessionStorage.getItem('__nap')) { sessionStorage.setItem('__nap', '1'); localStorage.setItem('mncf.phong.v1', JSON.stringify(p)); } } catch (e) { /* bỏ qua */ } }, CU);
+    const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
+    await page.goto('https://cfcad.cn/');
+    await page.waitForFunction(() => window.MNCF && window.MNCF.app, null, { timeout: 15000 });
+    const H = page.locator('#mncf-host'), st = () => H.locator('.status').textContent();
+    const N = () => page.evaluate(() => window.MNCF.phong.nha());
+    const lay = () => page.evaluate(() => window.MNCF.phong.lay());
+    const LS = k => page.evaluate(k => localStorage.getItem(k), k);
+    const chip = () => page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('.nhahang .pchip[data-act="ph-chon"]')].map(b => [b.dataset.v, b.textContent.trim(), b.classList.contains('on')]));
+    const moBang = async () => { await H.locator('.launch').click(); await H.locator('.tab[data-tab="phong"]').click(); };
+    await moBang();
+
+    // 1. NÂNG: phòng 1.35 thành phòng 1 của "Công trình mặc định", nội dung giữ nguyên; mncf.phong.v1 vẫn còn
+    let n = await N();
+    eq1([n.id, n.ten, n.phong.length, n.phong[0].id, n.chon], ['C1', 'Công trình mặc định', 1, 'P1', 'P1'], 'mở bảng 1.36 lần đầu: phòng cũ thành phòng 1 (P1) của "Công trình mặc định"');
+    const bo = p => { const o = PhN.chuanHoa(p); delete o.id; return o; };
+    eq1(bo(n.phong[0]), PhN.chuanHoa(CU), '… nội dung phòng giữ nguyên từng khoá: tường, cửa, khung đã vẽ tủ (tu_id), điểm đặt, bản ghi lần vẽ (da_ve)');
+    ok(PhN.docMa(await LS('mncf.phong.v1')).ten === 'Phòng cũ' && JSON.parse(await LS('mncf.nha.v1')).ds.length === 1 && !!(await LS('mncf.nha.ct.C1')), 'mncf.phong.v1 vẫn còn, đọc được; có mục lục mncf.nha.v1 + công trình mncf.nha.ct.C1');
+    eq1(await chip(), [['P1', 'Phòng cũ', true]], 'hàng chip: một phòng, đang chọn');
+    ok(await H.locator('[data-act="p-ve-nha"]').isHidden(), 'một phòng: không có nút "Cả nhà"');
+    ok(await H.locator('.pnha').evaluate(e => e.innerHTML === ''), 'một phòng: không có mặt bằng cả nhà');
+
+    // 2. + phòng, đổi tên, chuyển phòng, tải lại trang
+    await H.locator('[data-act="ph-them"]').click();
+    n = await N();
+    eq1([n.phong.length, n.phong[1].id, n.phong[1].ten, n.chon, n.phong[1].goc], [2, 'P2', 'Phòng 2', 'P2', [5000 + 3600 + 1000, 0, 0]], '+ phòng: phòng mẫu "Phòng 2" (P2), đang chọn, đặt bên phải các phòng đang có cách 1000');
+    ok(await H.locator('[data-act="p-ve-nha"]').isVisible() && (await H.locator('.pnha [data-phong]').count()) === 2 && (await H.locator('.pnha [data-phong="P2"].chon').count()) === 1, 'hai phòng: có nút "Cả nhà" + mặt bằng cả nhà (phòng đang chọn tô đậm)');
+    await H.locator('.pform [data-p="ten"]').fill('Phòng ngủ'); await H.locator('.pform [data-p="ten"]').press('Tab'); await page.waitForTimeout(250);
+    eq1(await chip(), [['P1', 'Phòng cũ', false], ['P2', 'Phòng ngủ', true]], 'đổi tên ở ô Tên phòng → chip đổi theo');
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P1"]').click();
+    eq1([(await lay()).id, (await lay()).ten, (await chip())[0][2]], ['P1', 'Phòng cũ', true], 'bấm chip → chuyển phòng');
+    await H.locator('.pnha [data-phong="P2"] polygon').click({ force: true });
+    eq1((await lay()).id, 'P2', 'bấm phòng trên mặt bằng cả nhà → chọn phòng đó');
+    await page.reload(); await page.waitForFunction(() => window.MNCF && window.MNCF.app, null, { timeout: 15000 }); await moBang();
+    n = await N();
+    eq1([n.phong.map(p => [p.id, p.ten]), n.chon, n.phong[0].khung[0].tu_id], [[['P1', 'Phòng cũ'], ['P2', 'Phòng ngủ']], 'P2', 'MNCF-cu-1'], 'tải lại trang: công trình còn đủ hai phòng, phòng đang chọn, khung đã vẽ');
+    // ↶ Lùi qua thêm phòng
+    await H.locator('[data-act="ph-them"]').click();
+    eq1((await N()).phong.length, 3, '(thêm phòng thứ ba)');
+    await H.locator('[data-act="p-lui"]').click();
+    n = await N();
+    eq1([n.phong.length, n.chon], [2, 'P2'], '↶ Lùi: bỏ phòng vừa thêm, về phòng đang chọn trước đó');
+
+    // 3. GHÉP: phòng khách (Y) dày 220 có cửa thông ở tường B; phòng ngủ (B) 3000 × 3000 dày 110 ghép tường D vào tường B của Y
+    const Y = { ten: 'Phòng khách', cao: 2700, day: 220, goc: [300000, 0, 0], tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], mo: [{ tuong: 1, loai: 'cua', cach: 1000, rong: 900, cao: 2100 }], khung: [] };
+    const B = { ten: 'Phòng ngủ', cao: 2700, day: 110, tuong: [{ dai: 3000 }, { dai: 3000 }, { dai: 3000 }, { dai: 'auto' }], khung: [{ ten: 'KB', tuong: 1, cach: 500, rong: 1500, cao: 2400, sau: 600 }] };
+    await page.evaluate(([y, b]) => { window.MNCF.phong.chon('P1'); window.MNCF.phong.dat(y); window.MNCF.phong.chon('P2'); window.MNCF.phong.dat(b); }, [Y, B]);
+    await H.locator('[data-act="nha-them"]').click();
+    ok(await H.locator('.nhathem').isVisible(), 'nút ⋯ mở hàng lựa chọn của công trình (trong dòng chảy)');
+    await H.locator('.nhathem [data-act="ph-ghep"]').click();
+    ok(await H.locator('.pghep').isVisible() && (await H.locator('.pghep [data-ui="pg-phong"] option').count()) === 1, 'Ghép vào…: hộp ghép hiện, phòng đích chỉ có phòng không tạo vòng');
+    await H.locator('[data-ui="pg-tuong"]').selectOption('1'); await H.locator('[data-ui="pg-minh"]').selectOption('3');
+    ok((await H.locator('.pnha [data-nha-tuong]').count()) === 4 && (await N()).phong[1].ghep === undefined, 'đang chọn trong hộp: tường phòng đích bấm được trên mặt bằng nhà; chưa bấm Ghép thì chưa cất gì');
+    await H.locator('.pghep [data-act="pg-canh"][data-v="trai"]').click();
+    await H.locator('.pghep [data-act="pg-ok"]').click();
+    n = await N();
+    eq1([n.phong[1].ghep, n.phong[1].goc, n.phong[1].huong], [{ phong: 'P1', tuong: 1, tuong_minh: 3, cach: 0 }, [303820, 0, 0], undefined], 'Ghép: tường D của phòng ngủ áp vào mặt NGOÀI tường B của phòng khách (cách một bề dày 220)');
+    ok(await H.locator('.pghep').isHidden() && /Ghép vào tường B của Phòng khách/.test(await H.locator('.pform').innerText()) && (await H.locator('.pform [data-p="goc.0"]').count()) === 0, 'Điểm đặt phòng: phòng ghép ghi "Ghép vào tường B của Phòng khách", không còn ô toạ độ');
+    ok((await H.locator('.pnha [data-chung]').count()) === 1, 'mặt bằng cả nhà: một tường chung');
+    ok(/cửa của Phòng khách/i.test(await H.locator('.pmb').innerHTML()), 'mặt bằng phòng ngủ: cửa thông của phòng khách hiện trên tường chung (nét đứt, "cửa của Phòng khách")');
+    // ↶ Lùi qua ghép, rồi ghép lại bằng bấm tường trên mặt bằng nhà
+    await H.locator('[data-act="p-lui"]').click();
+    ok((await N()).phong[1].ghep === undefined, '↶ Lùi: bỏ lần ghép');
+    await H.locator('.nhathem [data-act="ph-ghep"]').click();
+    await H.locator('[data-ui="pg-minh"]').selectOption('3');
+    await H.locator('.pnha [data-nha-tuong="P1:1"]').click({ force: true });
+    eq1(await H.locator('[data-ui="pg-tuong"]').inputValue(), '1', 'bấm tường B của phòng khách trên mặt bằng nhà → chọn làm tường đích');
+    await H.locator('.pghep [data-act="pg-ok"]').click();
+    eq1((await N()).phong[1].goc, [303820, 0, 0], 'ghép lại bằng bấm tường trên mặt bằng nhà');
+    // sửa dài tường của phòng đích → phòng ghép dời theo
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P1"]').click();
+    await H.locator('.pform [data-p="tuong.0.dai"]').fill('4000'); await H.locator('.pform [data-p="tuong.2.dai"]').fill('4000'); await page.waitForTimeout(350);
+    eq1((await N()).phong[1].goc, [304220, 0, 0], 'phòng khách dài thêm 400 → phòng ngủ ghép vào tường B dời theo');
+    await H.locator('.pform [data-p="tuong.0.dai"]').fill('3600'); await H.locator('.pform [data-p="tuong.2.dai"]').fill('3600'); await page.waitForTimeout(350);
+    eq1((await N()).phong[1].goc, [303820, 0, 0], '… trả lại 3600 → về chỗ cũ');
+    // Bỏ ghép: đứng nguyên chỗ, có lại ô toạ độ
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P2"]').click();
+    await H.locator('.pform [data-act="ph-ghep"]').click();
+    await H.locator('.pghep [data-act="pg-bo"]').click();
+    n = await N();
+    eq1([n.phong[1].ghep, n.phong[1].goc, await H.locator('.pform [data-p="goc.0"]').inputValue()], [undefined, [303820, 0, 0], '303820'], 'Bỏ ghép: phòng đứng nguyên chỗ, có lại ô toạ độ');
+    await H.locator('[data-act="p-lui"]').click();
+    ok(!!(await N()).phong[1].ghep, '(↶ Lùi: ghép lại)');
+
+    // 4. XOÁ PHÒNG bấm hai lần; phòng ghép vào nó thành tự do, đứng nguyên chỗ
+    await H.locator('[data-act="ph-them"]').click();      // P3 ghép vào phòng ngủ
+    await page.evaluate(() => { const c = window.MNCF.phong.nha(); c.phong[2].ghep = { phong: 'P2', tuong: 1, tuong_minh: 3, cach: 0 }; window.MNCF.phong.datNha(c); });
+    const g3 = (await N()).phong[2].goc;
+    ok(g3[0] > 303820 + 3000, '(chuẩn bị) phòng 3 ghép vào tường B của phòng ngủ', g3);
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P2"]').click();
+    if (await H.locator('.nhathem').isHidden()) await H.locator('[data-act="nha-them"]').click();
+    await H.locator('.nhathem [data-act="ph-xoa"]').click();
+    ok((await N()).phong.length === 3 && /Bấm lần nữa để xoá/.test(await H.locator('.nhathem [data-act="ph-xoa"]').innerText()), 'Xoá phòng: lần bấm đầu chỉ đổi chữ "Bấm lần nữa để xoá"');
+    await H.locator('.nhathem [data-act="ph-xoa"]').click();
+    n = await N();
+    eq1([n.phong.map(p => p.id), n.phong[1].ghep, n.phong[1].goc], [['P1', 'P3'], undefined, g3], 'bấm lần nữa: phòng ngủ bị xoá; phòng 3 (ghép vào nó) thành tự do, đứng nguyên chỗ');
+    await H.locator('[data-act="p-lui"]').click();
+    n = await N();
+    eq1([n.phong.map(p => p.id), n.phong[2].ghep && n.phong[2].ghep.phong], [['P1', 'P2', 'P3'], 'P2'], '↶ Lùi: phòng ngủ trở lại, phòng 3 lại ghép vào nó');
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P3"]').click();
+    if (await H.locator('.nhathem').isHidden()) await H.locator('[data-act="nha-them"]').click();
+    await H.locator('.nhathem [data-act="ph-xoa"]').click(); await page.waitForTimeout(3300);
+    ok((await N()).phong.length === 3 && /Xoá Phòng/.test(await H.locator('.nhathem [data-act="ph-xoa"]').innerText()), 'không bấm lại trong 3 giây: nút về chữ cũ, không xoá');
+    await H.locator('.nhathem [data-act="ph-xoa"]').click(); await H.locator('.nhathem [data-act="ph-xoa"]').click();
+    eq1((await N()).phong.map(p => p.id), ['P1', 'P2'], '(xoá phòng 3)');
+    // (vòng soát) mã phòng mới không lấy lại mã vừa xoá; xoá phòng ĐÃ VẼ (bản ghi + khung đã vẽ tủ) vẫn ↶ Lùi lấy lại được
+    await H.locator('[data-act="ph-them"]').click();
+    eq1((await N()).phong.map(p => p.id), ['P1', 'P2', 'P4'], '+ phòng sau khi xoá P3: mã mới P4 (không dùng lại P3 — khung / tủ / lần vẽ cũ còn nhớ mã đó)');
+    await page.evaluate(() => { const c = window.MNCF.phong.nha(); c.phong[2].da_ve = { tuong: [[0, 0, 3600, 0, 0, 2700, 110]], mo: [], cot: [], dam: [] }; c.phong[2].khung = [{ ten: 'K9', tuong: 0, cach: 0, rong: 1000, cao: 2000, sau: 600, tu_id: 'T77' }]; c.chon = 'P4'; window.MNCF.phong.datNha(c); });
+    await H.locator('.pform [data-p="ten"]').fill('Ngủ X'); await H.locator('.pform [data-p="ten"]').press('Tab'); await page.waitForTimeout(250);
+    if (await H.locator('.nhathem').isHidden()) await H.locator('[data-act="nha-them"]').click();
+    await H.locator('.nhathem [data-act="ph-xoa"]').click(); await H.locator('.nhathem [data-act="ph-xoa"]').click();
+    ok((await N()).phong.length === 2 && /Đã xoá Ngủ X\. ↶ Lùi để lấy lại/.test(await st()) && !(await H.locator('[data-act="p-lui"]').isDisabled()), 'xoá phòng đã vẽ: báo "↶ Lùi để lấy lại" và nút ↶ Lùi còn bấm được', await st());
+    await H.locator('[data-act="p-lui"]').click();
+    n = await N();
+    ok(n.phong.length === 3 && n.phong[2].id === 'P4' && !!n.phong[2].da_ve && n.phong[2].khung[0].tu_id === 'T77', '↶ Lùi: phòng đã vẽ trở lại cùng bản ghi lần vẽ + khung đã vẽ tủ', n.phong.map(p => [p.id, !!p.da_ve]));
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P4"]').click();
+    if (await H.locator('.nhathem').isHidden()) await H.locator('[data-act="nha-them"]').click();
+    await H.locator('.nhathem [data-act="ph-xoa"]').click(); await H.locator('.nhathem [data-act="ph-xoa"]').click();
+    eq1((await N()).phong.map(p => p.id), ['P1', 'P2'], '(xoá lại phòng P4)');
+
+    // 5. CÔNG TRÌNH: mới / đổi tên / chuyển / xoá — phòng mỗi công trình riêng
+    await H.locator('[data-ui="ct"]').selectOption('@moi');
+    n = await N();
+    eq1([n.id, n.phong.length, n.phong[0].id], ['C2', 1, 'P1'], 'Công trình mới: C2, một phòng mẫu');
+    if (await H.locator('.nhathem').isHidden()) await H.locator('[data-act="nha-them"]').click();
+    await H.locator('[data-ui="ct-ten"]').fill('Nhà anh Hùng'); await page.waitForTimeout(300);
+    ok((await N()).ten === 'Nhà anh Hùng' && /Nhà anh Hùng/.test(await H.locator('[data-ui="ct"]').innerText()), 'đổi tên công trình ở ⋯ → ô chọn công trình đổi theo');
+    await H.locator('[data-ui="ct"]').selectOption('C1');
+    n = await N();
+    eq1([n.id, n.phong.map(p => p.ten)], ['C1', ['Phòng khách', 'Phòng ngủ']], 'chuyển về công trình mặc định: đủ phòng của nó');
+    await H.locator('[data-ui="ct"]').selectOption('C2');
+    eq1([(await N()).ten, (await N()).phong.length], ['Nhà anh Hùng', 1], 'chuyển sang Nhà anh Hùng: phòng riêng của nó');
+    if (await H.locator('.nhathem').isHidden()) await H.locator('[data-act="nha-them"]').click();
+    await H.locator('.nhathem [data-act="ct-xoa"]').click(); await H.locator('.nhathem [data-act="ct-xoa"]').click();
+    ok((await N()).id === 'C1' && !(await LS('mncf.nha.ct.C2')) && JSON.parse(await LS('mncf.nha.v1')).ds.map(x => x.id).join() === 'C1', 'Xoá công trình (bấm hai lần): bỏ khỏi máy, về công trình còn lại');
+
+    // 6. VẼ CẢ NHÀ trên Chenfeng giả: tường chung một lần, cửa thông một lỗ
+    const vung = [299000, 309000, -4000, 1000];
+    const dem = v => page.evaluate(v => { const M = window.__MOCK__, trong = e => e.box[0] >= v[0] && e.box[1] <= v[1] && e.box[2] >= v[2] && e.box[3] <= v[3]; return { tuong: M.ents.filter(e => e instanceof M.RoomWallLine && !e.IsErase && trong(e)).length, lo: M.ents.filter(e => e instanceof M.RoomHolePolyline && !e.IsErase && trong(e)).length, chung: M.ents.filter(e => e instanceof M.RoomWallLine && !e.IsErase && Math.abs(e.box[0] - 303600) < 1 && Math.abs(e.box[1] - 303820) < 1).length }; }, v);
+    const cho = async (sel, re) => { await page.waitForFunction(([s, r]) => { const el = document.getElementById('mncf-host').shadowRoot.querySelector(s); return el && new RegExp(r).test(el.innerText) && !document.getElementById('mncf-host').shadowRoot.querySelector('[data-act="p-ve"]').disabled; }, [sel, re], { timeout: 60000 }); return H.locator(sel).innerText(); };
+    const sach = async () => { await page.evaluate(() => { const D = window.MNCFDriver; D.lastRoom = null; document.getElementById('mncf-host').shadowRoot.querySelector('.pkq').innerHTML = ''; }); };
+    await sach();
+    await H.locator('[data-act="p-ve-nha"]').click();
+    let kq = await cho('.pkq', 'Đã vẽ cả nhà|Dừng');
+    ok(/Đã vẽ cả nhà \(2 phòng\)/.test(kq) && /Phòng khách/.test(kq) && /Phòng ngủ/.test(kq), 'Vẽ cả nhà: báo từng phòng', kq);
+    eq1(await dem(vung), { tuong: 7, lo: 1, chung: 1 }, '… 7 tường (tường chung vẽ MỘT lần, dày 220 theo phòng khách), MỘT lỗ cửa thông');
+    n = await N();
+    eq1([n.phong[0].da_ve.tuong.length, n.phong[1].da_ve.tuong.length, n.phong[1].da_ve.mo.length], [4, 3, 0], 'bản ghi: phòng khách 4 tường + cửa; phòng ngủ 3 tường — không đứng tên tường chung, không có cửa thông');
+    ok((await chip()).length === 2 && (await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.nhahang .pchip .ve').length)) === 2, 'chip: chấm "đã vẽ" cho cả hai phòng');
+    await H.locator('[data-act="p-ve-nha"]').click();
+    kq = await cho('.pkq', 'Cả nhà đã có đủ');
+    eq1(await dem(vung), { tuong: 7, lo: 1, chung: 1 }, 'bấm "Cả nhà" lần nữa: bản vẽ không đổi (không vẽ chồng, không bỏ nhầm tường / cửa của phòng bên)');
+    // Hoàn tác MỘT lần: bỏ cả nhà, trả bản ghi của mọi phòng
+    await H.locator('[data-act="p-hoantac"]').click();
+    await page.waitForFunction(() => /Đã bỏ phòng vừa vẽ|Đã hoàn tác|còn \d+ đối tượng|thao tác khác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+    n = await N();
+    eq1([await dem(vung), n.phong[0].da_ve, n.phong[1].da_ve], [{ tuong: 0, lo: 0, chung: 0 }, undefined, undefined], 'Hoàn tác phòng (một lần): bỏ cả nhà khỏi bản vẽ, hai phòng thôi "đã vẽ"', await st());
+    // (vòng soát) Cả nhà mà giữa hai phòng có thao tác khác trên bản vẽ: Hoàn tác chỉ lùi phòng sau → chỉ phòng đó thôi "đã vẽ"
+    await sach();
+    await page.evaluate(() => { const D = window.MNCFDriver, f = D.drawRoom; D.__drawRoom = f; let k = 0; D.drawRoom = async function (...a) { if (k++ === 1) { const h = window.app.Database.hm; h.historyRecord.length = h.curIndex + 1; h.historyRecord.push({ CommandName: 'USER', created: [], snap: [], undo() {} }); h.curIndex++; } return f.apply(this, a); }; });
+    await H.locator('[data-act="p-ve-nha"]').click();
+    kq = await cho('.pkq', 'Đã vẽ cả nhà|Dừng');
+    await page.evaluate(() => { const D = window.MNCFDriver; D.drawRoom = D.__drawRoom; });
+    await H.locator('[data-act="p-hoantac"]').click();
+    await page.waitForFunction(() => /Đã hoàn tác|Đã bỏ phòng vừa vẽ|còn \d+ đối tượng/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+    n = await N();
+    ok(!!n.phong[0].da_ve && !n.phong[1].da_ve && (await dem(vung)).tuong === 4, 'Hoàn tác sau "Cả nhà" bị chen thao tác: Chenfeng chỉ lùi phòng ngủ → phòng khách (tường còn trên bản vẽ) GIỮ bản ghi, phòng ngủ thôi "đã vẽ"', [await st(), await dem(vung), !!n.phong[0].da_ve, !!n.phong[1].da_ve]);
+    ok(/Phòng khách .*vẫn giữ/.test(await st()), '… dòng trạng thái nói phòng nào vẫn giữ', await st());
+    // dọn: bỏ phần còn lại của lần vẽ này cho các bước sau
+    await page.evaluate(([v]) => { const M = window.__MOCK__; for (const e of M.ents) if (!e.IsErase && e.box && e.box[0] >= v[0] && e.box[1] <= v[1] && e.box[2] >= v[2] && e.box[3] <= v[3]) e.IsErase = true; const c = window.MNCF.phong.nha(); for (const p of c.phong) delete p.da_ve; window.MNCF.phong.datNha(c); }, [vung]);
+    eq1(await dem(vung), { tuong: 0, lo: 0, chung: 0 }, '(dọn bản vẽ)');
+    // vẽ phòng NGỦ trước (phòng ghép), rồi phòng khách: vẫn 7 tường, một lỗ cửa
+    await sach();
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P2"]').click();
+    await H.locator('[data-act="p-ve"]').click();
+    kq = await cho('.pkq', 'Đã vẽ phòng|Chưa');
+    eq1(await dem(vung), { tuong: 4, lo: 0, chung: 1 }, 'vẽ phòng ngủ trước: 4 tường — tường chung dày 220 theo phòng khách, chưa có cửa thông (cửa của phòng khách)', kq);
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P1"]').click();
+    await H.locator('[data-act="p-ve"]').click();
+    kq = await cho('.pkq', 'Đã vẽ phòng|Đã cập nhật|Chưa');
+    eq1(await dem(vung), { tuong: 7, lo: 1, chung: 1 }, '… rồi phòng khách: thêm 3 tường + cửa thông khoét trên tường chung phòng ngủ đã dựng — vẫn 7 tường, một lỗ', kq);
+    n = await N();
+    eq1([n.phong[0].da_ve.tuong.length, n.phong[1].da_ve.tuong.length], [3, 4], '… bản ghi: phòng khách không đứng tên tường chung (phòng ngủ dựng)');
+    await H.locator('[data-act="p-ve-nha"]').click();
+    await cho('.pkq', 'Cả nhà đã có đủ|Đã vẽ cả nhà');
+    eq1(await dem(vung), { tuong: 7, lo: 1, chung: 1 }, '… "Cả nhà" sau đó: không đổi');
+    // phòng đích đổi số đo sau khi đã vẽ: phòng ghép vào nó (đã vẽ) báo "cần vẽ lại"
+    await H.locator('.pform [data-p="tuong.0.dai"]').fill('4000'); await H.locator('.pform [data-p="tuong.2.dai"]').fill('4000'); await page.waitForTimeout(350);
+    ok(await page.evaluate(() => !!document.getElementById('mncf-host').shadowRoot.querySelector('.nhahang [data-v="P2"] .lech')), 'phòng khách dài thêm sau khi vẽ: chip phòng ngủ (đã vẽ, ghép vào nó) đổi chấm "cần vẽ lại"');
+    await H.locator('.pform [data-p="tuong.0.dai"]').fill('3600'); await H.locator('.pform [data-p="tuong.2.dai"]').fill('3600'); await page.waitForTimeout(350);
+    ok(await page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot; return !r.querySelector('.nhahang .lech') && r.querySelectorAll('.nhahang .ve').length === 2; }), '… trả số cũ: hết "cần vẽ lại"');
+    // (vòng soát) phòng ngủ (đã dựng tường chung) bỏ ghép, dời +500 rồi vẽ lại cả nhà: tường B của phòng khách (phòng khách đang giữ tường đó) KHÔNG bị xoá
+    ok(Array.isArray((await N()).phong[0].da_ve.muon) && (await N()).phong[0].da_ve.muon.length === 1, 'bản ghi phòng khách: tường chung phòng ngủ dựng nằm ở `muon` (phòng khách đang giữ)', (await N()).phong[0].da_ve);
+    await page.evaluate(() => { const c = window.MNCF.phong.nha(); delete c.phong[1].ghep; c.phong[1].goc = [c.phong[1].goc[0] + 500, c.phong[1].goc[1], 0]; window.MNCF.phong.datNha(c); });
+    await H.locator('[data-act="p-ve-nha"]').click();
+    kq = await cho('.pkq', 'Đã vẽ cả nhà|Dừng|Cả nhà đã có đủ');
+    const dd = await dem(vung);
+    ok(dd.chung === 1 && dd.tuong === 8 && /Đã vẽ cả nhà/.test(kq), 'phòng ngủ dời +500 rồi "Cả nhà": tường B của phòng khách còn nguyên (8 tường: 4 phòng khách + 4 phòng ngủ chỗ mới)', [dd, kq]);
+    n = await N();
+    ok(Array.isArray(n.phong[1].da_ve.giu) && n.phong[1].da_ve.giu.length === 1, '… phòng ngủ vẫn đứng tên tường cũ (bản ghi `giu`) — phòng khách thôi dựa vào thì lần sau bỏ được', n.phong[1].da_ve);
+    await page.evaluate(() => { const c = window.MNCF.phong.nha(); c.phong[1].ghep = { phong: 'P1', tuong: 1, tuong_minh: 3, cach: 0 }; window.MNCF.phong.datNha(c); });
+
+    // 7. CHENFENG KHÔNG NHẬN LỆNH ở phòng 1 → DỪNG, không gửi lệnh nào cho phòng 2
+    await page.evaluate(() => { const c = window.MNCF.phong.nha(); c.phong[0].goc = [400000, 0, 0]; for (const p of c.phong) delete p.da_ve; window.MNCF.phong.datNha(c); });
+    await sach();
+    await page.evaluate(() => { const CS = window.app.Editor.CommandStore; window.__lenhGui = []; if (!CS.__goc) { CS.__goc = CS.HandleInput; CS.HandleInput = function (t) { window.__lenhGui.push(String(t)); return CS.__goc.apply(this, arguments); }; } window.__MOCK_CAM_LENH__ = 'DRAWWALLINSIDE'; });
+    await H.locator('[data-act="p-ve-nha"]').click();
+    kq = await cho('.pkq', 'Dừng|Đã vẽ cả nhà');
+    await page.evaluate(() => { window.__MOCK_CAM_LENH__ = ''; });
+    ok(/Dừng ở Phòng khách — chưa gửi lệnh nào cho Phòng ngủ/.test(kq) && /Chenfeng không nhận lệnh vẽ tường/.test(kq), 'Chenfeng không nhận lệnh vẽ tường ở phòng đầu: dừng, nói rõ, phòng sau chưa gửi lệnh nào', kq);
+    eq1(await page.evaluate(() => window.__lenhGui.filter(t => /^DRAW/.test(t))), ['DRAWWALLINSIDE'], '… chỉ MỘT lệnh vẽ tường được gửi (của phòng khách)');
+    n = await N();
+    ok(!n.phong[0].da_ve && !n.phong[1].da_ve, '… không phòng nào bị ghi "đã vẽ"');
+
+    // (vòng soát) điện – nước sau tủ theo PHÒNG CỦA KHUNG, không theo phòng đang chọn
+    await page.evaluate(() => { const c = window.MNCF.phong.nha(); c.phong[1].dn = [{ tuong: 1, loai: 'o_dien', cach: 900, cao: 300 }]; window.MNCF.phong.datNha(c); });
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P2"]').click();
+    await H.locator('.pcard[data-kj="0"] [data-act="k-mo"]').click();
+    const soDn = () => page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.view [data-dn]').length);
+    const dn0 = await soDn();
+    ok(dn0 > 0, '(chuẩn bị) mở khung KB của phòng ngủ thành tủ: hình đứng có dấu ổ điện sau tủ', dn0);
+    await H.locator('.tab[data-tab="phong"]').click();
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P1"]').click();
+    await H.locator('.tab[data-tab="tu"]').click();
+    eq1(await soDn(), dn0, 'chọn phòng khách ở thẻ Phòng rồi về thẻ Tủ: dấu điện – nước vẫn theo phòng ngủ (phòng của khung), không mất');
+    await page.evaluate(() => { const c = window.MNCF.phong.nha(); c.phong[1].dn = []; window.MNCF.phong.datNha(c); });
+    await H.locator('.tab[data-tab="phong"]').click();
+
+    // 8. KHUNG phòng ngủ → vẽ tủ; đổi sang phòng khách TRONG LÚC vẽ → dấu "đã vẽ" vẫn ghi vào khung của phòng ngủ; Hoàn tác tủ bỏ đúng dấu đó
+    await H.locator('.nhahang [data-act="ph-chon"][data-v="P2"]').click();
+    await H.locator('.pcard[data-kj="0"] [data-act="k-ve"]').click();
+    await page.waitForTimeout(150);
+    await page.evaluate(() => window.MNCF.phong.chon('P1'));
+    await H.locator('.report .msg').first().waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => !window.MNCFDriver.busy() && !/Đang/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 30000 }).catch(() => {});
+    n = await N();
+    const idTu = await page.evaluate(() => window.MNCFDriver.last && window.MNCFDriver.last.id);
+    ok(!!idTu && n.phong[1].khung[0].tu_id === idTu && n.chon === 'P1' && n.phong[0].khung.length === 0, 'đổi phòng giữa lúc vẽ tủ: khung KB của phòng ngủ ghi đúng mã tủ; phòng khách không bị đụng', [idTu, n.phong[1].khung, n.chon]);
+    await H.locator('[data-act="undo"]').click();
+    await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+    ok(!(await N()).phong[1].khung[0].tu_id, 'Hoàn tác lần vẽ tủ: khung KB của phòng ngủ thôi "đã vẽ" (dù đang mở phòng khách)');
+
+    // 10. PHÒNG XOAY 90°: tủ vào khung nằm đúng chỗ
+    await H.locator('.tab[data-tab="phong"]').click();
+    await H.locator('[data-ui="ct"]').selectOption('@moi');
+    await page.evaluate(() => window.MNCF.phong.dat({ ten: 'Xoay', cao: 2700, day: 110, huong: 90, goc: [500000, 0, 0], tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], khung: [{ ten: 'KX', tuong: 0, cach: 500, rong: 2000, cao: 2700, sau: 600 }] }));
+    eq1(await H.locator('.pform [data-p="huong"]').inputValue(), '90', 'phòng tự do: có ô Hướng tường A (độ)');
+    await H.locator('.pcard[data-kj="0"] [data-act="k-ve"]').click();
+    await H.locator('.report .msg').first().waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => !window.MNCFDriver.busy() && /Đã|xong/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 40000 }).catch(() => {});
+    const hop = await page.evaluate(() => { const D = window.MNCFDriver, a = D.last.added.filter(e => !e.IsErase && D.isBoard(e)).map(D.boxOf), mn = i => Math.min(...a.map(b => b[i])), mx = i => Math.max(...a.map(b => b[i])); return [mn(0), mx(1), mn(2), mx(3), mn(4), mx(5)].map(v => Math.round(v * 10) / 10); });
+    eq1(hop, [500000, 500600, 500, 2500, 0, 2700], 'phòng xoay 90°: tủ khung KX lưng sát tường A (x = 500000), chiếm y 500…2500');
+    ok(errs.length === 0, 'không có lỗi JS lọt ra trang', errs);
+  } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
+  await ctx.close();
+  try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ }
+}
+
 (async () => {
   const browser = await chromium.launch();
   try { await trangDocLap(browser); } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   await tienIch();
   await tPhongDaDo();
+  await tNha();
   console.log(`\n${pass} đạt, ${fail} hỏng`);
   process.exit(fail ? 1 : 0);
 })();
