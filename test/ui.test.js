@@ -701,6 +701,11 @@ async function testThuVien(browser) {
     await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.phao.trai = 40; s.phao.phai = 40; s.chan.cao = 80; window.MNCF.app.setSpec(s); });
     await S(page, '.sp [data-act="tap-kieu"][data-kieu="C"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().chan.cao === 50);      // (1.36.2) xà đế C = của A (50; trước 40)
     ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.phao.trai === 40 && s.phao.phai === 40; }) && /xà đế/.test(await page.evaluate(inPage.status)), 'bấm lại C: giữ phào 40, báo xà đế về cao của kiểu', await page.evaluate(inPage.status));
+    // (soát 1.36.2) bàn phím: lưới thẻ hình là chỗ chọn kiểu chính — Enter trên thẻ đổi kiểu mà tiêu điểm không được rơi về BODY (renderSP dựng lại khối .sp)
+    await S(page, '.sp [data-act="tap-kieu"][data-kieu="D"]').focus(); await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.MNCF.app.getSpec().tap.kieu === 'D');
+    const tdiem = await page.evaluate(() => { const h = document.getElementById('mncf-host'), a = h && h.shadowRoot ? h.shadowRoot.activeElement : null; return a ? { act: a.dataset.act, k: a.dataset.kieu, nhan: a.getAttribute('aria-pressed') } : null; });
+    ok(tdiem && tdiem.act === 'tap-kieu' && tdiem.k === 'D' && tdiem.nhan === 'true', 'Enter trên thẻ D: tiêu điểm ở lại thẻ D (đang chọn)', tdiem);
     await chon('@TAP'); }
   ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.tap && s.tap.go > 0) && window.MNCF.app.getModel().parts.some(p => p.loai === 'GO'); }), 'táp gờ chắn: có khoá tap + gờ sau');
   ok((await S(page, '.panel').getAttribute('data-loai')) === 'tap' && !(await S(page, '.sp [data-k^="giuong"]').count()) && await S(page, '.bays').isVisible(), 'táp: như tủ thường (có phần khoang), không ô Giường');

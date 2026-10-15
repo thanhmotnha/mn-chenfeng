@@ -3330,7 +3330,24 @@ T('Táp: xà đế mọi kiểu, rãnh móc tay kiểu D (bản 1.36.2)', () => 
   { const s = C0.tapTheoKieu('D', null, D0); s.tap.lui_thanh = -5; const n = C0.normalize(s), th = C0.build(n).parts.filter(p => p.thanh_nk);
     ok(n.tap.lui_thanh === 0 && th.every(p => near(p.y0, 0)), 'lui_thanh âm → 0: thanh phẳng mặt hồi', [n.tap.lui_thanh, th.map(box)]);
     const s2 = C0.tapTheoKieu('D', null, D0); s2.tap.lui_thanh = 1000; const M2 = C0.build(C0.normalize(s2)), sd = Math.max(...M2.parts.filter(p => p.loai === 'DAY').map(p => p.y1));
-    ok(M2.parts.filter(p => p.thanh_nk).every(p => near(p.y1 - p.y0, s2.tap.thanh_sau) && p.y1 <= sd + 0.01) && !overlapAny(M2).length, 'lui_thanh quá sâu: thanh vẫn sâu đủ thanh_sau, không lòi ra sau thùng', M2.parts.filter(p => p.thanh_nk).map(box)); }
+    ok(M2.parts.filter(p => p.thanh_nk).every(p => near(p.y1 - p.y0, s2.tap.thanh_sau) && p.y1 <= sd + 0.01) && !overlapAny(M2).length, 'lui_thanh quá sâu: thanh vẫn sâu đủ thanh_sau, không lòi ra sau thùng', M2.parts.filter(p => p.thanh_nk).map(box));
+    // (soát 1.36.2) số lạ (file / thông số hỏng: 1e9) không được đẩy thanh ra sát hậu thành "rãnh móc" sâu 300 mà không ai báo → kẹp trần LUI_THANH_MAX
+    for (const [vao, ra] of [[1e9, C0.LUI_THANH_MAX], [1000, C0.LUI_THANH_MAX], ['15', 15], [-10, 0], ['abc', 30], [null, 30]]) {
+      const s3 = C0.tapTheoKieu('D', null, D0); s3.tap.lui_thanh = vao; const n3 = C0.normalize(s3), th3 = C0.build(n3).parts.filter(p => p.thanh_nk);
+      ok(n3.tap.lui_thanh === ra && th3.every(p => near(p.y0, ra)), `lui_thanh ${JSON.stringify(vao)} → ${ra}`, [n3.tap.lui_thanh, th3.map(box)]);
+    }
+    ok(C0.LUI_THANH_MAX >= 30 && C0.LUI_THANH_MAX <= 80, 'trần lui_thanh hợp lý (rãnh móc tay, không phải hộc)', C0.LUI_THANH_MAX); }
+  // (soát 1.36.2) táp D VẼ ở 1.34.1 … 1.36.1 (thông số chưa có lui_thanh — thanh phẳng y 0): dựng lại tủ đã vẽ phải ra ĐÚNG như lúc vẽ, không thì
+  // bấm Sửa báo oan "thiếu 1 tấm" (chọn đúng thanh thì không dò lại được tủ) và Cập nhật dời thanh lặng lẽ. Mở file mẫu cũ (nangCap) = theo chuẩn mới, báo một dòng.
+  { const cu = C0.tapTheoKieu('D', null, D0); delete cu.tap.lui_thanh;
+    const dv = C0.normalize(C0.specDaVe(cu, '1.36.1')), th = C0.build(dv).parts.filter(p => p.thanh_nk);
+    ok(dv.tap.lui_thanh === 0 && th.length && th.every(p => near(p.y0, 0)), 'specDaVe < 1.36.2: táp D giữ thanh phẳng như lúc vẽ', [dv.tap.lui_thanh, th.map(box)]);
+    ok(C0.normalize(C0.specDaVe(cu, C0.VERSION)).tap.lui_thanh === 30, 'specDaVe bản hiện hành: không đụng (mặc định 30)');
+    const giu = C0.tapTheoKieu('D', null, D0); giu.tap.lui_thanh = 20; ok(C0.specDaVe(giu, '1.36.1').tap.lui_thanh === 20, 'specDaVe: số đã có thì giữ');
+    const tuAo = JSON.parse(JSON.stringify(D0)); ok(!('tap' in C0.specDaVe(tuAo, '1.36.1')), 'specDaVe: tủ không phải táp không sinh khoá tap');
+    const nc = C0.nangCap(cu, '1.36.1');
+    ok(nc.doi.some(d => /rãnh móc/.test(d)) && C0.normalize(nc.spec).tap.lui_thanh === 30, 'nangCap < 1.36.2: theo chuẩn mới (lùi 30), báo một dòng', nc.doi);
+    const kA = C0.tapTheoKieu('A', null, D0); delete kA.tap.lui_thanh; ok(!C0.nangCap(kA, '1.36.1').doi.some(d => /rãnh móc/.test(d)), 'nangCap: táp không khe tay nắm thì không báo'); }
   // loại ngăn kéo hộp gần bằng mặt (SLK / XLK âm — khai tay ở Chuẩn xưởng): thanh chồng lên hộp → cảnh báo, không im lặng
   { const s = C0.tapTheoKieu('D', null, D0); s.ngan_keo.loai.forEach(l => { if (l.ma === s.ngan_keo.mac_dinh) { l.ts.SLK = -5; l.ts.XLK = -5; } }); const M = C0.build(C0.normalize(s));
     ok(M.warnings.some(w => /thanh ngang giữa khe tay nắm chồng lên hộp ngăn kéo/.test(w)), 'hộp ngăn kéo lấn vào khe: cảnh báo thanh chồng hộp', M.warnings); }

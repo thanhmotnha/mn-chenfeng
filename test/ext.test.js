@@ -428,7 +428,7 @@ async function chonBepExt(page, H, ma) {
       await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 40000) < 1; }, null, { timeout: 30000 });
       await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
       let g = await bdT();
-      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 40000, 'táp chân gỗ gõ z 0: đáy ở 150, đỉnh 580 (không rơi xuống sàn)', g);
+      ok(g.z0 === 150 && g.z1 === 600 && g.x0 === 40000, 'táp chân gỗ gõ z 0: đáy ở 150, đỉnh 600 (không rơi xuống sàn)', g);      // (1.36.2) thẻ E giữ cỡ đang gõ của táp A (cao 600) — trước: mục TAP-CHAN2 cỡ mặc định 580
       ok(/chân gỗ/.test(g.moTaH || ''), 'táp chân gỗ: tham số H của module nói rõ chưa gồm chân gỗ', g.moTaH);
       // đặt bằng điểm bấm (không ô toạ độ): bấm ở sàn → thân nâng lên cao chân
       await H.locator('.tab[data-tab="tu"]').click();
@@ -442,7 +442,7 @@ async function chonBepExt(page, H, ma) {
       await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 42000) < 1; }, null, { timeout: 30000 });
       await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
       g = await bdT();
-      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 42000, 'táp chân gỗ bấm điểm ở sàn: đáy ở 150 (bảng nâng lên cao chân)', g);
+      ok(g.z0 === 150 && g.z1 === 600 && g.x0 === 42000, 'táp chân gỗ bấm điểm ở sàn: đáy ở 150 (bảng nâng lên cao chân)', g);
       await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
       await H.locator('.tab[data-tab="tu"]').click();
       if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();

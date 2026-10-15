@@ -3882,6 +3882,9 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         // (soát 1.34.1) như ô Thư viện: sâu phủ bì đổi (nóc / đáy chồm ra trước) thì chỗ đặt đang giữ (góc TRƯỚC theo sâu cũ) không còn đúng → bỏ
         const truoc = chup(), bc = doiLoaiBoCho(moi), chanCu = spec.chan && spec.chan.cao, kCu = spec.khoang.length;
         spec = moi; nho(truoc); capLoai(); renderBays(); napO(); rebuild();
+        // (soát 1.36.2) capLoai → renderSP dựng lại khối .sp: thẻ vừa bấm bị thay bằng phần tử mới, tiêu điểm rơi về BODY — người dùng bàn phím phải Tab lại
+        // từ đầu bảng. Trả tiêu điểm về thẻ của kiểu vừa chọn.
+        { const the = $(`.sp [data-act="tap-kieu"][data-kieu="${b.dataset.kieu}"]`); if (the && the !== b) try { the.focus({ preventScroll: true }); } catch (e) { /* trình duyệt cũ */ } }
         const xa = chanCu !== spec.chan.cao ? `; xà đế về ${hien(spec.chan.cao)} theo kiểu` : '', gop = kCu > 1 ? `; gộp còn 1 khoang` : '';
         setStatus(`Táp kiểu ${b.dataset.kieu} — ruột chia lại theo cỡ${xa}${gop}${bc}. ↶ Lùi để lấy lại.`);
       }
