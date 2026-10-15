@@ -465,7 +465,7 @@ footer>.kqhang{display:none}
 .mn.page{display:block}
 .mn.page .panel{position:static;width:auto;max-width:1180px;margin:0 auto;box-shadow:0 2px 14px rgba(0,0,0,.14)}
 .mn.page .body{overflow:visible}
-.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu,.panel[data-loai="giuong"] .vehang [data-act="dat-tuong"],.panel[data-loai="vach"] .vehang [data-act="dat-tuong"],.panel[data-loai="giuong"] .vehang [data-act="hinh"],.panel[data-loai="vach"] .vehang [data-act="hinh"],.panel[data-loai="bep-duoi"] .chi-tu,.panel[data-loai="bep"] .khung-tu,.panel[data-loai^="bep"] .vehang [data-act="dat-tuong"],.panel[data-loai^="bep"] .vehang [data-act="hinh"]{display:none!important}.sp[hidden]{display:none}.tapkieu{display:flex;flex-wrap:wrap;gap:4px}.dims{grid-area:dims}.tcs{grid-area:tv}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
+.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu,.panel[data-loai="giuong"] .vehang [data-act="dat-tuong"],.panel[data-loai="vach"] .vehang [data-act="dat-tuong"],.panel[data-loai="giuong"] .vehang [data-act="hinh"],.panel[data-loai="vach"] .vehang [data-act="hinh"],.panel[data-loai="bep-duoi"] .chi-tu,.panel[data-loai="bep"] .khung-tu,.panel[data-loai^="bep"] .vehang [data-act="dat-tuong"],.panel[data-loai^="bep"] .vehang [data-act="hinh"]{display:none!important}.sp[hidden]{display:none}.tapkieu{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}.tapthe{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 3px 5px;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);font:inherit;font-size:11px;line-height:1.2;text-align:center;cursor:pointer}.tapthe:hover{border-color:var(--accent);background:var(--hover)}.tapthe[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px;background:var(--hover);font-weight:650}.tapthe .h{display:block;width:100%;max-width:72px;pointer-events:none}.tapthe svg{display:block;width:100%;height:auto;cursor:inherit}.dims{grid-area:dims}.tcs{grid-area:tv}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
 /* (bản 1.34) BỘ BẾP chữ I / L: khối Bộ bếp thay mọi phần của tủ lẻ; hình mặt bằng + mặt đứng của dãy */
 .bo[hidden],.bov[hidden],.bothem[hidden],.bokpop[hidden]{display:none}
 .panel[data-loai="bo-bep"] .chi-tu,.panel[data-loai="bo-bep"] .dims,.panel[data-loai="bo-bep"] .view,.panel[data-loai="bo-bep"] .edbar,.panel[data-loai="bo-bep"] .colv>.msgs,.panel[data-loai="bo-bep"] .phieu,.panel[data-loai="bo-bep"] .colv>.sum,.panel[data-loai="bo-bep"] .sp,.panel[data-loai="bo-bep"] .vtools>:not([data-act="lui"]),.panel[data-loai="bo-bep"] footer>.vehang:not(.phonghang):not(.bohang),.panel[data-loai="bo-bep"] footer>.themnut{display:none!important}
@@ -4065,6 +4065,17 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     const nemCua = sp => { const q = sp.giuong || {}, t = sp.van.t; return [Math.round((sp.rong - 2 * (q.lop || 2) * t - 2 * (q.ho_nem || 0)) * 100) / 100, Math.round((sp.sau_thung - ((q.lop || 2) + (q.lop_dau || 1)) * t - 2 * (q.ho_nem || 0)) * 100) / 100]; };
     const selK = (path, label, ds, extra) => `<label>${esc(label)}<select id="${fid(path)}" data-k="${path}" ${extra || ''}>${ds.map(([v, t]) => `<option value="${esc(String(v))}"${String(getP(spec, path)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
+    // (1.36.2) hình 3D nhỏ của từng kiểu táp cho thẻ hình: dựng một lần ở cỡ mặc định + Chuẩn xưởng mặc định (không theo món đang mở — hình chỉ để nhận kiểu) rồi nhớ;
+    // bỏ con trỏ "kéo xoay" của hình 3D lớn (thẻ là nút bấm). Không tải ảnh ngoài.
+    const HINH_TAP = {};
+    const hinhTap = k => {
+      if (!(k in HINH_TAP)) {
+        let h = '';
+        try { h = Core.hinh3D(Core.build(Core.tapTheoKieu(k, null, Core.DEFAULT_SPEC)), { az: 30, el: 20, canh: true, rong_px: 72 }).replace(/touch-action:none;cursor:grab;/, '').replace(/ role="img" aria-label="[^"]*"/, ''); } catch (err) { h = ''; }
+        HINH_TAP[k] = h;
+      }
+      return HINH_TAP[k];
+    };
     function renderSP() {
       const l = loaiDangLam(), fs = $('.sp'), dg = $('.dims .g');
       panel.dataset.loai = loaiHien();
@@ -4076,9 +4087,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       fs.hidden = !khongTu() && l !== 'bep' && l !== 'tap';
       if (fs.hidden) { fs.innerHTML = ''; return; }
       if (l === 'bep') { fs.innerHTML = bepHTML(); return; }
-      if (l === 'tap') {      // (1.34.1) hàng nút KIỂU táp — đổi kiểu giữ rộng / sâu / cao đang gõ; ruột tự chia theo cỡ
+      if (l === 'tap') {      // (1.34.1) KIỂU táp — đổi kiểu giữ rộng / sâu / cao đang gõ; ruột tự chia theo cỡ
+        // (1.36.2 — anh Thanh: "trong đó hiện nhiều mẫu có hình ảnh click vào là xong") lưới THẺ HÌNH: mỗi kiểu một hình 3D nhỏ + tên ngắn, lưới tự xuống dòng ở bề ngang hẹp
         const K = Core.KIEU_TAP || {}, kn = spec.tap && spec.tap.kieu;
-        fs.innerHTML = `<legend>Kiểu táp</legend><div class="tapkieu">${Object.keys(K).map(k => `<button class="sec mini" data-act="tap-kieu" data-kieu="${k}" aria-pressed="${k === kn}" aria-label="${esc(K[k].ten)}" title="${esc(K[k].ten)} — giữ cỡ đang gõ, ruột tự chia lại">${k} · ${esc(K[k].nut)}</button>`).join('')}</div>`;
+        fs.innerHTML = `<legend>Kiểu táp</legend><div class="tapkieu">${Object.keys(K).map(k => `<button class="tapthe" data-act="tap-kieu" data-kieu="${k}" aria-pressed="${k === kn}" aria-label="${esc(K[k].ten)}" title="${esc(K[k].ten)} — giữ cỡ đang gõ, ruột tự chia lại"><span class="h" aria-hidden="true">${hinhTap(k)}</span><span class="t">${k} · ${esc(K[k].nut)}</span></button>`).join('')}</div>`;
         return;
       }
       if (l === 'giuong') {

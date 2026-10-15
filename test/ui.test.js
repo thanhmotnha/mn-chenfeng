@@ -615,7 +615,7 @@ async function testThuVien(browser) {
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
   const nhom = await S(page, '#mncf-ui-mau optgroup').evaluateAll(gs => gs.map(g => g.label));
   ok(['Tủ áo', 'Táp đầu giường', 'Giường', 'Vách đầu giường'].every(t => nhom.some(l => l.indexOf(t) === 0)), 'ô Thư viện chia nhóm Tủ áo / Táp / Giường / Vách', nhom);
-  const chon = async ma => { await S(page, '#mncf-ui-mau').selectOption(ma); await S(page, '[data-act="mau"]').click(); await page.waitForFunction(m => (window.MNCF.app.getSpec().loai_sp || 'tu') === m, ma ? (ma[0] === 'G' ? 'giuong' : ma[0] === 'V' ? 'vach' : ma.indexOf('TAP') === 0 ? 'tap' : 'tu') : 'tu'); };
+  const chon = async ma => { await S(page, '#mncf-ui-mau').selectOption(ma); await S(page, '[data-act="mau"]').click(); await page.waitForFunction(m => (window.MNCF.app.getSpec().loai_sp || 'tu') === m, ma ? (ma[0] === 'G' ? 'giuong' : ma[0] === 'V' ? 'vach' : ma.indexOf('TAP') === 0 || ma === '@TAP' ? 'tap' : 'tu') : 'tu'); };
   const nhan = () => S(page, '.dims label').evaluateAll(ls => ls.map(l => l.textContent.trim()));
   await chon('G16-T');
   ok((await S(page, '.panel').getAttribute('data-loai')) === 'giuong' && await S(page, '.sp').isVisible() && !(await S(page, '.bays').isVisible()), 'giường: ô Giường hiện, phần khoang của tủ ẩn');
@@ -650,12 +650,24 @@ async function testThuVien(browser) {
   await chon('G16-B'); await theSau(page.locator('#mncf-host'), 'chuan'); await S(page, '[data-act="defaults"]').click();
   ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'giuong' && s.giuong.kieu === 'bay' && !window.MNCF.app.getModel().errors.length; })), 'giường bay → "Về chuẩn mặc định": vẫn là giường bay');
   await S(page, '.tab[data-tab="tu"]').click();
-  // (1.34.1) Thư viện táp: bộ mẫu mới theo 5 kiểu ảnh; mã cũ (TAP2-500…) không còn trong ô chọn
-  { const ma = await S(page, '#mncf-ui-mau').evaluate(e => [...e.options].map(o => o.value)); ok(JSON.stringify(ma.filter(x => /^TAP/.test(x))) === JSON.stringify(['TAP-GO1', 'TAP-GO2', 'TAP-CHOM', 'TAP-HOP2', 'TAP-CHAN2']), 'Thư viện táp: 5 mục theo kiểu, không liệt kê cỡ, không mã cũ', ma.filter(x => /^TAP/.test(x))); }
-  await chon('TAP-GO1');
-  // (1.34.1) khối táp: hàng nút KIỂU (A … E), kiểu đang dùng bấm sẵn; gõ cao → ruột chia lại; đổi kiểu giữ cỡ đang gõ; ↶ Lùi về kiểu trước
+  // (1.36.2 — anh Thanh: "chỉ làm 1 hạng mục là táp thôi, trong đó hiện nhiều mẫu có hình ảnh click vào là xong") ô Thư viện: MỘT mục táp (trước: 5 mục TAP-GO1…)
+  { const tv = await S(page, '#mncf-ui-mau').evaluate(e => { const g = [...e.querySelectorAll('optgroup')].find(x => x.label === 'Táp đầu giường'); return g ? [...g.querySelectorAll('option')].map(o => o.value) : null; });
+    ok(JSON.stringify(tv) === JSON.stringify(['@TAP']), 'Thư viện táp: một mục "Táp đầu giường"', tv);
+    const ma = await S(page, '#mncf-ui-mau').evaluate(e => [...e.options].map(o => o.value)); ok(!ma.some(x => /^TAP/.test(x)), 'ô Thư viện không còn mã táp theo kiểu / cỡ', ma.filter(x => /TAP/.test(x))); }
+  await chon('@TAP');
+  // (1.34.1) khối táp: KIỂU (A … E), kiểu đang dùng bấm sẵn; gõ cao → ruột chia lại; đổi kiểu giữ cỡ đang gõ; ↶ Lùi về kiểu trước
+  // (1.36.2) kiểu là THẺ HÌNH: mỗi thẻ một hình 3D nhỏ (svg dựng tại chỗ, không ảnh ngoài) + tên ngắn; lưới tự xuống dòng, không tràn ngang
   { const nut = S(page, '.sp [data-act="tap-kieu"]');
-    ok(await S(page, '.sp').isVisible() && (await nut.count()) === 5 && (await S(page, '.sp [data-act="tap-kieu"][data-kieu="A"]').getAttribute('aria-pressed')) === 'true', 'táp: khối táp có 5 nút kiểu, A đang chọn', await nut.count());
+    ok(await S(page, '.sp').isVisible() && (await nut.count()) === 5 && (await S(page, '.sp [data-act="tap-kieu"][data-kieu="A"]').getAttribute('aria-pressed')) === 'true', 'táp: khối táp có 5 thẻ kiểu, A đang chọn', await nut.count());
+    const the = await S(page, '.sp [data-act="tap-kieu"]').evaluateAll(bs => bs.map(b => ({ k: b.dataset.kieu, poly: b.querySelectorAll('svg polygon').length, img: b.querySelectorAll('img').length, chu: b.textContent.trim(), w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height })));
+    ok(the.every(x => x.poly >= 10 && !x.img && /^[A-E] · \S/.test(x.chu) && x.w > 40 && x.h > 40), 'mỗi thẻ có hình 3D (svg) + tên ngắn, không ảnh ngoài', the);
+    const tran = () => S(page, '.sp').evaluate(e => e.scrollWidth - e.clientWidth);
+    ok((await tran()) <= 1, 'lưới thẻ không tràn ngang', await tran());
+    { await S(page, '.sp').evaluate(e => { e.style.width = '170px'; });
+      const hep = await S(page, '.sp').evaluate(e => ({ tran: e.scrollWidth - e.clientWidth, hang: new Set([...e.querySelectorAll('[data-act="tap-kieu"]')].map(b => Math.round(b.getBoundingClientRect().top))).size }));
+      await S(page, '.sp').evaluate(e => { e.style.width = ''; });
+      ok(hep.tran <= 1 && hep.hang >= 2, 'bề ngang hẹp (170 px): lưới tự xuống dòng, không tràn', hep); }
+    const hinhA = await S(page, '.sp [data-act="tap-kieu"][data-kieu="B"] svg').evaluate(e => e.outerHTML);
     const dot = () => page.evaluate(() => window.MNCF.app.getSpec().khoang[0].dot.slice());
     const muon = await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return window.MNCFCore.tapTheoKieu('A', { rong: s.rong, sau: s.sau_thung, cao: 700 }).khoang[0].dot; });
     await S(page, '#mncf-cao').fill('700');
@@ -664,7 +676,8 @@ async function testThuVien(browser) {
     ok((await S(page, '#mncf-b0-dot').inputValue()).replace(/\s/g, '') === muon.join(','), 'ô Đợt của khoang theo kịp', await S(page, '#mncf-b0-dot').inputValue());
     await S(page, '#mncf-rong').fill('520');
     await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 520);
-    await S(page, '.sp [data-act="tap-kieu"][data-kieu="B"]').click();
+    ok((await S(page, '.sp [data-act="tap-kieu"][data-kieu="B"] svg').evaluate(e => e.outerHTML)) === hinhA, 'hình thẻ dựng một lần ở cỡ mặc định (gõ Rộng không vẽ lại)');
+    await S(page, '.sp [data-act="tap-kieu"][data-kieu="B"] svg').click({ force: true });      // bấm trúng hình trong thẻ cũng là chọn kiểu
     await page.waitForFunction(() => window.MNCF.app.getSpec().tap.kieu === 'B');
     ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(), M = window.MNCF.app.getModel(); return s.rong === 520 && s.cao === 700 && s.khoang[0].o[0].so === 3 && M.mat_ngan_keo.length === 3 && !M.errors.length; }), 'đổi sang B: giữ 520 × 700, ruột theo B (cao 700 → 3 ngăn kéo)', await page.evaluate(() => window.MNCF.app.getSpec().khoang));
     ok((await S(page, '.sp [data-act="tap-kieu"][data-kieu="B"]').getAttribute('aria-pressed')) === 'true' && (await S(page, '#mncf-cao').inputValue()) === '700', 'nút B bấm sẵn, ô Cao vẫn 700');
@@ -682,13 +695,13 @@ async function testThuVien(browser) {
     await S(page, '.sp [data-act="tap-kieu"][data-kieu="A"]').click();
     await page.waitForFunction(() => window.MNCF.app.getSpec().khoang[0].dot[0] !== 300);
     ok(JSON.stringify(await dot()) === JSON.stringify(await page.evaluate(() => window.MNCFCore.tapTheoKieu('A', { cao: 650 }).khoang[0].dot)), 'bấm lại kiểu A: ruột chia lại theo cao 650', await dot());
-    await chon('TAP-GO1');
+    await chon('@TAP');
     await S(page, '.sp [data-act="tap-kieu"][data-kieu="C"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().tap.kieu === 'C');
     // (soát 1.34.1) bấm lại kiểu: giữ phào + cánh, báo xà đế theo kiểu
     await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.phao.trai = 40; s.phao.phai = 40; s.chan.cao = 80; window.MNCF.app.setSpec(s); });
-    await S(page, '.sp [data-act="tap-kieu"][data-kieu="C"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().chan.cao === 40);
+    await S(page, '.sp [data-act="tap-kieu"][data-kieu="C"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().chan.cao === 50);      // (1.36.2) xà đế C = của A (50; trước 40)
     ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.phao.trai === 40 && s.phao.phai === 40; }) && /xà đế/.test(await page.evaluate(inPage.status)), 'bấm lại C: giữ phào 40, báo xà đế về cao của kiểu', await page.evaluate(inPage.status));
-    await chon('TAP-GO1'); }
+    await chon('@TAP'); }
   ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.tap && s.tap.go > 0) && window.MNCF.app.getModel().parts.some(p => p.loai === 'GO'); }), 'táp gờ chắn: có khoá tap + gờ sau');
   ok((await S(page, '.panel').getAttribute('data-loai')) === 'tap' && !(await S(page, '.sp [data-k^="giuong"]').count()) && await S(page, '.bays').isVisible(), 'táp: như tủ thường (có phần khoang), không ô Giường');
   ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return s.khoang.length === 1 && s.ve_goc === window.MNCFCore.DEFAULT_SPEC.ve_goc && !window.MNCF.app.getModel().errors.length; })), 'táp: 1 khoang, cách vẽ như tủ');

@@ -282,7 +282,7 @@ async function chonBepExt(page, H, ma) {
     /* --- (soát 1.34.1) nút kiểu táp: sâu phủ bì đổi (C nóc chồm ra trước 20) → bỏ chỗ đặt như ô Thư viện; cùng sâu thì giữ --- */
     {
       await H.locator('.tab[data-tab="tu"]').click();
-      await H.locator('#mncf-ui-mau').selectOption('TAP-GO1'); await H.locator('[data-act="mau"]').click();
+      await H.locator('#mncf-ui-mau').selectOption('@TAP'); await H.locator('[data-act="mau"]').click();      // (1.36.2) ô Thư viện chỉ còn một mục táp (= kiểu A)
       await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'tap');
       if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
       await H.locator('#mncf-ui-ax').fill('4000'); if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
@@ -412,7 +412,10 @@ async function chonBepExt(page, H, ma) {
     // (soát 1.34.1) táp CHÂN GỖ rời: chân không phải tấm (không vào lệnh nhập) — góc đặt (ô toạ độ / điểm bấm) là ở SÀN, bảng nâng thân lên cao chân (trước: thân rơi xuống sàn, mất 150)
     { await H.locator('.tab[data-tab="tu"]').click();
       if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
-      await H.locator('#mncf-ui-mau').selectOption('TAP-CHAN2'); await H.locator('[data-act="mau"]').click();
+      // (1.36.2) ô Thư viện chỉ còn một mục táp → chọn kiểu E (chân gỗ) bằng thẻ hình
+      await H.locator('#mncf-ui-mau').selectOption('@TAP'); await H.locator('[data-act="mau"]').click();
+      await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'tap');
+      await H.locator('.sp [data-act="tap-kieu"][data-kieu="E"]').click();
       await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'tap' && s.tap && s.tap.chan_go === 150; });
       await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.hau = Object.assign({}, s.hau, { t: 6 }); window.MNCF.app.setSpec(s); });
       const bdT = async () => page.evaluate(() => { const D = window.MNCFDriver, L = D.last, bs = L.added.filter(e => D.isBoard(e) && !e.IsErase), b = bs.map(D.boxOf), T = bs[0] && bs[0].Template && bs[0].Template.Object;
