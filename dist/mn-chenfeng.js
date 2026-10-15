@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.36.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.36.1 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.36.0';
+  const VERSION = '1.36.1';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -11795,7 +11795,7 @@ footer>.kqhang{display:none}
 .mn.page{display:block}
 .mn.page .panel{position:static;width:auto;max-width:1180px;margin:0 auto;box-shadow:0 2px 14px rgba(0,0,0,.14)}
 .mn.page .body{overflow:visible}
-.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu,.panel[data-loai="giuong"] .vehang [data-act="dat-tuong"],.panel[data-loai="vach"] .vehang [data-act="dat-tuong"],.panel[data-loai="giuong"] .vehang [data-act="hinh"],.panel[data-loai="vach"] .vehang [data-act="hinh"],.panel[data-loai="bep-duoi"] .chi-tu,.panel[data-loai="bep"] .khung-tu,.panel[data-loai^="bep"] .vehang [data-act="dat-tuong"],.panel[data-loai^="bep"] .vehang [data-act="hinh"]{display:none!important}.sp[hidden]{display:none}.tapkieu{display:flex;flex-wrap:wrap;gap:4px}.dims{grid-area:dims}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
+.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu,.panel[data-loai="giuong"] .vehang [data-act="dat-tuong"],.panel[data-loai="vach"] .vehang [data-act="dat-tuong"],.panel[data-loai="giuong"] .vehang [data-act="hinh"],.panel[data-loai="vach"] .vehang [data-act="hinh"],.panel[data-loai="bep-duoi"] .chi-tu,.panel[data-loai="bep"] .khung-tu,.panel[data-loai^="bep"] .vehang [data-act="dat-tuong"],.panel[data-loai^="bep"] .vehang [data-act="hinh"]{display:none!important}.sp[hidden]{display:none}.tapkieu{display:flex;flex-wrap:wrap;gap:4px}.dims{grid-area:dims}.tcs{grid-area:tv}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
 /* (bản 1.34) BỘ BẾP chữ I / L: khối Bộ bếp thay mọi phần của tủ lẻ; hình mặt bằng + mặt đứng của dãy */
 .bo[hidden],.bov[hidden],.bothem[hidden],.bokpop[hidden]{display:none}
 .panel[data-loai="bo-bep"] .chi-tu,.panel[data-loai="bo-bep"] .dims,.panel[data-loai="bo-bep"] .view,.panel[data-loai="bo-bep"] .edbar,.panel[data-loai="bo-bep"] .colv>.msgs,.panel[data-loai="bo-bep"] .phieu,.panel[data-loai="bo-bep"] .colv>.sum,.panel[data-loai="bo-bep"] .sp,.panel[data-loai="bo-bep"] .vtools>:not([data-act="lui"]),.panel[data-loai="bo-bep"] footer>.vehang:not(.phonghang):not(.bohang),.panel[data-loai="bo-bep"] footer>.themnut{display:none!important}
@@ -11824,7 +11824,7 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
 .bokpop{border:1px solid var(--accent);border-radius:10px;background:var(--card);padding:9px 10px 10px;margin:6px 0 9px}.bokpop:focus{outline:none}
 .bokpop .kph{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}.bokpop .kph b{font-size:13.5px}.bokpop .kph span{flex:1;min-width:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.bokpop .frow{margin-top:8px}
 .bomsgs{margin-top:6px}.boluuy{font-size:12.5px;margin:4px 0}.bods{margin:4px 0 0;padding-left:18px}
-@media (min-width:900px){.mn.page .lkr{grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 104px 28px;grid-template-areas:"ten ts id x" "md md md md"}.mn.page .split{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);grid-template-areas:"dims view" "rest view";grid-template-rows:auto 1fr;column-gap:16px;align-items:start}.mn.page .colv{position:sticky;top:12px}.mn.page .seg{grid-template-columns:repeat(4,auto)}}
+@media (min-width:900px){.mn.page .lkr{grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 104px 28px;grid-template-areas:"ten ts id x" "md md md md"}.mn.page .split{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);grid-template-areas:"tv view" "dims view" "rest view";grid-template-rows:auto auto 1fr;column-gap:16px;align-items:start}.mn.page .colv{position:sticky;top:12px}.mn.page .seg{grid-template-columns:repeat(4,auto)}}
 /* bảng nổi trong Chenfeng, chế độ rộng: hình đứng to để kéo đợt cho dễ */
 .panel.wide{width:1040px}
 .panel.dlg{left:50%;right:auto;top:14px;bottom:14px;transform:translateX(-50%);width:min(1180px,calc(100vw - 28px));max-width:none}
@@ -11845,7 +11845,7 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
 .chonso{margin-top:10px}
 .chonmsg{margin-top:8px}
 @media (max-width:760px){.chonsplit{grid-template-columns:1fr}}
-.panel.wide .split{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);grid-template-areas:"dims view" "rest view";grid-template-rows:auto 1fr;column-gap:14px;align-items:start}
+.panel.wide .split{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);grid-template-areas:"tv view" "dims view" "rest view";grid-template-rows:auto auto 1fr;column-gap:14px;align-items:start}
 .panel.wide .colv{position:sticky;top:0}
 .panel.wide .seg{grid-template-columns:repeat(4,auto)}
 .panel.wide .lkr{grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 104px 28px;grid-template-areas:"ten ts id x" "md md md md"}
@@ -11993,6 +11993,8 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
   </header>
   <div class="body">
     <div class="pane" data-pane="tu">${inCF ? '' : '<p class="hint">Mở lần đầu là <b>tủ mẫu</b> (tủ áo 3000 × 2800, 3 khoang). Nhập kích thước, rồi <b>kéo đợt ngay trên hình</b> và bấm vào từng ô để đặt ngăn kéo, suốt treo — cảnh báo và bảng kê tự cập nhật.</p>'}<div class="split">
+      <!-- (1.36.1) Thư viện lên ĐẦU thẻ Tủ — anh Thanh: chọn mẫu là việc làm trước, để cuối phải cuộn xuống -->
+      <div class="frow tcs" style="margin:0 0 8px"><label class="row" for="mncf-ui-mau">Thư viện</label><select id="mncf-ui-mau" data-ui="mau" aria-label="Thư viện mẫu: tủ áo, táp đầu giường, giường, vách đầu giường, tủ bếp" style="flex:1;min-width:0"><optgroup label="Tủ áo"><option value="" title="Tủ áo 3 khoang mặc định (3000 × 2800). Chuẩn xưởng giữ nguyên.">Tủ mặc định 3 khoang</option>${Core.MAU_TU.map(m => `<option value="${esc(m.ma)}" title="${esc(m.mo_ta)}">${esc(m.ten)}</option>`).join('')}</optgroup>${(Core.THU_VIEN || []).filter(n => n.loai !== 'tu').map(n => `<optgroup label="${esc(n.ten)}">${n.ds.map(m => `<option value="${esc(m.ma)}" title="${esc(m.mo_ta)}">${esc(m.ten)}</option>`).join('')}${n.loai === 'bep' && Core.xepBep ? '<option value="@BO-I" title="Gõ dài tường — bảng tự chia cả dãy tủ dưới, tủ trên, tủ cao, nẹp, đá">Bộ bếp chữ I</option><option value="@BO-L" title="Hai cạnh + tủ góc mù có phụ kiện góc — bảng tự chia cả hai cạnh">Bộ bếp chữ L</option>' : ''}</optgroup>`).join('')}</select><button class="sec" data-act="mau" title="Dựng mẫu đang chọn (tủ áo / táp / giường / vách đầu giường / tủ bếp). Chuẩn xưởng giữ nguyên. ↶ Lùi để lấy lại món đang làm.">Dùng</button></div>
       <fieldset class="dims"><div class="g g3">${numField('rong', 'Rộng phủ bì', 'title="Rộng phủ bì của cả tủ, KỂ CẢ phào trái / phải (mm)"')}${numField('cao', 'Cao phủ bì', 'title="Cao phủ bì của cả tủ, KỂ CẢ phào trên và chân (mm)"')}${numField('sau_thung', 'Sâu thùng', 'title="Sâu thùng, CHƯA kể cánh (mm)"')}</div></fieldset>
       <div class="colv">
         <div class="vtools"><label class="row chi-tu"><input type="checkbox" id="mncf-ui-doors" data-ui="doors" checked> Hiện cánh</label><button class="sec mini chi-tu" data-act="them-vach" aria-pressed="false" title="Bật rồi bấm vào chỗ bất kỳ trong tủ trên hình: thêm một vách đứng (hồi giữa) tại đó, khoang được chia đôi. Bấm lại nút hoặc Esc để thôi.">＋ Vách</button><button class="sec mini" data-act="lui" disabled title="Lùi lại thao tác vừa làm trên hình (Ctrl+Z)">↶ Lùi</button><button class="sec mini" data-act="xem-3d" aria-pressed="false" title="Xem tủ dạng 3D — kéo trên hình (hoặc phím ← → ↑ ↓) để xoay; bấm vào phào / cột trên hình 3D để sửa. Bấm lại để về hình đứng.">3D</button><button class="sec mini tk" data-act="tu-kiem" aria-expanded="false" title="Phiếu tự kiểm trước khi vẽ (bấm để mở / gập)">✓ Tự kiểm</button><span class="hint" data-ui="vhint" style="margin:0 0 0 auto">Hình đứng — kéo thả trực tiếp · bấm phào / cột để sửa</span></div>
@@ -12011,7 +12013,6 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
           <p class="hint" style="margin:6px 0 0">Gõ kích thước cột (ngang × sâu), 0 = không khấu. Hồi phía cột nông lại, nóc / đáy / đợt khoét góc chữ L, thêm <b>vách khấu</b> dọc mặt bên cột và <b>hậu khấu</b> trước mặt cột — cả hai đều là <b>ván thùng</b> (không dùng hậu 6 li cho phần khấu) — xem hình "nhìn từ trên xuống" dưới hình đứng. Vách nào có mặt trùng mép cột thì chính vách đó làm vách khấu. <b>Cột giữa tủ</b>: cột nằm <b>trong khoang</b> — bảng <b>không dời, không thêm vách hay đợt nào</b>, các khoang giữ nguyên bề rộng đã chia; đáy / nóc / đợt của khoang đó khoét <b>chữ U</b> quanh cột, hộp che cột là 2 vách khấu + hậu khấu. Cột sát một vách thì chính vách đó làm vách khấu (vùng khấu nới ra tới vách). <b>Suốt treo</b> của khoang có cột vẫn nằm giữa chiều sâu khoang (thanh suốt đi trước hộp che cột — bảng chỉ nhắc đoạn bị cột che); <b>hộp ngăn kéo</b> ở khoang đó thì nông theo phần trước cột. Chỉ khi muốn tách khoang trước cột thành một khoang nông riêng (mọi tấm cắt thẳng) mới bấm <b>Đặt vách theo mép cột giữa</b>.</p></fieldset>
         <fieldset class="chi-tu"><legend>Khoang, từ trái sang phải</legend><div class="bays"></div>
           <div class="frow"><button class="sec" data-act="add">+ Thêm khoang</button></div></fieldset>
-        <div class="frow tcs"><label class="row" for="mncf-ui-mau">Thư viện</label><select id="mncf-ui-mau" data-ui="mau" aria-label="Thư viện mẫu: tủ áo, táp đầu giường, giường, vách đầu giường, tủ bếp" style="flex:1;min-width:0"><optgroup label="Tủ áo"><option value="" title="Tủ áo 3 khoang mặc định (3000 × 2800). Chuẩn xưởng giữ nguyên.">Tủ mặc định 3 khoang</option>${Core.MAU_TU.map(m => `<option value="${esc(m.ma)}" title="${esc(m.mo_ta)}">${esc(m.ten)}</option>`).join('')}</optgroup>${(Core.THU_VIEN || []).filter(n => n.loai !== 'tu').map(n => `<optgroup label="${esc(n.ten)}">${n.ds.map(m => `<option value="${esc(m.ma)}" title="${esc(m.mo_ta)}">${esc(m.ten)}</option>`).join('')}${n.loai === 'bep' && Core.xepBep ? '<option value="@BO-I" title="Gõ dài tường — bảng tự chia cả dãy tủ dưới, tủ trên, tủ cao, nẹp, đá">Bộ bếp chữ I</option><option value="@BO-L" title="Hai cạnh + tủ góc mù có phụ kiện góc — bảng tự chia cả hai cạnh">Bộ bếp chữ L</option>' : ''}</optgroup>`).join('')}</select><button class="sec" data-act="mau" title="Dựng mẫu đang chọn (tủ áo / táp / giường / vách đầu giường / tủ bếp). Chuẩn xưởng giữ nguyên. ↶ Lùi để lấy lại món đang làm.">Dùng</button></div>
       </div>
     </div></div>
     ${Ph ? `<div class="pane" data-pane="phong" hidden>
