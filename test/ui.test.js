@@ -713,6 +713,11 @@ async function testThuVien(browser) {
   // (soát 1.34.1) "Về chuẩn mặc định" giữ kết cấu táp mới (khoá tap) — trước: rơi về táp kiểu 1.32 (mất gờ, chân trước phủ mặt) mà không báo
   await theSau(page.locator('#mncf-host'), 'chuan'); await S(page, '[data-act="defaults"]').click();
   ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(), M = window.MNCF.app.getModel(); return s.loai_sp === 'tap' && !!(s.tap && s.tap.go > 0) && M.parts.some(p => p.loai === 'GO') && !M.errors.length; })), 'táp gờ chắn → "Về chuẩn mặc định": vẫn là táp gờ chắn (giữ khoá tap)');
+  // (soát 1.36.2) Chuẩn xưởng → Hậu theo hậu THẬT của táp (soi rãnh lọt lòng): không hiện ô mép / chia của hậu phủ (không tác dụng với táp), hiện ô rãnh táp đang dùng;
+  // dòng giải thích nói Kiểu hậu chỉ áp cho tủ áo. Trước: Chuẩn xưởng phủ → bảng mời chỉnh "mép hậu" mà táp bỏ qua, ô rãnh thật sự dùng thì ẩn.
+  { const co = k => S(page, `.settings [data-k="${k}"]`).count(), giai = await S(page, '.settings p[data-giai]').evaluateAll(ps => ps.map(p => p.textContent).join(' | '));
+    ok((await page.evaluate(() => window.MNCF.app.getSpec().hau.kieu)) === 'phu' && !(await co('hau.mep')) && !(await co('hau.chia')) && (await co('hau.lui')) && (await co('hau.ranh_sau')) && (await co('hau.ranh_ho')), 'táp (Chuẩn xưởng hậu phủ): ô Hậu theo hậu soi rãnh của táp', [await co('hau.mep'), await co('hau.lui')]);
+    ok(/Táp: hậu luôn mỏng soi rãnh lọt lòng/.test(giai) && !/Hậu ốp lên mép sau/.test(giai), 'dòng giải thích Hậu nói đúng cho táp', giai); }
   await S(page, '.tab[data-tab="tu"]').click();
   await chon('G16-NK'); await chon('');
   ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !('loai_sp' in s) && !s.giuong && s.khoang.length === 3 && !window.MNCF.app.getModel().errors.length; })) && (await S(page, '.panel').getAttribute('data-loai')) === 'tu' && await S(page, '.bays').isVisible(), 'giường → tủ mặc định: tủ 3 khoang, không mang thông số giường');
