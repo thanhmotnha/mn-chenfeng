@@ -1340,10 +1340,12 @@
       const lop = tenLop(e);
       try {
         if (lop === 'RoomWallLine') {
-          const mat = [];
+          const mat = [], phai = [];
           for (const c of [].concat(e.RightCurves || [], e.LeftCurves || [])) { const a = c.StartPoint, b = c.EndPoint; if (a && b) mat.push([[r2(a.x), r2(a.y)], [r2(b.x), r2(b.y)]]); }
+          // (1.36) mặt RightCurves riêng: điểm đặt lỗ cửa phải nằm trên mặt này ("tâm lỗ trên mép trong" — đã đo); cửa thông trên tường chung do phòng bên dựng thì lùi sang mặt đó
+          for (const c of e.RightCurves || []) { const a = c.StartPoint, b = c.EndPoint; if (a && b) phai.push([[r2(a.x), r2(a.y)], [r2(b.x), r2(b.y)]]); }
           let z = 0; try { z = r2(e.StartPoint.z || 0); } catch (er) { z = 0; }
-          kq.tuong.push({ mat, day: r2(+e.Thickness || 0), cao: r2(+e.Height || 0), z, hop: D.boxOf(e) }); ent.tuong.push(e);
+          kq.tuong.push({ mat, phai, day: r2(+e.Thickness || 0), cao: r2(+e.Height || 0), z, hop: D.boxOf(e) }); ent.tuong.push(e);
         } else if (lop === 'RoomHolePolyline') { kq.lo.push({ hop: D.boxOf(e) }); ent.lo.push(e); }
         else if (lop === 'RoomPillar') { kq.cot.push({ hop: D.boxOf(e) }); ent.cot.push(e); }
         else if (lop === 'RoomGirder') { kq.dam.push({ hop: D.boxOf(e) }); ent.dam.push(e); }
@@ -1372,7 +1374,9 @@
    * Vẽ phòng hiện trạng vào bản vẽ. H = MNCFPhong.hinhHoc(phòng).
    * opt: { day_tuong (mặc định 110), onStatus, dien_nuoc: MNCFPhong.dienNuocDXF(H) (dấu điện – nước, bản 1.18),
    *        da_ve: bản ghi lần vẽ trước của chính phòng này (MNCFPhong.banGhiPhong) — bản 1.23,
-   *        bo_chong: người dùng đã đồng ý bỏ các tường / cột / dầm cũ nằm vướng trong lòng phòng sắp vẽ }
+   *        bo_chong: người dùng đã đồng ý bỏ các tường / cột / dầm cũ nằm vướng trong lòng phòng sắp vẽ,
+   *        (bản 1.36) khac: bản ghi lần vẽ của các phòng khác trong công trình (MNCFPhong.khacDaVe), phong: dấu phòng ("<công trình>:<phòng>") ghi vào D.lastRoom,
+   *        gop: mã lượt "vẽ cả nhà" — các phòng cùng lượt gộp thành một lần Hoàn tác phòng }
    * Bản 1.23 — vẽ lại không vẽ chồng: đối chiếu với phòng đang có (MNCFPhong.doiChieuPhong) → cái gì đã có đúng chỗ thì giữ, phần của lần vẽ trước nay không còn đúng thì bỏ
    * (một lệnh ERASE), chỉ vẽ cái còn thiếu; số tường đếm theo tường CÓ trên bản vẽ sau khi vẽ chứ không theo số đối tượng mới sinh
    * (Chenfeng không dựng đoạn tường trùng tường cũ — bảng cũ vì thế báo nhầm "chỉ vẽ được 0/4 tường").
@@ -1400,7 +1404,9 @@
     const tren = (w, s, t) => [w.p0[0] + w.d[0] * s + w.n[0] * t, w.p0[1] + w.d[1] * s + w.n[1] * t];
     const dsLop = lop => D.all().filter(e => tenLop(e) === lop);
     const moi = Ph.phanPhong(H, opt.day_tuong), W = moi.tuong;
-    let co = D.docPhong(), K = Ph.doiChieuPhong(moi, co, opt.da_ve || null);
+    // (1.36) nhà nhiều phòng: opt.khac = bản ghi lần vẽ của các phòng KHÁC trong công trình — tường / lỗ / cột / dầm của chúng không bao giờ bị bỏ, không bị báo vướng
+    const oK = { khac: Array.isArray(opt.khac) ? opt.khac : [] };
+    let co = D.docPhong(), K = Ph.doiChieuPhong(moi, co, opt.da_ve || null, oK);
     const cu = K.co_ban_ghi ? opt.da_ve : null;
     // tường khác (không phải của lần vẽ trước) nằm cắt ngang lòng phòng sắp vẽ → dừng lại hỏi, chưa đụng gì vào bản vẽ
     if (K.trong.length && !opt.bo_chong) {
@@ -1451,14 +1457,16 @@
         const er = await D.erase(boE);
         if (!er.ok) throw new Error(`chưa bỏ được phần phòng cũ (còn ${er.con} đối tượng) — xoá tay các tường cũ trong Chenfeng rồi bấm vẽ lại`);
         await D.settle(300, 10000);
-        co = D.docPhong(); K = Ph.doiChieuPhong(moi, co, cu);
+        co = D.docPhong(); K = Ph.doiChieuPhong(moi, co, cu, oK);
       }
       // 1. tường còn thiếu — đi theo chiều kim đồng hồ quanh lòng phòng (bề dày nằm ngoài); các tường thiếu liền nhau đi chung một lệnh
       giu.tuong = K.tuong.filter(t => t.co >= 0).length;
       for (const c of K.ve_tuong) {
         opt.onStatus('Đang vẽ tường…');
         if (!(await moLenh('DRAWWALLINSIDE', null, baoCho('vẽ tường', 'DRAWWALLINSIDE')))) { errors.push(loiLenh('vẽ tường', 'DRAWWALLINSIDE')); dung = 'tuong'; break; }      // tường không vẽ được thì cửa, cột, dầm cũng thôi
-        await datSo('G', cao); await datSo('H', opt.day_tuong);
+        // (1.36) mỗi chuỗi một bề dày: tường khách của tường chung vẽ dày theo phòng chủ (tim trùng → Chenfeng không dựng chồng khi phòng chủ vẽ sau)
+        const dayC = c.day != null ? c.day : (W[c.tuong && c.tuong[0]] && W[c.tuong[0]].day) || opt.day_tuong;
+        await datSo('G', cao); await datSo('H', dayC);
         for (const q of c.diem) { D.input(toaDo(q)); await sleep(420); }
         D.input(c.khep ? 'C' : '');
         await xongLenh(8000);
@@ -1471,7 +1479,11 @@
       them.tuong = Math.max(0, dem.tuong - giu.tuong);
       if (dem.tuong < W.length && !errors.length) errors.push(`Chenfeng chỉ dựng được ${dem.tuong}/${W.length} tường (thiếu tường ${W.filter((w, i) => !coTuong[i]).map(w => w.ten).join(', ')}).`);
       // 2. đối chiếu lại rồi mới mở lỗ, vẽ cột, dầm (lỗ cửa trên tường vừa bỏ đã mất theo tường)
-      K = Ph.doiChieuPhong(moi, co, cu);
+      K = Ph.doiChieuPhong(moi, co, cu, oK);
+      // điểm đặt lỗ = TÂM lỗ trên mép trong (mặt RightCurves) của tường đang có. Cửa thông trên tường chung mà tường do phòng bên dựng: mặt trong phòng này là mặt NGOÀI tường đó
+      // → lùi một bề dày sang mặt trong phòng bên (CHƯA ĐO: Chenfeng nhận điểm trên mặt ngoài tường thế nào — luôn đặt trên RightCurves cho chắc)
+      const trenMatPhai = q => co.tuong.some(t => (t.phai || []).some(m => { const dx = m[1][0] - m[0][0], dy = m[1][1] - m[0][1], L = Math.hypot(dx, dy) || 1, u = ((q[0] - m[0][0]) * dx + (q[1] - m[0][1]) * dy) / L; return u >= -1 && u <= L + 1 && Math.abs(-(q[0] - m[0][0]) * dy + (q[1] - m[0][1]) * dx) / L <= 1; }));
+      const diemLo = (w, s, dayW) => { const q = P(tren(w, s, 0)); if (trenMatPhai(q)) return q; const q2 = P(tren(w, s, -dayW)); return trenMatPhai(q2) ? q2 : q; };
       // cửa đi, cửa sổ, ô trống = lỗ trên tường (điểm đặt = TÂM lỗ trên mép trong của tường)
       for (let q = 0; q < moi.mo.length; q++) {
         const m = (H.mo || []).find(x => x.j === moi.mo[q].j), k = K.mo[q].co;
@@ -1481,7 +1493,7 @@
         const ds0 = new Set(dsLop('RoomHolePolyline'));
         if (!(await moLenh(m.loai === 'cua' ? 'DRAWDOORHOLE' : 'DRAWIHOLE', null, baoCho('mở lỗ cửa', 'DRAWDOORHOLE')))) { warnings.push(chuaLam(`Chưa mở được ${m.ten.toLowerCase()} (tường ${m.w.ten})`)); dungLai(); continue; }
         await datSo('H', m.cao); await datSo('L', m.rong); await datSo('D', m.be);
-        D.input(toaDo(P(tren(m.w, m.cach + m.rong / 2, 0))));
+        D.input(toaDo(diemLo(m.w, m.cach + m.rong / 2, (W.find(w => w.i === m.w.i) || {}).day || opt.day_tuong)));
         await xongLenh(5000);
         const lo = dsLop('RoomHolePolyline').find(e => !ds0.has(e));
         if (lo) { dem.mo++; them.mo++; that.mo[q] = D.boxOf(lo); } else warnings.push(`Chưa mở được ${m.ten.toLowerCase()} (tường ${m.w.ten}).`);
@@ -1555,15 +1567,20 @@
         if (!tenPhong) warnings.push('Chưa ghi được tên phòng vào nhãn của Chenfeng (nhãn còn “未命名”) — bấm đúp vào nhãn trong Chenfeng để đặt tên.');
       }
     } catch (e) { /* tên phòng không ghi được thì thôi, phòng vẫn đủ */ }
+    const L0 = D.lastRoom;
     const h1 = hmMark(), added = root.app.Database.ModelSpace.Entitys.filter(e => e && !truoc.has(e) && !e.IsErase);
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : (added.length ? 1 : 0);
-    // bản ghi lần vẽ này: chỉ ghi tường thật sự có và do phòng này đứng tên (tường chung nằm trên tường của phòng bên thì không ghi — lần sau không coi là của mình mà bỏ)
+    // bản ghi lần vẽ này: chỉ ĐỨNG TÊN tường thật sự có và do phòng này dựng (tường chung nằm trên tường của phòng bên thì không — lần sau không coi là của mình mà bỏ).
+    // (1.36 vòng soát) tường chung đó ghi vào `muon` (phòng bên vẽ lại không được xoá nó), tường cũ của phòng này còn ở lại cho phòng bên ghi vào `giu` (vẫn đứng tên) — Ph.tuongGhi
     let daVe = null;
     try {
-      const cua = W.filter((w, i) => coTuong[i] && !(K.tuong[i] && K.tuong[i].nam_tren));
-      daVe = Ph.banGhiPhong(Object.assign({}, moi, { tuong: cua }), { mo: that.mo, cot: that.cot, dam: that.dam, dn: dem.dn > 0 && dn && dn.hop ? [dn.hop.x0, dn.hop.x1, dn.hop.y0, dn.hop.y1, dn.hop.z0, dn.hop.z1] : null, dn_ma: maDn, dn_so: soNetDn });
+      const g = Ph.tuongGhi ? Ph.tuongGhi(moi, K, coTuong) : { tuong: W.filter((w, i) => coTuong[i] && !(K.tuong[i] && K.tuong[i].nam_tren)) };
+      daVe = Ph.banGhiPhong(Object.assign({}, moi, { tuong: g.tuong }), { mo: that.mo, cot: that.cot, dam: that.dam, muon: g.muon, giu: g.giu, dn: dem.dn > 0 && dn && dn.hop ? [dn.hop.x0, dn.hop.x1, dn.hop.y0, dn.hop.y1, dn.hop.z0, dn.hop.z1] : null, dn_ma: maDn, dn_so: soNetDn });
     } catch (e) { daVe = null; }
-    if (steps > 0) D.lastRoom = { added, steps, mark: h1, da_ve: daVe };      // lần bấm thừa (bản vẽ không đổi) không ghi đè lần vẽ thật → "Hoàn tác phòng" vẫn lùi được lần vẽ trước
+    // (1.36) vẽ cả nhà: các phòng của CÙNG một lượt (opt.gop = mã lượt) gộp thành một lần Hoàn tác — chỉ khi từ lần vẽ phòng trước của lượt đó tới giờ bản vẽ không có thao tác nào khác
+    const gop = !!(opt.gop && L0 && L0.luot === opt.gop && L0.mark && h0 && h0.i === L0.mark.i && h0.rec === L0.mark.rec);
+    // ds_phong = các phòng mà MỘT lần "Hoàn tác phòng" lùi (gộp được thì cả các phòng trước của lượt) — giao diện chỉ trả bản ghi của đúng các phòng này
+    if (steps > 0) D.lastRoom = gop ? { added: L0.added.concat(added), steps: L0.steps + steps, mark: h1, da_ve: daVe, phong: opt.phong || '', luot: opt.gop, ds_phong: (L0.ds_phong || [L0.phong]).concat([opt.phong || '']) } : { added, steps, mark: h1, da_ve: daVe, phong: opt.phong || '', luot: opt.gop || '', ds_phong: [opt.phong || ''] };      // lần bấm thừa (bản vẽ không đổi) không ghi đè lần vẽ thật → "Hoàn tác phòng" vẫn lùi được lần vẽ trước
     opt.onStatus('Xong.');
     return { ok: errors.length === 0 && dem.tuong > 0, errors, warnings, dem, them, giu, bo, trung, khong_doi: steps === 0, dung, da_ve: daVe, ten_phong: tenPhong, so_buoc_hoan_tac: steps, so_doi_tuong: added.length };
   };
