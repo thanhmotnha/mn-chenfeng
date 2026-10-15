@@ -282,7 +282,7 @@ async function chonBepExt(page, H, ma) {
     /* --- (soát 1.34.1) nút kiểu táp: sâu phủ bì đổi (C nóc chồm ra trước 20) → bỏ chỗ đặt như ô Thư viện; cùng sâu thì giữ --- */
     {
       await H.locator('.tab[data-tab="tu"]').click();
-      await H.locator('#mncf-ui-mau').selectOption('TAP-GO1'); await H.locator('[data-act="mau"]').click();
+      await H.locator('#mncf-ui-mau').selectOption('@TAP'); await H.locator('[data-act="mau"]').click();      // (1.36.2) ô Thư viện chỉ còn một mục táp (= kiểu A)
       await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'tap');
       if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
       await H.locator('#mncf-ui-ax').fill('4000'); if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
@@ -412,7 +412,10 @@ async function chonBepExt(page, H, ma) {
     // (soát 1.34.1) táp CHÂN GỖ rời: chân không phải tấm (không vào lệnh nhập) — góc đặt (ô toạ độ / điểm bấm) là ở SÀN, bảng nâng thân lên cao chân (trước: thân rơi xuống sàn, mất 150)
     { await H.locator('.tab[data-tab="tu"]').click();
       if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
-      await H.locator('#mncf-ui-mau').selectOption('TAP-CHAN2'); await H.locator('[data-act="mau"]').click();
+      // (1.36.2) ô Thư viện chỉ còn một mục táp → chọn kiểu E (chân gỗ) bằng thẻ hình
+      await H.locator('#mncf-ui-mau').selectOption('@TAP'); await H.locator('[data-act="mau"]').click();
+      await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'tap');
+      await H.locator('.sp [data-act="tap-kieu"][data-kieu="E"]').click();
       await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'tap' && s.tap && s.tap.chan_go === 150; });
       await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.hau = Object.assign({}, s.hau, { t: 6 }); window.MNCF.app.setSpec(s); });
       const bdT = async () => page.evaluate(() => { const D = window.MNCFDriver, L = D.last, bs = L.added.filter(e => D.isBoard(e) && !e.IsErase), b = bs.map(D.boxOf), T = bs[0] && bs[0].Template && bs[0].Template.Object;
@@ -425,7 +428,7 @@ async function chonBepExt(page, H, ma) {
       await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 40000) < 1; }, null, { timeout: 30000 });
       await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
       let g = await bdT();
-      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 40000, 'táp chân gỗ gõ z 0: đáy ở 150, đỉnh 580 (không rơi xuống sàn)', g);
+      ok(g.z0 === 150 && g.z1 === 600 && g.x0 === 40000, 'táp chân gỗ gõ z 0: đáy ở 150, đỉnh 600 (không rơi xuống sàn)', g);      // (1.36.2) thẻ E giữ cỡ đang gõ của táp A (cao 600) — trước: mục TAP-CHAN2 cỡ mặc định 580
       ok(/chân gỗ/.test(g.moTaH || ''), 'táp chân gỗ: tham số H của module nói rõ chưa gồm chân gỗ', g.moTaH);
       // đặt bằng điểm bấm (không ô toạ độ): bấm ở sàn → thân nâng lên cao chân
       await H.locator('.tab[data-tab="tu"]').click();
@@ -439,11 +442,51 @@ async function chonBepExt(page, H, ma) {
       await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 42000) < 1; }, null, { timeout: 30000 });
       await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
       g = await bdT();
-      ok(g.z0 === 150 && g.z1 === 580 && g.x0 === 42000, 'táp chân gỗ bấm điểm ở sàn: đáy ở 150 (bảng nâng lên cao chân)', g);
+      ok(g.z0 === 150 && g.z1 === 600 && g.x0 === 42000, 'táp chân gỗ bấm điểm ở sàn: đáy ở 150 (bảng nâng lên cao chân)', g);
       await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
       await H.locator('.tab[data-tab="tu"]').click();
       if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
       ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'táp chân gỗ: dọn sạch bản vẽ'); }
+    // (soát 1.36.2) Sửa một táp VẼ TRƯỚC 1.36.2 (hậu theo Chuẩn xưởng, thông số lúc vẽ chưa có khoá hau_ranh / lui_thanh): specDaVe ghi 0 để dò lại đúng tủ.
+    // Bảng chỉ có MỘT thông số → trước: số 0 dính sang táp vẽ mới (hậu phủ lòi cạnh), không lời báo. Nay: Sửa báo một dòng, Thôi sửa → về chuẩn mới.
+    // Đường 'bang' (máy không có thông số lưu, bảng đang mở file táp cũ đã theo chuẩn mới): thử bản sao kiểu cũ trước khi báo "vẽ ở máy khác".
+    { await H.locator('.tab[data-tab="tu"]').click();
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      const cu = await page.evaluate(() => { const C = window.MNCFCore, s = C.tapTheoKieu('A', null, C.DEFAULT_SPEC); s.hau = Object.assign({}, s.hau, { t: 6 }); s.tap.hau_ranh = 0; s.tap.lui_thanh = 0; return s; });
+      await page.evaluate(s => window.MNCF.app.setSpec(s), cu);
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+      await H.locator('#mncf-ui-ax').fill('44000'); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0');
+      await H.locator('footer [data-act="draw"]').click();
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 44000) < 1; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      const idT = await page.evaluate(() => window.MNCFDriver.last.id);
+      ok(await page.evaluate(() => window.MNCFDriver.last.added.some(e => e.Name === 'Hậu' || /Hậu/.test(e.Name || ''))), 'táp kiểu cũ (hậu phủ) đã vẽ');
+      // giả bản lưu của 1.36.1: thông số chưa có hai khoá
+      await page.evaluate(id => { const k = 'mncf.tu.' + id, o = JSON.parse(localStorage.getItem(k)); delete o.spec.tap.hau_ranh; delete o.spec.tap.lui_thanh; o.ban = '1.36.1'; localStorage.setItem(k, JSON.stringify(o)); }, idT);
+      await H.locator('.tab[data-tab="tu"]').click(); await H.locator('footer [data-act="unlink"]').click();
+      const chonTam = () => page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idT);
+      const bamSua = async () => { if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click(); await H.locator('[data-act="pick"]').click(); };
+      await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+      await chonTam(); await bamSua();
+      let st = await H.locator('.status').innerText(), sp = await page.evaluate(() => window.MNCF.app.getSpec());
+      ok(/Đã mở thông số của tủ/.test(st) && !/thiếu/.test(st) && sp.tap.hau_ranh === 0 && sp.tap.lui_thanh === 0, 'Sửa táp vẽ ở 1.36.1: dựng lại như lúc vẽ (hậu theo Chuẩn xưởng), không báo thiếu tấm', [st, sp.tap]);
+      ok(/vẽ trước bản 1\.36\.2/.test(st) && /Thôi sửa/.test(st), 'Sửa táp vẽ kiểu cũ: báo một dòng (giữ như lúc vẽ, Thôi sửa → chuẩn mới)', st);
+      await H.locator('footer [data-act="unlink"]').click();
+      st = await H.locator('.status').innerText(); sp = await page.evaluate(() => window.MNCF.app.getSpec());
+      ok(sp.tap.hau_ranh === 1 && sp.tap.lui_thanh === 30 && /Táp về chuẩn mới/.test(st) && (await page.evaluate(() => window.MNCF.app.getModel().parts.filter(p => p.loai === 'HAU').every(p => p.mong))), 'Thôi sửa: táp về chuẩn mới (hậu soi rãnh, rãnh móc), có báo', [sp.tap, st]);
+      // đường 'bang': máy không có thông số lưu, bảng mở file táp cũ (nangCap → chuẩn mới)
+      await page.evaluate(id => localStorage.removeItem('mncf.tu.' + id), idT);
+      const mo = await page.evaluate(s => { const C = window.MNCFCore, f = JSON.parse(JSON.stringify(s)); delete f.tap.hau_ranh; delete f.tap.lui_thanh; return C.normalize(C.nangCap(f, '1.36.1').spec); }, cu);
+      await page.evaluate(s => window.MNCF.app.setSpec(s), mo);
+      ok(mo.tap.hau_ranh === 1, 'file táp cũ mở theo chuẩn mới');
+      await chonTam(); await bamSua();
+      st = await H.locator('.status').innerText(); sp = await page.evaluate(() => window.MNCF.app.getSpec());
+      ok(/Đã mở thông số của tủ/.test(st) && /thông số đang mở/.test(st) && !/máy \/ trình duyệt khác/.test(st) && sp.tap.hau_ranh === 0, 'máy không có thông số lưu + file táp cũ: Sửa vẫn dò ra tủ (thông số kiểu cũ)', [st, sp.tap]);
+      await H.locator('footer [data-act="unlink"]').click();
+      ok((await page.evaluate(() => window.MNCF.app.getSpec().tap.hau_ranh)) === 1, 'đường bang: Thôi sửa cũng về chuẩn mới');
+      await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
+      ok((await page.evaluate(() => window.MNCFDriver.all().length)) === 0, 'táp kiểu cũ: dọn sạch bản vẽ'); }
     // (1.32) mở file giường khi đang giữ chỗ đặt của món khác loại: bỏ chỗ đặt (góc trước tính theo sâu của món cũ)
     { if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
       const g = await page.evaluate(() => window.MNCFCore.apMau(window.MNCFCore.DEFAULT_SPEC, 'G16-T'));
