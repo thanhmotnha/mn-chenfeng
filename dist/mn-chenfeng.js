@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.36.1 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.36.2 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.36.1';
+  const VERSION = '1.36.2';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -738,8 +738,9 @@
         const ngoai = j === 0 || j === n;
         const p = P({ loai: ngoai ? 'HOI' : 'VACH', ten: j === 0 ? NM.hoi_trai : j === n ? NM.hoi_phai : NM.vach, than: b.code, tu: b.tu, type: 1,
           x0: xs[j], x1: xs[j] + t, y0: 0, y1: sauDung(xs[j], xs[j] + t), z0: zD0, z1: ngoai && goB ? rn(zD1 + goB) : zD1, big: j === n ? 1 : 0, vi_tri: j, thung: thungCua[Math.min(j, n - 1)] });
-        // (1.34.1) táp gờ chắn: bo tròn góc trên phía trước của hồi — đường bao tấm đứng trong Chenfeng chưa đo hướng trục → ghi gia công (CNC / máy bo cạnh), tấm vẫn chữ nhật
-        if (ngoai && goB && TP.bo > 0) p.gia_cong = `bo tròn góc trên phía trước R${g(TP.bo)} (gia công CNC)`;
+        // (1.34.1) táp gờ chắn: bo tròn góc trên phía trước của hồi — ghi gia công (CNC / máy bo cạnh)
+        // (1.36.2, anh Thanh: "vẽ ra lại là vuông góc") tấm cũng mang đường bao cong thật (bo_r → duongBaoBo) để Chenfeng vẽ đúng hình
+        if (ngoai && goB && TP.bo > 0) { p.gia_cong = `bo tròn góc trên phía trước R${g(TP.bo)} (gia công CNC)`; p.bo_r = TP.bo; }
         if (j > 0) vR[j - 1] = p;
         if (j < n) vL[j] = p;
       }
@@ -1928,6 +1929,17 @@
     // bỏ đỉnh trùng liên tiếp
     return pts.filter((q, i) => i === 0 || Math.abs(q[0] - pts[i - 1][0]) > TOL || Math.abs(q[1] - pts[i - 1][1]) > TOL).map(q => [rn(q[0]), rn(q[1])]);
   }
+  /**
+   * (1.36.2) Đường bao tấm ĐỨNG dọc (type 1 — hồi / vách) bo tròn góc trên phía trước bán kính r.
+   * Hệ riêng của tấm đứng dọc: u = y − y0 (chiều sâu, 0 = mép trước — như rãnh hậu trên hồi), v = z − z0 (chiều cao, 0 = mép dưới) — cùng chiều với rect(w, h)
+   * (hệ thuận: trục u = Y, trục v = Z, pháp tuyến = X; tấm nằm đã đo là u = Y, v = −X, pháp tuyến Z — cũng hệ thuận).
+   * CHƯA ĐO trên Chenfeng thật: góc bo phải nằm trên–trước; nằm góc khác thì đảo u / v ở đây.
+   * Đi ngược chiều kim đồng hồ như rect: (0,0) → (w,0) → (w,h) → (r,h) ⌒ (0,h−r); cung 90° ngược chiều kim đồng hồ → bul = tan(90°/4) đặt ở đỉnh đầu cung.
+   */
+  function duongBaoBo(w, h, r) {
+    r = Math.min(r, w, h);
+    return [{ pt: [0, 0], bul: 0 }, { pt: [rn(w), 0], bul: 0 }, { pt: [rn(w), rn(h)], bul: 0 }, { pt: [rn(r), rn(h)], bul: rn(Math.tan(Math.PI / 8), 6) }, { pt: [0, rn(h - r)], bul: 0 }];
+  }
   function duongBaoKhau(p) { return dinhKhoet(p).map(q => ({ pt: [rn(q[1] - p.y0), rn(p.x1 - q[0])], bul: 0 })); }
 
   /**
@@ -2228,7 +2240,7 @@
     const chau = !!(s.bep && s.bep.chuc_nang === 'chau' && s.bep.van_chau && NHOM[p.loai] === 'Thùng');      // (bản 1.33) thùng tủ chậu: ván chống ẩm (mặt cánh, xà chân giữ ván mặt)
     const o = {
       Type: 'Board', Name: p.ten, BrType: p.type, PositionType: 1,      // PositionType 1: Pos = góc nhỏ nhất (x, y, z) cho cả 3 loại tấm
-      ContourCurve: p.khau && p.khau.length && p.type === 0 ? duongBaoKhau(p) : rect(w, h), Thickness: rn(t), Pos: [p.x0, p.y0, p.z0],
+      ContourCurve: p.khau && p.khau.length && p.type === 0 ? duongBaoKhau(p) : p.bo_r > 0 && p.type === 1 ? duongBaoBo(w, h, p.bo_r) : rect(w, h), Thickness: rn(t), Pos: [p.x0, p.y0, p.z0],
       RoomName: s.phong, CabinetName: p.tu, BrMatName: (hau && s.hau.ten_van) || (chau && s.bep.van_chau) || s.van.ten_van || '', Matrial: (hau && s.hau.vat_lieu) || (chau && s.bep.van_chau) || s.van.vat_lieu || '', Color: (hau && s.hau.mau) || s.van.mau || '',
       Lines: p.lines, BigHole: p.big, ComposingFace: 2,
       UpSealed: dc, DownSealed: dc, LeftSealed: dc, RightSealed: dc,

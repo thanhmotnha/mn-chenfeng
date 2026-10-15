@@ -2292,7 +2292,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
   const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma))), t = D.van.t, tc = D.van.t_canh;
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  eq(C.VERSION, '1.36.1', 'phiên bản 1.36.1');
+  eq(C.VERSION, '1.36.2', 'phiên bản 1.36.2');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO], co = ma => MAU.some(m => m.ma === ma);
   for (const ma of ['BC-TL-700', 'BC-TL-830', 'BC-TL-910', 'BC-LO-600', 'BD-KE-150', 'BD-KE-200', 'BD-KE-300', 'BT-KE-150', 'BT-KE-200', 'BT-KE-300',
     'BD-GOC-900-T', 'BD-GOC-900-P', 'BD-GOC-990-T', 'BD-GOC-990-P', 'BD-GOCLA-900-T', 'BD-GOCLA-900-P', 'BT-GOC-900-T', 'BT-GOC-900-P', 'BT-GOC-990-T', 'BT-GOC-990-P', 'BT-GOCLA-900-T', 'BT-GOCLA-900-P']) ok(co(ma), `có mẫu ${ma}`);
@@ -3237,6 +3237,22 @@ T('Táp theo kiểu: gõ cỡ, ruột tự chia (bản 1.34.1)', () => {
       }
     }
   }
+  // (1.36.2) hồi táp gờ chắn bo góc trên–trước: tấm xuất sang Chenfeng mang đường bao cong thật (anh Thanh: "vẽ ra lại là vuông góc"), không chỉ ghi gia công
+  { const s = C0.tapTheoKieu('A', null, D0), M = C0.build(s), ms = C0.toChenfeng(M).json.ModelSpace;
+    const hoi = M.parts.filter(p => p.loai === 'HOI'), R = s.tap.bo;
+    ok(R > 0 && hoi.length === 2 && hoi.every(p => p.bo_r === R && /bo tròn góc trên phía trước R/.test(p.gia_cong)), 'A: hai hồi mang bo_r + ghi gia công', hoi.map(p => [p.bo_r, p.gia_cong]));
+    const bds = ms.filter(o => o.Type === 'Board' && o.BrType === 1 && hoi.some(p => p.ten === o.Name && p.x0 === o.Pos[0]));
+    ok(bds.length === 2, 'A: tìm thấy 2 hồi trong lệnh nhập', bds.length);
+    for (const o of bds) {
+      const p = hoi.find(q => q.x0 === o.Pos[0]), w = p.y1 - p.y0, h = p.z1 - p.z0, cc = o.ContourCurve;
+      eq(cc.map(c => c.pt), [[0, 0], [w, 0], [w, h], [R, h], [0, h - R]], `hồi x=${p.x0}: 5 đỉnh, cung ở góc trên–trước (u = sâu từ mép trước, v = cao từ mép dưới)`);
+      ok(Math.abs(cc[3].bul - Math.tan(Math.PI / 8)) < 1e-6 && cc.filter(c => c.bul).length === 1, 'cung 90° ngược chiều kim đồng hồ (bul = tan 22,5°) ở đỉnh đầu cung', cc.map(c => c.bul));
+    }
+    // vách giữa / tủ áo / táp không gờ: vẫn chữ nhật
+    const ve = ms.filter(o => o.Type === 'Board' && o.BrType === 1 && !bds.includes(o));
+    ok(ve.every(o => o.ContourCurve.length === 4), 'tấm đứng khác vẫn chữ nhật');
+    const tu = C0.toChenfeng(C0.build(D0)).json.ModelSpace.filter(o => o.Type === 'Board');
+    ok(tu.every(o => o.ContourCurve.every(c => !c.bul)), 'tủ áo mặc định: không tấm nào có cung'); }
   // cỡ mặc định của kiểu = số chọn hiện tại của thư viện; mã / tên không mang cỡ
   for (const k of KS) { const s = C0.tapTheoKieu(k, null, D0); eq([s.rong, s.sau_thung, s.cao], K[k].co, `${k}: không gõ cỡ → cỡ mặc định`); }
   // A cao 700: hộc + ngăn kéo cùng lớn; B cao 700: 3 ngăn; E thấp 450: vẫn 2 ngăn ≥ 130
