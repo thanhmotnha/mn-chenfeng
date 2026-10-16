@@ -92,6 +92,10 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     const matX = await page.evaluate(() => window.__thu.hop('抽面板'));
     // tủ xoay 90° quanh góc trái – trước – dưới (5000, 3000, 0): trục x của tủ → trục y bản vẽ, chiều sâu → −x. Mặt ngăn kéo 761 × 17,5 × 178 của thiết kế (x 119,5…880,5, y 12,5…30 tính từ mặt thùng; cánh nhô 17,5 trước thùng)
     eq(matX, [[4952.5, 4970, 3119.5, 3880.5, 119.5, 297.5], [4952.5, 4970, 3119.5, 3880.5, 319.5, 497.5]], 'hai mặt ngăn kéo nằm đúng chỗ sau khi xoay (không lệch khỏi tủ)');
+    // (1.36.4 — ảnh trang sản xuất: tờ ván 5) đáy hộp ngăn kéo của mẫu 5 → lưới đỡ của D.veGoc đặt lại dày hậu SAU khi gom module + đưa về chỗ đặt (đáy vẫn nằm ngang sau khi xoay quanh trục đứng)
+    { const day = await page.evaluate(() => window.__thu.hop('抽底板'));
+      ok(day.length === 2 && day.every(b => Math.abs(b[5] - b[4] - 6.5) < 0.06), 'ngăn kéo lệnh gốc: 2 đáy hộp dày 6,5 (mẫu dựng 5)', day);
+      ok(r.warnings.some(w => /2 đáy hộp ngăn kéo của mẫu Chenfeng mỏng hơn hậu/.test(w)), '… báo một dòng', r.warnings); }
     ht = await page.evaluate(() => window.__thu.hoanTac());
     ok(ht.ok && ht.con < ht.truoc, 'hoàn tác tủ xoay', ht);
 

@@ -177,7 +177,8 @@
       const mb = (b.box[2 * kb] + b.box[2 * kb + 1]) / 2;
       for (const vt of (L >= 150 ? [50, L - 50] : [L / 2])) {
         const nhom = ++SO_NHOM, diem = (akf, akb) => { const p = [0, 0, 0]; p[kf] = akf; p[kb] = akb; p[kw] = w0 + vt; return p; }, huong = (k, s) => { const d = [0, 0, 0]; d[k] = s; return d; };
-        ra.push(new CylinderHole(f, { M: b, p: diem(c - n * 34, b.box[2 * kb + 1]), d: huong(kb, -1), dai: 13.5, r: 6, nhom, T: 0 }));
+        const truoc = b._fd === true && b._bd === false;      // (1.36.4, GIẢ ĐỊNH) chén ở mặt Front chỉ khi tấm khai mỗi FrontDrill
+        ra.push(new CylinderHole(f, { M: b, p: diem(c - n * 34, truoc ? b.box[2 * kb] : b.box[2 * kb + 1]), d: huong(kb, truoc ? 1 : -1), dai: 13.5, r: 6, nhom, T: 0 }));
         ra.push(new CylinderHole(f, { M: b, p: diem(c - n * 34, mb), d: huong(kf, n), dai: 34, r: 4, nhom, T: 1 }));
         ra.push(new CylinderHole(f, { M: b, p: diem(c, mb), d: huong(kf, n), dai: 13.5, r: 2.5, nhom, T: 2 }));
         if (window.__MOCK_LO_GIAO__ && b.Name === 'Đợt' && f.Name === 'Hồi trái' && vt === 50) { const p = diem(c, mb); p[kw] += 3; ra.push(new CylinderHole(f, { M: b, p, d: huong(kf, n), dai: 13.5, r: 2.5, nhom: ++SO_NHOM, T: 2 })); }
@@ -198,6 +199,9 @@
     const box = o.BrType === 1 ? [x, x + t, y, y + w, z, z + h] : o.BrType === 0 ? [x, x + h, y, y + w, z, z + t] : [x, x + w, y, y + t, z, z + h];
     const b = new Board(o.Name, o.BrType, box, t, o.CabinetName, o.RoomName, o.EachEdgeDrills || ['不排', '不排', '不排', '不排']);
     if (o.Remarks) b.BoardProcessOption.remarks = o.Remarks;      // bản thật: e.Remarks && (opt.remarks = e.Remarks)
+    // (1.36.4) mặt nhận chén cam: GIẢ ĐỊNH — bản thật CHƯA ĐO FrontDrill / BackDrill làm gì. Trang giả lập đặt chén ở mặt "lớn" (Back) như trước,
+    // chỉ tấm khai FrontDrill bật + BackDrill tắt mới nhận chén ở mặt "nhỏ" (Front = y nhỏ của tấm đứng type 2) — xem camCho.
+    b._fd = o.FrontDrill !== false; b._bd = o.BackDrill !== false;
     if (o.BrType === 0 && o.ContourCurve.length > 4 && !window.__MOCK_BO_KHOET__) b.dinh = o.ContourCurve.map(c => [x + h - c.pt[1], y + c.pt[0]]);      // tấm nằm (đo trên bản thật): u của đường bao = chiều sâu (y), v = chiều ngang ĐẢO (x = x1 − v)
     return b;
   }
@@ -220,7 +224,10 @@
     out.push(new Board('抽侧板', 1, [x + L - GD - BH, x + L - GD, y, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
     out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y, y + BH, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
     out.push(new Board('抽背板', 2, [x + GD + BH, x + L - GD - BH, y + Wt - BH, y + Wt, bz0, bz1], BH, o.CabinetName, o.RoomName, old));
-    out.push(new Board('抽底板', 0, [x + GD + BH - 6, x + L - GD - BH + 6, y + 11.5, y + Wt - 11.5, bz0 + 10, bz0 + 15], 5, o.CabinetName, o.RoomName, old));
+    // (1.36.4) dày đáy: mẫu "đáy mỏng" (薄底) dựng 抽底板 dày 5 (ảnh trang sản xuất của anh: tờ 2440 × 1220 × 5). Tên tham số dày đáy của mẫu thật CHƯA BIẾT —
+    // GIẢ ĐỊNH: window.__MOCK_DAY_DAY__ = tên tham số (vd 'DBH') → đáy dày theo tham số đó, giữ mặt trên ở bz0 + 15; không đặt thì như cũ (5, không tham số nào đổi được).
+    const nDay = window.__MOCK_DAY_DAY__, tDay = nDay && P[nDay] > 0 ? P[nDay] : 5;
+    out.push(new Board('抽底板', 0, [x + GD + BH - 6, x + L - GD - BH + 6, y + 11.5, y + Wt - 11.5, bz0 + 15 - tDay, bz0 + 15], tDay, o.CabinetName, o.RoomName, old));
     out.push(new HardwareCompositeEntity('三节轨', [x, x + L, y, y + W, bz0, bz0 + 40], o.CabinetName));
     return out;
   }
@@ -340,7 +347,7 @@
       // ĐÃ ĐO: dày mặt = tham số BH của MẪU — mẫu ray bi / ray âm ghi BH = $BH (theo thùng), mẫu hộp ray Blum ghi BH = 18 cố định. Ô `thickness` của hộp thoại không dính gì tới dày mặt.
       const pB = d.tempInfo.temp.props.find(x => x.name === 'BH'), bhMau = pB && (pB.expr === '' || !isNaN(Number(pB.expr))) ? P('BH') : BH;
       const es = templateFromJSON({ Name: d.tempInfo.temp.name, CabinetName: tu, RoomName: phong, BoxSize: [kh.x1 - kh.x0, W, h], Pos: [kh.x0, yF, fz0],
-        ParamMap: [['BH', bhMau], ['GD', P('GD')], ['SLK', P('SLK')], ['XLK', P('XLK')], ['SYS', 0], ['XYS', 0], ['ZYS', kh.x0 - fx0], ['YYS', fx1 - kh.x1]].filter(x => x[1] !== undefined).map(([name, value]) => ({ name, value: String(value) })) });
+        ParamMap: [['BH', bhMau], ['GD', P('GD')], ['SLK', P('SLK')], ['XLK', P('XLK')], ['SYS', 0], ['XYS', 0], ['ZYS', kh.x0 - fx0], ['YYS', fx1 - kh.x1]].concat(window.__MOCK_DAY_DAY__ ? [[window.__MOCK_DAY_DAY__, P(window.__MOCK_DAY_DAY__)]] : []).filter(x => x[1] !== undefined).map(([name, value]) => ({ name, value: String(value) })) });
       const rec = new Tpl(d.tempInfo.temp.name, es); rec.Parent = kg.Id; kg.Children.push(rec.Id);
       // ĐÃ ĐO: nút mẫu ngăn kéo mang L = _L, W = floor(_W/50)*50 (sâu DANH NGHĨA của hộp), H theo ô, BH; mặt ngăn kéo thuộc thẳng nút này
       rec.LParam.value = kh.x1 - kh.x0; rec.LParam.expr = '_L'; rec.WParam.value = W; rec.WParam.expr = 'floor(_W/50)*50'; rec.HParam.value = h; rec.GetParam('BH').value = bhMau; if (pB) rec.GetParam('BH').expr = pB.expr;

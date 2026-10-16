@@ -2,7 +2,7 @@
 // Bản 1.22 — TRỢ LÝ TRANG SẢN XUẤT (src/mncf-sx.js) trên trang giả lập tab "晨丰生产管理系统" (test/mock-sanxuat.html + test/mock-cutblock.html).
 //   NODE_PATH=<node_modules có playwright> PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node test/sx.test.js
 // Kiểm: báo trạng thái khi trang còn trắng, cứu trang trắng (lỗi tranh nhau Invoker / Receiver), tự 开始优化 → 停止优化 khi số tờ đứng yên → 确认新优化,
-// nhường khi người dùng tự làm, không bấm nút nào khác, chỉ làm một lần mỗi trang, nhớ lựa chọn bật / tắt.
+// nhường khi người dùng tự làm, không bấm nút nào khác, chỉ làm một lần mỗi trang, nhớ lựa chọn bật / tắt; Tiếng Việt cho nút / nhãn (1.36.4, chỉ hiển thị).
 const path = require('path'), fs = require('fs');
 const { chromium } = require('playwright');
 const SX = path.join(__dirname, '..', 'src', 'mncf-sx.js');
@@ -81,6 +81,8 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     chu = await T.B.locator('.chu').innerText();
     ok(/Xong/.test(chu) && /31 tờ/.test(chu) && /MDF 103T 17\.5: 19 tờ/.test(chu) && /Acrylic LUX279PRL 17\.5: 4 tờ/.test(chu), 'báo xong: tổng số tờ + từng loại ván', chu);
     ok(/chưa lưu/i.test(chu) && /保存优化/.test(chu), 'nhắc rằng chưa lưu gì', chu);
+    // (soát 1.36.4) Tiếng Việt bật (mặc định): nút trên trang hiện chữ Việt → lời báo gọi nút bằng chữ Việt kèm chữ gốc, người dùng tìm được nút được nhắc
+    ok(/Lưu tối ưu \(保存优化\)/.test(chu) && /NC một chạm \(一键NC\)/.test(chu) && /In nhãn \(打印标签\)/.test(chu), 'Tiếng Việt bật: lời báo nêu chữ Việt của nút kèm chữ gốc', chu);
     tt = await T.tt();
     ok(tt.so_tam === 38 && tt.cuu === 0, 'không phải cứu trang lần nào', tt);
     ok(['cho_dl', 'tinh', 'dem', 'chay', 'xong'].every(k => tt.nhat_ky.some(n => n[0] === k)), 'nhật ký đi đủ các bước', tt.nhat_ky.map(n => n[0]));
@@ -170,6 +172,7 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     eq((await T.so()).bam, [], 'tự tối ưu tắt: không bấm gì');
     chu = await T.B.locator('.chu').innerText();
     ok(/开始优化/.test(chu) && /停止优化/.test(chu) && /确认新优化/.test(chu), 'nhắc 3 nút phải bấm tay', chu);
+    ok(/Bắt đầu tối ưu \(开始优化\)/.test(chu) && /Dừng tối ưu \(停止优化\)/.test(chu) && /Xác nhận tối ưu mới \(确认新优化\)/.test(chu), 'Tiếng Việt bật: nhắc 3 nút bằng chữ Việt kèm chữ gốc', chu);
     ok(!(await T.B.locator('[data-ui="tu-dong"]').isChecked()), 'ô "Tự tối ưu" đang bỏ chọn');
     ok(!(await T.tt()).nhat_ky.some(n => n[0] === 'dem'), 'đang tắt: bảng báo không hề nháy dòng đếm ngược', (await T.tt()).nhat_ky.map(n => n[0]));
     await T.B.locator('[data-ui="tu-dong"]').check();
@@ -300,7 +303,7 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     console.log('— Hộp tối ưu bị đóng giữa chừng (không phải do bấm trong hộp): trợ lý thôi, hộp mở lại cũng không bấm tiếp');
     const anHop = (X, an) => X.page.frames()[1].evaluate(a => { document.querySelector('.el-dialog__wrapper').style.display = a ? 'none' : ''; }, an);
     T = await mo({}, { dat: { dem: 2500 } });
-    await T.choChu(/trợ lý bấm 开始优化 sau/, 10000);
+    await T.choChu(/trợ lý bấm Bắt đầu tối ưu \(开始优化\) sau/, 10000);
     await anHop(T, true); await ngu(700);
     tt = await T.tt();
     ok(tt.tu === 'thoi' && tt.ly === 'hop_dong', 'hộp đóng lúc trợ lý đang đếm: trợ lý thôi', [tt.tu, tt.ly]);
@@ -319,7 +322,7 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
 
     console.log('— Bỏ chọn "Tự tối ưu" lúc trợ lý đang đếm: không bấm nữa');
     T = await mo({}, { dat: { dem: 2500 } });
-    await T.choChu(/trợ lý bấm 开始优化 sau/, 10000);
+    await T.choChu(/trợ lý bấm Bắt đầu tối ưu \(开始优化\) sau/, 10000);
     await T.B.locator('[data-ui="tu-dong"]').uncheck();
     await ngu(3500);
     s = await T.so(); tt = await T.tt();
@@ -363,6 +366,107 @@ const DUOC_BAM = ['开始优化', '停止优化', '确认新优化'];
     s = await T.so(); tt = await T.tt();
     ok(tt.cuu === 1 && s.goi.invokeUpdate === 2, 'chỉ gọi lại MỘT lần, sau khi khung đã báo initFinish', [tt.cuu, s.goi, s.moc]);
     may.tre_cb = 0;
+    await T.dong();
+
+    console.log('— Tiếng Việt (bản 1.36.4): chữ Việt hiện, chữ gốc còn nguyên trong DOM, trợ lý vẫn dò nút theo chữ gốc');
+    // Chỉ HIỂN THỊ: phần tử chứa chữ mang data-mncf-vi (chữ Việt, hiện bằng ::after), chữ gốc thu cỡ 0, title = chữ gốc. Mọi luồng ở trên đã chạy với Tiếng Việt BẬT (mặc định).
+    const viKhung = X => X.page.frames()[1].evaluate(() => {
+      const ve = el => el ? { vi: el.getAttribute('data-mncf-vi'), goc: el.textContent, it: el.innerText, title: el.getAttribute('title'), co: getComputedStyle(el).fontSize, sau: getComputedStyle(el, '::after').content, rong: el.getBoundingClientRect().width } : null;
+      const tim = (sel, t) => [...document.querySelectorAll(sel)].find(e => e.textContent.trim() === t) || null;
+      const thanh = [...document.querySelectorAll('.thanh button')].map(b => ({ it: b.innerText.trim(), vi: (b.querySelector('[data-mncf-vi]') || {}).getAttribute ? b.querySelector('[data-mncf-vi]').getAttribute('data-mncf-vi') : null }));
+      const o = document.querySelector('input[placeholder]');
+      return { thanh, luu: ve(tim('.thanh button span', '保存优化')), dao: ve(tim('.thanh button span', '下刀点')), bp: [...document.querySelectorAll('.ben-phai li span, .ben-phai .el-tabs__item')].map(e => e.getAttribute('data-mncf-vi')),
+        duoi: [...document.querySelectorAll('.thanh-duoi .muc, .thanh-duoi span:not(.muc):not(.el-checkbox__input):not(.el-checkbox__inner)')].map(e => e.getAttribute('data-mncf-vi')),
+        chan: ve(document.querySelector('.chan-trang')), cao: ve(tim('.el-checkbox__label', '高亮显示可辅助开料的小板')), them: ve(tim('.cong-cu button span', '更多页码')),
+        o: o && { ph: o.getAttribute('placeholder'), goc: o.getAttribute('data-mncf-ph'), title: o.getAttribute('title') },
+        th: [...document.querySelectorAll('.el-dialog thead th .cell')].map(e => [e.textContent, e.getAttribute('data-mncf-vi')]),
+        so: document.querySelectorAll('[data-mncf-vi]').length, css: !!document.getElementById('mncf-vi-css') };
+    });
+    may.tre_pl = 300;
+    T = await mo({});
+    await T.hop().waitFor({ state: 'visible', timeout: 10000 });
+    await T.page.waitForFunction(() => { const f = document.querySelector('iframe').contentDocument; const b = [...f.querySelectorAll('.el-dialog button span')].find(e => e.textContent === '开始优化'); return b && b.getAttribute('data-mncf-vi'); }, null, { timeout: 5000 });
+    let v = await viKhung(T);
+    ok(v.th.find(x => x[0] === '大板')[1] === 'Tờ ván' && v.th.find(x => x[0] === '纹路')[1] === 'Vân' && v.th.find(x => x[0] === '余料板')[1] === 'Ván dư' && v.th.find(x => x[0] === '开料刀')[1] === 'Dao cắt', 'hộp 优化进度: đầu bảng ván có chữ Việt (大板 = Tờ ván, 纹路 = Vân, 余料板 = Ván dư, 开料刀 = Dao cắt)', v.th);
+    ok(v.th.every(x => x[0]), 'đầu bảng: chữ gốc còn nguyên', v.th);
+    await T.page.waitForFunction(() => { const f = document.querySelector('iframe').contentDocument; const b = [...f.querySelectorAll('.el-dialog button span')].find(e => e.textContent === '停止优化'); return b && b.getAttribute('data-mncf-vi') === 'Dừng tối ưu'; }, null, { timeout: 8000 });
+    ok(true, 'nút đổi chữ 开始优化 → 停止优化 (trang sửa text node): chữ Việt đổi theo');
+    await T.choXong();
+    s = await T.so();
+    eq([s.bam.map(b => b.ten), s.xn.to], [DUOC_BAM, [19, 6, 2, 4]], 'Tiếng Việt bật: trợ lý vẫn tối ưu trọn lượt như cũ');
+    await ngu(800);
+    v = await viKhung(T);
+    eq(v.thanh.map(b => b.it), ['继续优化', '保存优化', '导出优化', '小板明细', '手动排版', '开料顺序', '下刀点', '导出NC', '打印标签', '一键NC', '一键打印', '导出备料单', 'CNC导出', '系统配置'], 'thanh công cụ: innerText của nút vẫn là chữ gốc (trang / trợ lý dò theo chữ gốc)');
+    eq(v.thanh.map(b => b.vi), ['Tối ưu tiếp', 'Lưu tối ưu', 'Xuất tối ưu', 'Chi tiết tấm', 'Xếp tay', 'Thứ tự cắt', 'Điểm vào dao', 'Xuất NC', 'In nhãn', 'NC một chạm', 'In một chạm', 'Xuất phiếu vật tư', 'Xuất CNC', 'Cài đặt hệ thống'], 'thanh công cụ: chữ Việt đúng nghề');
+    ok(v.luu.goc === '保存优化' && v.luu.title === '保存优化' && v.luu.co === '0px' && v.luu.sau === '"Lưu tối ưu"' && v.luu.rong > 20, 'nút 保存优化: chữ gốc còn trong DOM, title = chữ gốc, chữ gốc thu cỡ 0, ::after hiện "Lưu tối ưu" (có bề rộng thật)', v.luu);
+    ok(v.dao.sau === '"Điểm vào dao"', '下刀点 = Điểm vào dao', v.dao);
+    eq(v.bp, ['Chi tiết tấm', 'Thông tin xếp đơn', 'Thông tin đơn hàng', 'Thông tin ván', 'Thông tin tấm', 'Kích thước tấm', 'Thông tin dán cạnh', 'Thuộc tính nâng cao', 'Tình trạng xếp ván', 'Tình trạng cắt', 'Kết nối CNC nâng cao'], 'danh sách bên phải 小板明细');
+    eq(v.duoi, ['Quy cách:1220*2440*17.5', 'Số tấm lật:0', 'Số tấm:13/29', 'Tờ số:1/19', 'Diện tích:2.977', 'TB chung:85.2%', 'TB 10 tờ đầu:88.1%', 'Tờ cuối:62.0%', 'Toạ độ:(0,0)', 'Tổng dán cạnh', 'Tấm chừa biên'], 'thanh dưới: nhãn + số trong cùng một dòng chữ (số giữ nguyên; 38 tấm → loại ván đầu 29 tấm)');
+    ok(v.chan.vi === 'Quy cách:1220*2440*17.5 Số tấm:13/29 Tờ số:1/19' && /规格/.test(v.chan.goc), 'dòng chữ nhiều nhãn: dịch từng nhãn, chữ gốc còn', v.chan);
+    ok(v.cao.vi === 'Tô sáng tấm cắt phụ được' && v.them.vi === 'Xem thêm trang', 'ô 高亮显示可辅助开料的小板 + nút 更多页码', [v.cao, v.them]);
+    ok(v.o && v.o.ph === 'Tìm tấm' && v.o.goc === '搜索小板' && v.o.title === '搜索小板', 'ô 搜索小板: chữ mờ tiếng Việt, chữ gốc giữ ở data-mncf-ph + title', v.o);
+    // chữ còn sót chữ Hán sau khi dịch: không gắn (nửa Việt nửa Trung khó đọc hơn)
+    await T.page.frames()[1].evaluate(() => { const sp = document.createElement('span'); sp.id = 'la'; sp.textContent = '王者排版 规格'; document.querySelector('.ben-phai').appendChild(sp); });
+    await ngu(800);
+    eq(await T.page.frames()[1].evaluate(() => document.getElementById('la').getAttribute('data-mncf-vi')), null, 'chữ có phần chưa có trong từ điển: để nguyên chữ gốc');
+    // (soát 1.36.4) 更多页码 = xem thêm số trang (phân trang), không phải "thêm một trang mới"; mảnh dịch đứng liền nhau thì cách một dấu cách (无纹路 ≠ "KhôngVân")
+    eq(await T.page.evaluate(() => ['更多页码', '无纹路', '有余料板', '规格:1220*2440', '有', '前10平均:88%'].map(x => window.MNCF_SX.tinh.dichVi(x))),
+      ['Xem thêm trang', 'Không Vân', 'Có Ván dư', 'Quy cách:1220*2440', 'Có', 'TB 10 tờ đầu:88%'], 'dichVi: không dính liền hai mảnh dịch, số / dấu giữ sát');
+    console.log('— Tiếng Việt (soát 1.36.4): trang nhiều chữ — mỗi lần đổi chỉ quét phần vừa đổi, không quét lại cả trang');
+    { const f = T.page.frames()[1];
+      await f.evaluate(() => { const ul = document.createElement('div'); ul.id = 'nhieu'; const ten = ['小板', '大板', '有', '无', '封边汇总']; for (let i = 0; i < 3000; i++) { const sp = document.createElement('span'); sp.textContent = ten[i % 5]; ul.appendChild(sp); } document.body.appendChild(ul); });
+      await ngu(900);
+      const q0 = await T.page.evaluate(() => window.MNCF_SX.trang_thai().vi_quet);
+      // ô 坐标 nhảy số khi rê chuột: đổi 20 lần trong ~1 giây
+      for (let i = 0; i < 20; i++) { await f.evaluate(i => { const e = [...document.querySelectorAll('.thanh-duoi span')].find(x => /坐标/.test(x.textContent)); e.textContent = '坐标:(' + i + ',' + i + ')'; }, i); await ngu(50); }
+      await ngu(700);
+      const q1 = await T.page.evaluate(() => window.MNCF_SX.trang_thai().vi_quet), vz = await f.evaluate(() => [...document.querySelectorAll('.thanh-duoi span')].find(x => /坐标/.test(x.textContent)).getAttribute('data-mncf-vi'));
+      ok(q1.lan > q0.lan && q1.nut < 50, 'đổi một ô chữ: lần quét sau chỉ đi qua phần vừa đổi (không đi lại 3000 dòng)', [q0, q1]);
+      eq(vz, 'Toạ độ:(19,19)', 'ô vừa đổi vẫn có chữ Việt mới');
+      ok(await f.evaluate(() => document.querySelectorAll('#nhieu [data-mncf-vi]').length === 3000), '3000 dòng thêm vào trang đều có chữ Việt');
+      await f.evaluate(() => { document.querySelector('#nhieu span').textContent = '王者'; });
+      await ngu(700);
+      eq(await f.evaluate(() => document.querySelector('#nhieu span').getAttribute('data-mncf-vi')), null, 'chữ đổi thành thứ không dịch được: gỡ chữ Việt (quét theo phần vừa đổi vẫn gỡ)');
+      await f.evaluate(() => document.getElementById('nhieu').remove()); }
+    console.log('— Tiếng Việt: trang dựng lại thanh công cụ + danh sách → gắn lại');
+    await T.page.frames()[1].evaluate(() => window.__MOCK_CB_VE_LAI__());
+    await ngu(900);
+    v = await viKhung(T);
+    ok(v.thanh.every(b => b.vi) && v.bp.every(Boolean) && v.thanh[1].vi === 'Lưu tối ưu', 'phần tử mới của trang: có chữ Việt lại', [v.thanh, v.bp]);
+    console.log('— Tiếng Việt: tắt = gỡ sạch, bật lại = gắn lại; lựa chọn được nhớ');
+    ok(await T.B.locator('[data-ui="vi"]').isChecked(), 'ô "Tiếng Việt" mặc định bật');
+    if (await T.B.locator('.vien').isVisible()) await T.B.locator('.vien').click();
+    await T.B.locator('[data-ui="vi"]').uncheck();
+    await ngu(500);
+    v = await viKhung(T);
+    const top = await T.page.evaluate(() => document.querySelectorAll('[data-mncf-vi],[data-mncf-ph],[data-mncf-vt]').length);
+    ok(v.so === 0 && !v.css && v.o.ph === '搜索小板' && v.o.goc === null && v.o.title === null && v.luu.title === null && v.luu.co !== '0px' && top === 0, 'tắt: không còn thuộc tính / CSS nào, chữ mờ + title trả về như cũ', v);
+    eq(await T.page.frames()[1].evaluate(() => document.querySelectorAll('[data-mncf-fs]').length), 0, 'tắt: không còn data-mncf-fs');
+    eq(await T.page.evaluate(() => JSON.parse(localStorage.getItem('mncf.sx.v1')).vi), false, 'tắt được ghi vào mncf.sx.v1');
+    await T.page.frames()[1].evaluate(() => window.__MOCK_CB_VE_LAI__());
+    await ngu(800);
+    eq((await viKhung(T)).so, 0, 'đang tắt mà trang dựng lại: không gắn');
+    await T.B.locator('[data-ui="vi"]').check();
+    await ngu(800);
+    v = await viKhung(T);
+    ok(v.thanh[1].vi === 'Lưu tối ưu' && v.o.ph === 'Tìm tấm' && v.css, 'bật lại: gắn lại ngay', v.thanh);
+    eq(await T.page.evaluate(() => JSON.parse(localStorage.getItem('mncf.sx.v1'))), { tu_dong: true, vi: true }, 'mncf.sx.v1 giữ cả hai lựa chọn');
+    eq((await T.so()).bam.map(b => b.ten), DUOC_BAM, 'bật / tắt / dựng lại: trợ lý không bấm thêm gì');
+    await T.dong();
+    console.log('— Tiếng Việt tắt sẵn (mncf.sx.v1): không gắn gì, trợ lý vẫn tối ưu');
+    T = await mo({}, { ls: { tu_dong: true, vi: false } });
+    await T.choXong();
+    await ngu(800);
+    v = await viKhung(T);
+    ok(v.so === 0 && !v.css && v.o.ph === '搜索小板' && !(await T.B.locator('[data-ui="vi"]').isChecked()), 'tắt sẵn: không có chữ Việt, ô bỏ chọn', v.so);
+    eq((await T.so()).bam.map(b => b.ten), DUOC_BAM, 'tắt sẵn: trợ lý vẫn tối ưu trọn lượt');
+    { const c = await T.B.locator('.chu').innerText(); ok(/保存优化/.test(c) && !/Lưu tối ưu/.test(c), 'Tiếng Việt tắt: lời báo gọi nút bằng chữ gốc (đúng chữ đang hiện trên trang)', c); }
+    await T.dong();
+    T = await mo({}, { ls: { tu_dong: false } });                            // bản lưu cũ (chưa có khoá vi): Tiếng Việt mặc định bật
+    await T.hop().waitFor({ state: 'visible', timeout: 10000 });
+    await ngu(800);
+    v = await viKhung(T);
+    ok(v.th.find(x => x[0] === '大板')[1] === 'Tờ ván' && (await T.tt()).vi === true, 'bản lưu cũ chưa có khoá vi: mặc định bật', v.th);
     await T.dong();
 
     const la = moiBam.filter(b => !b.tin && DUOC_BAM.indexOf(b.ten) < 0);

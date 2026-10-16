@@ -236,7 +236,7 @@ async function chonBepExt(page, H, ma) {
     ok(rep.boards === 46 + 12 && rep.hw === 6, '46 tấm thiết kế + 12 tấm hộp ngăn kéo + 6 phụ kiện', rep);
     ok(JSON.stringify(rep.off) === '[5000,17.5,0]', 'toạ độ gõ = góc trái–trước–dưới của tủ (mặt cánh) → thùng dời (5000; 17,5; 0)', rep.off);
     ok(rep.old === 0 && rep.wrongType === 0, 'đã đổi kiểu khoan cũ 三合一 → Cam3Tp và ghi lại drillType', rep);
-    ok(rep.steps === 4, '4 bước hoàn tác (nhập tấm + thêm mẫu ngăn kéo / suốt treo + khoan lại + gom module) — nút Hoàn tác lùi đủ cả 4', rep.steps);
+    ok(rep.steps === 5, '5 bước hoàn tác (nhập tấm + thêm mẫu ngăn kéo / suốt treo + khoan lại + gom module + 1.36.4: đặt dày đáy hộp ngăn kéo 5 → dày hậu) — nút Hoàn tác lùi đủ cả 5', rep.steps);
     /* --- tủ vẽ xong là module tham số gốc của Chenfeng --- */
     const mod = await page.evaluate(() => { const D = window.MNCFDriver, bs = D.all().filter(D.isBoard), tag = bs.filter(D.tagOf), T = tag[0].Template && tag[0].Template.Object;
       const ex = n => T.GetParam(n).actions.map(a => a.Expr + ':m' + a.MoveEntitys.length + '/s' + a.EntityStretchPointMap.length).sort();
@@ -885,6 +885,24 @@ async function chonBepExt(page, H, ma) {
       ok(r.lech.length === 0 && !r.warnings.some(w => /đặt mặt khác thiết kế|Không thấy phụ kiện nào/.test(w)), '… phép đối chiếu không đòi mặt ngăn kéo của hộp chưa thêm được (không báo "mặt ngăn kéo lệch")', [r.lech, r.warnings]);
       ok(r.warnings.some(w => /Chưa thêm được 2 hộp ngăn kéo \(khoang 2\)/.test(w) && /mã mẫu 777002 \(别人的抽屉\)/.test(w) && /không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập/.test(w) && /Dò mã mẫu từ kho Chenfeng/.test(w)), '… báo rõ mã mẫu nào không phải của tài khoản, chỉ chỗ sửa', r.warnings);
       ok(r.tai.filter(id => id === 777002).length === 2, '… mã không phải của mình: không thử đi thử lại', r.tai);
+      // 5b. (1.36.4 — ảnh trang sản xuất: tờ ván 5; bộ thử này ghim hậu 6) mẫu ngăn kéo có tham số dày đáy (tên GIẢ "DBH", chú thích 抽底板厚 — tên thật chưa biết). Bảng đã đọc tham số của mẫu
+      //     trong phiên (D.templatesIn — nút Dò kho mẫu) → lệnh nhập mẫu mang DBH = dày hậu; Chenfeng (giả lập, GIẢ ĐỊNH __MOCK_DAY_DAY__) dựng đáy 6,5 — lưới đỡ không phải làm gì.
+      await page.route('https://api.cfcad.cn/CAD-moduleList', rt => { const body = JSON.parse(rt.request().postData() || '{}'); if (body.dir_id !== '99') return rt.fallback();
+        return rt.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' },
+          body: JSON.stringify({ err_code: 0, err_msg: '', count: '1', modules: [{ module_id: '555031', name: 'Ngăn kéo đáy DBH', props: props(chung.concat([['GD', 13], ['LC', 0], ['SLK', 30], ['XLK', 30], ['DBH', 5, '抽底板厚']])) }] }) }); });
+      // (bộ thử ghim hậu 6 — số đo cũ) đích = dày hậu của thông số vừa vẽ, không phải số 6,5 viết cứng
+      const dayCua = () => page.evaluate(() => { const D = window.MNCFDriver, h = D.last.M.spec.hau.t; return D.last.added.filter(e => !e.IsErase && D.isBoard(e) && /抽底/.test(e.Name)).map(e => Math.round(e.Thickness * 100) / 100 === h ? 'hau' : e.Thickness); });
+      await page.evaluate(async () => { await window.MNCFDriver.templatesIn(99); window.__MOCK_DAY_DAY__ = 'DBH'; window.__MOCK_MAU_LOI__ = {}; });
+      r = await ve(Object.assign({}, TU_K, { ma: 'TK2D', ngan_keo: { mau_id: 555031 } }), [133000, 0, 0]);
+      ok(r.ok && r.thieu.length === 0 && r.pk['三节轨'] === 2, 'mẫu có tham số dày đáy: tủ vẽ đủ 2 hộp ngăn kéo', [r.ok, r.errors, r.thieu]);
+      eq_(await dayCua(), ['hau', 'hau'], '… đáy hộp dày bằng hậu ngay khi nhập mẫu (lệnh nhập mang DBH = dày hậu)');
+      ok(!r.warnings.some(w => /đáy hộp ngăn kéo/.test(w)), '… lưới đỡ không phải sửa gì, không báo', r.warnings);
+      // đối chứng: mẫu chưa đọc tham số trong phiên (mã khác) → Chenfeng dựng đáy 5, lưới đỡ đặt lại 6,5 và báo một dòng
+      r = await ve(Object.assign({}, TU_K, { ma: 'TK2E' }), [136500, 0, 0]);
+      eq_(await dayCua(), ['hau', 'hau'], 'mẫu chưa biết tham số dày đáy: lưới đỡ sau khi vẽ đặt đáy bằng hậu');
+      ok(r.warnings.some(w => /2 đáy hộp ngăn kéo của mẫu Chenfeng mỏng hơn hậu/.test(w)), '… báo một dòng', r.warnings);
+      await page.evaluate(() => { window.__MOCK_DAY_DAY__ = null; });
+      await page.unroute('https://api.cfcad.cn/CAD-moduleList');
       // 6. máy chủ TREO (không trả lời): bảng chờ có hạn theo TIẾN TRIỂN (Chenfeng dựng thêm được mẫu nào thì còn chờ tiếp); đứng im quá hạn thì thôi thêm mẫu — tủ vẫn đủ tấm.
       //    Đo trên Chenfeng thật 05/10/2026: Esc lúc Chenfeng đang tải mẫu không có tác dụng — lệnh nhập cũ vẫn chạy ngầm, máy chủ trả lời thì Chenfeng hỏi điểm đặt. Bảng không chồng thêm lệnh nào
       //    lên lệnh đang treo, và canh để huỷ nó khi nó hiện lời hỏi (không để cụm mẫu bám theo chuột).

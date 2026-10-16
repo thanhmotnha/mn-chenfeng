@@ -76,7 +76,7 @@ async function chay() {
     r = await page.evaluate(async () => { const D = window.MNCFDriver, nk = []; const k = await D.veKho({ id: 9001, ten: 'Tủ tivi 1', rong: 1200, sau: 350, cao: 1000, corner: [5000, 2000, 0], phong: 'Phòng khách', ma: 'TV1', khoan: 'Cam3Tp', onStatus: t => nk.push(t) }); return { k, nk, moc: window.__MOCK__.lastTemplates }; });
     ok(r.k.ok && r.k.kho && r.k.giai_doan === 'xong' && !r.k.errors.length && !r.k.warnings.length, 'veKho: mẫu thường vẽ xong, không lỗi, không cảnh báo', r.k);
     // bản 1.20: vẽ xong tự dò lỗi sản xuất trên các tấm thật của mẫu
-    ok(r.k.do_loi && r.k.do_loi.muc.length === 9 && r.k.do_loi.so_tam === r.k.so_tam && r.k.do_loi.dem.loi === 0 && r.k.do_loi.pham_vi === 'dua_vao', 'veKho: kết quả có phiếu dò lỗi 9 mục trên đúng các tấm của mẫu, không mục lỗi', r.k.do_loi);
+    ok(r.k.do_loi && r.k.do_loi.muc.length === 10 && r.k.do_loi.so_tam === r.k.so_tam && r.k.do_loi.dem.loi === 0 && r.k.do_loi.pham_vi === 'dua_vao', 'veKho: kết quả có phiếu dò lỗi 10 mục (1.36.4: bề dày lạ — mẫu kho không có danh sách bề dày, không kiểm) trên đúng các tấm của mẫu, không mục lỗi', r.k.do_loi);
     eq(r.moc.map(o => [o.Type, o.TempalteId, o.BoxSize, o.Pos, o.RoomName, o.CabinetName]), [['Template', 9001, [1200, 350, 1000], [0, 0, 0], 'Phòng khách', 'TV1']], 'veKho: gửi cho cổng nhập đúng mã mẫu + kích thước + tên phòng / mã tủ');
     let B = await tam();
     eq(hop(B), [5000, 6200, 2000, 2350, 0, 1000], 'veKho: hộp các tấm nằm đúng chỗ đặt, đúng rộng × sâu × cao');

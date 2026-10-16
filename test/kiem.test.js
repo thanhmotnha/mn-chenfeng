@@ -303,7 +303,7 @@ T('Phiếu dò lỗi trên tấm thật: gom va chạm, lỗ giao nhau, kiểu k
 
   const tot = C.doLoiThat({ tam: T3(), lo: LO(), kieu_co: CO, kho: KHO });
   ok(tot.ok === true && tot.so_tam === 3 && tot.so_lo === 12, 'tủ đúng: đạt, đếm 3 tấm 12 lỗ', [tot.ok, tot.so_tam, tot.so_lo]);
-  eq(tot.muc.map(m => [m.ma, m.ket]), [['vc_that', 'dat'], ['lo_giao', 'dat'], ['lo_lech', 'dat'], ['kieu_khoan', 'dat'], ['khong_lo', 'dat'], ['moi_noi', 'dat'], ['kho_van_that', 'dat'], ['lo_lung_that', 'dat'], ['ten_tu', 'dat']], '9 mục đều đạt, đúng thứ tự phiếu');
+  eq(tot.muc.map(m => [m.ma, m.ket]), [['vc_that', 'dat'], ['lo_giao', 'dat'], ['lo_lech', 'dat'], ['kieu_khoan', 'dat'], ['khong_lo', 'dat'], ['moi_noi', 'dat'], ['kho_van_that', 'dat'], ['lo_lung_that', 'dat'], ['ten_tu', 'dat'], ['day_la', 'khong']], '9 mục đều đạt, đúng thứ tự phiếu (1.36.4: mục bề dày lạ chỉ kiểm khi có danh sách bề dày)');
   eq(tot.dem, { dat: 9, luu_y: 0, loi: 0, chua: 0 }, 'đếm');
 
   // đầu phải của đợt mất cam → mối nối lưu ý (không phải lỗi: xưởng có thể bắt vít), phiếu vẫn "ok"
@@ -446,7 +446,7 @@ T('Driver đọc tấm và lỗ thật thành dữ liệu cho phiếu dò lỗi'
 T('Driver dò lỗi: tủ đặt thẳng trục và tủ xoay theo tường xiên 30° cho cùng kết quả; hai tủ khác hướng là hai nhóm; tấm nghiêng bị bỏ ra', () => {
   for (const do_ of [0, 30, -90, 137.5]) {
     const tu = tuGia(do_), p = D.doLoi(tu.tam.concat(tu.lo));
-    eq(p.muc.filter(m => m.ma !== 'kieu_khoan').map(m => m.ket), ['dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat'], `xoay ${do_}°: tủ đúng thì các mục đạt`);
+    eq(p.muc.filter(m => m.ma !== 'kieu_khoan' && m.ma !== 'day_la').map(m => m.ket), ['dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat'], `xoay ${do_}°: tủ đúng thì các mục đạt`);
     ok(p.so_tam === 3 && p.so_lo === 12 && !p.ghi.some(t => /hướng/.test(t)), `xoay ${do_}°: một nhóm hướng`, p.ghi);
     const thieu = tuGia(do_, true), p2 = D.doLoi(thieu.tam.concat(thieu.lo));
     ok(ketD(p2, 'moi_noi') === 'luu_y' && /Hồi phải/.test(p2.muc.find(m => m.ma === 'moi_noi').tin[0]), `xoay ${do_}°: đầu phải của đợt thiếu cam vẫn bị bắt`, p2.muc.find(m => m.ma === 'moi_noi'));
@@ -498,6 +498,47 @@ T('Driver đọc đường bao thật của tấm khoét / bo cong; tấm uốn 
   const nkA = tamGia('Thành trái', [100, 115, 0, 400, 100, 250], { tpl: nk1 }), nkB = tamGia('Thành trái', [100, 115, 0, 400, 200, 350], { tpl: nk2 });
   const rieng = D.docThat([nkA, nkB]).tam.map(t => t.mau), coNen = D.docThat([nkA, nkB], { nen: [A, nkA, nkB] }).tam.map(t => t.mau);
   ok(rieng[0] === rieng[1] && coNen[0] !== coNen[1] && coNen[0] !== null && coNen[1] !== null, 'chọn riêng hai ngăn kéo: có danh sách tấm của bản vẽ thì vẫn tách được từng ngăn kéo', [rieng, coNen]);
+});
+
+// (1.36.4 — anh Thanh 16/10/2026, ảnh trang sản xuất: tờ 2440 × 1220 × 5 "sao xuất ván vẫn có ván 5mm") mục bề dày lạ — LƯU Ý (lần vẽ vẫn ok), nêu tên + dày
+T('Phiếu dò lỗi: tấm dày lạ (bản 1.36.4)', () => {
+  const tam = [
+    { ten: 'Hồi trái', tu: 'T1', hop: [0, 17.5, 0, 500, 0, 1000], day: 17.5, khoan: false, kieu: [], kich: [1000, 500], he: 0 },
+    { ten: 'Hậu', tu: 'T1', hop: [17.5, 500, 493.5, 500, 0, 1000], day: 6.5, khoan: false, kieu: [], kich: [1000, 482.5], he: 0 },
+    { ten: '抽底板', tu: 'T1', hop: [40, 400, 20, 400, 110, 115], day: 5, khoan: false, kieu: [], kich: [380, 360], he: 0 },
+    { ten: '抽底板', tu: 'T1', hop: [40, 400, 20, 400, 310, 315], day: 5, khoan: false, kieu: [], kich: [380, 360], he: 0 },
+    { ten: 'Cánh trái', tu: 'T1', hop: [0, 250, -17.5, 0, 0, 1000], day: 17.5, khoan: false, kieu: [], kich: [1000, 250], he: 0 }];
+  const ket = (p, ma) => (p.muc.find(m => m.ma === ma) || {}).ket, tin = (p, ma) => (p.muc.find(m => m.ma === ma) || { tin: [] }).tin;
+  const p = C.doLoiThat({ tam, lo: [], day_co: [6.5, 17.5] });
+  ok(p.ok === true && ket(p, 'day_la') === 'luu_y', 'đáy ngăn kéo 5: lưu ý, lần vẽ vẫn ok', [p.ok, ket(p, 'day_la')]);
+  ok(tin(p, 'day_la').length === 1 && /2 tấm dày 5/.test(tin(p, 'day_la')[0]) && /抽底板/.test(tin(p, 'day_la')[0]) && /6,5|6\.5/.test(tin(p, 'day_la')[0]), 'một dòng mỗi bề dày: số tấm, dày, tên, ván đang dùng', tin(p, 'day_la'));
+  eq(ket(C.doLoiThat({ tam: tam.filter(t => t.day !== 5), lo: [], day_co: [6.5, 17.5] }), 'day_la'), 'dat', 'không tấm lạ: đạt');
+  eq(ket(C.doLoiThat({ tam, lo: [] }), 'day_la'), 'khong', 'không có danh sách bề dày: không kiểm');
+  ok(C.MUC_VE.length === 10 && C.MUC_VE[9].ma === 'day_la', 'phiếu 10 mục, mục bề dày lạ đứng cuối');
+  // danh sách bề dày đã khai của tủ mặc định: ván thùng, cánh, hậu (6,5) — không có 5
+  const dc = C.dayCoCua(C.build(C.normalize(C.DEFAULT_SPEC)));
+  ok(dc.includes(C.DEFAULT_SPEC.van.t) && dc.includes(C.DEFAULT_SPEC.hau.t) && dc.includes(C.DEFAULT_SPEC.van.t_canh) && !dc.includes(5), 'dayCoCua: ván thùng / cánh / hậu, không có 5', dc);
+});
+
+// (1.36.4) dò tham số dày đáy của mẫu ngăn kéo (tên CHƯA BIẾT — chưa đo): theo tên / chú thích có 底 + 厚, hoặc tên quen; chỉ tham số đang là số mỏng
+T('Dày đáy hộp ngăn kéo: dò tham số + ghi đè vào mẫu (bản 1.36.4)', () => {
+  ok(['底板厚', '底厚', '抽底厚', '抽底板厚度', 'DBH', 'dbh', 'CDH'].every(n => C.laDayDayNK(n, '')) && C.laDayDayNK('X1', '抽底板厚度'), 'nhận theo tên hoặc chú thích');
+  ok(!['BH', 'GD', 'SLK', 'H', 'DH', '背板厚', '抽面厚'].some(n => C.laDayDayNK(n, '')), 'không nhận dày mặt / ray / cao / dày hậu');
+  const hang = [[3, 'L', '', 426, null, null, 1], [3, 'BH', '$BH', 17.5, null, '面板厚', 1], [3, 'DBH', '', 5, null, '抽底板厚', 1], [3, 'X9', '', 120, null, '底板厚', 1],
+    [3, 'CDH', '$HB', 5, null, null, 1], [3, 'DDH', '', 9, null, null, 1], [3, 'GD', '', 13, null, '轨道', 1]];
+  eq(C.dayDayNK(hang, 6.5), ['DBH'], 'chỉ tham số dày đáy đang mỏng (5 < 6,2) và không phải công thức; số 120 hay đáy dày 9 không đụng');
+  eq(C.dayDayNK(hang, 0), [], 'không có dày đích: không dò');
+  eq(C.dayDayTS({ DBH: 5, GD: 13, X: 5 }, { X: '底板厚' }, 6.5).sort(), ['DBH', 'X'], 'dạng ts / mt của D.templatesIn');
+  const t = C.tempNganKeo({ module_id: '555001', name: 'M' }, hang, { GD: 15 }, 6.5), P = n => t.props.find(x => x.name === n);
+  eq([P('DBH').value, P('DBH').expr], [6.5, '6.5'], 'tempNganKeo: dày đáy = 6,5, ghi cả biểu thức');
+  eq([P('GD').expr, P('BH').expr, P('CDH').expr, P('DDH').expr, P('X9').expr], ['15', '$BH', '$HB', '', ''], 'tham số khác giữ như cũ');
+  eq(C.tempNganKeo({ module_id: '555001', name: 'M' }, hang, { GD: 15 }), C.tempNganKeo({ module_id: '555001', name: 'M' }, hang, { GD: 15 }, 0), 'không truyền dày: như bản cũ');
+  // cách nhập mẫu (themMau): mauCF nhận tên tham số dò được theo mã mẫu
+  const M = C.build(C.normalize(C.DEFAULT_SPEC)), nk = M.templates.find(x => x.loai === 'NGAN_KEO' && x.id);
+  const a = C.mauCF(M), b = C.mauCF(M, { day_day: { [nk.id]: ['DBH'] } });
+  const pm = x => x.find(y => y.tp === nk).json.ParamMap;
+  ok(!pm(a).some(x => x.name === 'DBH') && pm(b).some(x => x.name === 'DBH' && x.value === String(C.DEFAULT_SPEC.hau.t)), 'mauCF: thêm DBH = dày hậu cho mẫu ngăn kéo', pm(b));
+  ok(b.filter(x => x.tp.loai !== 'NGAN_KEO').every(x => !x.json.ParamMap.some(y => y.name === 'DBH')), 'suốt treo: không đụng');
 });
 
 console.log(`\nkiem.test: ${pass} đạt, ${fail} hỏng`);

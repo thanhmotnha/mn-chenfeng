@@ -495,9 +495,9 @@
    */
   const docLaiDS = (ds, truoc) => { const co = new Set(ds); return ds.filter(e => e && !e.IsErase).concat(root.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && !truoc.has(e) && !co.has(e))); };
   const TEN_LOI_SX = { vc_that: 'tấm đè lên nhau', lo_giao: 'lỗ khoan giao nhau', lo_lech: 'lỗ khoan lệch khỏi tấm hoặc khoan thủng tấm', kieu_khoan: 'kiểu khoan không có trong cấu hình', kho_van_that: 'tấm vượt khổ ván' };
-  const doLoiSauVe = (added, errors, kho) => {
+  const doLoiSauVe = (added, errors, kho, day) => {
     let p = null;
-    try { p = D.doLoi((added || []).filter(e => e && !e.IsErase), { kho }); } catch (e) { return null; }
+    try { p = D.doLoi((added || []).filter(e => e && !e.IsErase), { kho, day }); } catch (e) { return null; }
     try {
       for (const m of p.muc) {
         if (m.ket !== 'loi' || !m.tin.length) continue;
@@ -535,7 +535,7 @@
    */
   const themMau = async (M, offset, opt) => {
     const kq = { added: [], thieu: [], doi_ma: [], so_lenh: 0 };
-    const ds = Core.mauCF(M).map(x => ({ tp: x.tp, mat: x.mat, json: x.json, xong: false, ly_do: '', bao: '' }));
+    const ds = Core.mauCF(M, { day_day: dayDayCua(M, mauLoi.thay) }).map(x => ({ tp: x.tp, mat: x.mat, json: x.json, xong: false, ly_do: '', bao: '' }));      // (1.36.4) kèm dày đáy nếu đã biết tên tham số
     if (!ds.length) return kq;
     const ganDiem = (a, b, t) => a.every((v, i) => Math.abs(v - b[i]) <= t);
     const muc = x => { const id = mauLoi.thay.get(x.tp.id); return id ? Object.assign({}, x.json, { TempalteId: id }) : x.json; };
@@ -632,6 +632,54 @@
   };
   const gonMauThieu = tm => tm.thieu.map(x => ({ loai: x.loai, khoang: x.khoang, id: x.id, ten: x.ten, ly_do: x.ly_do }));
 
+  /**
+   * ĐÁY HỘP NGĂN KÉO MỎNG (1.36.4 — anh Thanh 16/10/2026, ảnh trang sản xuất: tờ 2440 × 1220 × 5 "sao xuất ván vẫn có ván 5mm"). Mẫu ngăn kéo "đáy mỏng" (薄底) của
+   * Chenfeng dựng 抽底板 dày 5; xưởng chỉ có ván mỏng = hậu (6,5) → trang sản xuất tách thêm một loại ván 5. Hai lớp:
+   *   (1) dò tên tham số dày đáy của mẫu (Core.dayDayNK) từ props / chú thích đã đọc trong phiên (kho ngăn kéo của lệnh DRAWER, D.templatesIn) — ghi đè lúc dựng
+   *       (Core.tempNganKeo cho lệnh DRAWER, Core.mauCF cho cách nhập mẫu). Không đọc thêm kho chỉ để dò việc này (mỗi lần vẽ thêm lời gọi máy chủ);
+   *   (2) LƯỚI ĐỠ sau khi vẽ: tấm của MẪU (không mang mã tủ) tên 抽底 / "Đáy ngăn kéo", nằm ngang, dày < hậu − 0,3 → Thickness = dày hậu, GIỮ MẶT TRÊN đáy (tấm dày
+   *       ra phía dưới — mặt trên là chỗ đồ đặt, mép rãnh thành hộp ôm từ dưới lên). Một bước hoàn tác riêng (MNCF_DAYDAY). Đặt Thickness không phải lệnh nên không khoan lại,
+   *       không sinh đối tượng mới. CHƯA ĐO trên Chenfeng thật: Thickness của tấm mẫu đổi theo chiều nào (dời bù theo hộp bao đo lại), và đổi L / W / H của module sau
+   *       đó (dựng lại cây mẫu) có trả đáy về 5 không — phiếu dò lỗi (mục bề dày lạ) sẽ thấy nếu có.
+   */
+  const hangMau = new Map();      // mã mẫu → các hàng tham số [3, tên, biểu thức, giá trị, null, chú thích, …] đã đọc trong phiên (chỉ ĐỌC kho)
+  const nhoHang = (id, hang) => { const k = Math.round(+id) || 0; if (k && Array.isArray(hang)) hangMau.set(k, hang); };
+  const dayDayCua = (M, ids) => {      // { [mã mẫu]: [tên tham số dày đáy] } cho Core.mauCF
+    const out = {}, day = M.spec.hau && M.spec.hau.t;
+    for (const tp of M.templates) if (tp.loai === 'NGAN_KEO' && tp.id) { const h = hangMau.get(tp.id) || hangMau.get(ids && ids.get(tp.id)); const n = h ? Core.dayDayNK(h, day) : []; if (n.length) out[tp.id] = n; }
+    return out;
+  };
+  const RE_DAY_NK = /抽底|^Đáy ngăn kéo/;
+  const suaDayNK = (ents, spec, opt) => {
+    const day = spec && spec.hau && +spec.hau.t, kq = { dem: 0, hong: [], bao: '' };
+    if (!(day > 0)) return kq;
+    const ds = (ents || []).filter(e => e && !e.IsErase && D.isBoard(e) && !D.tagOf(e) && RE_DAY_NK.test(String(e.Name || '')) && +e.Thickness > 0 && +e.Thickness < day - 0.3);
+    if (!ds.length) return kq;
+    let mo = false, M4 = null;
+    try { M4 = lopM4(); } catch (e) { M4 = null; }
+    try { const h = hm(); if (h && typeof h.StartCmd === 'function' && typeof h.EndCmd === 'function') { h.StartCmd('MNCF_DAYDAY'); mo = true; } } catch (e) { mo = false; }
+    for (const e of ds) {
+      const t0 = r2(+e.Thickness);
+      try {
+        const b0 = D.boxOf(e);
+        if (!(Math.abs(b0[5] - b0[4] - t0) < 0.05)) { kq.hong.push({ ten: String(e.Name || ''), day: t0, ly_do: 'khong_nam' }); continue; }      // không nằm ngang: không biết mặt trên là mặt nào
+        try { e.WriteAllObjectRecord(); } catch (er) { /* bỏ qua */ }
+        e.Thickness = day;
+        let b1 = D.boxOf(e);
+        if (Math.abs(b1[5] - b0[5]) > 0.01 && M4) { e.ApplyMatrix(new M4().makeTranslation(0, 0, b0[5] - b1[5])); b1 = D.boxOf(e); }
+        if (Math.abs(+e.Thickness - day) < 0.01 && Math.abs(b1[5] - b0[5]) < 0.05 && Math.abs(b1[5] - b1[4] - day) < 0.05) kq.dem++;
+        else kq.hong.push({ ten: String(e.Name || ''), day: t0, ly_do: 'khong_doi' });
+      } catch (er) { kq.hong.push({ ten: String(e.Name || ''), day: t0, ly_do: String(er && er.message || er).slice(0, 80) }); }
+    }
+    if (mo) { try { hm().EndCmd(); } catch (e) { /* bỏ qua */ } }
+    const g = v => String(v).replace('.', ',');
+    const t0s = [...new Set(kq.hong.map(h => g(h.day)))];
+    if (kq.dem) kq.bao = `${kq.dem} đáy hộp ngăn kéo của mẫu Chenfeng mỏng hơn hậu — đã đặt lại dày ${g(day)} (giữ mặt trên đáy) để trang sản xuất không tách thêm một loại ván mỏng.`;
+    if (kq.hong.length) kq.bao = (kq.bao ? kq.bao + ' ' : '') + `${kq.hong.length} đáy hộp ngăn kéo (dày ${t0s.join(' / ')}) chưa đổi được dày ${g(day)} — sửa tay trong Chenfeng trước khi xuất ván.`;
+    return kq;
+  };
+  D.suaDayNK = suaDayNK;
+
   const drawImpl = async (spec, opt) => {
     opt = Object.assign({ onStatus() {} }, opt || {});
     opt.onStatus = guard(opt.onStatus);
@@ -689,14 +737,16 @@
     if (want && !gotHW) warnings.push('Không thấy phụ kiện nào của mẫu ngăn kéo / suốt treo — kiểm tra mã mẫu ở tab Chuẩn xưởng.');
     warnings.push(...baoMau(tm));
     if (tm.ban) warnings.push(BAO_BAN);
-    const dl = opt.bo ? null : doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong });      // (1.34) vẽ cả dãy bếp: dò lỗi MỘT lần cuối dãy (D.veDay)
+    const dd = suaDayNK(tm.added, M.spec, opt);      // (1.36.4) đáy hộp ngăn kéo của mẫu mỏng hơn hậu → đặt lại bề dày (lưới đỡ)
+    if (dd.bao) warnings.push(dd.bao);
+    const dl = opt.bo ? null : doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }, Core.dayCoCua(M));      // (1.34) vẽ cả dãy bếp: dò lỗi MỘT lần cuối dãy (D.veDay)
     opt.onStatus('Xong.');
     const h1 = hmMark();
     let steps = 1 + ((fix.fixed || fix.normalized) ? 1 : 0);
     if (h0 && h1 && h1.i > h0.i && h1.i - h0.i <= 6 + tm.so_lenh) steps = h1.i - h0.i;
     D.last = { M, added, offset, steps, mark: h1, id }; nhoVanRieng(M, id);
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset, goc: offset.map((x, i) => r2(x + cf.base[i])), kiem_tra: v, do_loi: dl, sua_khoan: fix, so_buoc_hoan_tac: steps, module: mod, kich: Core.heSo(M.spec).kich, tom_tat: Core.summary(M),
-      mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma, ...(tm.ban ? { ban: true } : {}) };
+      mau_thieu: gonMauThieu(tm), mau_doi: tm.doi_ma, day_nk: { dem: dd.dem, hong: dd.hong.length }, ...(tm.ban ? { ban: true } : {}) };
   };
 
   /* ------------------------------------------------------------------ *
@@ -2016,7 +2066,7 @@
     const j = await post('CAD-moduleList', { dir_id: String(dirId), page: 1, page_count: 100 }), out = [];
     for (const m of j.modules || []) {
       const ts = {}, mt = {};      // mt = chú thích của tham số (bản 1.29.2 — để người dùng nhận ra tham số dày đáy ngăn kéo)
-      try { for (const r of JSON.parse(await inflate(m.props))) if (Array.isArray(r) && typeof r[1] === 'string' && typeof r[3] === 'number') { ts[r[1]] = r[3]; if (typeof r[5] === 'string' && r[5]) mt[r[1]] = r[5]; } } catch (e) { /* mẫu không đọc được tham số thì thôi */ }
+      try { const hang = JSON.parse(await inflate(m.props)); nhoHang(m.module_id, hang); for (const r of hang) if (Array.isArray(r) && typeof r[1] === 'string' && typeof r[3] === 'number') { ts[r[1]] = r[3]; if (typeof r[5] === 'string' && r[5]) mt[r[1]] = r[5]; } } catch (e) { /* mẫu không đọc được tham số thì thôi */ }
       out.push({ id: Math.round(+m.module_id) || 0, ten: String(m.name || '').trim(), ts, mt });
     }
     return out;
@@ -2297,7 +2347,7 @@
     }
     const m = theoMa || theoTen;
     let kq = null;
-    if (m) { try { kq = { banGhi: { module_id: m.module_id, name: String(m.name || '').trim(), logo: m.logo, diy_logo: m.diy_logo }, hang: JSON.parse(await inflate(m.props)) }; } catch (e) { kq = { banGhi: null, hang: null }; } }
+    if (m) { try { kq = { banGhi: { module_id: m.module_id, name: String(m.name || '').trim(), logo: m.logo, diy_logo: m.diy_logo }, hang: JSON.parse(await inflate(m.props)) }; nhoHang(mau.id, kq.hang); nhoHang(m.module_id, kq.hang); } catch (e) { kq = { banGhi: null, hang: null }; } }
     if (kq || !hong) khoNK.set(khoa, kq);
     else throw new Error('không đọc được danh sách mẫu của thư mục ngăn kéo');
     return kq;
@@ -2376,7 +2426,7 @@
       let bg;
       try { bg = await banGhiNK(b.mau); } catch (e) { hongO(b, 'kho', String(e && e.message || e)); continue; }
       if (!bg) { hongO(b, 'khong_co'); continue; }
-      const temp = Core.tempNganKeo(bg.banGhi, bg.hang, b.ts);
+      const temp = Core.tempNganKeo(bg.banGhi, bg.hang, b.ts, M.spec.hau && M.spec.hau.t);      // (1.36.4) kèm dày đáy = dày hậu nếu dò ra tham số dày đáy
       if (!temp) { hongO(b, 'mau_la'); continue; }
       const truoc = new Set(root.app.Database.ModelSpace.Entitys), h0 = hmMark(), toastCu = new Set(document.querySelectorAll('.bp3-toast'));
       const moi = () => root.app.Database.ModelSpace.Entitys.filter(e => e && !e.IsErase && !truoc.has(e));
@@ -3081,14 +3131,17 @@
     // trả hướng nhìn về như trước khi vẽ, nhìn vào tủ vừa đặt
     try { const V = root.app.Viewer; if (huongNhin && V.CameraControl && typeof V.CameraControl.LookAt === 'function') V.CameraControl.LookAt(huongNhin); const bs = cuaToi().filter(D.isBoard); if (bs.length && typeof V.ZoomtoEntitys === 'function') V.ZoomtoEntitys(bs); V.UpdateRender(); } catch (e) { /* bỏ qua */ }
     added = cuaToi();
-    const dl = added.some(D.isBoard) && !opt.bo ? doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }) : null;
+    // (1.36.4) đáy hộp ngăn kéo (lệnh DRAWER / mẫu chèn) mỏng hơn hậu → đặt lại bề dày. Làm SAU khi gom module + đưa về chỗ đặt (dựng lại cây mẫu là Chenfeng dựng lại tấm của mẫu)
+    const dd = suaDayNK(added.filter(e => !D.tagOf(e)), M.spec, opt);
+    if (dd.bao) warnings.push(dd.bao);
+    const dl = added.some(D.isBoard) && !opt.bo ? doLoiSauVe(added, errors, { dai: M.spec.van.kho_dai, rong: M.spec.van.kho_rong }, Core.dayCoCua(M)) : null;
     const h1 = hmMark();
     const steps = h0 && h1 && h1.i > h0.i ? h1.i - h0.i : xong;
     D.last = { M: Msub, added, offset: atW.slice(), khung, steps, mark: h1, id, goc_cf: true }; nhoVanRieng(Msub, id);      // offset = vị trí gốc thiết kế; tủ xoay (khung.xoay ≠ 0) thì toạ độ tấm = xoay(thiết kế) + offset
     opt.onStatus('Xong.');
     return { ok: errors.length === 0, giai_doan: 'xong', id, errors, warnings, notes: M.notes, offset: atW.slice(), goc: gocCuoi, xoay_do: xoay, khung, dat, kiem_tra: v, do_loi: dl, sua_khoan: { fixed: 0, normalized: 0 }, so_buoc_hoan_tac: steps,
       module: mod && (mod.ok || !mod.khong_can) ? mod : null, goc_cf: true, chua, tam_roi: roi ? roi.so_tam : 0, buoc: xong, tong_buoc: K.buoc.length, do_lai: nk, them_hinh: themHinh, kich: [r2(bb.x1 - bb.x0), r2(bb.y1 - bb.y0), r2(bb.z1 - bb.z0)], tom_tat: Core.summary(M),
-      ...(tm && tm.ban ? { ban: true } : {}), mau_thieu: tm ? gonMauThieu(tm) : [], mau_doi: tm ? tm.doi_ma : [], nk_goc: tm && tm.nk ? { tong: tm.nk.tong, so: tm.nk.so, lui: tm.nk.lui.map(h => ({ khoang: h.khoang, ly_do: h.ly_do })) } : null };
+      day_nk: { dem: dd.dem, hong: dd.hong.length }, ...(tm && tm.ban ? { ban: true } : {}), mau_thieu: tm ? gonMauThieu(tm) : [], mau_doi: tm ? tm.doi_ma : [], nk_goc: tm && tm.nk ? { tong: tm.nk.tong, so: tm.nk.so, lui: tm.nk.lui.map(h => ({ khoang: h.khoang, ly_do: h.ly_do })) } : null };
   };
 
   /* ------------------------------------------------------------------ *
@@ -3206,6 +3259,7 @@
     const co = D.drillTypes();
     dl.kieu_co = co.length ? co : null;
     dl.kho = opt.kho && opt.kho.dai > 0 ? opt.kho : { dai: Core.DEFAULT_SPEC.van.kho_dai, rong: Core.DEFAULT_SPEC.van.kho_rong };
+    if (Array.isArray(opt.day) && opt.day.length) dl.day_co = opt.day;      // (1.36.4) bề dày đã khai của tủ vừa vẽ → mục "bề dày lạ" (không có thì không kiểm)
     const p = Core.doLoiThat(dl);
     p.pham_vi = pv;
     return p;
