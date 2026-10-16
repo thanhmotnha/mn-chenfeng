@@ -31,9 +31,9 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
 
     console.log('— Vẽ xong tự dò lỗi trên tấm thật');
     let r = await ve(TU, 0);
-    ok(r.ok && r.gd === 'xong' && r.dl && r.dl.muc.length === 9, 'kết quả vẽ có phiếu dò lỗi 9 mục', [r.ok, r.errors, r.dl && r.dl.muc.length]);
+    ok(r.ok && r.gd === 'xong' && r.dl && r.dl.muc.length === 10, 'kết quả vẽ có phiếu dò lỗi 10 mục (1.36.4: thêm bề dày lạ)', [r.ok, r.errors, r.dl && r.dl.muc.length]);
     ok(r.dl.so_tam === r.tam && r.dl.so_lo > 0 && r.dl.so_lo % 3 === 0, 'dò đúng số tấm đã vẽ; mỗi cam 3 lỗ', [r.dl.so_tam, r.tam, r.dl.so_lo]);
-    eq(['vc_that', 'lo_giao', 'lo_lech', 'kieu_khoan', 'khong_lo', 'moi_noi', 'kho_van_that', 'lo_lung_that', 'ten_tu'].map(m => ket(r.dl, m)), ['dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat'], 'tủ đúng kết cấu: 9 mục đều đạt');
+    eq(['vc_that', 'lo_giao', 'lo_lech', 'kieu_khoan', 'khong_lo', 'moi_noi', 'kho_van_that', 'lo_lung_that', 'ten_tu', 'day_la'].map(m => ket(r.dl, m)), ['dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat', 'dat'], 'tủ đúng kết cấu: 10 mục đều đạt');
 
     console.log('— Mối nối bị sót cam: lưu ý, không phải lỗi');
     await page.evaluate(() => { window.__MOCK_KHONG_CAM__ = 'Đợt'; });
@@ -68,7 +68,7 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
     await page.waitForFunction(() => /tấm đang chọn/.test(document.getElementById('mncf-host').shadowRoot.querySelector('[data-ui="doloi"] .msg').textContent));
     dong = await H.locator('[data-ui="doloi"] .msg').first().innerText();
     ok(new RegExp(`${soChon} tấm`).test(dong) && /tấm đang chọn/.test(dong) && /không thấy lỗi/.test(dong), 'dò tấm đang chọn: tủ đúng thì không thấy lỗi', dong);
-    ok((await H.locator('[data-ui="doloi"] .phieu li.loi').count()) === 0 && (await H.locator('[data-ui="doloi"] .phieu li.dat').count()) === 9, '9 mục đạt');
+    ok((await H.locator('[data-ui="doloi"] .phieu li.loi').count()) === 0 && (await H.locator('[data-ui="doloi"] .phieu li.dat').count()) === 9, '9 mục đạt (dò cả bản vẽ: không có danh sách bề dày, mục bề dày lạ không kiểm)');
     await page.evaluate(() => window.__MOCK__.userSelect([]));
 
     console.log('— Vẽ bằng nút của bảng: thẻ Kết quả có phiếu dò lỗi sau khi vẽ');
@@ -79,7 +79,7 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
     await H.locator('[data-act="draw"]').click();
     await H.locator('.report [data-ui="phieu-ve"]').waitFor({ timeout: 30000 });
     const tomVe = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.report [data-ui="phieu-ve"]').textContent);
-    ok(/không thấy lỗi|đạt/.test(tomVe) && /✓ 9 mục đạt/.test(tomVe), 'phiếu sau khi vẽ: 9 mục đạt (bản 1.28: gom một dòng)', tomVe.slice(0, 200));
+    ok(/không thấy lỗi|đạt/.test(tomVe) && /✓ 10 mục đạt/.test(tomVe), 'phiếu sau khi vẽ: 10 mục đạt (bản 1.28: gom một dòng; 1.36.4: thêm bề dày lạ)', tomVe.slice(0, 200));
     ok((await H.locator('.report [data-ui="phieu-tk"]').count()) === 0 && (await H.locator('[data-act="tu-kiem"]').count()) === 1, '(bản 1.28) thiết kế không có gì cần xem: thẻ Kết quả không bày phiếu thiết kế (đã có nút ✓ Tự kiểm ở thẻ Tủ)');
 
     console.log('— Kiểu khoan không có trong cấu hình: lần vẽ có lỗi sản xuất; chuyện "tấm không lỗ" không nêu hai lần');
@@ -148,6 +148,31 @@ const tin = (p, ma) => ((p && p.muc || []).find(m => m.ma === ma) || { tin: [] }
     ok(r.ok && r.gd === 'xong' && r.module && r.xoay && r.xoay.ok, 'tủ vẽ xong, gom module, xoay 90° được', [r.ok, r.errors, r.module, r.xoay]);
     eq([r.da_bo, r.lo_sot, r.lo_giu], [0, 0, r.lo_song], 'sau khi xoay: danh sách bảng giữ không còn lỗ đã bị bỏ, đủ mọi lỗ đang có của tủ');
     eq(['khong_lo', 'lo_lech', 'lo_giao', 'moi_noi', 'vc_that'].map(m => ket(r.lai, m)), ['dat', 'dat', 'dat', 'dat', 'dat'], 'dò lại tủ đã xoay trên danh sách đó: 5 mục về tấm – lỗ đều đạt');
+
+    /* 1.36.4 — anh Thanh 16/10/2026, ảnh trang sản xuất: tờ 2440 × 1220 × 5 ("sao xuất ván vẫn có ván 5mm"). Mẫu ngăn kéo "đáy mỏng" dựng 抽底板 dày 5 (trang giả lập
+     * cũng vậy). Lưới đỡ sau khi vẽ: đáy hộp ngăn kéo mỏng hơn hậu → đặt dày = hậu, giữ mặt trên; mục "bề dày lạ" của phiếu thấy tấm còn sót. */
+    console.log('— Đáy hộp ngăn kéo 5 của mẫu: đặt lại dày hậu sau khi vẽ (1.36.4)');
+    const veDay = (spec, o) => page.evaluate(async ([s, o_]) => {
+      const D = window.MNCFDriver, r = await window.MNCF.draw(s, o_), cua = D.last ? D.last.added : [];
+      const day = cua.filter(e => !e.IsErase && D.isBoard(e) && /抽底/.test(e.Name)).map(e => ({ t: e.Thickness, z: D.boxOf(e).slice(4) }));
+      return { ok: r.ok, errors: r.errors, warnings: r.warnings, dd: r.day_nk, dl: r.do_loi, day, buoc: r.so_buoc_hoan_tac };
+    }, [spec, o]);
+    r = await veDay(Object.assign({}, TU_NK, { ma: 'DD1', module_cf: false }), { at: [42000, 0, 0] });
+    ok(r.ok && r.dd && r.dd.dem === 2 && r.dd.hong === 0, 'tủ 2 ngăn kéo: 2 đáy hộp đã đặt lại dày', [r.ok, r.errors, r.dd]);
+    ok(r.day.length === 2 && r.day.every(d => Math.abs(d.t - 6.5) < 0.01 && Math.abs(d.z[1] - d.z[0] - 6.5) < 0.01), 'đáy hộp dày 6,5 (hậu)', r.day);
+    ok(r.warnings.some(t => /2 đáy hộp ngăn kéo/.test(t) && /6,5/.test(t)), 'báo một dòng', r.warnings);
+    eq(ket(r.dl, 'day_la'), 'dat', 'phiếu sau khi vẽ: không còn tấm dày lạ');
+    // giữ MẶT TRÊN đáy: mặt trên = mặt trên của đáy 5 khi không sửa (cùng tủ, cùng chỗ, tắt lưới đỡ bằng cách đặt dày hậu 5 cho thông số — đáy 5 không mỏng hơn hậu)
+    { const r5 = await veDay(Object.assign({}, TU_NK, { ma: 'DD0', module_cf: false, hau: { t: 5 } }), { at: [42000, 3000, 0] });
+      ok(r5.dd && r5.dd.dem === 0 && r5.day.every(d => Math.abs(d.t - 5) < 0.01), 'đối chứng: hậu 5 thì đáy 5 không đổi', [r5.dd, r5.day]);
+      ok(r5.day.length === 2 && r5.day.every((d, i) => Math.abs(d.z[1] - r.day[i].z[1]) < 0.01 && Math.abs(r.day[i].z[0] - (d.z[1] - 6.5)) < 0.01), '… mặt trên đáy giữ nguyên, tấm dày ra phía dưới', [r5.day, r.day]);
+      ok(ket(r5.dl, 'day_la') === 'dat', 'hậu 5: đáy 5 là ván đang dùng — không báo'); }
+    // Chenfeng không đổi được bề dày tấm (giả định xấu): báo rõ, phiếu nêu tấm dày lạ (lưu ý — lần vẽ vẫn ok)
+    { await page.evaluate(() => { const D = window.MNCFDriver, B = D.all().find(D.isBoard).constructor.prototype, d = Object.getOwnPropertyDescriptor(B, 'Thickness'); window.__thickCu = d; Object.defineProperty(B, 'Thickness', { configurable: true, get: d.get, set(v) { if (/抽底/.test(this.Name) && this._t !== undefined) return; d.set.call(this, v); } }); });
+      const rk = await veDay(Object.assign({}, TU_NK, { ma: 'DD2', module_cf: false }), { at: [42000, 6000, 0] });
+      await page.evaluate(() => { const D = window.MNCFDriver; Object.defineProperty(D.all().find(D.isBoard).constructor.prototype, 'Thickness', window.__thickCu); });
+      ok(rk.ok && rk.dd.dem === 0 && rk.dd.hong === 2 && rk.warnings.some(t => /2 đáy hộp ngăn kéo \(dày 5\) chưa đổi được/.test(t)), 'không đổi được: báo số tấm + dày, lần vẽ vẫn ok', [rk.ok, rk.dd, rk.warnings]);
+      ok(ket(rk.dl, 'day_la') === 'luu_y' && /2 tấm dày 5/.test(tin(rk.dl, 'day_la')[0]) && /抽底板/.test(tin(rk.dl, 'day_la')[0]), 'phiếu: lưu ý 2 tấm dày 5 kèm tên', tin(rk.dl, 'day_la')); }
 
     ok(errs.length === 0, 'không lỗi JS lọt ra trang', errs);
   } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }

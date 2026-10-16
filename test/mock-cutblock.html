@@ -19,6 +19,8 @@ canvas{display:block;margin:10px;background:#e8ece8}
  *       已排 名称 材质 颜色 纹路 板厚 小板 大板 前N 最后 余料板 新优化 开料刀 操作;  nút 开始优化 (đang chạy thì thành 停止优化) / 取消优化 / 确认新优化;
  *   - 开始优化: tối ưu chạy tại máy, kết quả đủ sau ≤ 1 giây (228 tấm: 20 → 19 tờ ở 0,7 giây), sau đó chỉ nhích diện tích tờ cuối; thanh tiến độ quay MÃI, không tự dừng;
  *     停止优化 giữ nguyên kết quả; 确认新优化 đóng hộp, hiện sơ đồ + thanh công cụ đủ nút (保存优化, 导出NC, 一键NC, 打印标签…).
+ *   - Sau 确认新优化: ô 搜索小板, ô 高亮显示可辅助开料的小板, nút 更多页码, danh sách bên phải 小板明细 và thanh dưới 规格 / 翻板数 / 小板数… — DỰNG THEO ẢNH anh Thanh
+ *     gửi 16/10/2026 (chữ đúng như ảnh, cấu trúc DOM là GIẢ ĐỊNH kiểu Element UI), chỉ để thử phần Việt hoá của trợ lý.
  * Cấu hình lấy ở trang cha: __MOCK_SX__.cfg = { tam, kieu: 'tot' | 'trang', toi_uu: 'nhanh' | 'cham' | 'khong_ra', nuot_bam_dau, hop_hoi (trang hỏi một câu trước khi mở hộp 优化进度), tu_xong (ms: tối ưu tự dừng) }.
  * Mọi lần bấm nút ghi vào __MOCK_SX__.bam. */
 (function () {
@@ -79,8 +81,16 @@ canvas{display:block;margin:10px;background:#e8ece8}
       const to = dong.map(r => +r.querySelectorAll('td')[7].innerText);
       SO.xac_nhan = { to, luc: Math.round(P.performance.now() - SO.t0), lan: ((SO.xac_nhan && SO.xac_nhan.lan) || 0) + 1 };
       wrap.style.display = 'none'; veThanh(NUT_DU);
-      goc.querySelector('.so-do').innerHTML = '<canvas width="800" height="400"></canvas><div class="chan-trang">规格:1220*2440*17.5 小板数:13/' + VL[0][4] + ' 大板号:1/' + to[0] + '</div>';
+      goc.querySelector('.so-do').innerHTML = '<div class="cong-cu"><div class="el-input"><input class="el-input__inner" type="text" placeholder="搜索小板"></div><label class="el-checkbox"><span class="el-checkbox__input"><span class="el-checkbox__inner"></span></span><span class="el-checkbox__label">高亮显示可辅助开料的小板</span></label><button class="el-button el-button--text"><span>更多页码</span></button></div>'
+        + '<canvas width="800" height="400"></canvas><div class="ben-phai"></div><div class="chan-trang">规格:1220*2440*17.5 小板数:13/' + VL[0][4] + ' 大板号:1/' + to[0] + '</div>'
+        + '<div class="thanh-duoi">' + ['规格:1220*2440*17.5', '翻板数:0', '小板数:13/' + VL[0][4], '大板号:1/' + to[0], '面积:2.977', '总平均:85.2%', '前10平均:88.1%', '尾板:62.0%', '坐标:(0,0)'].map(t => `<span class="muc">${t}</span>`).join('')
+        + '<button class="el-button"><span>封边汇总</span></button><label class="el-checkbox"><span class="el-checkbox__input"><span class="el-checkbox__inner"></span></span><span class="el-checkbox__label">预留边小板</span></label></div>';
+      veBenPhai();
     });
+    // Danh sách bên phải "小板明细" — DỰNG THEO ẢNH anh Thanh gửi 16/10/2026 (chưa đo cấu trúc DOM thật, chỉ để thử phần Việt hoá của trợ lý).
+    // __MOCK_CB_VE_LAI__() = trang dựng lại thanh công cụ + danh sách (như Vue vẽ lại): phần tử mới, chữ gốc mới.
+    const veBenPhai = () => { const bp = goc.querySelector('.ben-phai'); if (!bp) return; bp.innerHTML = '<div class="el-tabs__item is-active">小板明细</div><ul class="el-menu">' + ['排单信息', '订单信息', '板材信息', '小板信息', '小板尺寸', '板边信息', '高级属性', '排版情况', '开料情况', 'CNC高级对接'].map(t => `<li class="el-menu-item"><span>${t}</span></li>`).join('') + '</ul>'; };
+    window.__MOCK_CB_VE_LAI__ = () => { veThanh(NUT_DU); veBenPhai(); };
   }
 
   let ban = 0;

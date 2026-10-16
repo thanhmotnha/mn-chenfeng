@@ -30,7 +30,9 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
         { module_id: '555077', name: 'Mẫu tham số lạ', logo: '', diy_logo: '', props: props([[2, 'L', '', 426, null, null, 1]]) },
         { module_id: '555010', name: 'Tên trong kho', logo: '', diy_logo: '', props: props(hang(chung.concat([['GD', 13], ['SLK', 30], ['XLK', 30]]))) },
         { module_id: '555078', name: 'Mẫu hỏng tham số', logo: '', diy_logo: '', props: 'khong-phai-du-lieu-nen' },
-        { module_id: '555016', name: '百隆骑马抽中帮16MM', logo: '', diy_logo: '', props: props(hang([['L', 426], ['W', 350], ['H', 195], ['BH', 18], ['LC', 0], ['XLK', 30]])) }] };
+        { module_id: '555016', name: '百隆骑马抽中帮16MM', logo: '', diy_logo: '', props: props(hang([['L', 426], ['W', 350], ['H', 195], ['BH', 18], ['LC', 0], ['XLK', 30]])) },
+        // (1.36.4) mẫu có tham số dày đáy — tên GIẢ (DBH, chú thích 抽底板厚): tên thật của 11 mẫu ngăn kéo Chenfeng CHƯA BIẾT
+        { module_id: '555020', name: '三节轨薄底抽DBH', logo: '', diy_logo: '', props: props(hang(chung.concat([['GD', 13, '轨道'], ['LC', 0], ['SLK', 30], ['XLK', 30], ['DBH', 5, '抽底板厚']]))) }] };
       else if (u.pathname === '/CAD-moduleList' && cau.hong !== 'danh_sach' && body.dir_id === '13') j = { err_code: 0, err_msg: '', count: '1', modules: [
         { module_id: '555002', name: '托底轨厚底抽', logo: 'thu/555002.png', diy_logo: '', props: props(hang(chung.concat([['GDK', 24.5], ['LC', 0], ['SLK', 30], ['XLK', 30]]))) }] };
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' }, body: JSON.stringify(j) });
@@ -91,7 +93,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
           const mat = M.mat_ngan_keo.map(q => { const want = [q.x + x0, q.x + q.w + x0, q.y, q.y + q.t, q.z, q.z + q.h]; return moi.some(e => D.isBoard(e) && e.Name === '抽面板' && D.boxOf(e).every((v, i) => Math.abs(v - want[i]) < 0.06)); });
           const thanh = moi.filter(e => D.isBoard(e) && e.Name === '抽侧板').map(e => D.boxOf(e));
           return { moi: moi.length, tam: moi.filter(D.isBoard).length, pk: moi.filter(D.isHardware).length, mat, sau: [...new Set(thanh.map(b => r2(b[3] - b[2])))], thanh_x: [...new Set(thanh.map(b => r2(b[0] - x0)))].sort((a, b) => a - b),
-            thanh_z: [...new Set(thanh.map(b => r2(b[4]) + '…' + r2(b[5])))].sort(), tu: [...new Set(moi.filter(D.isBoard).map(e => e.BoardProcessOption.cabinetName))],
+            thanh_z: [...new Set(thanh.map(b => r2(b[4]) + '…' + r2(b[5])))].sort(), day: moi.filter(e => D.isBoard(e) && e.Name === '抽底板').map(e => [r2(e.Thickness), r2(D.boxOf(e)[5])]), tu: [...new Set(moi.filter(D.isBoard).map(e => e.BoardProcessOption.cabinetName))],
             lc: window.__thu.lc(), bao_loi: window.__MOCK_BAO_LOI__ || 0, busy: D.busy(), hop: !!document.querySelector('.mock-nk') };
         } };
     });
@@ -168,6 +170,19 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     c = await T.chuanBi({ mau: 555001, ma: 'NS', ts: { GD: 21, LC: 0, SLK: 20, XLK: 10 } }, 12000);
     r = await T.ve();
     eq([r.so, r.mat, r.thanh_x, r.thanh_z], [1, [true, true], [138.5, 844], ['129.5…277.5', '329.5…477.5']], 'thành cách vách đệm 21 (GD), hộp thấp hơn mép mặt 20 trên (SLK) / 10 dưới (XLK)');
+
+    // (1.36.4 — ảnh trang sản xuất: tờ ván 5) mẫu có tham số dày đáy (dò theo tên / chú thích) → ô của hộp "Drawer Design" mang dày đáy = dày hậu (6,5), ghi cả biểu thức
+    console.log('— (1.36.4) Mẫu có tham số dày đáy: lệnh DRAWER dựng đáy hộp dày bằng hậu');
+    await page.evaluate(() => { window.__MOCK_DAY_DAY__ = 'DBH'; window.__MOCK_MAU_MAC_DINH__[555020] = { GD: 13, LC: 0, SLK: 30, XLK: 30, DBH: 5 }; });
+    c = await T.chuanBi({ mau: 555020, ten_mau: '三节轨薄底抽DBH', ma: 'NDD' }, 62000);
+    r = await T.ve();
+    eq([r.so, r.hong, r.mat], [1, [], [true, true]], 'vẽ xong bằng lệnh gốc, mặt ngăn kéo đúng thiết kế');
+    eq(r.day.map(d => d[0]), [6.5, 6.5], 'đáy hộp dày 6,5 (= hậu), không phải 5 của mẫu');
+    eq(r.bao_loi, 0, 'không lỗi nào tới Chenfeng');
+    c = await T.chuanBi({ mau: 555001, ma: 'NDD0' }, 63500);
+    r = await T.ve();
+    eq(r.day.map(d => d[0]), [5, 5], 'đối chứng: mẫu không có tham số dày đáy → lệnh DRAWER vẫn ra đáy 5 (lưới đỡ của D.veGoc đặt lại sau — xem goc.test)');
+    await page.evaluate(() => { window.__MOCK_DAY_DAY__ = null; });
 
     console.log('— Mẫu ở thư mục con của thư mục ngăn kéo');
     c = await T.chuanBi({ mau: 555002, ten_mau: '托底轨厚底抽', ma: 'NC' }, 15000);

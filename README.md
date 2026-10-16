@@ -12,6 +12,11 @@ Tiện ích Chrome cho [Chenfeng WebCAD](https://cfcad.cn): nhập thông số t
 
 Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js) (Tampermonkey tự cập nhật theo lịch của nó). Bản này chỉ có bảng vẽ tủ, không có trợ lý ở trang sản xuất.
 
+## Thư viện thẻ hình (bản 1.36.4)
+
+- Đầu thẻ Tủ là hàng nhóm **Tủ áo · Táp · Giường · Vách · Bếp**. Bấm một nhóm → hiện các thẻ mẫu, mỗi thẻ có hình nhỏ; **bấm thẻ là dùng luôn** (Chuẩn xưởng giữ nguyên, ↶ Lùi để lấy lại món đang làm). Bấm lại nhóm đang mở để gập. Nhóm Táp chỉ có một mẫu: bấm là ra táp, kiểu A – E chọn ở khối Kiểu táp.
+- Tủ mặc định mới (3000 × 2800): khoang 1 và 3 hai tầng treo, khoang 2 hai ngăn kéo + treo dài; thân dưới 2150, thân trên 600. Mẫu tủ áo không còn khoang "đợt đều" — khoang đó để trống, tự thêm đợt / suốt trên hình; **+ Thêm khoang** cũng ra khoang trống.
+
 ## Tủ bếp (bản 1.33)
 
 - Ô **Thư viện** có thêm 3 nhóm **Bếp · tủ dưới / tủ trên / tủ cao**. Mỗi tủ bếp là một module riêng: vẽ từng tủ, đặt bằng Chuột hoặc gõ toạ độ (nút Tường / Hình ẩn).
@@ -28,7 +33,7 @@ Dùng Tampermonkey thay cho tiện ích: cài [mn-chenfeng.user.js](https://raw.
 
 ## Thư viện: táp, giường, vách đầu giường (bản 1.32)
 
-- Ô **Thư viện** ở thẻ Tủ chia 4 nhóm: Tủ áo · Táp đầu giường · Giường · Vách đầu giường. Chọn một mục rồi bấm nút bên cạnh. Không ưng thì bấm ↶ Lùi, bảng trả lại cái đang làm.
+- **Thư viện** ở thẻ Tủ chia nhóm: Tủ áo · Táp · Giường · Vách · Bếp. Bấm nhóm rồi bấm thẻ mẫu (bản 1.36.4: thẻ có hình, bấm là dùng). Không ưng thì bấm ↶ Lùi, bảng trả lại cái đang làm.
 - **Táp đầu giường** (5 mẫu, rộng 450 – 600): là tủ 1 khoang không cánh, ngăn kéo trùm (mẫu ngăn kéo của Chenfeng). Vẽ như tủ.
 - **Giường** (7 mẫu): thường 1m2 / 1m6 / 1m8, bay 1m6 / 1m8, có ngăn kéo 1m6 / 1m8. Gõ cỡ nệm ở ô Giường là rộng / dài phủ bì tự tính. Kết cấu:
   - Đầu giường chạy suốt bề ngang, sát tường, xuống tận sàn.

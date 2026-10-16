@@ -107,7 +107,7 @@ T('Tủ vừa khung: phủ bì đúng bằng khung', () => {
   eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 2000, cao: 2700, sau: 600 }).mau, ['TA4-2000'], '2000 → mẫu 4 cánh');
   eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 4200, cao: 2700, sau: 600 }).mau, ['TA6-3000', 'TA2-1000'], '4200 → 8 cánh = 6 + 2');
   eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 3500, cao: 2700, sau: 600 }).mau, ['TA5-2500', 'TA2-1000'], '3500 → 7 cánh = 5 + 2 (không để lẻ 1 cánh)');
-  eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 450, cao: 2700, sau: 600 }).mau, ['1 cánh, đợt đều'], 'khung hẹp 450 → 1 cánh, không ngăn kéo');
+  eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 450, cao: 2700, sau: 600 }).mau, ['1 cánh, khoang trống'], 'khung hẹp 450 → 1 cánh, không ngăn kéo (1.36.4: khoang trống — mẫu bỏ kiểu đợt đều)');
   for (const cao of [700, 1000, 2000, 2440, 2441, 2500, 2600, 2800, 3000]) for (const rong of [400, 450, 600, 1000, 2000, 5000]) {
     const r = P.tuChoKhung(C, C.DEFAULT_SPEC, { rong, cao, sau: 600 }), M = C.build(r.spec), bb = C.bbox(M.parts);
     ok(M.errors.length === 0 && bb.x1 - bb.x0 === rong && bb.z1 - bb.z0 === cao, `khung ${rong} × ${cao}: dựng được, đúng phủ bì`, M.errors);
@@ -119,6 +119,14 @@ T('Tủ vừa khung: phủ bì đúng bằng khung', () => {
   ok(co(thap.ghi_chu, /Khung thấp: đã bỏ \d+ đợt/), 'khung thấp: bỏ đợt quá cao', thap.ghi_chu);
   eq(C.build(thap.spec).errors, [], 'khung thấp vẫn dựng được');
   ok(P.tuChoKhung(C, Object.assign({}, C.DEFAULT_SPEC, { chan: { cao: 80 } }), { rong: 2000, cao: 2700, sau: 600 }).spec.chan.cao === 80, 'giữ Chuẩn xưởng đang dùng (chân 80)');
+  // (soát 1.36.4) bảng đang mở tủ mặc định mới (thân dưới 2150): ruột tự ghép từ MAU_TU dựng cho thân dưới 2200 (đợt treo dài +1900) — lấy thân dưới của
+  // thông số đang mở là đợt 1900 rơi khỏi thân (tranThan 1900) → báo oan "Khung thấp", thanh treo lên sát nóc thân dưới.
+  for (const rong of [2000, 2500, 3000]) {
+    const r = P.tuChoKhung(C, C.DEFAULT_SPEC, { rong, cao: 2800, sau: 600 }), ma = r.mau[0], m = C.MAU_TU.find(x => x.ma === ma);
+    ok(!co(r.ghi_chu, /Khung thấp/), `khung ${rong} × 2800 với tủ mặc định: không báo "Khung thấp"`, r.ghi_chu);
+    eq(r.spec.than.cao_duoi, m.cao_duoi, `khung ${rong} × 2800: thân dưới theo mẫu ${ma}`);
+    eq(r.spec.khoang.map(k => k.dot), m.khoang().map(k => k.dot), `khung ${rong} × 2800: giữ đủ đợt của mẫu ${ma}`);
+  }
 });
 
 T('Nét khung dây của phòng', () => {

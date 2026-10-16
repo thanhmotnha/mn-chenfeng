@@ -11,15 +11,25 @@ const ok = (c, name, extra) => { if (c) pass++; else { fail++; console.log('  �
 const eq_ = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { co: a, can: b });
 // thẻ nằm sau nút ⚙ (bản 1.27 — Màu, Chuẩn xưởng, Hướng dẫn): hàng thẻ phụ chưa mở thì bấm ⚙ trước rồi mới bấm thẻ
 const theSau = async (H, t) => { const tab = H.locator('.tab[data-tab="' + t + '"]'); if (!(await tab.isVisible())) await H.locator('[data-act="the-them"]').click(); await tab.click(); };
-const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t: 6 }, khoang: [
+// (1.36.4) ghim thân dưới 2200 (số đo cũ) — tủ mặc định mới thân dưới 2150
+const TU_2000 = { ma: 'TA2', rong: 2000, cao: 2800, chan: { cao: 50 }, hau: { t: 6 }, than: { cao_duoi: 2200 }, khoang: [
   { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
   { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] } ] };
 
 // (1.34.1 — thư viện bếp gọn) mẫu bếp theo mã đi đường của người dùng: Thư viện "Tủ bếp <tầng>" → gõ Rộng → chip chức năng (bước đã đúng thì bỏ)
+// (1.36.4) Thư viện thẻ hình (thay ô chọn + nút Dùng): bấm NHÓM (mở lưới nếu thẻ chưa hiện) rồi bấm THẺ data-ma; táp chỉ một mẫu → bấm nhóm Táp là dùng.
+const nhomMa = ma => (ma === '' || /^TA\d/.test(ma) ? 'tu' : /^(@TAP|TAP)/.test(ma) ? 'tap' : /^G\d/.test(ma) ? 'giuong' : /^V\d/.test(ma) ? 'vach' : 'bep');
+async function chonMauL(L, ma) {
+  const n = nhomMa(ma);
+  if (n === 'tap') return L.locator('[data-act="tv-nhom"][data-nhom="tap"]').click();
+  const c = L.locator(`[data-act="tv-the"][data-ma="${ma}"]`);
+  if (!(await c.isVisible())) await L.locator(`[data-act="tv-nhom"][data-nhom="${n}"]`).click();
+  await c.click();
+}
 async function chonBepExt(page, H, ma) {
   const r = await page.evaluate(ma => { const C = window.MNCFCore, m = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO].find(x => x.ma === ma); return m ? { tang: m.tang, kieu: m.kieu, rong: m.co, ten: m.ten } : null; }, ma);
   if (!r || !r.kieu || !r.rong) throw new Error('mã bếp không thuộc chip: ' + ma);
-  await H.locator('#mncf-ui-mau').selectOption('@BEP-' + r.tang); await H.locator('[data-act="mau"]').click();
+  await chonMauL(H, '@BEP-' + r.tang);
   await page.waitForFunction(t => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'bep' && s.bep && s.bep.tang === t; }, r.tang);
   let go = false;
   if (await page.evaluate(w => window.MNCF.app.getSpec().rong !== w, r.rong)) { go = true; await H.locator('[data-k="rong"]').fill(String(r.rong)); await page.waitForFunction(w => window.MNCF.app.getSpec().rong === w, r.rong); }
@@ -226,7 +236,7 @@ async function chonBepExt(page, H, ma) {
     ok(rep.boards === 46 + 12 && rep.hw === 6, '46 tấm thiết kế + 12 tấm hộp ngăn kéo + 6 phụ kiện', rep);
     ok(JSON.stringify(rep.off) === '[5000,17.5,0]', 'toạ độ gõ = góc trái–trước–dưới của tủ (mặt cánh) → thùng dời (5000; 17,5; 0)', rep.off);
     ok(rep.old === 0 && rep.wrongType === 0, 'đã đổi kiểu khoan cũ 三合一 → Cam3Tp và ghi lại drillType', rep);
-    ok(rep.steps === 4, '4 bước hoàn tác (nhập tấm + thêm mẫu ngăn kéo / suốt treo + khoan lại + gom module) — nút Hoàn tác lùi đủ cả 4', rep.steps);
+    ok(rep.steps === 5, '5 bước hoàn tác (nhập tấm + thêm mẫu ngăn kéo / suốt treo + khoan lại + gom module + 1.36.4: đặt dày đáy hộp ngăn kéo 5 → dày hậu) — nút Hoàn tác lùi đủ cả 5', rep.steps);
     /* --- tủ vẽ xong là module tham số gốc của Chenfeng --- */
     const mod = await page.evaluate(() => { const D = window.MNCFDriver, bs = D.all().filter(D.isBoard), tag = bs.filter(D.tagOf), T = tag[0].Template && tag[0].Template.Object;
       const ex = n => T.GetParam(n).actions.map(a => a.Expr + ':m' + a.MoveEntitys.length + '/s' + a.EntityStretchPointMap.length).sort();
@@ -258,7 +268,7 @@ async function chonBepExt(page, H, ma) {
       if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
       // (1.32) đổi loại sản phẩm qua ô Thư viện: chỗ đặt của món trước (ô toạ độ đang bật) bị bỏ
       await H.locator('#mncf-ui-ax').fill('4000'); if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
-      await H.locator('#mncf-ui-mau').selectOption(ma); await H.locator('[data-act="mau"]').click();
+      await chonMauL(H, ma);
       ok(!(await H.locator('#mncf-ui-useat').isChecked()) && /bỏ chỗ đặt của món trước/.test(await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent)), `${ma}: đổi loại sản phẩm — bỏ chỗ đặt cũ, có báo`);
       ok(!(await H.locator('.vehang [data-act="dat-tuong"]').isVisible()) && !(await H.locator('.vehang [data-act="hinh"]').isVisible()) && await H.locator('.vehang [data-act="dat"]').isVisible(), `${ma}: giấu nút Tường / Hình (khung của tủ), còn nút Chuột`);
       const sp = await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.hau = Object.assign({}, s.hau, { t: 6 }); return s; });
@@ -282,7 +292,7 @@ async function chonBepExt(page, H, ma) {
     /* --- (soát 1.34.1) nút kiểu táp: sâu phủ bì đổi (C nóc chồm ra trước 20) → bỏ chỗ đặt như ô Thư viện; cùng sâu thì giữ --- */
     {
       await H.locator('.tab[data-tab="tu"]').click();
-      await H.locator('#mncf-ui-mau').selectOption('@TAP'); await H.locator('[data-act="mau"]').click();      // (1.36.2) ô Thư viện chỉ còn một mục táp (= kiểu A)
+      await chonMauL(H, '@TAP');      // (1.36.2) ô Thư viện chỉ còn một mục táp (= kiểu A)
       await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'tap');
       if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
       await H.locator('#mncf-ui-ax').fill('4000'); if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
@@ -364,7 +374,7 @@ async function chonBepExt(page, H, ma) {
       // (1.33 vòng soát 2) tủ trên đặt bằng CHUỘT: ô z điền cao độ treo thật (1560); sửa ô x sau đó thì tủ vẫn treo ở 1560 (trước: rơi xuống sàn)
       { await H.locator('.tab[data-tab="tu"]').click();
         if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
-        await H.locator('#mncf-ui-mau').selectOption('@BEP-tren'); await H.locator('[data-act="mau"]').click();      // (1.34.1) Tủ bếp trên = tủ trên cánh 600
+        await chonMauL(H, '@BEP-tren');      // (1.34.1) Tủ bếp trên = tủ trên cánh 600
         await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'bep' && s.bep.tang === 'tren' && s.rong === 600; });
         // (bản vá 1.33.1) chuẩn bếp chỉ có MỘT nguồn = bản lưu: "Cách mặt đá 750" gõ ở khối Tủ bếp phía trên là chuẩn người dùng đã chọn → mẫu mới theo 750 (trước: Sửa tủ dưới
         // ghi đè cả chuẩn bằng số của tủ đó). Đặt lại 700 cho phép thử dưới đây.
@@ -413,7 +423,7 @@ async function chonBepExt(page, H, ma) {
     { await H.locator('.tab[data-tab="tu"]').click();
       if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
       // (1.36.2) ô Thư viện chỉ còn một mục táp → chọn kiểu E (chân gỗ) bằng thẻ hình
-      await H.locator('#mncf-ui-mau').selectOption('@TAP'); await H.locator('[data-act="mau"]').click();
+      await chonMauL(H, '@TAP');
       await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'tap');
       await H.locator('.sp [data-act="tap-kieu"][data-kieu="E"]').click();
       await page.waitForFunction(() => { const s = window.MNCF.app.getSpec(); return s.loai_sp === 'tap' && s.tap && s.tap.chan_go === 150; });
@@ -575,7 +585,7 @@ async function chonBepExt(page, H, ma) {
     { // (bản 1.28) đang nối với tủ đã vẽ — tủ vẫn đứng chỗ cũ, cột vẫn ở đó: "Về tủ mẫu" GIỮ khấu cột (Cập nhật không được vẽ tủ đè vào cột)
       const the0 = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.panel').dataset.tabon), sp0 = await page.evaluate(() => window.MNCF.app.getSpec());
       await page.evaluate(sp => window.MNCF.app.setSpec(Object.assign({}, sp, { khau: { trai: { rong: 0, sau: 0 }, phai: { rong: 0, sau: 0 }, giua: [{ cach: 300, rong: 200, sau: 150 }], ho: 15 } })), sp0);
-      await H.locator('.tab[data-tab="tu"]').click(); await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();
+      await H.locator('.tab[data-tab="tu"]').click(); await chonMauL(H, '');
       ok((await page.evaluate(() => window.MNCF.app.getSpec().khau.giua.length)) === 1 && await H.locator('footer [data-act="unlink"]').isVisible(), 'đang nối với tủ đã vẽ: "Tủ mặc định" giữ khấu cột');
       await page.evaluate(sp => window.MNCF.app.setSpec(sp), sp0);
       if (the0 && the0 !== 'tu') await H.locator('.tab[data-tab="' + the0 + '"]').click();
@@ -875,6 +885,24 @@ async function chonBepExt(page, H, ma) {
       ok(r.lech.length === 0 && !r.warnings.some(w => /đặt mặt khác thiết kế|Không thấy phụ kiện nào/.test(w)), '… phép đối chiếu không đòi mặt ngăn kéo của hộp chưa thêm được (không báo "mặt ngăn kéo lệch")', [r.lech, r.warnings]);
       ok(r.warnings.some(w => /Chưa thêm được 2 hộp ngăn kéo \(khoang 2\)/.test(w) && /mã mẫu 777002 \(别人的抽屉\)/.test(w) && /không thuộc kho mẫu của tài khoản Chenfeng đang đăng nhập/.test(w) && /Dò mã mẫu từ kho Chenfeng/.test(w)), '… báo rõ mã mẫu nào không phải của tài khoản, chỉ chỗ sửa', r.warnings);
       ok(r.tai.filter(id => id === 777002).length === 2, '… mã không phải của mình: không thử đi thử lại', r.tai);
+      // 5b. (1.36.4 — ảnh trang sản xuất: tờ ván 5; bộ thử này ghim hậu 6) mẫu ngăn kéo có tham số dày đáy (tên GIẢ "DBH", chú thích 抽底板厚 — tên thật chưa biết). Bảng đã đọc tham số của mẫu
+      //     trong phiên (D.templatesIn — nút Dò kho mẫu) → lệnh nhập mẫu mang DBH = dày hậu; Chenfeng (giả lập, GIẢ ĐỊNH __MOCK_DAY_DAY__) dựng đáy 6,5 — lưới đỡ không phải làm gì.
+      await page.route('https://api.cfcad.cn/CAD-moduleList', rt => { const body = JSON.parse(rt.request().postData() || '{}'); if (body.dir_id !== '99') return rt.fallback();
+        return rt.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': 'https://cfcad.cn', 'access-control-allow-credentials': 'true' },
+          body: JSON.stringify({ err_code: 0, err_msg: '', count: '1', modules: [{ module_id: '555031', name: 'Ngăn kéo đáy DBH', props: props(chung.concat([['GD', 13], ['LC', 0], ['SLK', 30], ['XLK', 30], ['DBH', 5, '抽底板厚']])) }] }) }); });
+      // (bộ thử ghim hậu 6 — số đo cũ) đích = dày hậu của thông số vừa vẽ, không phải số 6,5 viết cứng
+      const dayCua = () => page.evaluate(() => { const D = window.MNCFDriver, h = D.last.M.spec.hau.t; return D.last.added.filter(e => !e.IsErase && D.isBoard(e) && /抽底/.test(e.Name)).map(e => Math.round(e.Thickness * 100) / 100 === h ? 'hau' : e.Thickness); });
+      await page.evaluate(async () => { await window.MNCFDriver.templatesIn(99); window.__MOCK_DAY_DAY__ = 'DBH'; window.__MOCK_MAU_LOI__ = {}; });
+      r = await ve(Object.assign({}, TU_K, { ma: 'TK2D', ngan_keo: { mau_id: 555031 } }), [133000, 0, 0]);
+      ok(r.ok && r.thieu.length === 0 && r.pk['三节轨'] === 2, 'mẫu có tham số dày đáy: tủ vẽ đủ 2 hộp ngăn kéo', [r.ok, r.errors, r.thieu]);
+      eq_(await dayCua(), ['hau', 'hau'], '… đáy hộp dày bằng hậu ngay khi nhập mẫu (lệnh nhập mang DBH = dày hậu)');
+      ok(!r.warnings.some(w => /đáy hộp ngăn kéo/.test(w)), '… lưới đỡ không phải sửa gì, không báo', r.warnings);
+      // đối chứng: mẫu chưa đọc tham số trong phiên (mã khác) → Chenfeng dựng đáy 5, lưới đỡ đặt lại 6,5 và báo một dòng
+      r = await ve(Object.assign({}, TU_K, { ma: 'TK2E' }), [136500, 0, 0]);
+      eq_(await dayCua(), ['hau', 'hau'], 'mẫu chưa biết tham số dày đáy: lưới đỡ sau khi vẽ đặt đáy bằng hậu');
+      ok(r.warnings.some(w => /2 đáy hộp ngăn kéo của mẫu Chenfeng mỏng hơn hậu/.test(w)), '… báo một dòng', r.warnings);
+      await page.evaluate(() => { window.__MOCK_DAY_DAY__ = null; });
+      await page.unroute('https://api.cfcad.cn/CAD-moduleList');
       // 6. máy chủ TREO (không trả lời): bảng chờ có hạn theo TIẾN TRIỂN (Chenfeng dựng thêm được mẫu nào thì còn chờ tiếp); đứng im quá hạn thì thôi thêm mẫu — tủ vẫn đủ tấm.
       //    Đo trên Chenfeng thật 05/10/2026: Esc lúc Chenfeng đang tải mẫu không có tác dụng — lệnh nhập cũ vẫn chạy ngầm, máy chủ trả lời thì Chenfeng hỏi điểm đặt. Bảng không chồng thêm lệnh nào
       //    lên lệnh đang treo, và canh để huỷ nó khi nó hiện lời hỏi (không để cụm mẫu bám theo chuột).
@@ -971,7 +999,7 @@ async function chonBepExt(page, H, ma) {
         for (let i = 0; i < out.tu.length; i++) for (let j = i + 1; j < out.tu.length; j++) { const a = out.tu[i].h, b = out.tu[j].h; if (a[0] < b[1] - 0.5 && b[0] < a[1] - 0.5 && a[2] < b[3] - 0.5 && b[2] < a[3] - 0.5 && a[4] < b[5] - 0.5 && b[4] < a[5] - 0.5) out.chong.push([out.tu[i].vt, out.tu[j].vt]); }
         return out; });
       // vào Bộ bếp chữ I — E1 (4500, tủ lạnh 830 đầu trái, ống 3700)
-      await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
+      await chonMauL(H, '@BO-I');
       const bo1 = { kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 } };
       await page.evaluate(b => window.MNCF.app.setBo(b), bo1);
       ok(await H.locator('footer .bohang').isVisible() && !(await H.locator('footer [data-act="draw"]').isVisible()) && await H.locator('footer [data-act="bo-cho"]').isVisible(), 'Bộ bếp: chân bảng là hàng của bộ (Vẽ bộ bếp, Chỗ, Cập nhật, Hoàn tác) — nút vẽ tủ lẻ ẩn');
@@ -1121,7 +1149,7 @@ async function chonBepExt(page, H, ma) {
         await H.locator('[data-act="bo-hoan-tac"]').click();
         await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
         // (c) đổi món giữa lúc vẽ bộ
-        const r3 = await page.evaluate(() => window.MNCF.app.veBo({ onTu: i => { if (i === 1) { const h = document.getElementById('mncf-host').shadowRoot; h.querySelector('#mncf-ui-mau').value = ''; h.querySelector('[data-act="mau"]').click(); } } }));
+        const r3 = await page.evaluate(() => window.MNCF.app.veBo({ onTu: i => { if (i === 1) { const h = document.getElementById('mncf-host').shadowRoot; let c = h.querySelector('[data-act="tv-the"][data-ma=""]'); if (!c) { h.querySelector('[data-act="tv-nhom"][data-nhom="tu"]').click(); c = h.querySelector('[data-act="tv-the"][data-ma=""]'); } c.click(); } } }));
         { const R = await page.evaluate(() => window.MNCF.app.getBoVe()), luu = await page.evaluate(() => JSON.parse(localStorage.getItem('mncf.tu.bo:B7')).spec);
           ok(r3 && r3.ok && R && R.da_ve.length === r3.tong && luu.da_ve.length === r3.tong && (await page.evaluate(() => window.MNCF.app.getBo())) !== null, 'bấm "Dùng mẫu" giữa lúc vẽ bộ: không đổi món, bộ vẽ xong và ghi đủ mọi tủ', [r3, R && R.da_ve.length, luu.da_ve.length]); }
         await H.locator('[data-act="bo-hoan-tac"]').click();
@@ -1138,14 +1166,14 @@ async function chonBepExt(page, H, ma) {
         const r8 = await page.evaluate(() => window.MNCF.app.veBo({}));
         ok(r8 && r8.ok && (await page.evaluate(() => window.MNCF.app.getBoKq().i)) === 1, 'B8: vẽ theo phương án 2', r8);
         // (10) rời bộ rồi vào lại: bảng chọn đúng phương án đã vẽ — Cập nhật không xếp lại cả dãy
-        await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();
-        await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
+        await chonMauL(H, '');
+        await chonMauL(H, '@BO-I');
         ok((await page.evaluate(() => window.MNCF.app.getBo().ma)) === 'B8' && (await page.evaluate(() => window.MNCF.app.getBoKq().i)) === 1 && (await page.evaluate(() => (window.MNCF.app.getBoVe() || { da_ve: [] }).da_ve.length)) === r8.tong, 'vào lại bộ B8: phương án đang xem = phương án đã vẽ (2)', await page.evaluate(() => window.MNCF.app.getBoKq().i));
         await H.locator('[data-act="bo-cap-nhat"]').click();
         await choSt('đã đúng như bảng|Đã cập nhật bộ|Cập nhật bộ .* dừng');
         ok(/đã đúng như bảng/.test(await st()), 'vào lại rồi Cập nhật (không sửa gì): không tủ nào phải vẽ lại', await st());
         // (8) đổi sang chữ L (Thư viện "Bộ bếp chữ L" hoặc chip Chữ L): bộ MỚI, không bám bản ghi + chỗ đặt của bộ chữ I đã vẽ
-        await H.locator('#mncf-ui-mau').selectOption('@BO-L'); await H.locator('[data-act="mau"]').click();
+        await chonMauL(H, '@BO-L');
         { const b = await page.evaluate(() => window.MNCF.app.getBo());
           ok(b.kieu === 'L' && b.ma !== 'B8' && (await page.evaluate(() => window.MNCF.app.getBoVe())) === null && (await page.evaluate(() => window.MNCF.app.getBoCho())) === null && !/đã vẽ/.test(await H.locator('[data-act="bo-ve"]').innerText()) && await H.locator('[data-act="bo-cap-nhat"]').isDisabled(), 'Thư viện → Bộ bếp chữ L: bộ mới (mã khác), chưa vẽ, chưa có chỗ — Cập nhật khoá', [b.ma, await H.locator('[data-act="bo-ve"]').innerText()]); }
         await H.locator('[data-act="lui"]').click();
@@ -1224,7 +1252,7 @@ async function chonBepExt(page, H, ma) {
         { const id = (await page.evaluate(() => window.MNCF.app.getBoVe())).da_ve.find(y => y.vt === 'A1').id;
           await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id)]); }, id);
           await H.locator('.tab[data-tab="tu"]').click();
-          await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();      // rời bộ: chân bảng về hàng tủ lẻ (nút Sửa tủ)
+          await chonMauL(H, '');      // rời bộ: chân bảng về hàng tủ lẻ (nút Sửa tủ)
           if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();      // nút Sửa tủ nằm sau ⋯
           await H.locator('[data-act="pick"]').click();
           ok((await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.bep && s.bep.day && s.bep.day.ma === 'B12'); })), 'Sửa tủ A1 của bộ: thông số mang bep.day (vẫn thuộc dãy)');
@@ -1237,20 +1265,20 @@ async function chonBepExt(page, H, ma) {
           ok(rh && rh.giai_doan !== 'xong' && (await page.evaluate(() => { const s = window.MNCF.app.getSpec(); return !!(s.bep && s.bep.day && s.bep.day.ma === 'B12'); })) && await H.locator('footer [data-act="redraw"]').isVisible(), 'Sửa A1 → Tủ mới hỏng: thông số vẫn mang bep.day, vẫn nối A1', rh && rh.giai_doan);
           await H.locator('footer [data-act="unlink"]').click();
           ok(await page.evaluate(() => { const s = window.MNCF.app.getSpec(), C = window.MNCFCore; return !(s.bep && s.bep.day) && !!C.cutList(C.build(s)).gia_cong_da; }), 'Thôi sửa: bỏ bep.day — tủ lẻ có lại dòng Mặt đá'); }
-        await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
+        await chonMauL(H, '@BO-I');
         ok((await page.evaluate(() => window.MNCF.app.getBo().ma)) === 'B12' && ((await page.evaluate(() => window.MNCF.app.getBoVe())) || { da_ve: [] }).da_ve.length > 0, 'về bộ B12 (đã vẽ)');
         // (9) "bản vẽ khác" (không tủ nào của bộ trên bản vẽ): vào Bộ bếp KHÔNG xoá bản ghi; về bản vẽ cũ vẫn Hoàn tác / Cập nhật được
-        await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();
-        await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
+        await chonMauL(H, '');
+        await chonMauL(H, '@BO-I');
         { const n0 = await page.evaluate(() => JSON.parse(localStorage.getItem('mncf.tu.bo:B12')).spec.da_ve.length);
           await page.evaluate(() => { const D = window.MNCFDriver; window.__allGoc = D.all; D.all = () => []; });
-          await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();
-          await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
+          await chonMauL(H, '');
+          await chonMauL(H, '@BO-I');
           const ma = (await page.evaluate(() => window.MNCF.app.getBo())).ma, n1 = await page.evaluate(() => JSON.parse(localStorage.getItem('mncf.tu.bo:B12')).spec.da_ve.length);
           ok(ma === 'B12' && n0 > 0 && n1 === n0 && (await page.evaluate(() => window.MNCF.app.getBoVe())) === null, 'bản vẽ khác: bộ B12 không có ở đây (không nhận) nhưng bản ghi giữ nguyên', [ma, n0, n1]);
           await page.evaluate(() => { const D = window.MNCFDriver; D.all = window.__allGoc; });
-          await H.locator('#mncf-ui-mau').selectOption(''); await H.locator('[data-act="mau"]').click();
-          await H.locator('#mncf-ui-mau').selectOption('@BO-I'); await H.locator('[data-act="mau"]').click();
+          await chonMauL(H, '');
+          await chonMauL(H, '@BO-I');
           ok(((await page.evaluate(() => window.MNCF.app.getBoVe())) || { da_ve: [] }).da_ve.length === n0 && !(await H.locator('[data-act="bo-hoan-tac"]').isDisabled()), 'về bản vẽ cũ: nhận lại bộ B12, Hoàn tác bộ bật', await page.evaluate(() => window.MNCF.app.getBoVe())); }
         await hoanTac();
         ok((await vung(390000)) === 0, 'B12: Hoàn tác bộ sạch');
@@ -1267,7 +1295,7 @@ async function chonBepExt(page, H, ma) {
         await hoanTac();
         ok((await vung(490000)) === 0, 'B14: Hoàn tác bộ sạch');
         // (8) bộ chữ L chưa vẽ → chip Chữ I (cùng mã) → vẽ → ↶ Lùi (về chữ L cùng mã): KHÔNG giữ bản ghi bộ chữ I — Cập nhật khoá, bộ chữ I còn nguyên
-        await H.locator('#mncf-ui-mau').selectOption('@BO-L'); await H.locator('[data-act="mau"]').click();
+        await chonMauL(H, '@BO-L');
         await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.ma = 'B15'; window.MNCF.app.setBo(o); });
         await H.locator('[data-act="bo-kieu"][data-v="I"]').click();
         await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [550000, 5000, 0], xoay: 0 }));
