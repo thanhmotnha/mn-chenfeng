@@ -535,7 +535,7 @@
    */
   function tuChoKhung(Core, specNen, q, tenPhong, H, j) {
     const ghi = [], dsMau = [];
-    let s = Core.normalize(specNen);
+    let s = Core.normalize(specNen), cdGhep = 0;      // cdGhep = thân dưới của các mẫu tự ghép (xem dưới)
     // (bản 1.32) khung là chỗ đặt TỦ: giường / vách đầu giường đang mở trong bảng → đổi sang tủ áo (Chuẩn xưởng giữ nguyên);
     // táp chỉ giữ ngăn kéo của nó khi chỗ đặt cỡ táp (cao ≤ 1000, rộng ≤ 1200) — khung tủ áo (sàn → trần) thì cũng đổi sang tủ áo, không kéo táp cao 2 m
     const lsp = Core.loaiSP ? Core.loaiSP(s) : 'tu', tapNho = lsp === 'tap' && q.cao <= 1000 && q.rong <= 1200;
@@ -549,7 +549,7 @@
       const theo = { 2: 'TA2-1000', 3: 'TA3-1500', 4: 'TA4-2000', 5: 'TA5-2500', 6: 'TA6-3000' };
       let n = Math.max(2, Math.round(q.rong / 500)); const khoang = [];
       if (q.rong < 600) { n = 0; khoang.push(Core.MAU_TU.find(x => x.ma === 'TA3-1500').khoang()[1]); dsMau.push('1 cánh, khoang trống'); }      // khung hẹp: 1 cánh, không ngăn kéo (1.36.4: khoang trống — mẫu tủ áo bỏ kiểu đợt đều)
-      while (n > 0) { let c = n > 6 ? (n - 6 === 1 ? 5 : 6) : n; if (c === 1) c = 2; const m = Core.MAU_TU.find(x => x.ma === theo[c]); khoang.push(...m.khoang()); dsMau.push(m.ma); n -= c; }
+      while (n > 0) { let c = n > 6 ? (n - 6 === 1 ? 5 : 6) : n; if (c === 1) c = 2; const m = Core.MAU_TU.find(x => x.ma === theo[c]); khoang.push(...m.khoang()); dsMau.push(m.ma); cdGhep = Math.max(cdGhep, m.cao_duoi || 0); n -= c; }
       s = Core.normalize(Object.assign(clone(s), { khoang }));
       ghi.push(`Tự chọn ruột tủ theo bề rộng: ${dsMau.join(' + ')}.`);
     }
@@ -557,8 +557,10 @@
     s.rong = q.rong; s.cao = q.cao;
     // khung treo (đáy cao hơn sàn — ô trên của vách tivi, tủ treo đầu giường): tủ không có chân
     if (q.z > 0.5 && s.chan && s.chan.cao > 0) { s.chan = Object.assign({}, s.chan, { cao: 0 }); ghi.push(`Khung treo (đáy +${g(q.z)}): bỏ chân tủ.`); }
-    // cao hơn khổ ván thì chia thân dưới + thân kịch trần; thân trên không thấp hơn 400
-    s.than = Object.assign({}, s.than, { cao_duoi: q.cao > khoVan ? Math.min((coMau && coMau.cao_duoi) || (s.than && s.than.cao_duoi) || 2200, q.cao - 400) : 0 });
+    // cao hơn khổ ván thì chia thân dưới + thân kịch trần; thân trên không thấp hơn 400. Ruột lấy từ mẫu (chọn hay tự ghép) thì theo thân dưới CỦA MẪU (đợt
+    // của mẫu tính theo nó): soát 1.36.4 — tủ mặc định mới thân dưới 2150, lấy số đó cho ruột MAU_TU (dựng ở 2200, đợt treo dài +1900) là đợt 1900 rơi khỏi
+    // thân (lọc z < 2150 − 250) → báo oan "Khung thấp", thanh treo lên sát nóc thân dưới.
+    s.than = Object.assign({}, s.than, { cao_duoi: q.cao > khoVan ? Math.min((coMau && coMau.cao_duoi) || cdGhep || (s.than && s.than.cao_duoi) || 2200, q.cao - 400) : 0 });
     // đợt của mẫu cao hơn thân tủ thì bỏ (khung thấp); nội dung ô mất đợt đỡ thì bỏ theo
     const tranThan = (s.than.cao_duoi || q.cao) - 250;
     let bo = 0;

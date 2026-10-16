@@ -2972,6 +2972,12 @@
       const q = spec.tap && typeof spec.tap === 'object' ? spec.tap : null;
       if (q && q.xa_dung === undefined && q.tay_nam === 'khe' && num(q.thanh, 1) && DEFAULT_TAP.xa_dung) doi.push(`Táp khe tay nắm: thanh nằm giữa hai mặt ngăn kéo nay là xà đứng cao ${g(TAP_XA)} sau rãnh móc tay — nhìn qua khe chỉ thấy mặt xà, không thấy cạnh thanh / khe sáng.`);
     }
+    if (isFinite(v) && v < soBan('1.36.4') && !spec.loai_sp && !(spec.than && typeof spec.than === 'object' && spec.than.cao_duoi !== undefined)) {
+      // (soát 1.36.4) mặc định thân dưới đổi 2200 → 2150. Thông số bản cũ THIẾU khoá (tệp viết tay; bảng luôn lưu đủ) lúc đó dựng với 2200 — normalize gộp số
+      // mới thì tủ đổi lặng lẽ (2250: gộp thân thêm cảnh báo, 2400: thân trên 150 → 200). Ghi lại số cũ, không báo: tủ vẫn y như ở bản đã lưu.
+      // Táp / giường / vách / bếp: thân do mẫu / normBep tự đặt — không đụng.
+      spec.than = Object.assign({}, spec.than && typeof spec.than === 'object' ? spec.than : {}, { cao_duoi: 2200 });
+    }
     // Từ 1.10 tủ rộng tự tách thùng: chỉ báo khi tủ đang lưu thật sự bị tách (tủ hẹp thì không có gì đổi)
     let biTach = false;
     if (isFinite(v) && v < soBan('1.10.0') && !(spec.thung && typeof spec.thung === 'object' && 'rong_max' in spec.thung)) { try { const m = build(spec); biTach = !!(m.info.thung && m.info.thung.length > 1); } catch (e) { biTach = false; } }

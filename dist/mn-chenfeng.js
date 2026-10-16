@@ -1,4 +1,4 @@
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.36.3 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.36.4 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -14,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.36.3';
+  const VERSION = '1.36.4';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -55,7 +55,7 @@
     },
     phao: { trai: 50, phai: 50, tren: 50, phu_tro: 80, noi: 'moi_vach' },   // 0 = không có phào phía đó; phu_tro = bề rộng thanh phụ trợ sau phào
     chan: { cao: 100 },        // cao chân = cao xà chân trước (phào dưới); 0 = không chân. Anh Jason 02/10/2026: mặc định 100 (hoặc 80), không phải 50
-    than: { cao_duoi: 2200 },  // cao thân dưới tính từ sàn; 0 = một thân
+    than: { cao_duoi: 2150 },  // cao thân dưới tính từ sàn; 0 = một thân. (1.36.4 — anh Thanh 16/10/2026, ảnh tủ 3000 × 2800: thân dưới 2150 + thân trên 600; trước 2200)
     // Tách thùng theo bề ngang (anh Jason 03/10/2026: "khổ ván 2 m thường sẽ tách thùng, thùng bé thì kẹp khung chung"):
     //   thùng nào rộng quá rong_max thì tách thành các thùng riêng, mỗi thùng có 2 hồi của nó (chỗ tách = 2 hồi áp lưng);
     //   các khoang nhỏ liền nhau còn nằm trong rong_max thì vẫn chung một thùng (vách chung). Phào, chân trước là khung chung cho cả dãy. 0 = không tách.
@@ -87,10 +87,12 @@
     // Mỗi khoang: dot = cao độ MẶT DƯỚI từng đợt (tính từ sàn). Các đợt chia khoang thành các ô; o = nội dung ô:
     //   { tu: cao độ mặt dưới của đợt nằm ngay dưới ô (0 = ô sát đáy), kieu: 'nk_am' | 'nk_trum' | 'suot', so: số ngăn kéo, loai: mã loại ngăn kéo (bỏ trống = loại mặc định) }
     // (định dạng cũ ngan_keo: {so, den} và suot: z vẫn nhận, normalize tự đổi)
+    // (1.36.4 — anh Thanh 16/10/2026, ảnh tủ 3000 × 2800: "layout tủ ntn nhé") tủ mặc định = K1 hai tầng treo · K2 2 ngăn kéo âm + treo dài · K3 hai tầng treo
+    //   (cùng ruột RUOT.hai_tang_treo / RUOT.nk_treo của thư viện). Trước: K1 treo dài dưới đợt +1800 · K2 2 ngăn kéo + treo · K3 6 đợt đều.
     khoang: [
-      { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
-      { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] },
-      { rong: 'auto', canh: 2, dot: [400, 750, 1100, 1450, 1800], o: [] },
+      { rong: 'auto', canh: 2, dot: [1150], o: [{ tu: 0, kieu: 'suot' }, { tu: 1150, kieu: 'suot' }] },
+      { rong: 'auto', canh: 2, dot: [570], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 570, kieu: 'suot' }] },
+      { rong: 'auto', canh: 2, dot: [1150], o: [{ tu: 0, kieu: 'suot' }, { tu: 1150, kieu: 'suot' }] },
     ],
     // dem: ngăn kéo âm nằm sau cánh mở phải tránh bản lề — ở mỗi bên có bản lề đặt 1 vách đệm, mặt trong vách đệm cách hồi/vách `dem` (khe còn lại dem − dày ván là chỗ cho bản lề); 0 = không đệm
     // Từ bản 1.5 (anh Jason, 02/10/2026: "hở thế này không đúng kết cấu gỗ công nghiệp, ngăn kéo vát phải có xà đỡ"): hộc ngăn kéo âm là một KHUNG kín —
@@ -2972,6 +2974,12 @@
       const q = spec.tap && typeof spec.tap === 'object' ? spec.tap : null;
       if (q && q.xa_dung === undefined && q.tay_nam === 'khe' && num(q.thanh, 1) && DEFAULT_TAP.xa_dung) doi.push(`Táp khe tay nắm: thanh nằm giữa hai mặt ngăn kéo nay là xà đứng cao ${g(TAP_XA)} sau rãnh móc tay — nhìn qua khe chỉ thấy mặt xà, không thấy cạnh thanh / khe sáng.`);
     }
+    if (isFinite(v) && v < soBan('1.36.4') && !spec.loai_sp && !(spec.than && typeof spec.than === 'object' && spec.than.cao_duoi !== undefined)) {
+      // (soát 1.36.4) mặc định thân dưới đổi 2200 → 2150. Thông số bản cũ THIẾU khoá (tệp viết tay; bảng luôn lưu đủ) lúc đó dựng với 2200 — normalize gộp số
+      // mới thì tủ đổi lặng lẽ (2250: gộp thân thêm cảnh báo, 2400: thân trên 150 → 200). Ghi lại số cũ, không báo: tủ vẫn y như ở bản đã lưu.
+      // Táp / giường / vách / bếp: thân do mẫu / normBep tự đặt — không đụng.
+      spec.than = Object.assign({}, spec.than && typeof spec.than === 'object' ? spec.than : {}, { cao_duoi: 2200 });
+    }
     // Từ 1.10 tủ rộng tự tách thùng: chỉ báo khi tủ đang lưu thật sự bị tách (tủ hẹp thì không có gì đổi)
     let biTach = false;
     if (isFinite(v) && v < soBan('1.10.0') && !(spec.thung && typeof spec.thung === 'object' && 'rong_max' in spec.thung)) { try { const m = build(spec); biTach = !!(m.info.thung && m.info.thung.length > 1); } catch (e) { biTach = false; } }
@@ -5167,7 +5175,8 @@
    *   ngăn kéo+treo : 2 ngăn kéo âm dưới đợt +570 + treo dài phía trên (lọt lòng ~1595)
    *   ngăn kéo+đợt  : 2 ngăn kéo âm + 4 ô xếp đồ
    *   3 ngăn kéo    : 3 ngăn kéo âm dưới đợt +750, 1 ô xếp đồ, treo ngắn phía trên
-   *   đợt đều       : 6 ô xếp đồ cao ~320–350
+   *   khoang trống  : không đợt, không suốt (1.36.4 — anh Thanh 16/10/2026: "thêm khoang thì khoang trống thôi nhiều đợt quá khó xử lý" — thay kiểu 'đợt đều'
+   *                   6 ô của bản ≤ 1.36.3: người dùng tự thêm đợt / suốt trên hình, xoá bớt 5 đợt là việc thừa)
    * ------------------------------------------------------------------ */
   const RUOT = {
     treo_dai: () => ({ dot: [1900], o: [{ tu: 0, kieu: 'suot' }] }),
@@ -5176,18 +5185,18 @@
     nk_treo: () => ({ dot: [570], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 570, kieu: 'suot' }] }),
     nk_dot: () => ({ dot: [570, 900, 1230, 1560, 1890], o: [{ tu: 0, kieu: 'nk_am', so: 2 }] }),
     nk3_treo_ngan: () => ({ dot: [750, 1130], o: [{ tu: 0, kieu: 'nk_am', so: 3 }, { tu: 1130, kieu: 'suot' }] }),
-    dot_deu: () => ({ dot: [450, 790, 1130, 1470, 1810], o: [] }),
+    trong: () => ({ dot: [], o: [] }),
   };
-  const TEN_RUOT = { treo_dai: 'treo dài', treo_ngan_dot: 'đợt + treo ngắn', hai_tang_treo: 'hai tầng treo', nk_treo: '2 ngăn kéo + treo dài', nk_dot: '2 ngăn kéo + đợt', nk3_treo_ngan: '3 ngăn kéo + treo ngắn', dot_deu: 'đợt đều' };
+  const TEN_RUOT = { treo_dai: 'treo dài', treo_ngan_dot: 'đợt + treo ngắn', hai_tang_treo: 'hai tầng treo', nk_treo: '2 ngăn kéo + treo dài', nk_dot: '2 ngăn kéo + đợt', nk3_treo_ngan: '3 ngăn kéo + treo ngắn', trong: 'khoang trống' };
   // [mã, tên, rộng, cao, cao thân dưới, [[số cánh, ruột, bản lề?], …]]
   const MAU_TU = [
     ['TA2-1000', 'Tủ áo 2 cánh 1000', 1000, 2800, 2200, [[2, 'nk3_treo_ngan']]],
     ['TA2-1100-T', 'Tủ áo 2 cánh 1100, một thân cao 2400', 1100, 2400, 0, [[2, 'nk_treo']]],
-    ['TA3-1500', 'Tủ áo 3 cánh 1500', 1500, 2800, 2200, [[2, 'nk_treo'], [1, 'dot_deu', 'phai']]],
+    ['TA3-1500', 'Tủ áo 3 cánh 1500', 1500, 2800, 2200, [[2, 'nk_treo'], [1, 'trong', 'phai']]],
     ['TA4-2000', 'Tủ áo 4 cánh 2000', 2000, 2800, 2200, [[2, 'treo_dai'], [2, 'nk_dot']]],
     ['TA4-2000-2T', 'Tủ áo 4 cánh 2000 — hai tầng treo', 2000, 2800, 2200, [[2, 'hai_tang_treo'], [2, 'nk3_treo_ngan']]],
-    ['TA5-2500', 'Tủ áo 5 cánh 2500', 2500, 2800, 2200, [[2, 'treo_dai'], [2, 'nk_treo'], [1, 'dot_deu', 'phai']]],
-    ['TA6-3000', 'Tủ áo 6 cánh 3000', 3000, 2800, 2200, [[2, 'treo_dai'], [2, 'nk_treo'], [2, 'dot_deu']]],
+    ['TA5-2500', 'Tủ áo 5 cánh 2500', 2500, 2800, 2200, [[2, 'treo_dai'], [2, 'nk_treo'], [1, 'trong', 'phai']]],
+    ['TA6-3000', 'Tủ áo 6 cánh 3000', 3000, 2800, 2200, [[2, 'treo_dai'], [2, 'nk_treo'], [2, 'trong']]],
     ['TA6-3000-VC', 'Tủ áo 6 cánh 3000 — hai người', 3000, 2800, 2200, [[2, 'hai_tang_treo'], [2, 'nk3_treo_ngan'], [2, 'treo_dai']]],
   ].map(([ma, ten, rong, cao, cao_duoi, kh]) => ({ ma, ten, rong, cao, cao_duoi, mo_ta: kh.map(k => `${k[0]} cánh: ${TEN_RUOT[k[1]]}`).join(' · '),
     khoang: () => kh.map(k => Object.assign({ rong: 'auto', canh: k[0] }, k[2] ? { ban_le: k[2] } : {}, RUOT[k[1]]())) }));
@@ -5809,7 +5818,7 @@
    */
   function tuChoKhung(Core, specNen, q, tenPhong, H, j) {
     const ghi = [], dsMau = [];
-    let s = Core.normalize(specNen);
+    let s = Core.normalize(specNen), cdGhep = 0;      // cdGhep = thân dưới của các mẫu tự ghép (xem dưới)
     // (bản 1.32) khung là chỗ đặt TỦ: giường / vách đầu giường đang mở trong bảng → đổi sang tủ áo (Chuẩn xưởng giữ nguyên);
     // táp chỉ giữ ngăn kéo của nó khi chỗ đặt cỡ táp (cao ≤ 1000, rộng ≤ 1200) — khung tủ áo (sàn → trần) thì cũng đổi sang tủ áo, không kéo táp cao 2 m
     const lsp = Core.loaiSP ? Core.loaiSP(s) : 'tu', tapNho = lsp === 'tap' && q.cao <= 1000 && q.rong <= 1200;
@@ -5822,8 +5831,8 @@
       // tự chọn theo bề rộng: mỗi cánh ~500; ghép các mẫu 2–6 cánh cho đủ số cánh
       const theo = { 2: 'TA2-1000', 3: 'TA3-1500', 4: 'TA4-2000', 5: 'TA5-2500', 6: 'TA6-3000' };
       let n = Math.max(2, Math.round(q.rong / 500)); const khoang = [];
-      if (q.rong < 600) { n = 0; khoang.push(Core.MAU_TU.find(x => x.ma === 'TA3-1500').khoang()[1]); dsMau.push('1 cánh, đợt đều'); }      // khung hẹp: 1 cánh, không ngăn kéo
-      while (n > 0) { let c = n > 6 ? (n - 6 === 1 ? 5 : 6) : n; if (c === 1) c = 2; const m = Core.MAU_TU.find(x => x.ma === theo[c]); khoang.push(...m.khoang()); dsMau.push(m.ma); n -= c; }
+      if (q.rong < 600) { n = 0; khoang.push(Core.MAU_TU.find(x => x.ma === 'TA3-1500').khoang()[1]); dsMau.push('1 cánh, khoang trống'); }      // khung hẹp: 1 cánh, không ngăn kéo (1.36.4: khoang trống — mẫu tủ áo bỏ kiểu đợt đều)
+      while (n > 0) { let c = n > 6 ? (n - 6 === 1 ? 5 : 6) : n; if (c === 1) c = 2; const m = Core.MAU_TU.find(x => x.ma === theo[c]); khoang.push(...m.khoang()); dsMau.push(m.ma); cdGhep = Math.max(cdGhep, m.cao_duoi || 0); n -= c; }
       s = Core.normalize(Object.assign(clone(s), { khoang }));
       ghi.push(`Tự chọn ruột tủ theo bề rộng: ${dsMau.join(' + ')}.`);
     }
@@ -5831,8 +5840,10 @@
     s.rong = q.rong; s.cao = q.cao;
     // khung treo (đáy cao hơn sàn — ô trên của vách tivi, tủ treo đầu giường): tủ không có chân
     if (q.z > 0.5 && s.chan && s.chan.cao > 0) { s.chan = Object.assign({}, s.chan, { cao: 0 }); ghi.push(`Khung treo (đáy +${g(q.z)}): bỏ chân tủ.`); }
-    // cao hơn khổ ván thì chia thân dưới + thân kịch trần; thân trên không thấp hơn 400
-    s.than = Object.assign({}, s.than, { cao_duoi: q.cao > khoVan ? Math.min((coMau && coMau.cao_duoi) || (s.than && s.than.cao_duoi) || 2200, q.cao - 400) : 0 });
+    // cao hơn khổ ván thì chia thân dưới + thân kịch trần; thân trên không thấp hơn 400. Ruột lấy từ mẫu (chọn hay tự ghép) thì theo thân dưới CỦA MẪU (đợt
+    // của mẫu tính theo nó): soát 1.36.4 — tủ mặc định mới thân dưới 2150, lấy số đó cho ruột MAU_TU (dựng ở 2200, đợt treo dài +1900) là đợt 1900 rơi khỏi
+    // thân (lọc z < 2150 − 250) → báo oan "Khung thấp", thanh treo lên sát nóc thân dưới.
+    s.than = Object.assign({}, s.than, { cao_duoi: q.cao > khoVan ? Math.min((coMau && coMau.cao_duoi) || cdGhep || (s.than && s.than.cao_duoi) || 2200, q.cao - 400) : 0 });
     // đợt của mẫu cao hơn thân tủ thì bỏ (khung thấp); nội dung ô mất đợt đỡ thì bỏ theo
     const tranThan = (s.than.cao_duoi || q.cao) - 250;
     let bo = 0;
@@ -11936,7 +11947,7 @@ footer>.kqhang{display:none}
 .mn.page{display:block}
 .mn.page .panel{position:static;width:auto;max-width:1180px;margin:0 auto;box-shadow:0 2px 14px rgba(0,0,0,.14)}
 .mn.page .body{overflow:visible}
-.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu,.panel[data-loai="giuong"] .vehang [data-act="dat-tuong"],.panel[data-loai="vach"] .vehang [data-act="dat-tuong"],.panel[data-loai="giuong"] .vehang [data-act="hinh"],.panel[data-loai="vach"] .vehang [data-act="hinh"],.panel[data-loai="bep-duoi"] .chi-tu,.panel[data-loai="bep"] .khung-tu,.panel[data-loai^="bep"] .vehang [data-act="dat-tuong"],.panel[data-loai^="bep"] .vehang [data-act="hinh"]{display:none!important}.sp[hidden]{display:none}.tapkieu{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}.tapthe{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 3px 5px;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);font:inherit;font-size:11px;line-height:1.2;text-align:center;cursor:pointer}.tapthe:hover{border-color:var(--accent);background:var(--hover)}.tapthe[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px;background:var(--hover);font-weight:650}.tapthe .h{display:block;width:100%;max-width:72px;pointer-events:none}.tapthe svg{display:block;width:100%;height:auto;cursor:inherit}.dims{grid-area:dims}.tcs{grid-area:tv}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
+.panel[data-loai="giuong"] .chi-tu,.panel[data-loai="vach"] .chi-tu,.panel[data-loai="giuong"] .vehang [data-act="dat-tuong"],.panel[data-loai="vach"] .vehang [data-act="dat-tuong"],.panel[data-loai="giuong"] .vehang [data-act="hinh"],.panel[data-loai="vach"] .vehang [data-act="hinh"],.panel[data-loai="bep-duoi"] .chi-tu,.panel[data-loai="bep"] .khung-tu,.panel[data-loai^="bep"] .vehang [data-act="dat-tuong"],.panel[data-loai^="bep"] .vehang [data-act="hinh"]{display:none!important}.sp[hidden]{display:none}.tapkieu{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}.tapthe{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 3px 5px;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);font:inherit;font-size:11px;line-height:1.2;text-align:center;cursor:pointer}.tapthe:hover{border-color:var(--accent);background:var(--hover)}.tapthe[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px;background:var(--hover);font-weight:650}.tapthe .h{display:block;width:100%;max-width:72px;pointer-events:none}.tapthe svg{display:block;width:100%;height:auto;cursor:inherit}.tvnhom{margin:0}.tvnhom .segb.dang:not(.on){border-color:var(--accent);font-weight:650}.tvluoi{margin:6px 0 0}.tvluoi[hidden]{display:none}.tvthe .t{overflow-wrap:anywhere}.tvthe .h svg{max-height:60px}.dims{grid-area:dims}.tcs{grid-area:tv}.colv{grid-area:view;min-width:0;position:relative}.colf{grid-area:rest;min-width:0}
 /* (bản 1.34) BỘ BẾP chữ I / L: khối Bộ bếp thay mọi phần của tủ lẻ; hình mặt bằng + mặt đứng của dãy */
 .bo[hidden],.bov[hidden],.bothem[hidden],.bokpop[hidden]{display:none}
 .panel[data-loai="bo-bep"] .chi-tu,.panel[data-loai="bo-bep"] .dims,.panel[data-loai="bo-bep"] .view,.panel[data-loai="bo-bep"] .edbar,.panel[data-loai="bo-bep"] .colv>.msgs,.panel[data-loai="bo-bep"] .phieu,.panel[data-loai="bo-bep"] .colv>.sum,.panel[data-loai="bo-bep"] .sp,.panel[data-loai="bo-bep"] .vtools>:not([data-act="lui"]),.panel[data-loai="bo-bep"] footer>.vehang:not(.phonghang):not(.bohang),.panel[data-loai="bo-bep"] footer>.themnut{display:none!important}
@@ -12126,6 +12137,13 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
     const fid = k => 'mncf-' + String(k).replace(/[^\w]+/g, '-');
     const numField = (path, label, extra) => `<label>${esc(label)}<input type="text" inputmode="decimal" id="${fid(path)}" data-k="${path}" value="${esc(fmt(getP(spec, path)))}" ${extra || ''}></label>`;
 
+    // (1.36.4) Thư viện = các NHÓM chip (theo Core.THU_VIEN) + lưới thẻ hình của nhóm đang mở. Mã '' = tủ mặc định 3 khoang; @BO-I / @BO-L = bộ bếp (nhóm Bếp).
+    const TEN_NHOM_TV = { tu: 'Tủ áo', tap: 'Táp', giuong: 'Giường', vach: 'Vách', bep: 'Bếp' };
+    const TV_NHOM = (Core.THU_VIEN || []).map(n => ({ loai: n.loai, ten: TEN_NHOM_TV[n.loai] || n.ten,
+      tip: n.loai === 'tap' ? 'Dùng táp đầu giường — chọn kiểu A – E bằng thẻ hình trong khối Kiểu táp' : `Mở / gập thư viện ${n.ten.toLowerCase()} — bấm thẻ là dùng luôn (Chuẩn xưởng giữ nguyên, ↶ Lùi để lấy lại món đang làm)`,
+      ds: (n.loai === 'tu' ? [{ ma: '', ten: 'Tủ mặc định 3 khoang', mo_ta: 'tủ áo 3000 × 2800: hai tầng treo · 2 ngăn kéo + treo dài · hai tầng treo' }] : []).concat(n.ds || [],
+        n.loai === 'bep' && Core.xepBep ? [{ ma: '@BO-I', ten: 'Bộ bếp chữ I', mo_ta: 'gõ dài tường — bảng tự chia cả dãy tủ dưới, tủ trên, tủ cao, nẹp, đá' }, { ma: '@BO-L', ten: 'Bộ bếp chữ L', mo_ta: 'hai cạnh + tủ góc mù có phụ kiện góc — bảng tự chia cả hai cạnh' }] : []) }));
+    const nhomCuaMa = ma => (TV_NHOM.find(n => n.ds.some(m => m.ma === ma)) || {}).loai || '';
     rootEl.innerHTML = `
 <button class="launch" ${inCF ? '' : 'hidden'} title="Mở bảng vẽ tủ (Alt + M)">Một Nhà · Vẽ tủ</button>
 <div class="chip" hidden><span class="chipchu"></span><button class="chipthoi" data-act="chip-thoi" hidden title="Bỏ lời nhắc bấm điểm của bảng (như phím Esc) và mở lại bảng">Thôi</button></div>
@@ -12142,7 +12160,9 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
   <div class="body">
     <div class="pane" data-pane="tu">${inCF ? '' : '<p class="hint">Mở lần đầu là <b>tủ mẫu</b> (tủ áo 3000 × 2800, 3 khoang). Nhập kích thước, rồi <b>kéo đợt ngay trên hình</b> và bấm vào từng ô để đặt ngăn kéo, suốt treo — cảnh báo và bảng kê tự cập nhật.</p>'}<div class="split">
       <!-- (1.36.1) Thư viện lên ĐẦU thẻ Tủ — anh Thanh: chọn mẫu là việc làm trước, để cuối phải cuộn xuống -->
-      <div class="frow tcs" style="margin:0 0 8px"><label class="row" for="mncf-ui-mau">Thư viện</label><select id="mncf-ui-mau" data-ui="mau" aria-label="Thư viện mẫu: tủ áo, táp đầu giường, giường, vách đầu giường, tủ bếp" style="flex:1;min-width:0"><optgroup label="Tủ áo"><option value="" title="Tủ áo 3 khoang mặc định (3000 × 2800). Chuẩn xưởng giữ nguyên.">Tủ mặc định 3 khoang</option>${Core.MAU_TU.map(m => `<option value="${esc(m.ma)}" title="${esc(m.mo_ta)}">${esc(m.ten)}</option>`).join('')}</optgroup>${(Core.THU_VIEN || []).filter(n => n.loai !== 'tu').map(n => `<optgroup label="${esc(n.ten)}">${n.ds.map(m => `<option value="${esc(m.ma)}" title="${esc(m.mo_ta)}">${esc(m.ten)}</option>`).join('')}${n.loai === 'bep' && Core.xepBep ? '<option value="@BO-I" title="Gõ dài tường — bảng tự chia cả dãy tủ dưới, tủ trên, tủ cao, nẹp, đá">Bộ bếp chữ I</option><option value="@BO-L" title="Hai cạnh + tủ góc mù có phụ kiện góc — bảng tự chia cả hai cạnh">Bộ bếp chữ L</option>' : ''}</optgroup>`).join('')}</select><button class="sec" data-act="mau" title="Dựng mẫu đang chọn (tủ áo / táp / giường / vách đầu giường / tủ bếp). Chuẩn xưởng giữ nguyên. ↶ Lùi để lấy lại món đang làm.">Dùng</button></div>
+      <!-- (1.36.4 — anh Thanh 16/10/2026: "Các thư viện này ra có hình được k", chọn "Lưới thẻ hình") hàng NHÓM (chip) + lưới thẻ hình của nhóm đang mở — bấm thẻ là dùng luôn.
+           Lưới dựng LƯỜI (hình 3D nhỏ dựng khi nhóm mở lần đầu, nhớ một lần) — mở bảng không chậm thêm; bấm lại nhóm đang mở thì gập (bảng ít chữ, ít nút). -->
+      <div class="tcs" data-ui="tv" style="margin:0 0 8px"><div class="bochip tvnhom" role="group" aria-label="Thư viện mẫu">${TV_NHOM.map(n => `<button class="segb" data-act="tv-nhom" data-nhom="${n.loai}"${n.loai === 'tap' ? '' : ' aria-expanded="false"'} title="${esc(n.tip)}">${esc(n.ten)}</button>`).join('')}</div><div class="tvluoi" data-ui="tv-luoi" hidden></div></div>
       <fieldset class="dims"><div class="g g3">${numField('rong', 'Rộng phủ bì', 'title="Rộng phủ bì của cả tủ, KỂ CẢ phào trái / phải (mm)"')}${numField('cao', 'Cao phủ bì', 'title="Cao phủ bì của cả tủ, KỂ CẢ phào trên và chân (mm)"')}${numField('sau_thung', 'Sâu thùng', 'title="Sâu thùng, CHƯA kể cánh (mm)"')}</div></fieldset>
       <div class="colv">
         <div class="vtools"><label class="row chi-tu"><input type="checkbox" id="mncf-ui-doors" data-ui="doors" checked> Hiện cánh</label><button class="sec mini chi-tu" data-act="them-vach" aria-pressed="false" title="Bật rồi bấm vào chỗ bất kỳ trong tủ trên hình: thêm một vách đứng (hồi giữa) tại đó, khoang được chia đôi. Bấm lại nút hoặc Esc để thôi.">＋ Vách</button><button class="sec mini" data-act="lui" disabled title="Lùi lại thao tác vừa làm trên hình (Ctrl+Z)">↶ Lùi</button><button class="sec mini" data-act="xem-3d" aria-pressed="false" title="Xem tủ dạng 3D — kéo trên hình (hoặc phím ← → ↑ ↓) để xoay; bấm vào phào / cột trên hình 3D để sửa. Bấm lại để về hình đứng.">3D</button><button class="sec mini tk" data-act="tu-kiem" aria-expanded="false" title="Phiếu tự kiểm trước khi vẽ (bấm để mở / gập)">✓ Tự kiểm</button><span class="hint" data-ui="vhint" style="margin:0 0 0 auto">Hình đứng — kéo thả trực tiếp · bấm phào / cột để sửa</span></div>
@@ -12735,6 +12755,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       }
       if (loaiDangLam() === 'vach' && Core.vachTuDong) Object.assign(spec.vach, Core.vachTuDong(spec));      // (1.32) vách: số hàng / tầng xương chia theo cỡ đang có, ghi sẵn cho module
       model = Core.build(spec);
+      if (tvMo) capTV();      // (1.36.4) lưới Thư viện đang mở: thẻ sáng theo món (sửa đợt / cỡ là thôi khớp mẫu)
       // đưa mốc của nội dung ô về đúng mốc của ô chứa nó (mẫu tủ viết tay có thể ghi mốc lệch) — để khi kéo đợt, nội dung đi theo đúng ô
       spec.khoang.forEach((k, i) => { for (const c of k.o) { const o = cellFor(i, c.tu); if (o) c.tu = o.tu; } });
       if (ruotMoi || canhBep !== null) renderBays();
@@ -15050,7 +15071,6 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (t.dataset.p) { if (t.tagName === 'SELECT') phongInput(t); else if (/\.ten$/.test(t.dataset.p)) { phongStore.save(); renderPhong(); } }
       else if (t.dataset.kp === 'mau') { if (kpop >= 0 && phong.khung[kpop]) { setP(phong, `khung.${kpop}.mau`, t.value); phongStore.save(); renderPhong(); } }
       else if (t.dataset.cs) suaSoCC(t);
-      else if (t.dataset.ui === 'mau') capMau();
       else if (t.dataset.ui === 'kho-dir') { if (t.value) return khoDoiDir(t.value); }
       else if (t.dataset.ui === 'vl-nhom') { vl.loc = t.value; veDS(); }
       else if (t.dataset.ed === 'z') applyZ(t);
@@ -15430,9 +15450,15 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       }
       else if (act === 'add') { spec.khoang.push({ rong: 'auto', canh: 2, dot: [], o: [] }); sel = null; hist = []; capNut(); renderBays(); rebuild(); }
       else if (act === 'del') { spec.khoang.splice(+b.closest('.bay').dataset.i, 1); sel = null; hist = []; capNut(); renderBays(); rebuild(); }
-      else if (act === 'mau' || act === 'reset') {      // "Tủ có sẵn" (bản 1.28: gộp "Dùng mẫu" + "Về tủ mẫu"; mục rỗng = tủ mặc định) — một bước ↶ Lùi
+      else if (act === 'tv-nhom' && b.dataset.nhom !== 'tap') { tvMo = tvMo === b.dataset.nhom ? '' : b.dataset.nhom; capTV(); }      // (1.36.4) mở / gập lưới thẻ của nhóm
+      else if (act === 'tv-the' || act === 'tv-nhom' || act === 'reset') {      // (1.36.4) bấm thẻ Thư viện = dùng luôn (trước: ô chọn + nút Dùng); nhóm Táp chỉ một mẫu → bấm nhóm là dùng
         if (busy) return setStatus('Đang vẽ — chờ lần vẽ xong rồi hẵng đổi món (đổi giữa chừng thì các tủ vẽ sau không còn thuộc bộ / tủ đang vẽ).');      // (vòng soát 1.34)
-        const ma = act === 'reset' ? '' : $('[data-ui="mau"]').value, truoc = chup();
+        const ma = act === 'reset' ? '' : act === 'tv-nhom' ? '@TAP' : (b.dataset.ma || ''), truoc = chup();
+        if (act === 'tv-nhom' && tvMo) { tvMo = ''; capTV(); }
+        // (soát 1.36.4) bấm lại thẻ / chip ĐANG SÁNG (món đang mở đúng là mẫu đó): không làm gì. Thẻ sáng trông như nút bật đang bật — dùng lại là dựng lại
+        // mẫu mặc định: táp mất kiểu + cỡ, bộ bếp mất chỗ đặt + phương án đang xem (vaoBo), lặng lẽ. Thẻ Tủ bếp sáng theo TẦNG (không theo đúng mẫu) nên
+        // bấm vẫn là về tủ <tầng> cánh 600 như cũ.
+        if (act !== 'reset' && !laMauBep(ma) && ma === maDangDung()) return setStatus(`Đang dùng ${ma === '@TAP' ? 'táp' : /^@BO-/.test(ma) ? 'bộ bếp này' : 'đúng mẫu này'} rồi${ma === '@TAP' ? ' — đổi kiểu ở các thẻ hình Kiểu táp bên dưới' : ''}.`);
         if (/^@BO-[IL]$/.test(ma)) return vaoBo(ma.slice(4));      // (1.34) Bộ bếp chữ I / L
         let moi, baoCu = '';
         if (ma) {
@@ -15566,6 +15592,60 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     const selK = (path, label, ds, extra) => `<label>${esc(label)}<select id="${fid(path)}" data-k="${path}" ${extra || ''}>${ds.map(([v, t]) => `<option value="${esc(String(v))}"${String(getP(spec, path)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
     // (1.36.2) hình 3D nhỏ của từng kiểu táp cho thẻ hình: dựng một lần ở cỡ mặc định + Chuẩn xưởng mặc định (không theo món đang mở — hình chỉ để nhận kiểu) rồi nhớ;
     // bỏ con trỏ "kéo xoay" của hình 3D lớn (thẻ là nút bấm). Không tải ảnh ngoài.
+    // (1.36.4) hình nhỏ cho thẻ Thư viện: dựng LƯỜI lần đầu nhóm được mở, nhớ một lần (như HINH_TAP). Hình theo mẫu đặt lên Chuẩn xưởng MẶC ĐỊNH (chỉ để nhận
+    // mẫu, không theo món đang mở). Bộ bếp: hình mặt bằng tĩnh (dãy chữ I / chữ L) — dựng 3D cả dãy cho một thẻ nhỏ là thừa.
+    const HINH_TV = {};
+    const HINH_BO = {
+      I: '<svg viewBox="0 0 72 44" aria-hidden="true"><rect x="4" y="6" width="64" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M20 6v12M36 6v12M52 6v12" stroke="currentColor" stroke-width="1"/><rect x="4" y="22" width="64" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M14 22v16M28 22v16M44 22v16M58 22v16" stroke="currentColor" stroke-width="1"/></svg>',
+      L: '<svg viewBox="0 0 72 44" aria-hidden="true"><path d="M4 4h64v14H20v22H4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M20 4v14M36 4v14M52 4v14M4 22h16M4 31h16" stroke="currentColor" stroke-width="1"/></svg>',
+    };
+    const hinhTV = ma => {
+      if (/^@BO-[IL]$/.test(ma)) return HINH_BO[ma.slice(4)];
+      if (!(ma in HINH_TV)) {
+        let h = '';
+        try { const sp = ma ? Core.apMau(Core.DEFAULT_SPEC, ma) : Core.normalize(Core.DEFAULT_SPEC); h = sp ? Core.hinh3D(Core.build(sp), { az: 30, el: 20, canh: true, rong_px: 72 }).replace(/touch-action:none;cursor:grab;/, '').replace(/ role="img" aria-label="[^"]*"/, '') : ''; } catch (err) { h = ''; }
+        HINH_TV[ma] = h;
+      }
+      return HINH_TV[ma];
+    };
+    let tvMo = '';      // nhóm đang mở lưới ('' = gập)
+    // thẻ đang dùng = mẫu mà món đang mở đúng là nó: bộ bếp → @BO-*, táp → @TAP, tủ bếp → @BEP-<tầng>; tủ áo → mẫu (hoặc tủ mặc định) có cùng rộng / cao / thân dưới /
+    // khoang (sửa đợt / cánh là thôi sáng — món không còn là mẫu đó); giường / vách → mẫu cùng tên (mẫu đặt tên món theo tên mẫu)
+    // (ô sát đáy: normalize ghi `tu` = mặt dưới tấm đáy, mẫu ghi 0 — mọi `tu` không phải cao độ một đợt của khoang là ô sát đáy)
+    const sigTu = (rong, cao, cd, kh) => JSON.stringify([rong, cao, cd || 0, (kh || []).map(k => [k.canh, k.dot || [], (k.o || []).map(o => [(k.dot || []).indexOf(o.tu) >= 0 ? o.tu : 0, o.kieu, o.so || 0])])]);
+    const maDangDung = () => {
+      if (boBep) return '@BO-' + (boBep.kieu === 'L' ? 'L' : 'I');
+      const l = loaiDangLam();
+      if (l === 'tap') return '@TAP';
+      if (l === 'bep') return spec.bep ? '@BEP-' + spec.bep.tang : null;
+      if (l === 'tu') {
+        const sg = sigTu(spec.rong, spec.cao, spec.than && spec.than.cao_duoi, spec.khoang), D = Core.DEFAULT_SPEC;
+        if (sg === sigTu(D.rong, D.cao, D.than.cao_duoi, D.khoang)) return '';
+        const m = Core.MAU_TU.find(x => sg === sigTu(x.rong, x.cao, x.cao_duoi, x.khoang()));
+        return m ? m.ma : null;
+      }
+      // (soát 1.36.4) giường / vách: cùng tên mẫu CHƯA đủ — tên không đổi khi gõ kích thước (vách 2600 gõ Rộng 3400 vẫn mang tên "…2600 × 1200…").
+      // Như tủ áo: phải cùng cỡ phủ bì với chính mẫu đó dựng trên Chuẩn xưởng đang mở (apMau(spec) — vách tự tính dày theo Chuẩn xưởng).
+      const N = TV_NHOM.find(n => n.loai === l), m = N && N.ds.find(x => x.ten === spec.ten);
+      if (!m) return null;
+      let mm = null; try { mm = Core.apMau(spec, m.ma); } catch (e) { mm = null; }
+      return mm && mm.rong === spec.rong && mm.cao === spec.cao && mm.sau_thung === spec.sau_thung ? m.ma : null;
+    };
+    const tenNganTV = t => String(t).replace(/^Tủ áo /, '').replace(/^Tủ bếp /, 'Tủ ').replace(/^Vách đầu giường /, '').replace(/^Giường (?=\d)/, '').replace(/\s*\(.*\)$/, '');
+    /** Vẽ lại hàng nhóm + lưới (lưới chỉ khi có nhóm mở). Gọi sau mỗi lần đổi món (capLoai) và khi mở / gập nhóm. */
+    function capTV() {
+      const L = $('[data-ui="tv-luoi"]'); if (!L) return;
+      const dang = maDangDung(), nd = dang === null ? '' : nhomCuaMa(dang);
+      for (const b of $$('[data-act="tv-nhom"]')) { const n = b.dataset.nhom; if (n !== 'tap') b.setAttribute('aria-expanded', String(n === tvMo)); else b.setAttribute('aria-pressed', String(nd === 'tap')); b.classList.toggle('on', n === tvMo || (n === 'tap' && nd === 'tap')); b.classList.toggle('dang', n === nd); }
+      const N = TV_NHOM.find(n => n.loai === tvMo);
+      L.hidden = !N;
+      if (!N) { L.innerHTML = ''; delete L.dataset.nhom; return; }
+      if (L.dataset.nhom !== tvMo) {
+        L.dataset.nhom = tvMo;
+        L.innerHTML = `<div class="tapkieu tvkieu" role="group" aria-label="${esc(N.ten)}">${N.ds.map(m => `<button class="tapthe tvthe" data-act="tv-the" data-ma="${esc(m.ma)}" aria-pressed="false" aria-label="${esc(m.ten)}" title="${esc(m.ten)}${m.mo_ta ? ' — ' + esc(m.mo_ta) : ''}. Bấm là dùng luôn; ↶ Lùi để lấy lại món đang làm."><span class="h" aria-hidden="true">${hinhTV(m.ma)}</span><span class="t">${esc(tenNganTV(m.ten))}</span></button>`).join('')}</div>`;
+      }
+      for (const b of L.querySelectorAll('[data-act="tv-the"]')) b.setAttribute('aria-pressed', String(b.dataset.ma === dang));
+    }
     const HINH_TAP = {};
     const hinhTap = k => {
       if (!(k in HINH_TAP)) {
@@ -15608,7 +15688,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     }
     // ô thông số theo loại sản phẩm; đổi sang / khỏi giường, vách: bật / tắt hình 3D
     function capLoai() {
-      renderSP(); veBo(true); const l = loaiHien();
+      renderSP(); veBo(true); capTV(); const l = loaiHien();
       if (l !== loaiTruoc) { const truoc = loaiTruoc; loaiTruoc = l; if (l === 'bep-duoi') datXem3d(true); else if (khongTu() || truoc === 'giuong' || truoc === 'vach' || truoc === 'bep-duoi') datXem3d(khongTu()); }      // tủ bếp dưới: mặc định 3D (thấy đá), bấm 3D để về hình đứng
     }
     // (bản 1.33) chuẩn bếp (mặt đá, chân, sâu…) nhớ ở máy: đổi sang tủ áo rồi quay lại tủ bếp không phải gõ lại. Trình duyệt chặn lưu thì chỉ nhớ trong phiên (chuanMem).
@@ -15710,7 +15790,6 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (khacLoai) khauCho = null;
       return bao;
     }
-    function capMau() { const m = Core.MAU_TU.find(x => x.ma === $('[data-ui="mau"]').value), el = $('[data-ui="mau-mota"]'); if (el) el.textContent = m ? `${m.rong} × ${m.cao}${m.cao_duoi ? '' : ' (một thân)'} — ${m.mo_ta}` : ''; }
 
     /* ---- (bản 1.34) BỘ BẾP CHỮ I / CHỮ L — thiết kế "dãy bếp" §8 ----
      * Bảng tự chia (Core.xepBep, hàm thuần) ngay khi gõ dài / bấm chip; hình mặt bằng + mặt đứng từng cạnh; ‹ › đổi phương án; bấm tủ → ô chọn (Đổi thành /
@@ -16351,7 +16430,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       renderBays(); renderSettings(); rebuild();
     }
     (inCF ? document.documentElement : document.body).appendChild(host);
-    renderAll(); capMau();
+    renderAll();
     if (coMau) { veO(); veGan(); veDung(); }
     if (Ph) renderPhong();
     if (daLuu.doi.length) setStatus(daLuu.doi.join(' '));

@@ -3676,7 +3676,7 @@ T('Tủ mặc định mới, mẫu tủ áo khoang trống (bản 1.36.4)', () =
   ok(C.phieu(M).dat, 'phiếu kiểm đạt');
   eq(C.keHoachGoc(s).loi, [], 'vẽ được bằng lệnh gốc như tủ mặc định cũ');
   // mẫu tủ áo: không còn khoang đợt đều — khoang đó trống, mô tả nói "khoang trống"
-  ok(C.MAU_TU.every(m => m.khoang().every(x => x.dot.length < 5)) && !C.MAU_TU.some(m => /đợt đều/.test(m.mo_ta)), 'không mẫu nào còn khoang 5 – 6 đợt đều', C.MAU_TU.map(m => m.mo_ta));
+  ok(C.MAU_TU.every(m => m.khoang().every(x => x.o.length || x.dot.length < 5)) && !C.MAU_TU.some(m => /đợt đều/.test(m.mo_ta)), 'không mẫu nào còn khoang toàn đợt đều (2 ngăn kéo + đợt thì giữ)', C.MAU_TU.map(m => m.mo_ta));
   for (const ma of ['TA3-1500', 'TA5-2500', 'TA6-3000']) {
     const kh = MT(ma), tr = kh.filter(x => !x.dot.length && !x.o.length);
     ok(tr.length === 1 && /khoang trống/.test(C.MAU_TU.find(x => x.ma === ma).mo_ta), `${ma}: một khoang trống, mô tả ghi "khoang trống"`, kh);
@@ -3689,6 +3689,15 @@ T('Tủ mặc định mới, mẫu tủ áo khoang trống (bản 1.36.4)', () =
   // thẻ Phòng: khung hẹp 1 cánh lấy khoang trống
   { const Ph = require('../src/mncf-phong.js'), r = Ph.tuChoKhung(C, D, { rong: 450, cao: 2700, sau: 600 });
     eq([r.mau, r.spec.khoang.map(x => [x.dot.length, x.o.length])], [['1 cánh, khoang trống'], [[0, 0]]], 'khung hẹp 450: 1 cánh, khoang trống'); }
+  // (soát 1.36.4) thông số bản cũ THIẾU khoá than (tệp viết tay): normalize gộp mặc định mới 2150 → tủ 2250 thêm cảnh báo gộp thân, tủ 2400 thân trên 200
+  // thay vì 150 — đổi lặng lẽ. nangCap < 1.36.4 ghi lại thân dưới cũ 2200 (giữ đúng tủ như ở bản đã lưu); thông số có khoá thì không đụng.
+  { const tho = { rong: 1600, cao: 2250, khoang: [{ rong: 'auto', canh: 2, dot: [1100], o: [] }] };
+    const n = C.nangCap(tho, '1.36.3'); eq(n.spec.than && n.spec.than.cao_duoi, 2200, 'nangCap < 1.36.4, thiếu than: thân dưới 2200 như bản cũ');
+    const Mn = C.build(C.normalize(n.spec)); eq(Mn.warnings.filter(w => /Thân trên/.test(w)), [], 'tủ 2250 cũ: không thêm cảnh báo gộp thân');
+    eq(C.nangCap(Object.assign({}, tho, { than: { cao_duoi: 2000 } }), '1.36.3').spec.than.cao_duoi, 2000, 'có khoá than: giữ số đã lưu');
+    eq(C.nangCap(Object.assign({}, tho, { than: { cao_duoi: 0 } }), '1.36.3').spec.than.cao_duoi, 0, 'một thân (0): giữ');
+    ok(!('than' in C.nangCap(tho, '1.36.4').spec) && !('than' in C.nangCap(tho).spec), 'bản 1.36.4 / không rõ bản: không đụng');
+    eq(C.nangCap(Object.assign({}, tho, { loai_sp: 'tap' }), '1.36.3').spec.than, undefined, 'táp / giường / vách / bếp (thân do mẫu tự đặt): không đụng'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);
