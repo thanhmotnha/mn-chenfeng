@@ -8,6 +8,15 @@ C0.DEFAULT_SPEC.hau.t = 6;
 C0.DEFAULT_SPEC.thung.noc_day = 'lot';
 // Bản 1.31: hộc kéo âm mặc định có KHUNG MẶT (thanh ngang phẳng mặt). Số đo cũ là khe + xà ẩn → ghim 0; khung mặt thử ở khối cuối.
 C0.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
+// Bản 1.36.4 (anh Thanh 16/10/2026, ảnh tủ 3000 × 2800): tủ mặc định đổi ruột (K1 / K3 hai tầng treo, K2 2 ngăn kéo + treo dài) và thân dưới 2150. Số đo cũ của bộ thử
+// này là tủ mặc định 1.3 – 1.36.3 (treo dài · ngăn kéo + treo · 6 đợt đều, thân dưới 2200) → GHIM lại; tủ mặc định mới thử ở khối "Tủ mặc định 1.36.4" (lõi nạp mới).
+const KHOANG_MAC_DINH_CU = [
+  { rong: 'auto', canh: 2, dot: [1800], o: [{ tu: 0, kieu: 'suot' }] },
+  { rong: 'auto', canh: 2, dot: [520, 1800], o: [{ tu: 0, kieu: 'nk_am', so: 2 }, { tu: 520, kieu: 'suot' }] },
+  { rong: 'auto', canh: 2, dot: [400, 750, 1100, 1450, 1800], o: [] },
+];
+const ghimTuCu = C => { C.DEFAULT_SPEC.khoang = JSON.parse(JSON.stringify(KHOANG_MAC_DINH_CU)); C.DEFAULT_SPEC.than.cao_duoi = 2200; return C; };
+ghimTuCu(C0);
 // Toạ độ trong các phép thử cũ được nghiệm thu với chân 50. Từ bản 1.5 chân mặc định là 100 (anh Jason, 02/10/2026):
 // thông số nào không khai chân thì ở đây vẫn dựng với chân 50; mặc định mới có phép thử riêng ở cuối file.
 // Từ bản 1.10 tủ rộng tự tách thùng ≤ 2000 (anh Jason, 03/10/2026). Các phép thử cũ được nghiệm thu với MỘT thùng liền → ở đây thông số nào không khai `thung` thì dựng không tách;
@@ -1504,6 +1513,7 @@ T('Khung mặt hộc kéo âm (bản 1.31)', () => {
 // Bản 1.31.1: các lỗi bắt được khi soát đối kháng mã 1.30 → 1.31
 T('Bản vá 1.31.1 — bản lề, vừa khổ ván, khung mặt, phủ hồi', () => {
   const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  ghimTuCu(C);      // (1.36.4) số đo khối này với thân dưới 2200 cũ (thân trên 200 của tủ 2400)
   const MT = m => C.MAU_TU.find(x => x.ma === m).khoang();
   const chongNhau = M => { const o = []; for (let i = 0; i < M.parts.length; i++) for (let j = i + 1; j < M.parts.length; j++) if (C.overlap(M.parts[i], M.parts[j]) > 0) o.push(M.parts[i].ten + '×' + M.parts[j].ten); return o; };
   // BẢN LỀ: cánh thấp (thân trên 200 của tủ 2400) — tránh cả nóc / đáy, không nhồi 3 chén
@@ -1782,9 +1792,20 @@ T('Giường, táp, vách — bản vá sau soát (bản 1.32)', () => {
 T('Tủ áo / táp / giường / vách giữ nguyên từng byte so với bản 1.32 (bản 1.33)', () => {
   const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
   const H = require('./mau-cu.js'), F = require('./mau-cu-1.32.json');
+  // (1.36.4) giường / vách mang theo khoang + thân của tủ đang mở (không dùng tới khi dựng): với tủ mặc định MỚI, phần dựng ra (tấm, bảng kê, dữ liệu Chenfeng, hình) vẫn y 1.32
+  { const ds1 = H.dsMau(C), HINH = ['cut', 'csv', 'cf', 'goc', 'heso', 'phieu', 'tom', 'svg', 'h3d'];
+    for (const [ma, s] of ds1.filter(x => /^(G|V)\d/.test(x[0]))) { const b = H.banGhi(C, s), f = F.mau[ma] || {}; const lech = HINH.filter(x => f[x] !== b[x]); ok(!lech.length, `${ma}: tủ mặc định mới không đổi gì phần dựng ra`, lech); } }
+  ghimTuCu(C);      // tệp băm dựng với tủ mặc định 1.32 (= 1.36.3)
+  // (1.36.4 — anh Thanh 16/10/2026: "thêm khoang thì khoang trống thôi nhiều đợt quá khó xử lý") mẫu tủ áo bỏ kiểu 'đợt đều': khoang đó nay TRỐNG. Tệp băm giữ nguyên
+  // (là bản ghi của 1.32); phép so đặt lại đúng 5 đợt cũ vào đúng khoang đó → phải ra giống hệt 1.32 — tức là ngoài khoang trống, mẫu không đổi gì khác.
+  const DOT_DEU_CU = { 'TA3-1500': [1], 'TA5-2500': [2], 'TA6-3000': [2], 'TA3-1500+khau': [1] };
   const ds = H.dsMau(C);
   eq(ds.map(x => x[0]), Object.keys(F.mau), 'cùng danh sách tủ đem so với tệp băm 1.32');
-  for (const [ma, s] of ds) { const b = H.banGhi(C, s), f = F.mau[ma] || {}; const lech = Object.keys(f).filter(x => f[x] !== b[x]); ok(!lech.length, `${ma}: giống hệt 1.32`, lech); }
+  for (const [ma, s0] of ds) {
+    const s = JSON.parse(JSON.stringify(s0));
+    for (const i of DOT_DEU_CU[ma] || []) { ok(!s.khoang[i].dot.length && !s.khoang[i].o.length, `${ma}: khoang ${i + 1} (đợt đều cũ) nay trống`, s.khoang[i]); s.khoang[i].dot = [450, 790, 1130, 1470, 1810]; s.khoang[i].o = []; }
+    const b = H.banGhi(C, s), f = F.mau[ma] || {}; const lech = Object.keys(f).filter(x => f[x] !== b[x]); ok(!lech.length, `${ma}: giống hệt 1.32`, lech);
+  }
 });
 
 T('Tủ bếp (bản 1.33)', () => {
@@ -2294,7 +2315,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
   const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma))), t = D.van.t, tc = D.van.t_canh;
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  eq(C.VERSION, '1.36.3', 'phiên bản 1.36.3');
+  eq(C.VERSION, '1.36.4', 'phiên bản 1.36.4');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO], co = ma => MAU.some(m => m.ma === ma);
   for (const ma of ['BC-TL-700', 'BC-TL-830', 'BC-TL-910', 'BC-LO-600', 'BD-KE-150', 'BD-KE-200', 'BD-KE-300', 'BT-KE-150', 'BT-KE-200', 'BT-KE-300',
     'BD-GOC-900-T', 'BD-GOC-900-P', 'BD-GOC-990-T', 'BD-GOC-990-P', 'BD-GOCLA-900-T', 'BD-GOCLA-900-P', 'BT-GOC-900-T', 'BT-GOC-900-P', 'BT-GOC-990-T', 'BT-GOC-990-P', 'BT-GOCLA-900-T', 'BT-GOCLA-900-P']) ok(co(ma), `có mẫu ${ma}`);
@@ -3635,6 +3656,39 @@ T('Soát táp / thư viện bếp (bản 1.34.1)', () => {
     ok(!C0.canhBepTheoRong(C0.normalize(Object.assign(JSON.parse(J(s0)), { rong: 700 })), 600).doi, 'số cánh người dùng đã sửa: gõ rộng không đổi');
     ok(!C0.canhBepTheoRong(C0.normalize(Object.assign(JSON.parse(J(s0)), { rong: 700 })), 30).doi, 'rộng cũ không hợp lệ: không đổi');
     ok(!C0.canhBepTheoRong(C0.tapTheoKieu('A', null, D), 400).doi && !C0.canhBepTheoRong(D, 400).doi, 'táp / tủ áo: không đụng'); }
+});
+
+// Bản 1.36.4 (anh Thanh 16/10/2026, chốt bằng hộp tích): ảnh tủ 3000 × 2800 "layout tủ ntn nhé" → tủ mặc định mới; "thêm khoang thì khoang trống thôi nhiều đợt quá
+// khó xử lý" → mẫu tủ áo bỏ kiểu đợt đều (khoang đó trống). Bộ thử ở trên ghim tủ mặc định cũ (ghimTuCu) — khối này nạp một bản lõi mới.
+T('Tủ mặc định mới, mẫu tủ áo khoang trống (bản 1.36.4)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  const D = C.DEFAULT_SPEC, MT = m => C.MAU_TU.find(x => x.ma === m).khoang();
+  const hai = MT('TA4-2000-2T')[0], nkt = MT('TA2-1100-T')[0], ruot = x => ({ dot: x.dot, o: x.o });
+  eq(D.khoang.map(ruot), [ruot(hai), ruot(nkt), ruot(hai)], 'K1 hai tầng treo · K2 2 ngăn kéo âm + treo dài · K3 hai tầng treo (cùng ruột thư viện)');
+  eq(D.khoang.map(x => x.dot), [[1150], [570], [1150]], 'đợt +1150 / +570 / +1150');
+  eq([D.rong, D.cao, D.than.cao_duoi], [3000, 2800, 2150], 'tủ 3000 × 2800, thân dưới 2150');
+  const s = C.normalize(D), M = C.build(s);
+  eq([M.errors, M.warnings], [[], []], 'tủ mặc định: không lỗi, không cảnh báo');
+  const hoi = M.parts.filter(p => /^Hồi/.test(p.ten)), thD = hoi.filter(p => p.than === 'D'), thT = hoi.filter(p => p.than === 'T');
+  ok(thD.length && thD.every(p => near(p.z1, 2150)) && thT.length && thT.every(p => near(p.z0, 2150) && near(p.z1 - p.z0, 600)), 'thân dưới tới +2150, thân trên cao 600 (+ phào 50 = 2800)', hoi.map(p => [p.than, p.z0, p.z1]));
+  eq(P(M, 'DOT').map(p => [p.khoang, p.z0]), [[0, 1150], [1, 570], [2, 1150]], 'mỗi khoang một đợt');
+  eq((M.templates || []).filter(t => t.ten === '衣杆').length, 5, '5 suốt treo (2 + 1 + 2)');
+  ok(C.phieu(M).dat, 'phiếu kiểm đạt');
+  eq(C.keHoachGoc(s).loi, [], 'vẽ được bằng lệnh gốc như tủ mặc định cũ');
+  // mẫu tủ áo: không còn khoang đợt đều — khoang đó trống, mô tả nói "khoang trống"
+  ok(C.MAU_TU.every(m => m.khoang().every(x => x.dot.length < 5)) && !C.MAU_TU.some(m => /đợt đều/.test(m.mo_ta)), 'không mẫu nào còn khoang 5 – 6 đợt đều', C.MAU_TU.map(m => m.mo_ta));
+  for (const ma of ['TA3-1500', 'TA5-2500', 'TA6-3000']) {
+    const kh = MT(ma), tr = kh.filter(x => !x.dot.length && !x.o.length);
+    ok(tr.length === 1 && /khoang trống/.test(C.MAU_TU.find(x => x.ma === ma).mo_ta), `${ma}: một khoang trống, mô tả ghi "khoang trống"`, kh);
+    const Mm = C.build(C.apMau(D, ma)); eq(Mm.errors, [], `${ma}: dựng không lỗi`);
+  }
+  // tách khoang cho vừa khổ ván: khoang trống tách ra vẫn trống (không sinh đợt)
+  { const v = C.vuaKhoVan(Object.assign(C.apMau(D, 'TA3-1500'), { rong: 3000 })), dot0 = C.apMau(D, 'TA3-1500').khoang.reduce((a, x) => a + x.dot.length, 0);
+    ok(v.spec.khoang.length > 2 && v.spec.khoang.filter(x => !x.dot.length && !x.o.length).length >= 1, 'vừa khổ ván: khoang trống vẫn trống', v.spec.khoang);
+    ok(v.spec.khoang.every(x => x.dot.length <= 1), 'vừa khổ ván: không khoang nào có thêm đợt (chỉ chép đợt của chính khoang bị tách)', [dot0, v.spec.khoang.map(x => x.dot)]); }
+  // thẻ Phòng: khung hẹp 1 cánh lấy khoang trống
+  { const Ph = require('../src/mncf-phong.js'), r = Ph.tuChoKhung(C, D, { rong: 450, cao: 2700, sau: 600 });
+    eq([r.mau, r.spec.khoang.map(x => [x.dot.length, x.o.length])], [['1 cánh, khoang trống'], [[0, 0]]], 'khung hẹp 450: 1 cánh, khoang trống'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

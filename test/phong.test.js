@@ -107,7 +107,7 @@ T('Tủ vừa khung: phủ bì đúng bằng khung', () => {
   eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 2000, cao: 2700, sau: 600 }).mau, ['TA4-2000'], '2000 → mẫu 4 cánh');
   eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 4200, cao: 2700, sau: 600 }).mau, ['TA6-3000', 'TA2-1000'], '4200 → 8 cánh = 6 + 2');
   eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 3500, cao: 2700, sau: 600 }).mau, ['TA5-2500', 'TA2-1000'], '3500 → 7 cánh = 5 + 2 (không để lẻ 1 cánh)');
-  eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 450, cao: 2700, sau: 600 }).mau, ['1 cánh, đợt đều'], 'khung hẹp 450 → 1 cánh, không ngăn kéo');
+  eq(P.tuChoKhung(C, C.DEFAULT_SPEC, { rong: 450, cao: 2700, sau: 600 }).mau, ['1 cánh, khoang trống'], 'khung hẹp 450 → 1 cánh, không ngăn kéo (1.36.4: khoang trống — mẫu bỏ kiểu đợt đều)');
   for (const cao of [700, 1000, 2000, 2440, 2441, 2500, 2600, 2800, 3000]) for (const rong of [400, 450, 600, 1000, 2000, 5000]) {
     const r = P.tuChoKhung(C, C.DEFAULT_SPEC, { rong, cao, sau: 600 }), M = C.build(r.spec), bb = C.bbox(M.parts);
     ok(M.errors.length === 0 && bb.x1 - bb.x0 === rong && bb.z1 - bb.z0 === cao, `khung ${rong} × ${cao}: dựng được, đúng phủ bì`, M.errors);

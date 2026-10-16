@@ -548,7 +548,7 @@
       // tự chọn theo bề rộng: mỗi cánh ~500; ghép các mẫu 2–6 cánh cho đủ số cánh
       const theo = { 2: 'TA2-1000', 3: 'TA3-1500', 4: 'TA4-2000', 5: 'TA5-2500', 6: 'TA6-3000' };
       let n = Math.max(2, Math.round(q.rong / 500)); const khoang = [];
-      if (q.rong < 600) { n = 0; khoang.push(Core.MAU_TU.find(x => x.ma === 'TA3-1500').khoang()[1]); dsMau.push('1 cánh, đợt đều'); }      // khung hẹp: 1 cánh, không ngăn kéo
+      if (q.rong < 600) { n = 0; khoang.push(Core.MAU_TU.find(x => x.ma === 'TA3-1500').khoang()[1]); dsMau.push('1 cánh, khoang trống'); }      // khung hẹp: 1 cánh, không ngăn kéo (1.36.4: khoang trống — mẫu tủ áo bỏ kiểu đợt đều)
       while (n > 0) { let c = n > 6 ? (n - 6 === 1 ? 5 : 6) : n; if (c === 1) c = 2; const m = Core.MAU_TU.find(x => x.ma === theo[c]); khoang.push(...m.khoang()); dsMau.push(m.ma); n -= c; }
       s = Core.normalize(Object.assign(clone(s), { khoang }));
       ghi.push(`Tự chọn ruột tủ theo bề rộng: ${dsMau.join(' + ')}.`);
