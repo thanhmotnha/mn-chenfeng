@@ -2294,7 +2294,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
   const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma))), t = D.van.t, tc = D.van.t_canh;
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  eq(C.VERSION, '1.36.2', 'phiên bản 1.36.2');
+  eq(C.VERSION, '1.36.3', 'phiên bản 1.36.3');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO], co = ma => MAU.some(m => m.ma === ma);
   for (const ma of ['BC-TL-700', 'BC-TL-830', 'BC-TL-910', 'BC-LO-600', 'BD-KE-150', 'BD-KE-200', 'BD-KE-300', 'BT-KE-150', 'BT-KE-200', 'BT-KE-300',
     'BD-GOC-900-T', 'BD-GOC-900-P', 'BD-GOC-990-T', 'BD-GOC-990-P', 'BD-GOCLA-900-T', 'BD-GOCLA-900-P', 'BT-GOC-900-T', 'BT-GOC-900-P', 'BT-GOC-990-T', 'BT-GOC-990-P', 'BT-GOCLA-900-T', 'BT-GOCLA-900-P']) ok(co(ma), `có mẫu ${ma}`);
@@ -3170,9 +3170,10 @@ T('Táp đầu giường (bản 1.34.1)', () => {
   { const s = ap(theoKieu.E[0]); ok(s.chan.cao === 0, 'chân gỗ: không xà đế'); }
   { const s = ap(theoKieu.D[0]); s.tap.day = 'phu'; ok(C0.normalize(s).chan.cao === 0, 'đáy phủ (người dùng đặt): không xà đế (không có hồi kẹp xà)'); }
   // (soát hình theo ảnh mẫu) D: khe tay nắm thấy THANH NGANG (ván thùng) lùi sau khe, không thấy xuyên vào lòng tủ; E: 2 mặt sát nhau (khe nhỏ, không thanh lộ — ảnh 10)
-  { const ma = theoKieu.D[0], s = ap(ma), M = C0.build(s), t = s.van.t, mt = M.mat_ngan_keo.slice().sort((a, b) => a.z - b.z), th = M.parts.filter(p => p.thanh_nk);
-    // (1.36.2) thanh LÙI lui_thanh sau lưng mặt (trước: y 0 — cạnh thanh lòi ra ngay sau khe)
-    ok(th.length === 1 && th[0].type === 0 && near(th[0].y0, s.tap.lui_thanh) && near(th[0].z1 - th[0].z0, t) && th[0].z0 >= mt[0].z + mt[0].h - 0.01 && th[0].z1 <= mt[1].z + 0.01 && near((th[0].z0 + th[0].z1) / 2, (mt[0].z + mt[0].h + mt[1].z) / 2, 0.6), `${ma}: thanh ngang giữa khe tay nắm, lùi ${s.tap.lui_thanh} sau lưng mặt`, [th.map(box), mt]);
+  { const ma = theoKieu.D[0], s = ap(ma), M = C0.build(s), t = s.van.t, mt = M.mat_ngan_keo.slice().sort((a, b) => a.z - b.z), th = M.parts.filter(p => p.xa_tap);
+    // (1.36.2) lùi lui_thanh sau lưng mặt (trước: y 0 — cạnh thanh lòi ra ngay sau khe). (1.36.3 — anh Thanh 16/10/2026: "ke này hở xấu quá phải có xà 5cm bên trong
+    // chứ ai làm xà nằm ngang phải làm xà dọc") thanh NẰM thay bằng XÀ ĐỨNG cao TAP_XA, mặt ván quay ra khe, che kín cả khe (nhìn qua khe chỉ thấy mặt xà)
+    ok(!M.parts.some(p => p.thanh_nk) && th.length === 1 && th[0].type === 2 && th[0].loai === 'XA' && near(th[0].y0, s.tap.lui_thanh) && near(th[0].y1 - th[0].y0, t) && near(th[0].z1 - th[0].z0, C0.TAP_XA) && th[0].z0 <= mt[0].z + mt[0].h + 0.01 && th[0].z1 >= mt[1].z - 0.01 && near((th[0].z0 + th[0].z1) / 2, (mt[0].z + mt[0].h + mt[1].z) / 2, 0.6), `${ma}: xà đứng giữa khe tay nắm, lùi ${s.tap.lui_thanh} sau lưng mặt, che kín khe`, [th.map(box), mt]);
     // (1.36.2) đáy lọt trên xà đế: mặt dưới cùng (trùm) phủ cạnh đáy như cánh, mép dưới cách xà đế một khe
     { const day = M.parts.find(p => p.loai === 'DAY'); ok(mt[0].z < day.z1 - 0.01 && mt[0].z >= s.chan.cao && near(day.y0, 0), `${ma}: mặt dưới cùng phủ cạnh đáy, trên xà đế`, [mt[0], box(day)]); }
     ok(!M.errors.length, `${ma}: không lỗi`, M.errors); }
@@ -3319,30 +3320,37 @@ T('Táp: xà đế mọi kiểu, rãnh móc tay kiểu D (bản 1.36.2)', () => 
   const hopThat = (M, s) => M.templates.filter(x => x.loai === 'NGAN_KEO').map(x => { const q = M.mat_ngan_keo[x.mat], lo = s.ngan_keo.loai.find(l => l.ma === x.ma_loai), chia = 'CMG' in lo.ts;
     return { z0: q.z + (chia ? 0 : lo.ts.XLK || 0), z1: q.z + q.h - (chia ? 0 : lo.ts.SLK || 0), y0: x.pos[1], y1: x.pos[1] + x.box[1] }; });
   for (const co of [null, { rong: 400, sau: 350, cao: 450 }, { cao: 700 }]) {
-    const s = C0.tapTheoKieu('D', co, D0), M = C0.build(s), th = M.parts.filter(p => p.thanh_nk), hop = hopThat(M, s), mt = M.mat_ngan_keo;
-    ok(th.length === mt.length - 1 && th.length >= 1, `D ${JSON.stringify(co)}: một thanh giữa mỗi hai mặt`, [th.length, mt.length]);
-    for (const p of th) {
-      ok(near(p.y0, 30) && near(p.y1 - p.y0, s.tap.thanh_sau) && mt.every(q => q.y + q.t <= p.y0 - 29.99), 'thanh lùi 30 sau lưng mặt ngăn kéo, sâu thanh_sau', [box(p), mt.map(q => [q.y, q.t])]);
-      ok(hop.every(h => p.z1 <= h.z0 + 0.01 || p.z0 >= h.z1 - 0.01), 'thanh không chồng hộp ngăn kéo thật', [box(p), hop]);
-      ok(/rãnh móc/.test(p.ghi_bep || '') && C0.cutList(M).rows.some(r => /Thanh ngang/.test(r.ten) && /rãnh móc/.test(r.ghi_chu)), 'bảng kê ghi thanh lùi — rãnh móc tay');
-    }
+    // (1.36.3 — anh Thanh 16/10/2026, ảnh 3D: "ke này hở xấu quá phải có xà 5cm bên trong chứ ai làm xà nằm ngang phải làm xà dọc") thanh NẰM (thấy mặt trên
+    // thanh + khe sáng ở đầu thanh qua khe) thay bằng XÀ ĐỨNG cao TAP_XA kẹp giữa hai tấm đứng, mặt ván quay ra khe: kín suốt bề ngang lòng, rãnh móc vẫn sâu 30
+    const s = C0.tapTheoKieu('D', co, D0), M = C0.build(s), th = M.parts.filter(p => p.xa_tap), hop = hopThat(M, s), mt = M.mat_ngan_keo.slice().sort((a, b) => a.z - b.z), t = s.van.t;
+    const dung = M.parts.filter(p => p.type === 1 && (p.loai === 'HOI' || p.loai === 'VACH'));
+    ok(th.length === mt.length - 1 && th.length >= 1 && !M.parts.some(p => p.thanh_nk), `D ${JSON.stringify(co)}: một xà đứng giữa mỗi hai mặt, không còn thanh nằm`, [th.length, mt.length]);
+    th.forEach((p, q) => {
+      ok(p.loai === 'XA' && p.type === 2 && /Xà ngăn kéo/.test(p.ten) && near(p.y0, 30) && near(p.y1 - p.y0, t) && mt.every(m => m.y + m.t <= p.y0 - 29.99), 'xà đứng (ván type 2) lùi 30 sau lưng mặt ngăn kéo — rãnh móc tay 30', [box(p), mt.map(m => [m.y, m.t])]);
+      ok(near(p.z1 - p.z0, C0.TAP_XA) && p.z0 <= mt[q].z + mt[q].h + 0.01 && p.z1 >= mt[q + 1].z - 0.01, `xà cao ${C0.TAP_XA}, che kín khe tay nắm (nhìn qua khe chỉ thấy mặt xà)`, [box(p), mt[q], mt[q + 1]]);
+      ok(dung.some(d => near(d.x1, p.x0)) && dung.some(d => near(d.x0, p.x1)), 'xà kẹp giữa hai tấm đứng của khoang (kín suốt bề ngang lòng)', [box(p), dung.map(box)]);
+      ok(hop.every(h => p.z1 <= h.z0 - 4.99 || p.z0 >= h.z1 + 4.99), 'xà cách hộp ngăn kéo thật ≥ 5 (như xà ẩn tủ áo)', [box(p), hop]);
+      ok(/rãnh móc/.test(p.ghi_bep || '') && C0.cutList(M).rows.some(r => /Xà ngăn kéo/.test(r.ten) && /rãnh móc/.test(r.ghi_chu)), 'bảng kê ghi Xà ngăn kéo — rãnh móc tay');
+    });
+    ok(C0.summary(M).some(l => /xà/.test(l) && /rãnh móc/.test(l)) && !C0.summary(M).some(l => /Hộc ngăn kéo âm/.test(l)), 'tóm tắt: xà sau khe tay nắm của táp (không gọi là hộc kéo âm)', C0.summary(M));
     ok(!M.errors.length && !M.warnings.length && !overlapAny(M).length && !C0.kiemLienKet(M.parts).length && C0.phieu(M).dat, `D ${JSON.stringify(co)}: không lỗi / cảnh báo / đè, đủ chỗ tì, phiếu đạt`, [M.errors, M.warnings, C0.kiemLienKet(M.parts)]);
     const h = C0.heSo(s); ok(['L', 'W', 'H'].every(x => h.bien[x] && h.bien[x].sai_so < 0.02), `D ${JSON.stringify(co)}: module co giãn L / W / H`, h.ly_do);
   }
   // lui_thanh chuẩn hoá: âm → 0 (thanh phẳng như 1.34.1); quá sâu → thanh vẫn sâu đủ thanh_sau trong lòng thùng
-  { const s = C0.tapTheoKieu('D', null, D0); s.tap.lui_thanh = -5; const n = C0.normalize(s), th = C0.build(n).parts.filter(p => p.thanh_nk);
-    ok(n.tap.lui_thanh === 0 && th.every(p => near(p.y0, 0)), 'lui_thanh âm → 0: thanh phẳng mặt hồi', [n.tap.lui_thanh, th.map(box)]);
+  { const s = C0.tapTheoKieu('D', null, D0); s.tap.lui_thanh = -5; const n = C0.normalize(s), th = C0.build(n).parts.filter(p => p.xa_tap);
+    ok(n.tap.lui_thanh === 0 && th.length && th.every(p => near(p.y0, 0)), 'lui_thanh âm → 0: xà sát lưng mặt', [n.tap.lui_thanh, th.map(box)]);
+    // (1.36.2: thanh nằm vẫn sâu đủ thanh_sau; 1.36.3: xà đứng) lùi quá sâu bị kẹp LUI_THANH_MAX: xà vẫn nằm trong lòng thùng, không đè
     const s2 = C0.tapTheoKieu('D', null, D0); s2.tap.lui_thanh = 1000; const M2 = C0.build(C0.normalize(s2)), sd = Math.max(...M2.parts.filter(p => p.loai === 'DAY').map(p => p.y1));
-    ok(M2.parts.filter(p => p.thanh_nk).every(p => near(p.y1 - p.y0, s2.tap.thanh_sau) && p.y1 <= sd + 0.01) && !overlapAny(M2).length, 'lui_thanh quá sâu: thanh vẫn sâu đủ thanh_sau, không lòi ra sau thùng', M2.parts.filter(p => p.thanh_nk).map(box));
+    ok(M2.parts.filter(p => p.xa_tap).length && M2.parts.filter(p => p.xa_tap).every(p => p.y1 <= sd + 0.01) && !overlapAny(M2).length, 'lui_thanh quá sâu: xà vẫn trong lòng thùng', M2.parts.filter(p => p.xa_tap).map(box));
     // (soát 1.36.2) số lạ (file / thông số hỏng: 1e9) không được đẩy thanh ra sát hậu thành "rãnh móc" sâu 300 mà không ai báo → kẹp trần LUI_THANH_MAX
     for (const [vao, ra] of [[1e9, C0.LUI_THANH_MAX], [1000, C0.LUI_THANH_MAX], ['15', 15], [-10, 0], ['abc', 30], [null, 30]]) {
-      const s3 = C0.tapTheoKieu('D', null, D0); s3.tap.lui_thanh = vao; const n3 = C0.normalize(s3), th3 = C0.build(n3).parts.filter(p => p.thanh_nk);
-      ok(n3.tap.lui_thanh === ra && th3.every(p => near(p.y0, ra)), `lui_thanh ${JSON.stringify(vao)} → ${ra}`, [n3.tap.lui_thanh, th3.map(box)]);
+      const s3 = C0.tapTheoKieu('D', null, D0); s3.tap.lui_thanh = vao; const n3 = C0.normalize(s3), th3 = C0.build(n3).parts.filter(p => p.xa_tap);
+      ok(n3.tap.lui_thanh === ra && th3.length && th3.every(p => near(p.y0, ra)), `lui_thanh ${JSON.stringify(vao)} → ${ra}`, [n3.tap.lui_thanh, th3.map(box)]);
     }
     ok(C0.LUI_THANH_MAX >= 30 && C0.LUI_THANH_MAX <= 80, 'trần lui_thanh hợp lý (rãnh móc tay, không phải hộc)', C0.LUI_THANH_MAX); }
   // (soát 1.36.2) táp D VẼ ở 1.34.1 … 1.36.1 (thông số chưa có lui_thanh — thanh phẳng y 0): dựng lại tủ đã vẽ phải ra ĐÚNG như lúc vẽ, không thì
   // bấm Sửa báo oan "thiếu 1 tấm" (chọn đúng thanh thì không dò lại được tủ) và Cập nhật dời thanh lặng lẽ. Mở file mẫu cũ (nangCap) = theo chuẩn mới, báo một dòng.
-  { const cu = C0.tapTheoKieu('D', null, D0); delete cu.tap.lui_thanh;
+  { const cu = C0.tapTheoKieu('D', null, D0); delete cu.tap.lui_thanh; delete cu.tap.xa_dung;      // (1.36.3) lúc vẽ 1.36.1 cũng chưa có xa_dung
     const dv = C0.normalize(C0.specDaVe(cu, '1.36.1')), th = C0.build(dv).parts.filter(p => p.thanh_nk);
     ok(dv.tap.lui_thanh === 0 && th.length && th.every(p => near(p.y0, 0)), 'specDaVe < 1.36.2: táp D giữ thanh phẳng như lúc vẽ', [dv.tap.lui_thanh, th.map(box)]);
     ok(C0.normalize(C0.specDaVe(cu, C0.VERSION)).tap.lui_thanh === 30, 'specDaVe bản hiện hành: không đụng (mặc định 30)');
@@ -3351,14 +3359,71 @@ T('Táp: xà đế mọi kiểu, rãnh móc tay kiểu D (bản 1.36.2)', () => 
     const nc = C0.nangCap(cu, '1.36.1');
     ok(nc.doi.some(d => /rãnh móc/.test(d)) && C0.normalize(nc.spec).tap.lui_thanh === 30, 'nangCap < 1.36.2: theo chuẩn mới (lùi 30), báo một dòng', nc.doi);
     const kA = C0.tapTheoKieu('A', null, D0); delete kA.tap.lui_thanh; ok(!C0.nangCap(kA, '1.36.1').doi.some(d => /rãnh móc/.test(d)), 'nangCap: táp không khe tay nắm thì không báo'); }
-  // loại ngăn kéo hộp gần bằng mặt (SLK / XLK âm — khai tay ở Chuẩn xưởng): thanh chồng lên hộp → cảnh báo, không im lặng
+  // loại ngăn kéo hộp gần bằng mặt (SLK / XLK âm — khai tay ở Chuẩn xưởng): giữa hai hộp không đủ chỗ cho xà ≥ 30 → không làm xà, cảnh báo (không im lặng)
   { const s = C0.tapTheoKieu('D', null, D0); s.ngan_keo.loai.forEach(l => { if (l.ma === s.ngan_keo.mac_dinh) { l.ts.SLK = -5; l.ts.XLK = -5; } }); const M = C0.build(C0.normalize(s));
-    ok(M.warnings.some(w => /thanh ngang giữa khe tay nắm chồng lên hộp ngăn kéo/.test(w)), 'hộp ngăn kéo lấn vào khe: cảnh báo thanh chồng hộp', M.warnings); }
+    // (soát 1.36.3) xà không phủ được khe → rơi về thanh nằm như 1.36.2, mà thanh cũng chồng hộp → cảnh báo như 1.36.2 (không im lặng)
+    ok(!M.parts.some(p => p.xa_tap) && M.warnings.some(w => /thanh ngang giữa khe tay nắm chồng lên hộp ngăn kéo/.test(w)), 'hộp ngăn kéo lấn vào khe: không xà, cảnh báo thanh chồng hộp', M.warnings);
+    // chỗ trống vừa 30 … 50: xà rút cao cho vừa (như xà ẩn tủ áo)
+    const s2 = C0.tapTheoKieu('D', null, D0); s2.ngan_keo.loai.forEach(l => { if (l.ma === s2.ngan_keo.mac_dinh) { l.ts.SLK = 15; l.ts.XLK = 15; } }); const M2 = C0.build(C0.normalize(s2)), x2 = M2.parts.filter(p => p.xa_tap);
+    ok(x2.length === 1 && near(x2[0].z1 - x2[0].z0, 25 + 15 + 15 - 10) && !M2.warnings.length && !overlapAny(M2).length, 'chỗ trống giữa hai hộp 45: xà rút còn 45', [x2.map(box), M2.warnings]); }
+  // (soát 1.36.3) mỗi khe tay nắm phải KÍN: hoặc xà đứng phủ trọn khe (mép dưới xà ≤ mép dưới khe, mép trên ≥ mép trên khe), hoặc (loại hộp sát mép mặt) rơi về
+  // thanh nằm lọt trong khe như 1.36.2 — trước: loại không khai SLK (Blum, khay bàn phím) xà bị đẩy lên hở 5 ở mép dưới khe mà không báo; chia ô thì mất hẳn thanh.
+  const kheKin = (M, s) => { const mt = M.mat_ngan_keo.slice().sort((a, b) => a.z - b.z), hop = hopThat(M, s), out = [];
+    for (let q = 0; q + 1 < mt.length; q++) { const k0 = mt[q].z + mt[q].h, k1 = mt[q + 1].z;
+      const xa = M.parts.find(p => p.xa_tap && p.z0 <= k0 + 0.01 && p.z1 >= k1 - 0.01), th = M.parts.find(p => p.thanh_nk && p.z0 >= k0 - 0.01 && p.z1 <= k1 + 0.01);
+      const tam = xa || th; if (!tam) { out.push(`khe ${k0}…${k1} hở`); continue; }
+      if (hop.some(h => tam.z0 < h.z1 - 0.01 && tam.z1 > h.z0 + 0.01)) out.push(`${tam.ten} ${tam.z0}…${tam.z1} chồng hộp`); }
+    return out; };
+  for (const ma of ['bi_mong', 'blum16', 'blum18', 'ban_phim', 'chia_o'])
+    for (const co of [null, { rong: 350, sau: 300, cao: 400 }, { rong: 600, sau: 500, cao: 800 }])
+      for (const khe of [25, 40, 55]) {
+        const s = C0.tapTheoKieu('D', co, D0); s.ngan_keo.mac_dinh = ma; s.tap.khe_tn = khe; const n = C0.normalize(s), M = C0.build(n), ten = `D ${ma} ${JSON.stringify(co)} khe ${khe}`;
+        eq(kheKin(M, n), [], `${ten}: mọi khe tay nắm kín (xà phủ trọn khe hoặc thanh nằm trong khe), không chồng hộp`);
+        ok(!M.warnings.some(w => /khe tay nắm/.test(w)) && !overlapAny(M).length, `${ten}: không cảnh báo khe tay nắm, không đè`, [M.warnings, overlapAny(M)]);
+        const lo = n.ngan_keo.loai.find(l => l.ma === ma), sat = 'CMG' in lo.ts || !(lo.ts.SLK >= 5) || !(lo.ts.XLK >= 5);
+        if (sat) ok(M.parts.some(p => p.thanh_nk) && M.notes.some(x => /thanh nằm/.test(x) && /khe tay nắm/.test(x)), `${ten}: hộp sát mép mặt → thanh nằm trong khe, ghi chú một dòng`, M.notes);
+        else ok(M.parts.some(p => p.xa_tap) && !M.parts.some(p => p.thanh_nk), `${ten}: xà đứng`);
+        // khe rộng hơn TAP_XA (55): xà cao theo khe + phần chồng, không bao giờ "chỗ trống 105, cần ≥ 55"
+        if (ma === 'bi_mong') ok(M.parts.filter(p => p.xa_tap).every(p => near(p.z1 - p.z0, Math.max(C0.TAP_XA, khe + 20))), `${ten}: xà cao max(TAP_XA, khe + 20)`, M.parts.filter(p => p.xa_tap).map(box));
+      }
+  // khe hẹp hơn dày ván mà hộp sát mép mặt (không xà, không thanh nằm được): cảnh báo nói đúng nguyên nhân
+  { const s = C0.tapTheoKieu('D', null, D0); s.ngan_keo.mac_dinh = 'blum18'; s.tap.khe_tn = 12; const M = C0.build(C0.normalize(s));
+    ok(!M.parts.some(p => p.xa_tap || p.thanh_nk) && M.warnings.some(w => /khe tay nắm/.test(w) && /hở/.test(w) && !/chỗ trống \d+(,\d+)?, cần/.test(w)), 'khe 12 + Blum: không xà / thanh, cảnh báo đúng nguyên nhân', M.warnings); }
+  // xà táp là ván thùng, khoan liên kết như xà ẩn tủ áo / xà đế cùng tủ (anh Thanh: "xà là ván thùng") — trước: < 60 → không khoan, bắt vít
+  { const M = C0.build(C0.tapTheoKieu('D', null, D0)), xa = M.parts.filter(p => p.xa_tap);
+    ok(xa.length && xa.every(p => p.khoan !== C0.KHONG_KHOAN && !p.vit_ray) && !C0.cutList(M).rows.some(r => /Xà ngăn kéo/.test(r.ten) && /không khoan/.test(r.ghi_chu)), 'xà táp khoan liên kết như ván thùng', xa.map(p => [p.khoan, p.vit_ray])); }
+  // táp D VẼ ở 1.36.2 (thanh nằm lùi 30, thông số chưa có xa_dung): specDaVe ghi xa_dung = 0 → dựng lại thanh nằm như lúc vẽ (Sửa không báo oan thiếu tấm)
+  { const cu = C0.tapTheoKieu('D', null, D0); delete cu.tap.xa_dung;
+    const dv = C0.normalize(C0.specDaVe(cu, '1.36.2')), M = C0.build(dv), th = M.parts.filter(p => p.thanh_nk);
+    ok(dv.tap.xa_dung === 0 && th.length === 1 && th[0].type === 0 && near(th[0].y0, 30) && near(th[0].y1 - th[0].y0, dv.tap.thanh_sau) && !M.parts.some(p => p.xa_tap) && !M.warnings.length, 'specDaVe 1.36.2: táp D giữ thanh nằm lùi 30 như lúc vẽ', [dv.tap, th.map(box)]);
+    ok(C0.normalize(C0.specDaVe(cu, C0.VERSION)).tap.xa_dung === 1, 'specDaVe bản hiện hành: xà đứng (mặc định)');
+    eq(C0.tapKhoaCu(cu, '1.36.2'), ['xa_dung'], 'tapKhoaCu 1.36.2: chỉ xa_dung');
+    // (soát 1.36.3) câu báo của Sửa / Thôi sửa chỉ nêu khoá ĐỔI HÌNH của chính táp đó: táp không khe tay nắm (A / B / C / E) vẽ ở 1.36.2 không có thanh nằm nào
+    // → không báo "thanh nằm sau khe tay nắm" / "xà đứng"; khoá vẫn trả về chuẩn mới (bảng chỉ có MỘT thông số — số 0 không được dính sang táp D vẽ sau)
+    eq(C0.tapKhoaAnh(cu, ['xa_dung']), ['xa_dung'], 'tapKhoaAnh: táp D — xa_dung đổi hình');
+    for (const k of ['A', 'B', 'C', 'E']) { const x = C0.tapTheoKieu(k, null, D0); delete x.tap.xa_dung;
+      eq(C0.tapKhoaCu(x, '1.36.2'), ['xa_dung'], `${k} 1.36.2: tapKhoaCu vẫn có xa_dung (để trả về chuẩn mới)`);
+      eq(C0.tapKhoaAnh(x, C0.tapKhoaCu(x, '1.36.2')), [], `${k} 1.36.2: không khoá nào đổi hình → không báo`);
+      const y = C0.tapTheoKieu(k, null, D0); delete y.tap.xa_dung; delete y.tap.lui_thanh; delete y.tap.hau_ranh;
+      eq(C0.tapKhoaAnh(y, C0.tapKhoaCu(y, '1.36.1')), ['hau_ranh'], `${k} 1.36.1: chỉ báo hậu`); }
+    { const y = C0.tapTheoKieu('D', null, D0); delete y.tap.xa_dung; delete y.tap.lui_thanh; delete y.tap.hau_ranh; eq(C0.tapKhoaAnh(y, C0.tapKhoaCu(y, '1.36.1')), ['hau_ranh', 'lui_thanh', 'xa_dung'], 'D 1.36.1: báo cả ba'); }
+    const sc = C0.normalize(C0.specDaVe(cu, '1.36.2')); eq(C0.tapVeChuan(sc, ['xa_dung']), ['xa_dung'], 'tapVeChuan: về xà đứng'); ok(sc.tap.xa_dung === 1, 'tapVeChuan: xa_dung 1');
+    const mo = C0.normalize(C0.nangCap(JSON.parse(JSON.stringify(cu)), '1.36.2').spec), luc = C0.build(dv).parts.map(p => [p.loai, p.y0, p.z0].join()).sort().join('|');
+    ok(mo.tap.xa_dung === 1 && C0.tapBienTheCu(mo).some(b => b.khoa.join() === 'xa_dung' && C0.build(b.spec).parts.map(p => [p.loai, p.y0, p.z0].join()).sort().join('|') === luc), 'tapBienTheCu: có thông số thử thanh nằm như lúc vẽ', C0.tapBienTheCu(mo).map(b => b.khoa));
+    const nc = C0.nangCap(JSON.parse(JSON.stringify(cu)), '1.36.2');
+    ok(nc.doi.filter(d => /xà/.test(d) && /khe tay nắm/.test(d)).length === 1, 'nangCap < 1.36.3: báo một dòng (thanh nằm → xà đứng)', nc.doi);
+    const c1 = C0.tapTheoKieu('D', null, D0); delete c1.tap.xa_dung; delete c1.tap.lui_thanh;
+    ok(C0.nangCap(c1, '1.36.1').doi.filter(d => /khe tay nắm/.test(d)).length === 1, 'nangCap < 1.36.2: một dòng cho cả lùi + xà đứng', C0.nangCap(c1, '1.36.1').doi);
+    const kA = C0.tapTheoKieu('A', null, D0); delete kA.tap.xa_dung; ok(!C0.nangCap(kA, '1.36.2').doi.some(d => /xà/.test(d)), 'nangCap: táp không khe tay nắm thì không báo');
+    for (const [vao, ra] of [[1, 1], [0, 0], ['abc', 1], [null, 1], [false, 0]]) { const x = C0.tapTheoKieu('D', null, D0); x.tap.xa_dung = vao; eq(C0.normalize(x).tap.xa_dung, ra, `xa_dung ${JSON.stringify(vao)} → ${ra}`); } }
   // B (lọt lòng): thanh ngang vẫn phẳng mặt (thấy cạnh như đợt — kiểu ảnh B), không lùi
   { const M = C0.build(C0.tapTheoKieu('B', null, D0)); ok(M.parts.filter(p => p.thanh_nk).every(p => near(p.y0, 0)), 'B: thanh ngang lọt lòng giữ phẳng mặt'); }
   // hình: 3D có khối thanh lùi; hình đứng vẽ được (không số hỏng)
   { const M = C0.build(C0.tapTheoKieu('D', null, D0)), d = C0.hinh3D(M, { du_lieu: true }), sv = C0.elevationSVG(M, {}), h3 = C0.hinh3D(M, {});
-    ok(d.hop.some(h => h.b && near(h.b[1], 30) && near(h.b[4], 110)), '3D: khối thanh ngang ở y 30 … 110', d.hop.filter(h => h.b && near(h.b[1], 30)).length);
+    // (1.36.3) khối xà đứng y 30 … 30 + dày ván (trước: thanh nằm y 30 … 110); hình đứng vẽ xà nét đứt như xà ẩn tủ áo
+    const xa = M.parts.find(p => p.xa_tap);
+    ok(d.hop.some(h => h.b && near(h.b[1], 30) && near(h.b[4], 30 + M.spec.van.t) && near(h.b[5] - h.b[2], C0.TAP_XA)), '3D: khối xà đứng ở y 30 … 30 + dày ván', d.hop.filter(h => h.b && near(h.b[1], 30)).map(h => h.b));
+    ok(xa && /stroke-dasharray/.test(sv), 'hình đứng: có xà (nét đứt)');
     ok(!/NaN|Infinity/.test(sv + h3), 'hình đứng + 3D: không số hỏng'); }
 });
 
@@ -3457,18 +3522,18 @@ T('Táp hậu soi rãnh — vòng soát (bản 1.36.2)', () => {
     ok(!C0.build(r2.spec).errors.length, 'Ph.tuChoKhung: táp + cột giữa → khấu được', C0.build(r2.spec).errors); }
   // (3) Sửa một táp vẽ trước 1.36.2: specDaVe ghi hau_ranh / lui_thanh = 0 để dò lại đúng tủ. Bảng chỉ có MỘT thông số → số 0 dính sang tủ vẽ MỚI.
   // tapKhoaCu = các khoá specDaVe vừa ghi 0 (để bảng báo + trả về chuẩn mới khi thôi nối); tapVeChuan trả các khoá đó về mặc định (chỉ khi còn là 0).
-  { const f = J(C0.MAU_TAP[3].ap(J(D0))); delete f.tap.hau_ranh; delete f.tap.lui_thanh;
-    eq(C0.tapKhoaCu(f, '1.36.1'), ['hau_ranh', 'lui_thanh'], 'tapKhoaCu < 1.36.2: hau_ranh + lui_thanh');
+  { const f = J(C0.MAU_TAP[3].ap(J(D0))); delete f.tap.hau_ranh; delete f.tap.lui_thanh; delete f.tap.xa_dung;      // (1.36.3) thông số lúc vẽ 1.36.1 cũng chưa có xa_dung
+    eq(C0.tapKhoaCu(f, '1.36.1'), ['hau_ranh', 'lui_thanh', 'xa_dung'], 'tapKhoaCu < 1.36.2: hau_ranh + lui_thanh + xa_dung');
     eq(C0.tapKhoaCu(f, C0.VERSION), [], 'tapKhoaCu bản hiện hành: không khoá nào');
     eq(C0.tapKhoaCu(C0.tapTheoKieu('A', null, D0), '1.36.1'), [], 'tapKhoaCu: khoá đã có thì không tính');
     eq(C0.tapKhoaCu(J(D0), '1.36.1'), [], 'tapKhoaCu: tủ áo không có khoá tap');
     const sc = C0.normalize(C0.specDaVe(f, '1.36.1')), doi = C0.tapVeChuan(sc, C0.tapKhoaCu(f, '1.36.1'));
-    ok(J(doi).length === 2 && sc.tap.hau_ranh === 1 && sc.tap.lui_thanh === C0.DEFAULT_TAP.lui_thanh && P(C0.build(sc), 'HAU').every(p => p.mong), 'tapVeChuan: về hậu soi rãnh + rãnh móc chuẩn', [doi, sc.tap]);
+    ok(J(doi).length === 3 && sc.tap.hau_ranh === 1 && sc.tap.lui_thanh === C0.DEFAULT_TAP.lui_thanh && sc.tap.xa_dung === 1 && P(C0.build(sc), 'HAU').every(p => p.mong), 'tapVeChuan: về hậu soi rãnh + rãnh móc + xà đứng chuẩn', [doi, sc.tap]);
     const s2 = C0.tapTheoKieu('A', null, D0); s2.tap.lui_thanh = 12; eq(C0.tapVeChuan(s2, ['hau_ranh', 'lui_thanh']), [], 'tapVeChuan: số khác 0 (người dùng / file) thì giữ'); }
   // (4) đường "bang" của Sửa (máy không có thông số đã lưu): bảng đang mở file táp cũ (qua nangCap → chuẩn mới), tấm trên bản vẽ dựng theo kiểu cũ.
   // tapBienTheCu = các thông số thử (khoá mới đặt về 0) — một trong số đó phải dựng ra ĐÚNG các tấm như lúc vẽ (specDaVe).
   for (const m of C0.MAU_TAP) {
-    const f = J(m.ap(J(D0))); delete f.tap.hau_ranh; delete f.tap.lui_thanh;
+    const f = J(m.ap(J(D0))); delete f.tap.hau_ranh; delete f.tap.lui_thanh; delete f.tap.xa_dung;
     const mo = C0.normalize(C0.nangCap(J(f), '1.36.1').spec), luc = sz(C0.build(C0.normalize(C0.specDaVe(J(f), '1.36.1'))));
     const bt = C0.tapBienTheCu(mo);
     ok(bt.length >= 1 && bt.some(b => sz(C0.build(b.spec)) === luc && b.khoa.length), `${m.ma}: có thông số thử dựng ra đúng tấm như lúc vẽ`, bt.map(b => b.khoa));

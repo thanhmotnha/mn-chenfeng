@@ -1978,8 +1978,10 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     /** (soát 1.36.2) thôi nối một táp vẽ kiểu cũ → các khoá specDaVe ghi 0 về chuẩn mới (chỉ khoá còn là 0). Trả câu báo ('' = không đổi gì). */
     function veChuanTap() {
       const k = tapCu; tapCu = null;
-      const doi = k && spec.tap ? Core.tapVeChuan(spec, k) : [];
-      return doi.length ? ` Táp về chuẩn mới: ${doi.map(x => x === 'hau_ranh' ? 'hậu soi rãnh lọt lòng' : `thanh khe lùi ${hien(spec.tap.lui_thanh)} (rãnh móc tay)`).join(', ')}.` : '';
+      const doi0 = k && spec.tap ? Core.tapVeChuan(spec, k) : [];
+      // (soát 1.36.3) trả MỌI khoá về chuẩn mới, nhưng chỉ nói khoá đổi hình của táp này (táp núm / khoét không có thanh sau khe tay nắm)
+      const doi = Core.tapKhoaAnh ? Core.tapKhoaAnh(spec, doi0) : doi0;
+      return doi.length ? ` Táp về chuẩn mới: ${doi.map(x => x === 'hau_ranh' ? 'hậu soi rãnh lọt lòng' : x === 'xa_dung' ? `xà đứng ${hien(Core.TAP_XA)} sau khe tay nắm` : `thanh khe lùi ${hien(spec.tap.lui_thanh)} (rãnh móc tay)`).join(', ')}.` : '';
     }
 
     /** Người dùng chọn 1 tấm của tủ đã vẽ → mở lại thông số của tủ đó để sửa. */
@@ -2009,7 +2011,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const ghiKM = nguon === 'luu' && luu.spec && !(luu.spec.ngan_keo && luu.spec.ngan_keo.khung_mat !== undefined) && specCu.ngan_keo && specCu.ngan_keo.khung_mat === 0 && specCu.khoang.some(k => (k.o || []).some(c => c.kieu === 'nk_am'))
         ? ' Hộc kéo âm của tủ này vẽ kiểu cũ (khe + xà ẩn, chưa có khung mặt) — muốn đổi: Chuẩn xưởng → Ngăn kéo âm → Khung mặt.' : '';
       const khoaCu = nguon === 'luu' ? (Core.tapKhoaCu ? Core.tapKhoaCu(luu.spec, luu.ban) : []).filter(k => specCu.tap && specCu.tap[k] === 0) : khoaBang;
-      const ghiTap = khoaCu.length ? ` Táp này vẽ trước bản 1.36.2 (${khoaCu.map(k => k === 'hau_ranh' ? 'hậu theo Chuẩn xưởng' : 'thanh khe tay nắm phẳng').join(', ')}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; bấm “Thôi sửa” thì táp vẽ mới về chuẩn mới (hậu soi rãnh lọt lòng${khoaCu.indexOf('lui_thanh') >= 0 ? ', rãnh móc tay' : ''}).` : '';
+      // (1.36.3) xa_dung: táp vẽ ở 1.36.2 chỉ thiếu khoá này — câu báo nói đúng bản và đúng thứ được về chuẩn mới
+      const khoaBao = Core.tapKhoaAnh ? Core.tapKhoaAnh(specCu, khoaCu) : khoaCu;      // (soát 1.36.3) câu báo chỉ nêu khoá đổi hình của táp này; tapCu vẫn giữ mọi khoá
+      const ghiTap = khoaBao.length ? ` Táp này vẽ trước bản ${khoaBao.some(k => k !== 'xa_dung') ? '1.36.2' : '1.36.3'} (${khoaBao.map(k => k === 'hau_ranh' ? 'hậu theo Chuẩn xưởng' : k === 'xa_dung' ? 'thanh nằm sau khe tay nắm' : 'thanh khe tay nắm phẳng').join(', ')}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; bấm “Thôi sửa” thì táp vẽ mới về chuẩn mới (${[khoaBao.indexOf('hau_ranh') >= 0 ? 'hậu soi rãnh lọt lòng' : '', khoaBao.indexOf('lui_thanh') >= 0 ? 'rãnh móc tay' : '', khoaBao.indexOf('xa_dung') >= 0 ? 'xà đứng sau khe tay nắm' : ''].filter(Boolean).join(', ')}).` : '';
       const boCho = doiLoaiBoCho(specCu);      // (1.32) món vừa chọn khác loại / khác sâu với chỗ đặt đang giữ → bỏ chỗ đặt
       spec = clone(specCu); noi = { id, spec: clone(specCu), ten: specCu.ma || specCu.ten || '', pick: tam };
       sel = null; renderAll(); switchTab('tu'); tapCu = khoaCu.length ? khoaCu : null;
