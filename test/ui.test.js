@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.36\.4/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.36\.5/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -1142,6 +1142,74 @@ async function testBep(browser) {
 
 // (bản 1.34) BỘ BẾP CHỮ I / CHỮ L: chọn ở Thư viện → bảng tự chia (Core.xepBep), hình mặt bằng + mặt đứng, phương án ‹ ›, bấm tủ → ô chọn (Đổi thành / Ghim / Mở thành tủ),
 // kéo chậu trên mặt bằng, đầu dãy tường / hở, tủ lạnh / + Lò / + Kho / + Kệ, nút sửa nhanh (một bước ↶ Lùi), nhớ ở localStorage mncf.bobep.v1 (hỏng vẫn chạy)
+// Bản 1.36.5 (anh Thanh 16/10/2026: "cải phần tủ cho thêm bản lề hay đảo vị trí bản lề bắt lật cho các tủ trên được k"): số bản lề mỗi cánh chỉnh bằng + / − ở thẻ
+// khoang (khoang[i].so_ban_le); tủ trên bếp có "Mở cánh: Mở ngang / Lật lên" (cánh lật + tay nâng).
+async function testBanLe(browser) {
+  console.log('— Bản lề + / − mỗi khoang, cánh lật tủ trên bếp (bản 1.36.5)');
+  const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
+  const spec = () => page.evaluate(() => window.MNCF.app.getSpec());
+  const soKhoang = i => page.evaluate(i => [...new Set(window.MNCF.app.getModel().parts.filter(p => p.loai === 'CANH' && p.khoang === i && p.ban_le).map(p => p.ban_le.so))], i);
+  const cham = () => S(page, '.view svg [data-ban-le]').count();
+  const the = i => S(page, `.bay[data-i="${i}"] [data-ui="bl-hang"]`);
+  await chonMau(page, ''); await page.waitForFunction(() => !window.MNCF.app.getSpec().loai_sp);
+  { const n0 = await soKhoang(0), txt = await the(0).locator('[data-ui="bl-n"]').innerText();
+    ok(await the(0).isVisible() && txt === n0.sort((a, b) => b - a).join(' / ') + ' tự' && !(await the(0).locator('[data-act="bl-tu"]').isVisible()), 'thẻ khoang: hàng "Bản lề / cánh" hiện số tự tính', [txt, n0]);
+    // (vòng soát 1.36.5) bấm − trên tủ 2 thân (5 / 2): cánh thân dưới bớt, cánh thân trên 597 GIỮ 2 (trước đây tăng lên 4 — tổng bản lề tăng khi bớt)
+    { const tong = () => page.evaluate(() => window.MNCF.app.getModel().parts.filter(p => p.ban_le).reduce((n, p) => n + p.ban_le.so, 0)), t0 = await tong();
+      await the(0).locator('[data-act="bl-bot"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().khoang[0].so_ban_le > 0);
+      const x = await page.evaluate(() => window.MNCF.app.getModel().parts.filter(p => p.loai === 'CANH' && p.khoang === 0).map(p => [Math.round(p.z1 - p.z0), p.ban_le.so])), t1 = await tong();
+      ok(JSON.stringify(x) === '[[2047,4],[2047,4],[597,2],[597,2]]' && t1 < t0 && (await the(0).locator('[data-ui="bl-n"]').innerText()) === '4 / 2', '− : cánh thân dưới 5 → 4, cánh thân trên giữ 2, tổng bản lề giảm', [x, t0, t1]);
+      await the(0).locator('[data-act="bl-tu"]').click(); await page.waitForFunction(() => !('so_ban_le' in window.MNCF.app.getSpec().khoang[0])); }
+    const c0 = await cham();
+    await the(0).locator('[data-act="bl-them"]').click();
+    await page.waitForFunction(() => window.MNCF.app.getSpec().khoang[0].so_ban_le > 0);
+    const s1 = await spec(), n1 = await soKhoang(0), c1 = await cham();
+    ok(s1.khoang[0].so_ban_le === Math.max(...n0) + 1 && n1.indexOf(s1.khoang[0].so_ban_le) >= 0 && !('so_ban_le' in s1.khoang[1]), '+ : khoang 1 thêm một bản lề mỗi cánh (cánh cao nhất), khoang khác không đổi', [s1.khoang[0].so_ban_le, n1]);
+    ok(c1 > c0 && await the(0).locator('[data-act="bl-tu"]').isVisible(), 'hình đứng thêm chấm bản lề; có nút "tự"', [c0, c1]);
+    const pk = await page.evaluate(() => { const C = window.MNCFCore, M = window.MNCF.app.getModel(); return [C.cutList(M).phu_kien.find(x => /^Bản lề/.test(x.ten)).sl, M.parts.filter(p => p.ban_le).reduce((n, p) => n + p.ban_le.so, 0)]; });
+    ok(pk[0] === pk[1], 'bảng kê đếm đúng tổng bản lề', pk);
+    // gõ số cánh (ô của thẻ khoang) không làm mất số đã chỉnh
+    await S(page, '.bay[data-i="0"] [data-b="dot"]').press('End'); await S(page, '.bay[data-i="0"] [data-b="dot"]').type(' '); await page.waitForTimeout(300);
+    ok((await spec()).khoang[0].so_ban_le === s1.khoang[0].so_ban_le, 'gõ ô Đợt của khoang: giữ số bản lề đã chỉnh');
+    for (let j = 0; j < 4 && 'so_ban_le' in (await spec()).khoang[0]; j++) { await S(page, '[data-act="lui"]').click(); await page.waitForTimeout(150); }      // bước gõ ô Đợt cũng là một bước ↶ Lùi
+    ok(!('so_ban_le' in (await spec()).khoang[0]), '↶ Lùi: về số tự tính');
+    // − xuống tới 2 thì nút − khoá
+    for (let j = 0; j < 8; j++) { const bt = the(1).locator('[data-act="bl-bot"]'); if (await bt.isDisabled()) break; await bt.click(); await page.waitForTimeout(120); }
+    const s2 = await spec(); ok(s2.khoang[1].so_ban_le === 2 && await the(1).locator('[data-act="bl-bot"]').isDisabled(), '− xuống tới 2: dừng ở 2 (tối thiểu), nút − khoá', s2.khoang[1]);
+    await the(1).locator('[data-act="bl-tu"]').click(); await page.waitForFunction(() => !('so_ban_le' in window.MNCF.app.getSpec().khoang[1]));
+    ok(true, 'bấm "tự": bỏ số đã chỉnh');
+    // số cánh 0: hàng bản lề ẩn
+    await S(page, '.bay[data-i="2"] [data-b="canh"]').selectOption('0'); await page.waitForTimeout(400);
+    ok(!(await the(2).isVisible()), 'khoang không cánh: không có hàng bản lề'); }
+  // tủ trên bếp: Mở ngang / Lật lên
+  { await chonMau(page, '@BEP-tren'); await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
+    const nut = () => S(page, '[data-act="bep-lat"]').evaluateAll(bs => bs.map(b => [b.dataset.v, b.getAttribute('aria-pressed')]));
+    ok(JSON.stringify(await nut()) === '[["0","true"],["1","false"]]', 'tủ trên cánh: hàng Mở cánh, đang "Mở ngang"', await nut());
+    const k0 = (await spec()).khoang[0].canh;
+    await S(page, '[data-act="bep-lat"][data-v="1"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().bep.lat === 1);
+    const r = await page.evaluate(() => { const C = window.MNCFCore, M = window.MNCF.app.getModel(), c = M.parts.filter(p => p.loai === 'CANH');
+      return { n: c.length, lat: c.every(p => p.lat && p.ban_le.ben === 'tren'), tn: C.cutList(M).phu_kien.some(x => /Tay nâng/.test(x.ten)), canh: window.MNCF.app.getSpec().khoang.map(k => k.canh) }; });
+    ok(r.n === 1 && r.lat && r.tn && r.canh.every(c => c === 1) && JSON.stringify(await nut()) === '[["0","false"],["1","true"]]', 'Lật lên: một cánh lật, bản lề cạnh trên, bảng kê có tay nâng', r);
+    // (vòng soát 1.36.5) dòng trạng thái giữ đơn vị N (trước: "tay nâng hơi 150n"); ô Số cánh / Bản lề trái-phải khoá khi cánh lật (mỗi khoang một cánh)
+    { const st = await S(page, '.status').innerText(); ok(/tay nâng hơi \d+N/.test(st) && !/\d+n\b/.test(st), 'trạng thái: "tay nâng hơi …N" đúng đơn vị', st); }
+    ok(await S(page, '.bay[data-i="0"] [data-b="canh"]').isDisabled() && (await S(page, '.bay[data-i="0"] [data-b="canh"]').inputValue()) === '1', 'cánh lật: ô Số cánh khoá ở 1');
+    ok((await S(page, '.view svg [data-lat]').count()) === 1 || (await page.evaluate(() => /data-lat/.test(window.MNCFCore.elevationSVG(window.MNCF.app.getModel(), { canh: true })))), 'hình đứng: ký hiệu cánh lật');
+    ok(/lật/i.test(await S(page, '.msgs').innerText()), 'tủ trên cao 800 lật: dòng cảnh báo cánh lật cao', await S(page, '.msgs').innerText());
+    await S(page, '[data-act="bep-lat"][data-v="0"]').click(); await page.waitForFunction(() => !('lat' in window.MNCF.app.getSpec().bep));
+    ok((await spec()).khoang[0].canh === k0, 'Mở ngang: về số cánh cũ');
+    await S(page, '[data-act="lui"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().bep.lat === 1);
+    ok(true, '↶ Lùi: lại cánh lật');
+    // (vòng soát 1.36.5) chip chức năng giữ cánh lật (kiểu mở trực giao chức năng); sang kệ hở thì bỏ và nói rõ
+    await S(page, '[data-act="bep-kieu"][data-v="bat"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().bep.chuc_nang === 'bat');
+    ok((await spec()).bep.lat === 1, 'chip Giá bát: vẫn cánh lật');
+    await S(page, '[data-act="bep-kieu"][data-v="ke"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().bep.chuc_nang === 'ke');
+    { const st = await S(page, '.status').innerText(); ok(!('lat' in (await spec()).bep) && /bỏ cánh lật/i.test(st), 'chip Kệ hở: bỏ cánh lật, dòng trạng thái nói rõ', st); }
+    await chonMau(page, '@BEP-duoi'); await page.waitForFunction(() => window.MNCF.app.getSpec().bep && window.MNCF.app.getSpec().bep.tang === 'duoi');
+    ok((await S(page, '[data-act="bep-lat"]').count()) === 0, 'tủ dưới: không có hàng Mở cánh'); }
+  ok(errs.length === 0, 'không lỗi JS', errs);
+  await ctx.close();
+}
+
 async function testBoBep(browser) {
   console.log('— Bộ bếp chữ I / chữ L (bản 1.34): tự chia, phương án, bấm tủ để đổi, kéo chậu, nhớ lựa chọn');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
@@ -1312,6 +1380,32 @@ async function testBoBep(browser) {
       await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).click(); await S(page, '.bokpop [data-act="kpop-bo-kinh"]').click();
       const b = await bo(); ok(Array.isArray(b.kinh) && b.kinh.length === 1 && b.kinh[0].canh === m.canh && b.kinh[0].s > m.s0 && b.kinh[0].s < m.s0 + m.dai && (await mdCo(`[data-bo-vt="${m.vt}"] [data-bo-kinh]`)) === 1 && (await S(page, '[data-act="bo-kinh"]').getAttribute('aria-pressed')) === 'true', 'ô chọn tủ trên: "Cánh kính" → đúng tủ đó cánh kính', [b.kinh, m.vt]);
       ok(await page.evaluate(([b, vt]) => { const C = window.MNCFCore, r = C.xepBep(b), x = C.tuBo(b, r.pa[0]).find(q => q.vt === vt); return !!(x && x.spec.bep.kinh); }, [b, m.vt]), 'tủ đó trong tuBo mang bep.kinh'); }
+    // (bản 1.36.5) cánh lật theo chỗ (ô chọn tủ trên)
+    { const pa0 = (await kq()).pa[0], m = pa0.ds.find(x => x.tang === 'tren' && !x.t2 && x.chuc === 'canh'), moc = pa => JSON.stringify(pa.ds.map(x => [x.vt, x.ma, x.s0]));
+      if (!(await S(page, '.bokpop [data-act="kpop-bo-lat"]').isVisible())) await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).click();      // ô chọn của tủ đó còn mở từ bước kính
+      await S(page, '.bokpop [data-act="kpop-bo-lat"]').click();
+      ok(moc((await kq()).pa[0]) === moc(pa0), '(vòng soát 1.36.5) bật cánh lật: dãy KHÔNG chia lại');
+      const b = await bo(); ok(Array.isArray(b.lat) && b.lat.length === 1 && b.lat[0].canh === m.canh && !b.lat[0].t2 && b.lat[0].s > m.s0 && b.lat[0].s < m.s0 + m.dai && (await mdCo(`[data-bo-vt="${m.vt}"] [data-bo-lat]`)) === 1, 'ô chọn tủ trên: "Cánh lật" → đúng tủ đó, mặt đứng có ký hiệu lật', [b.lat, m.vt]);
+      ok(await page.evaluate(([b, vt]) => { const C = window.MNCFCore, r = C.xepBep(b), x = C.tuBo(b, r.pa[0]).find(q => q.vt === vt); return !!(x && x.spec.bep.lat) && C.tuBo(b, r.pa[0]).filter(q => q.spec.bep.lat).length === 1; }, [b, m.vt]), 'chỉ tủ đó trong tuBo mang bep.lat');
+      await S(page, '.bokpop [data-act="kpop-bo-lat"]').click();
+      ok(!('lat' in (await bo())) && (await mdCo('[data-bo-lat]')) === 0, 'bấm lại "Bỏ cánh lật": hết'); }
+    // (vòng soát 1.36.5) tủ trên mà lật là LỖI tay nâng (tủ 900 cao 800): nút "Cánh lật" khoá, title nói vì sao; bật bằng setBo thì dãy vẫn đứng yên, dòng đỏ của phương án nói lỗi
+    { const pa0 = (await kq()).pa[0], moc = pa => JSON.stringify(pa.ds.map(x => [x.vt, x.ma, x.s0]));
+      const m = await page.evaluate(([b, pa]) => { const C = window.MNCFCore; return pa.ds.find(x => x.tang === 'tren' && !x.t2 && C.latNhanBo(x) && C.latLoi(b, pa, x).length) || null; }, [await bo(), pa0]);
+      if (m) {
+        await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).click();
+        const nut = S(page, '.bokpop [data-act="kpop-bo-lat"]');
+        ok(await nut.isDisabled() && /tay nâng/.test(await nut.getAttribute('title')), `ô chọn ${m.vt} (${m.ma}): nút Cánh lật khoá, title nói lỗi tay nâng`, await nut.getAttribute('title'));
+        await page.evaluate(([b, m]) => window.MNCF.app.setBo(Object.assign({}, b, { lat: [{ canh: m.canh, s: m.s0 + m.dai / 2 }] })), [await bo(), m]);
+        const k = await kq(); ok(moc(k.pa[0]) === moc(pa0) && k.pa[0].loi.some(x => /lật/.test(x)), 'chỗ lật lỗi: dãy đứng yên, phương án mang dòng đỏ cánh lật', k.pa[0].loi);
+        // hút mùi đổi sang máy kính: tủ ở chỗ đó (BT-HMK) không lật → mặt đứng KHÔNG vẽ ký hiệu lật
+        const hm = k.pa[0].ds.find(x => x.tang === 'tren' && !x.t2 && x.chuc === 'hm');
+        if (hm) { await page.evaluate(([b, m]) => window.MNCF.app.setBo(Object.assign({}, b, { hm: 'kinh', lat: [{ canh: m.canh, s: m.s0 + m.dai / 2 }] })), [await bo(), hm]);
+          const k2 = await kq(), x = k2.pa[0].ds.find(q => q.tang === 'tren' && !q.t2 && q.canh === hm.canh && q.s0 < hm.s0 + hm.dai / 2 && q.s0 + q.dai > hm.s0 + hm.dai / 2);
+          ok(x && /^BT-HMK/.test(x.ma) && (await mdCo(`[data-bo-vt="${x.vt}"] [data-bo-lat]`)) === 0, 'chỗ lật rơi vào BT-HMK: mặt đứng không vẽ ký hiệu lật', x && x.ma);
+          await page.evaluate(b => { const o = Object.assign({}, b, { hm: 'am' }); delete o.lat; window.MNCF.app.setBo(o); }, await bo()); }
+        else ok(false, 'có tủ hút mùi trên dãy'); }
+      else ok(false, 'dãy có tủ trên mà lật là lỗi (tủ 900)'); }
     await S(page, '[data-act="bo-led"]').click();
     ok((await bo()).led === false && (await mdCo('[data-bo-led]')) === 0, 'tắt LED: không dải LED');
     await S(page, '[data-act="lui"]').click(); ok((await bo()).led === true, '↶ Lùi: LED bật lại');
@@ -1340,7 +1434,7 @@ async function testBoBep(browser) {
 
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBoBep(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBanLe(browser); await testBoBep(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);
