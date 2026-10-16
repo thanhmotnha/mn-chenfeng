@@ -2318,7 +2318,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
   const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma))), t = D.van.t, tc = D.van.t_canh;
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  eq(C.VERSION, '1.36.4', 'phiên bản 1.36.4');
+  eq(C.VERSION, '1.36.5', 'phiên bản 1.36.5');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO], co = ma => MAU.some(m => m.ma === ma);
   for (const ma of ['BC-TL-700', 'BC-TL-830', 'BC-TL-910', 'BC-LO-600', 'BD-KE-150', 'BD-KE-200', 'BD-KE-300', 'BT-KE-150', 'BT-KE-200', 'BT-KE-300',
     'BD-GOC-900-T', 'BD-GOC-900-P', 'BD-GOC-990-T', 'BD-GOC-990-P', 'BD-GOCLA-900-T', 'BD-GOCLA-900-P', 'BT-GOC-900-T', 'BT-GOC-900-P', 'BT-GOC-990-T', 'BT-GOC-990-P', 'BT-GOCLA-900-T', 'BT-GOCLA-900-P']) ok(co(ma), `có mẫu ${ma}`);
@@ -3756,6 +3756,132 @@ T('Lỗ cam không lộ mặt trước (bản 1.36.4)', () => {
     s.bep.kinh = 1; const M2 = C.build(C.normalize(s));
     ok(M2.parts.some(p => p.kinh) && sauLo(M2, 'Thanh treo').length && sauLo(M2, 'Thanh treo').every(p => p.fd === false && p.bd && p.giau_lo), 'tủ trên cánh khung kính: thanh treo thấy qua kính → giấu lỗ'); }
   { const M3 = C.build(C.apMau(D, 'BD-CANH-600')); ok(sauLo(M3, 'Giằng sau').length && sauLo(M3, 'Giằng sau').every(p => p.fd && p.bd && !p.giau_lo), 'tủ dưới cánh: giằng sau khuất, giữ fd / bd'); }
+});
+
+// Bản 1.36.5 (anh Thanh 16/10/2026: "cải phần tủ cho thêm bản lề hay đảo vị trí bản lề bắt lật cho các tủ trên được k", chốt bằng hộp tích):
+// (1) cánh LẬT LÊN + tay nâng cho tủ trên bếp (tủ lẻ: nút Cánh lật trong khối Tủ bếp; Bộ bếp: ô chọn tủ trên, theo CHỖ { canh, s } như cánh kính);
+// (2) số bản lề MỖI CÁNH chỉnh được ở từng khoang (khoang[i].so_ban_le; thiếu = tự tính như 1.30), vị trí vẫn chia đều + tránh đợt.
+T('Bản lề + cánh lật (bản 1.36.5)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  const D = C.DEFAULT_SPEC, GAP = 2 * 17.5 + 10;
+  // ---- (2) banLeCanh nhận số ép ----
+  const a = C.banLeCanh(2000, 450, {});
+  ok(a.so === 4 && !('kep' in a) && !('ep' in a), 'không ép: như 1.30 (cánh 2000 → 4), kết quả không thêm khoá', a);
+  const a6 = C.banLeCanh(2000, 450, { so: 6 });
+  ok(a6.so === 6 && !a6.ket && !a6.kep && near(a6.z[0], 100) && near(a6.z[5], 1900) && a6.z.every((z, i) => !i || near(z - a6.z[i - 1], 360)), 'ép 6: chia đều 100 … 1900', a6);
+  const a1 = C.banLeCanh(700, 450, { so: 1 });
+  ok(a1.so === 2 && a1.kep && a1.ep === 1, 'ép 1: kẹp lên 2 (tối thiểu kỹ thuật), có dấu kẹp', a1);
+  const a9 = C.banLeCanh(300, 450, { so: 5 });
+  ok(a9.so === 4 && a9.kep && a9.z.every((z, i) => !i || z - a9.z[i - 1] >= GAP - 0.01), 'ép 5 trên cánh 300: quá dày (hai chén < 2r + 10) → kẹp còn 4', a9);
+  const at = C.banLeCanh(2000, 450, { so: 5, tranh: [[980, 1060]] });
+  ok(at.so === 5 && !at.ket && at.z.every(z => z + 17.5 <= 980 + 0.01 || z - 17.5 >= 1060 - 0.01), 'ép 5 vẫn tránh đợt', at);
+  // ---- normalize: khoá chỉ có khi người dùng đặt ----
+  ok(C.normalize(D).khoang.every(q => !('so_ban_le' in q)), 'tủ mặc định: không có khoá so_ban_le');
+  const ns = v => { const s = JSON.parse(JSON.stringify(D)); s.khoang[0].so_ban_le = v; return C.normalize(s).khoang[0].so_ban_le; };
+  eq([ns(0), ns('abc'), ns(3.4), ns('5'), ns(99)], [undefined, undefined, 3, 5, 12], 'so_ban_le: 0 / chữ = tự; làm tròn; trần 12');
+  // ---- build: khoang ép số, khoang khác giữ ----
+  const s0 = C.normalize(D), M0 = C.build(s0), s1 = JSON.parse(JSON.stringify(s0)); s1.khoang[0].so_ban_le = 6;
+  const M1 = C.build(C.normalize(s1)), canh = (M, i) => M.parts.filter(p => p.loai === 'CANH' && p.khoang === i && p.ban_le);
+  // (vòng soát 1.36.5) số ép chỉ áp cho cánh CHÍNH của khoang (cánh có số tự tính lớn nhất); cánh thấp hơn (thân trên) giữ số tự tính, không vượt số ép —
+  // trước đây ép 6 làm cánh thân trên 597 cũng lên 6 (và bấm − ở 5 / 2 làm cánh 597 TĂNG lên 4)
+  ok(canh(M1, 0).length && canh(M1, 0).every(p => p.ban_le.so === (p.z1 - p.z0 > 1000 ? 6 : 2)), 'khoang 1 ép 6: cánh chính 6, cánh thân trên giữ số tự tính 2', canh(M1, 0).map(p => [p.z1 - p.z0, p.ban_le.so]));
+  eq(canh(M1, 1).map(p => p.ban_le), canh(M0, 1).map(p => p.ban_le), 'khoang 2 không ép: giữ nguyên');
+  const tong = M => M.parts.filter(p => p.ban_le).reduce((n, p) => n + p.ban_le.so, 0);
+  ok(M1.info.canh.ban_le === tong(M1) && C.cutList(M1).phu_kien.some(x => /^Bản lề/.test(x.ten) && x.sl === tong(M1)), 'bảng kê đếm đúng tổng bản lề', [M1.info.canh.ban_le, tong(M1)]);
+  ok(C.cutList(M1).rows.some(r => r.nhom === 'Cánh' && /6 bản lề \/ cánh/.test(r.ghi_chu)), 'dòng cánh ghi "6 bản lề / cánh"');
+  ok((C.elevationSVG(M1, { canh: true }).match(/data-ban-le/g) || []).length === tong(M1), 'hình đứng: số chấm bản lề = tổng');
+  ok(!M1.warnings.some(w => /bản lề/i.test(w)), 'ép hợp lệ: không báo', M1.warnings);
+  { const s2 = JSON.parse(JSON.stringify(s0)); s2.khoang[0].so_ban_le = 1; const M2 = C.build(C.normalize(s2));
+    ok(M2.warnings.some(w => /Khoang 1/.test(w) && /tối thiểu 2/.test(w)), 'ép 1: báo kẹp lên 2', M2.warnings); }
+  // ---- (1) CÁNH LẬT tủ trên bếp ----
+  const t = C.apMau(D, 'BT-CANH-600'), L = C.datLat(t, true);
+  ok(t.khoang[0].canh === 2 && L.bep.lat === 1 && L.khoang.every(q => q.canh <= 1), 'bật cánh lật: mỗi khoang MỘT cánh', L.khoang.map(q => q.canh));
+  const ML = C.build(L), cl = ML.parts.filter(p => p.loai === 'CANH');
+  ok(cl.length === 1 && cl[0].lat && cl[0].ban_le.ben === 'tren' && /lật/i.test(cl[0].ten), 'cánh lật: một tấm phủ cả khoang, bản lề cạnh TRÊN', cl.map(p => [p.ten, p.ban_le]));
+  { const p = cl[0], w = p.x1 - p.x0; ok(p.ban_le.so === C.banLeCanh(w, 0, {}).so && p.ban_le.z.every(z => z >= 17.5 && z <= w - 17.5), 'số bản lề theo bề RỘNG cánh, vị trí dọc bề ngang', p.ban_le); }
+  ok(cl[0].tay_nang && cl[0].tay_nang.so === 2 && cl[0].tay_nang.nang > 0 && cl[0].tay_nang.lf > 0, 'cánh lật mang tay nâng: 2 cái, nặng + hệ số LF', cl[0].tay_nang);
+  { const nang = (cl[0].x1 - cl[0].x0) * (cl[0].z1 - cl[0].z0) * L.van.t_canh / 1e9 * C.KL_VAN; ok(near(cl[0].tay_nang.nang, Math.round(nang * 100) / 100, 0.02) && near(cl[0].tay_nang.lf, Math.round((cl[0].z1 - cl[0].z0) * cl[0].tay_nang.nang), 2), 'nặng = diện tích × dày × 750; LF = cao × nặng', cl[0].tay_nang); }
+  const pk = C.cutList(ML).phu_kien;
+  ok(pk.some(x => /Tay nâng/.test(x.ten) && x.sl === 2 && /\[CĐ\]/.test(x.ten + x.ghi_chu)), 'bảng kê: dòng tay nâng (2 / cánh, ghi [CĐ])', pk.map(x => x.ten));
+  ok(C.cutList(ML).rows.some(r => r.nhom === 'Cánh' && /lật lên/.test(r.ghi_chu) && /tay nâng/.test(r.ghi_chu)), 'dòng cánh ghi "lật lên, … tay nâng"', C.cutList(ML).rows.filter(r => r.nhom === 'Cánh'));
+  ok(ML.warnings.some(w => /lật/.test(w) && /cao/.test(w)) && !ML.errors.length, 'tủ trên cao 800 lật: cảnh báo cánh lật cao quá giới hạn tay nâng (chưa lỗi)', ML.warnings);
+  ok(!ML.warnings.some(w => /dễ xệ/.test(w)), 'cánh lật không nhận lời "cánh rộng > 600 dễ xệ" của cánh mở ngang');
+  { const svg = C.elevationSVG(ML, { canh: true }); ok(/data-lat="1"/.test(svg) && (svg.match(/data-ban-le/g) || []).length === cl[0].ban_le.so, 'hình đứng: ký hiệu cánh lật + chấm bản lề cạnh trên', svg.length); }
+  ok(C.keHoachGoc(L).loi.some(x => /lật/.test(x)), 'lệnh gốc: cánh lật → nhập tấm (DOOR mở lên chưa đo)');
+  // thấp vừa tay nâng: không cảnh báo cao; rộng quá → cảnh báo / lỗi; nặng quá → lỗi
+  const thap = C.datBep(Object.assign(JSON.parse(JSON.stringify(L)), { khoang: L.khoang.map(q => Object.assign({}, q, { dot: [] })) }), { cao_tren: 400 }), MT = C.build(thap);
+  ok(thap.bep.lat === 1 && !MT.errors.length && !MT.warnings.some(w => /lật/.test(w)), 'tủ trên cao 400 lật: sạch', [MT.errors, MT.warnings]);
+  const rong = w => { const s = JSON.parse(JSON.stringify(thap)); s.rong = w; return C.build(C.normalize(s)); };
+  { const M = rong(1000); ok(M.warnings.some(w => /lật/.test(w) && /rộng/.test(w)) && !M.errors.some(e => /lật/.test(e)), 'cánh lật rộng ~1000: cảnh báo', M.warnings); }
+  { const M = rong(1300); ok(M.errors.some(e => /lật/.test(e) && /rộng/.test(e)), 'cánh lật rộng ~1300: lỗi', M.errors); }
+  { const s = C.datBep(L, { cao_tren: 950 }); s.rong = 1150; const M = C.build(C.normalize(s)); ok(M.errors.some(e => /lật/.test(e)), 'cánh lật 1150 × 950: lỗi (quá cao / quá nặng)', M.errors); }
+  // tắt: về số cánh của kiểu ở rộng đó
+  { const T0 = C.datLat(L, false); ok(!('lat' in T0.bep) && T0.khoang[0].canh === t.khoang[0].canh, 'tắt cánh lật: bỏ khoá, số cánh về như mẫu', T0.khoang); }
+  // chỉ tủ trên có cánh (cánh / giá bát / hút mùi âm)
+  for (const ma of ['BD-CANH-600', 'BC-KHO-600', 'BT-KE-300']) ok(!('lat' in C.datLat(C.apMau(D, ma), true).bep), `${ma}: không nhận cánh lật`);
+  ok(C.datLat(C.apMau(D, 'BT-BAT-800'), true).bep.lat === 1, 'tủ trên giá bát: nhận cánh lật');
+  ok(!('lat' in C.normalize(t).bep), 'tủ trên thường: không có khoá lat');
+  // khoang ép số bản lề cho cánh lật
+  { const s = JSON.parse(JSON.stringify(thap)); s.khoang[0].so_ban_le = 3; const p = C.build(C.normalize(s)).parts.find(q => q.loai === 'CANH'); ok(p.ban_le.so === 3 && p.ban_le.ben === 'tren', 'cánh lật nhận số bản lề ép', p.ban_le); }
+  // ---- Bộ bếp: cánh lật theo CHỖ ----
+  { const b = C.chuanBo({ kieu: 'I', canh: [{ dai: 4200 }], tl: null, kinh: 'khong' }), p = C.xepBep(b).pa[0], a1 = p.ds.filter(m => m.tang === 'tren' && !m.t2 && m.chuc === 'canh').sort((x, y) => x.s0 - y.s0)[0];
+    ok(!('lat' in b), 'bộ không chọn cánh lật: không có khoá lat');
+    const kp = { canh: a1.canh, s: a1.s0 + a1.dai / 2 }, bl = C.chuanBo(Object.assign({}, b, { lat: [kp] }));
+    eq(bl.lat, [kp], 'chuanBo giữ chỗ cánh lật');
+    const tu = C.tuBo(bl, C.xepBep(bl).pa[0]).filter(x => x.spec.bep.lat);
+    eq(tu.map(x => x.vt), [a1.vt], 'cánh lật đúng tủ ở chỗ đó');
+    ok(tu.every(x => C.build(x.spec).parts.filter(q => q.loai === 'CANH').every(q => q.lat)), 'tủ đó dựng cánh lật');
+    ok(!C.chuanBo({ lat: ['AT1', null, { canh: 0 }] }).lat, 'chỗ lật sai dạng: bỏ');
+    // tầng trên kịch trần đứng CÙNG chỗ với tủ trên tầng dưới: chỗ lật mang t2 để không lật cả hai
+    const p2 = C.xepBep(bl).pa[0], u = p2.ds.find(m => m.t2 && m.canh === a1.canh && m.s0 <= kp.s && kp.s <= m.s0 + m.dai);
+    if (u) { const b2 = C.chuanBo(Object.assign({}, b, { lat: [Object.assign({}, kp, { t2: 1 })] })); eq(C.tuBo(b2, C.xepBep(b2).pa[0]).filter(x => x.spec.bep.lat).map(x => x.vt), [u.vt], 'chỗ lật t2: chỉ tủ tầng trên');
+      const M = C.build(C.tuBo(b2, C.xepBep(b2).pa[0]).find(x => x.spec.bep.lat).spec); ok(!M.errors.length && !M.warnings.some(w => /lật/.test(w)), 'tủ tầng trên (thấp) cánh lật: sạch', [M.errors, M.warnings]); }
+    else ok(false, 'có tủ tầng trên ở chỗ đó'); }
+});
+
+// Vòng soát 1.36.5 (soát đối kháng 16/10/2026): mỗi lỗi một phép thử
+T('Bản lề + cánh lật — vòng soát (bản 1.36.5)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  const D = C.DEFAULT_SPEC, J = x => JSON.parse(JSON.stringify(x));
+  // (1) bớt / thêm số bản lề trên tủ 2 thân: cánh thân trên (597, tự 2) KHÔNG tăng theo số ép của cánh thân dưới (2047, tự 5)
+  const s0 = C.normalize(D), M0 = C.build(s0), so = (M, i) => M.parts.filter(p => p.loai === 'CANH' && p.khoang === i && p.ban_le).map(p => [Math.round(p.z1 - p.z0), p.ban_le.so]);
+  eq(so(M0, 0), [[2047, 5], [2047, 5], [597, 2], [597, 2]], 'tủ mặc định khoang 1: 5 / 2 tự tính');
+  for (const [v, chinh, phu] of [[4, 4, 2], [3, 3, 2], [2, 2, 2], [6, 6, 2]]) {
+    const s = J(s0); s.khoang[0].so_ban_le = v; const M = C.build(C.normalize(s));
+    eq(so(M, 0), [[2047, chinh], [2047, chinh], [597, phu], [597, phu]], `ép ${v}: cánh chính ${chinh}, cánh thân trên ${phu}`);
+    if (v < 5) ok(M.info.canh.ban_le < M0.info.canh.ban_le, `bớt (ép ${v}) thì tổng bản lề GIẢM`, [M.info.canh.ban_le, M0.info.canh.ban_le]);
+  }
+  // cánh thấp có số tự tính LỚN hơn số ép (ép 2 khi cánh thấp tự 3): không vượt số ép
+  { const s = J(s0); s.than.cao_duoi = 1500; s.khoang[0].so_ban_le = 2; const M = C.build(C.normalize(s)), x = so(M, 0);
+    ok(x.every(([, n]) => n <= 2), 'cánh nào cũng không vượt số ép', x); }
+  // (2) Bộ bếp: bật cánh lật ở một chỗ KHÔNG chia lại dãy (như cánh kính) — tủ ở chỗ đó lật, lỗi tay nâng (nếu có) nằm ở phương án, không loại phương án
+  const b = C.chuanBo({ kieu: 'I', canh: [{ dai: 4200 }], tl: null, kinh: 'khong' }), r0 = C.xepBep(b);
+  const moc = pa => JSON.stringify(pa.ds.map(m => [m.vt, m.ma, m.canh, m.s0, m.tang]));
+  for (const vt of ['AT1', 'AT2', 'AT3', 'AT5']) {
+    const m = r0.pa[0].ds.find(q => q.vt === vt), bl = C.chuanBo(Object.assign({}, b, { lat: [{ canh: m.canh, s: m.s0 + m.dai / 2 }] })), r = C.xepBep(bl);
+    eq(r.pa.map(moc), r0.pa.map(moc), `${vt} (${m.ma}) cánh lật: dãy giữ nguyên mọi phương án`);
+    const lat = C.tuBo(bl, r.pa[0]).filter(t => t.spec.bep.lat).map(t => t.vt);
+    const nhan = C.latNhanBo(m);
+    eq(lat, nhan ? [vt] : [], `${vt}: cánh lật đúng tủ ở chỗ đó (hoặc không tủ nào khi tủ đó không nhận lật)`);
+    const ll = C.latLoi(b, r0.pa[0], m);
+    ok(Array.isArray(ll), 'latLoi trả danh sách', ll);
+    if (ll.length) ok(r.pa[0].loi.some(x => /lật/.test(x)), `${vt} lật lỗi: phương án mang lỗi cánh lật (dòng đỏ)`, r.pa[0].loi);
+    else ok(!r.pa[0].loi.length, `${vt} lật được: phương án sạch`, r.pa[0].loi);
+  }
+  { const m1 = r0.pa[0].ds.find(q => q.vt === 'AT1'), m5 = r0.pa[0].ds.find(q => q.vt === 'AT5');
+    ok(!C.latLoi(b, r0.pa[0], m1).length, 'AT1 (300) lật được: không lỗi');
+    ok(C.latLoi(b, r0.pa[0], m5).some(x => /tay nâng/.test(x)), 'AT5 giá bát 900 lật: lỗi tay nâng', C.latLoi(b, r0.pa[0], m5)); }
+  // (3) tủ hút mùi kính (BT-HMK) / kệ / góc: không nhận lật — mặt đứng / ô chọn dựa vào latNhanBo
+  { const bk = C.chuanBo(Object.assign({}, b, { hm: 'kinh' })), p = C.xepBep(bk).pa[0], hmk = p.ds.find(q => /^BT-HMK/.test(q.ma));
+    ok(hmk && !C.latNhanBo(hmk), 'BT-HMK: không nhận cánh lật', hmk && hmk.ma);
+    ok(C.latNhanBo(r0.pa[0].ds.find(q => q.vt === 'AT2')), 'BT-HM (hút mùi âm): nhận cánh lật'); }
+  // (4) chip chức năng (bepTheoKieu) giữ cánh lật khi tủ mới vẫn lật được
+  { const L = C.datLat(C.apMau(D, 'BT-CANH-600'), true);
+    ok(C.bepTheoKieu(L, 'bat').bep.lat === 1, 'cánh → giá bát: giữ cánh lật');
+    ok(C.bepTheoKieu(L, 'canh').bep.lat === 1 && C.bepTheoKieu(L, 'canh').khoang.every(q => q.canh <= 1), 'bấm lại chip cánh: vẫn lật, một cánh');
+    ok(!('lat' in C.bepTheoKieu(L, 'ke').bep), 'sang kệ hở: bỏ cánh lật (kệ không cánh)');
+    // tủ không lật: bepTheoKieu y như trước (không thêm khoá)
+    ok(!('lat' in C.bepTheoKieu(C.apMau(D, 'BT-CANH-600'), 'bat').bep), 'tủ không lật: không thêm khoá'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);

@@ -170,6 +170,7 @@ input::placeholder{color:var(--ph)}
 .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px}
 .x:hover{background:var(--err-bg);color:var(--err)}
 .bay .g{margin-bottom:7px}.bay .g:last-child{margin-bottom:0}
+.blhang{display:flex;align-items:center;gap:5px;margin:-2px 0 7px;font-size:12px;color:var(--muted)}.blhang[hidden]{display:none}.blhang b{min-width:2.2em;text-align:center;color:var(--ink);font-variant-numeric:tabular-nums}.blhang .sec{padding:2px 9px;min-width:28px}
 .sec{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--ink);font:inherit}
 .sec:hover{border-color:var(--accent);background:var(--hover)}
 .view{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:6px;margin-bottom:8px;text-align:center;outline:none;user-select:none;-webkit-user-select:none}
@@ -488,7 +489,7 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
 .bov .bo-nep{fill:rgba(0,0,0,.18);pointer-events:none}.bov .bo-may{fill:none;stroke:var(--muted);stroke-dasharray:5 4;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
 .bov .bo-tren{fill:none;stroke:var(--muted);stroke-dasharray:4 4;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
 .bov .bo-da{fill:rgba(120,120,120,.16);stroke:none;pointer-events:none}
-.bov .bo-kinh{fill:rgba(120,190,215,.35);stroke:var(--ink);stroke-width:.8;vector-effect:non-scaling-stroke;pointer-events:none}.bov .bo-led{stroke:#f2b705;stroke-width:3;vector-effect:non-scaling-stroke;pointer-events:none}
+.bov .bo-lat{fill:none;stroke:var(--ink);stroke-width:1;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none}.bov .bo-kinh{fill:rgba(120,190,215,.35);stroke:var(--ink);stroke-width:.8;vector-effect:non-scaling-stroke;pointer-events:none}.bov .bo-led{stroke:#f2b705;stroke-width:3;vector-effect:non-scaling-stroke;pointer-events:none}
 .bov .bo-tlb{cursor:pointer}.bov .bo-tlb .bo-dr{fill:transparent;stroke:var(--accent);stroke-dasharray:6 4}.bov .bo-tlb.co .bo-dr{fill:rgba(120,130,145,.12);stroke-dasharray:none}.bov .bo-tlb text{fill:var(--accent);text-anchor:middle;pointer-events:none;font-family:var(--font)}.bov .bo-tlb:focus{outline:none}.bov .bo-tlb:focus .bo-dr{stroke-width:2.5}
 .bov .bo-dau{cursor:pointer}.bov .bo-dr{fill:var(--field);stroke:var(--ink);stroke-width:1;vector-effect:non-scaling-stroke}.bov .bo-dau.ho .bo-dr{stroke-dasharray:5 4;fill:transparent}.bov .bo-dau:focus{outline:none}.bov .bo-dau:focus .bo-dr{stroke:var(--accent);stroke-width:2.5}
 .bokpop{border:1px solid var(--accent);border-radius:10px;background:var(--card);padding:9px 10px 10px;margin:6px 0 9px}.bokpop:focus{outline:none}
@@ -853,14 +854,16 @@ ${cf && root.MNCFDich ? `<fieldset><legend>Ghi chú tham số bằng tiếng Vi�
 
     /* ---- khoang ---- */
     function renderBays() {
+      const lat = !!(spec.bep && spec.bep.lat);      // (vòng soát 1.36.5) cánh lật: số cánh ép 1 (normBep) — khoá ô, không để ô hiện 2 mà tủ 1 cánh
       $('.bays').innerHTML = spec.khoang.map((k, i) => `
 <div class="bay" data-i="${i}">
   <div class="bayh"><b>Khoang ${i + 1}</b><span class="w"></span>${spec.khoang.length > 1 ? '<button class="x" data-act="del" title="Bỏ khoang này">✕</button>' : ''}</div>
   <div class="g g3">
     <label>Rộng lọt lòng<input type="text" inputmode="decimal" id="${fid('b' + i + '-rong')}" data-b="rong" placeholder="tự chia" value="${k.rong === 'auto' ? '' : esc(fmt(k.rong))}"></label>
-    <label>Số cánh<select id="${fid('b' + i + '-canh')}" data-b="canh">${[0, 1, 2].map(v => `<option value="${v}"${k.canh === v ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
-    <label>Bản lề<select id="${fid('b' + i + '-banle')}" data-b="ban_le"${k.canh === 1 ? '' : ' disabled'}><option value="trai"${k.ban_le === 'trai' ? ' selected' : ''}>trái</option><option value="phai"${k.ban_le === 'phai' ? ' selected' : ''}>phải</option></select></label>
+    <label>Số cánh<select id="${fid('b' + i + '-canh')}" data-b="canh"${lat ? ' disabled title="Cánh lật: mỗi khoang một cánh (Mở cánh → Mở ngang để chia 2 cánh)"' : ''}>${[0, 1, 2].map(v => `<option value="${v}"${k.canh === v ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+    <label>Bản lề<select id="${fid('b' + i + '-banle')}" data-b="ban_le"${k.canh === 1 && !lat ? '' : ' disabled'}><option value="trai"${k.ban_le === 'trai' ? ' selected' : ''}>trái</option><option value="phai"${k.ban_le === 'phai' ? ' selected' : ''}>phải</option></select></label>
   </div>
+  <div class="blhang" data-ui="bl-hang"${k.canh > 0 ? '' : ' hidden'} title="Số bản lề mỗi cánh — mặc định tự tính theo chiều cao cánh; + / − để thêm bớt, vị trí tự chia đều lại và vẫn tránh đợt"><span>Bản lề / cánh</span><button class="sec mini" data-act="bl-bot" aria-label="Bớt một bản lề mỗi cánh của khoang ${i + 1}">−</button><b data-ui="bl-n"></b><button class="sec mini" data-act="bl-them" aria-label="Thêm một bản lề mỗi cánh của khoang ${i + 1}">+</button><button class="sec mini" data-act="bl-tu" hidden title="Về số bản lề tự tính">tự</button></div>
   <div class="g"><label>Đợt — cao độ mặt dưới, tính từ sàn (hoặc kéo trên hình)<input type="text" id="${fid('b' + i + '-dot')}" data-b="dot" placeholder="vd 400, 750, 1800 hoặc deu:4" value="${esc((Array.isArray(k.dot) ? k.dot : []).map(fmt).join(', '))}"></label></div>
   <div class="noi"></div>
 </div>`).join('');
@@ -868,6 +871,7 @@ ${cf && root.MNCFDich ? `<fieldset><legend>Ghi chú tham số bằng tiếng Vi�
     function readBay(card) {
       const i = +card.dataset.i, v = n => card.querySelector(`[data-b="${n}"]`).value.trim(), cu = spec.khoang[i] || {};
       const k = { rong: v('rong') || 'auto', canh: +v('canh'), ban_le: v('ban_le'), dot: v('dot'), o: cu.o || [] };
+      if (cu.so_ban_le) k.so_ban_le = cu.so_ban_le;      // (bản 1.36.5) số bản lề đã chỉnh bằng + / − không nằm trong ô gõ nào — giữ
       spec.khoang[i] = k;
       const moi = Core.normalize(spec).khoang[i].dot;      // đợt luôn giữ ở dạng mảng số, kể cả khi ô nhập đang gõ dở
       if (dotSnap && dotSnap.i === i) {
@@ -875,7 +879,8 @@ ${cf && root.MNCFDich ? `<fieldset><legend>Ghi chú tham số bằng tiếng Vi�
         k.o = dotSnap.o.map(c => { const j = moi.length === dotSnap.dot.length ? dotSnap.dot.findIndex(z => Math.abs(z - c.tu) < 0.6) : -1; return j >= 0 ? Object.assign({}, c, { tu: moi[j] }) : Object.assign({}, c); });
       }
       k.dot = moi;
-      card.querySelector('[data-b="ban_le"]').disabled = k.canh !== 1;
+      card.querySelector('[data-b="ban_le"]').disabled = k.canh !== 1 || !!(spec.bep && spec.bep.lat);
+      const bh = card.querySelector('[data-ui="bl-hang"]'); if (bh) bh.hidden = !(k.canh > 0);
     }
 
     /* ---- chuẩn xưởng ---- */
@@ -1241,6 +1246,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         const d = c.querySelector('[data-b="dot"]'); if (d && sh.activeElement !== d) d.value = k.dot.map(fmt).join(', ');      // ô đang gõ thì không ghi đè
         const co = cellsOf(i).filter(x => x.kieu).map(x => `ô +${hien(x.z0)} → +${hien(x.z1)}: ${tenO(x)}`);
         c.querySelector('.noi').textContent = co.length ? co.join('\n') : 'Chưa có ngăn kéo, suốt treo — bấm vào ô trên hình để thêm.';
+        // (bản 1.36.5) số bản lề mỗi cánh của khoang (theo hình vừa dựng: cánh cao / thấp khác số thì hiện cả hai); đã chỉnh tay thì có nút "tự"
+        const bh = c.querySelector('[data-ui="bl-hang"]');
+        if (bh) { const ds = [...new Set(model.parts.filter(p => p.loai === 'CANH' && p.khoang === i && p.ban_le).map(p => p.ban_le.so))].sort((a, b) => b - a);
+          bh.hidden = !(k.canh > 0) || !ds.length; bh.querySelector('[data-ui="bl-n"]').textContent = ds.join(' / ') + (k.so_ban_le ? '' : ' tự');
+          bh.querySelector('[data-act="bl-tu"]').hidden = !k.so_ban_le; bh.querySelector('[data-act="bl-bot"]').disabled = busy || (ds.length > 0 && Math.max(...ds) <= 2);
+          bh.querySelector('[data-act="bl-them"]').disabled = busy; }
       });
       const d = $('[data-act="draw"]'); if (d) d.disabled = busy || model.errors.length > 0;
       const rd = $('footer [data-act="redraw"]'); if (rd) { rd.disabled = busy || model.errors.length > 0 || !noi; rd.hidden = !noi; }      // (bản 1.27) nút Cập nhật ở chân bảng chỉ hiện khi bảng đang nối với một tủ trên bản vẽ
@@ -3925,9 +3936,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       else if (act === 'bep-kieu') {      // (1.34.1) chip chức năng tủ bếp — giữ rộng đang gõ, một bước ↶ Lùi
         if (busy) return setStatus('Đang vẽ — chờ lần vẽ xong rồi hẵng đổi chức năng.');
         if (loaiDangLam() !== 'bep') return;
-        const truoc = chup(); if (!doiKieuBep(b.dataset.v)) return;
+        const truoc = chup(), lat0 = !!(spec.bep && spec.bep.lat); if (!doiKieuBep(b.dataset.v)) return;
         sel = null; nho(truoc); capLoai(); renderBays(); napO(); rebuild();
-        setStatus(`${spec.ten}${model.errors.length ? ' — tủ còn lỗi (dòng đỏ).' : '.'} ↶ Lùi để lấy lại chức năng trước.`);
+        // (vòng soát 1.36.5) bepTheoKieu giữ cánh lật khi tủ mới vẫn lật được; không thì nói rõ đã bỏ
+        setStatus(`${spec.ten}${lat0 && !(spec.bep && spec.bep.lat) ? ' — bỏ cánh lật (tủ này không làm cánh lật)' : ''}${model.errors.length ? ' — tủ còn lỗi (dòng đỏ).' : '.'} ↶ Lùi để lấy lại chức năng trước.`);
       }
       else if (act === 'bep-co') { const n = +b.dataset.v; if (n > 0 && loaiDangLam() === 'bep') { nho(); const w0 = spec.rong; spec.rong = n; tenTheoRong(w0); tenTheoRong(null); spec = Core.normalize(spec); const cb = Core.canhBepTheoRong ? Core.canhBepTheoRong(spec, w0) : null; if (cb && cb.doi) spec = cb.spec; sel = null; napO(); renderBays(); rebuild(); setStatus(`Đã chuyển sang tủ ${n}${cb && cb.doi ? `, ${cb.so} cánh` : ''}${model.errors.length ? ' — tủ còn lỗi (dòng đỏ).' : '.'} Bấm ↶ Lùi nếu muốn trả lại.`); } }
       else if (act === 'vua-kho') { const r = vuaKho(); if (r && r.doi.length) { nho(); spec = r.spec; sel = null; renderBays(); rebuild(); setStatus(r.doi.join(' ') + (model.errors.length ? ' Tủ còn lỗi (dòng đỏ).' : ' Bấm ↶ Lùi nếu muốn trả lại.')); } }
@@ -3967,6 +3979,30 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         setStatus(r.doi.length ? `Đã đặt vách theo mép cột: ${r.doi.join('; ')}. Khoang trước cột là khoang nông, các tấm cắt thẳng.` : 'Hai vách đã trùng hai mép cột sẵn rồi.');
       }
       else if (act === 'add') { spec.khoang.push({ rong: 'auto', canh: 2, dot: [], o: [] }); sel = null; hist = []; capNut(); renderBays(); rebuild(); }
+      else if (act === 'bl-them' || act === 'bl-bot' || act === 'bl-tu') {      // (bản 1.36.5) số bản lề mỗi cánh của một khoang — một bước ↶ Lùi
+        if (busy) return;
+        const i = +b.closest('.bay').dataset.i, k = spec.khoang[i]; if (!k) return;
+        const ds = model.parts.filter(p => p.loai === 'CANH' && p.khoang === i && p.ban_le).map(p => p.ban_le.so);
+        if (!ds.length) return setStatus(`Khoang ${i + 1} chưa có cánh.`);
+        const cu = k.so_ban_le || Math.max(...ds), v = act === 'bl-tu' ? 0 : cu + (act === 'bl-them' ? 1 : -1);
+        if (act !== 'bl-tu' && v < 2) return setStatus('Tối thiểu 2 bản lề mỗi cánh.');
+        if (act !== 'bl-tu' && v > 12) return setStatus('Tối đa 12 bản lề mỗi cánh.');
+        nho(); if (v) k.so_ban_le = v; else delete k.so_ban_le; rebuild();
+        const dd = [...new Set(model.parts.filter(p => p.loai === 'CANH' && p.khoang === i && p.ban_le).map(p => p.ban_le.so))];
+        // (vòng soát 1.36.5) số chỉnh áp cho cánh CHÍNH (cánh cao nhất); cánh thấp hơn giữ số tự tính (không vượt số chỉnh)
+        const chinh = dd.length ? Math.max(...dd) : v, phu = dd.filter(x => x !== chinh);
+        setStatus(v ? `Khoang ${i + 1}: ${chinh} bản lề / cánh${chinh !== v ? ` (cánh chỉ đủ chỗ ${chinh} — xem dòng vàng)` : ''}${phu.length ? `, cánh thấp giữ ${phu.join(' / ')}` : ''}, vị trí chia đều lại, tránh đợt. ↶ Lùi để bỏ.` : `Khoang ${i + 1}: số bản lề tự tính (${dd.join(' / ')} / cánh).`);
+      }
+      else if (act === 'bep-lat') {      // (bản 1.36.5) tủ trên bếp: cánh mở ngang ↔ lật lên (+ tay nâng) — một bước ↶ Lùi
+        if (busy) return setStatus('Đang vẽ — chờ lần vẽ xong rồi hẵng đổi kiểu mở cánh.');
+        if (loaiDangLam() !== 'bep' || !Core.datLat) return;
+        const on = b.dataset.v === '1'; if (!!(spec.bep && spec.bep.lat) === on) return;
+        const truoc = chup(); spec = Core.datLat(spec, on);
+        if (!!spec.bep.lat !== on) return setStatus('Tủ này không làm cánh lật được (chỉ tủ trên có cánh: cánh, giá bát, hút mùi âm).');
+        sel = null; nho(truoc); capLoai(); renderBays(); napO(); rebuild();
+        const tn = model.parts.find(p => p.loai === 'CANH' && p.tay_nang);
+        setStatus(on ? `Cánh lật lên: mỗi khoang một cánh, bản lề cạnh trên${tn && tn.tay_nang.ma ? `, 2 tay nâng ${tn.tay_nang.ten.replace(/^Tay nâng /, '')} / cánh (~${hien(tn.tay_nang.nang)} kg)` : ''}${model.errors.length ? ' — tủ còn lỗi (dòng đỏ).' : '.'} ↶ Lùi để bỏ.` : 'Cánh mở ngang (bản lề bên hông). ↶ Lùi để bỏ.');
+      }
       else if (act === 'del') { spec.khoang.splice(+b.closest('.bay').dataset.i, 1); sel = null; hist = []; capNut(); renderBays(); rebuild(); }
       else if (act === 'tv-nhom' && b.dataset.nhom !== 'tap') { tvMo = tvMo === b.dataset.nhom ? '' : b.dataset.nhom; capTV(); }      // (1.36.4) mở / gập lưới thẻ của nhóm
       else if (act === 'tv-the' || act === 'tv-nhom' || act === 'reset') {      // (1.36.4) bấm thẻ Thư viện = dùng luôn (trước: ô chọn + nút Dùng); nhóm Táp chỉ một mẫu → bấm nhóm là dùng
@@ -4079,6 +4115,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       // (1.34.1 — thư viện bếp gọn) chức năng = hàng chip (Core.KIEU_BEP); bấm = dựng chức năng đó ở RỘNG đang gõ (Core.bepTheoKieu), một bước ↶ Lùi
       const kn = Core.kieuBep ? Core.kieuBep(spec) : '';
       const chip = `<div class="bochip bepkieu" data-ui="bep-kieu" role="group" aria-label="Chức năng">${((Core.KIEU_BEP || {})[tang] || []).map(x => `<button class="segb${x.ma === kn ? ' on' : ''}" data-act="bep-kieu" data-v="${esc(x.ma)}" aria-pressed="${x.ma === kn ? 'true' : 'false'}" aria-label="${esc(x.ten)}" title="${esc(x.ten)} — ${x.ma === 'goc' ? 'rộng theo phụ kiện góc' : x.ma === 'tl' ? 'rộng theo máy tủ lạnh' : 'giữ Rộng đang gõ'}">${esc(x.nut)}</button>`).join('')}</div>`;
+      // (bản 1.36.5) tủ trên có cánh: kiểu mở cánh — mở ngang (bản lề hông) / lật lên (bản lề cạnh trên + tay nâng Higold / Eurogold)
+      const latH = Core.laTuLat && (B.lat || Core.laTuLat(spec)) ? `<div class="bochip" data-ui="bep-lat" role="group" aria-label="Kiểu mở cánh"><span class="bonhan">Mở cánh</span><button class="segb${B.lat ? '' : ' on'}" data-act="bep-lat" data-v="0" aria-pressed="${B.lat ? 'false' : 'true'}" title="Cánh mở ngang, bản lề bên hông">Mở ngang</button><button class="segb${B.lat ? ' on' : ''}" data-act="bep-lat" data-v="1" aria-pressed="${B.lat ? 'true' : 'false'}" title="Cánh lật lên: mỗi khoang một cánh, bản lề cạnh trên, 2 tay nâng hơi / cánh (Higold / Eurogold) — hợp tủ thấp ≤ 600">Lật lên</button></div>` : '';
       if (B.chuc_nang === 'goc') f.push(chonBep('goc_pk', 'Phụ kiện góc', Object.keys(Core.GOC_BEP || {}).map(k => [k, Core.GOC_BEP[k].ten])), (() => { const kh = spec.khoang.find(k => k && k.mu), ben = kh && kh.mu.ben === 'phai' ? 'phai' : 'trai'; return `<label>Phía mù<select id="${fid('bep.goc_ben')}" data-bep="goc_ben"><option value="trai"${ben === 'trai' ? ' selected' : ''}>Mù trái</option><option value="phai"${ben === 'phai' ? ' selected' : ''}>Mù phải</option></select></label>`; })());
       if (B.chuc_nang === 'tl') f.push(chonBep('tb.tl.ma', 'Tủ lạnh', (Core.LOAI_TB_BEP.tl || []).map(x => [x.ma, `${x.ten} — ${x.rong} × ${x.cao}`]), 'title="Khoang rộng theo máy: máy + 2 hở hông + 2 hồi"'));
       const caoMat = oBep('cao_mat', 'Cao mặt đá', 'title="Sàn tới mặt đá hoàn thiện (mm). Tủ dưới cao = mặt đá − đá − ván lót; tủ trên treo ở mặt đá + khoảng cách"');
@@ -4104,7 +4142,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (B.chuc_nang === 'bat') f.push(chonBep('pk', 'Giá bát', (Core.LOAI_PK_BEP || []).filter(q => q.lap === 'tren').map(q => [q.ma, q.ten])));
       const nk = B.chuc_nang === 'nk' && spec.khoang[0] && (spec.khoang[0].o || []).find(c => c.kieu === 'nk_trum');
       if (nk) f.push(`<label>Số ngăn<input type="text" inputmode="decimal" id="mncf-bep-nk-so" data-bep-nk="so" value="${esc(fmt(nk.so))}"></label>`, `<label>Ngăn trên cao<input type="text" inputmode="decimal" id="mncf-bep-nk-cao" data-bep-nk="cao" value="${esc(fmt((nk.cao || [])[0] || ''))}" title="Mặt ngăn kéo trên cùng (mm) — các ngăn dưới chia đều phần còn lại"></label>`);
-      return `<legend>Tủ bếp · ${tang === 'tren' ? 'tủ trên' : tang === 'cao' ? 'tủ cao' : 'tủ dưới'}</legend>${chip}<div class="g g3">${f.join('')}</div><p class="hint tt" data-ui="bep-pk"></p>`;
+      return `<legend>Tủ bếp · ${tang === 'tren' ? 'tủ trên' : tang === 'cao' ? 'tủ cao' : 'tủ dưới'}</legend>${chip}${latH}<div class="g g3">${f.join('')}</div><p class="hint tt" data-ui="bep-pk"></p>`;
     }
     const nemCua = sp => { const q = sp.giuong || {}, t = sp.van.t; return [Math.round((sp.rong - 2 * (q.lop || 2) * t - 2 * (q.ho_nem || 0)) * 100) / 100, Math.round((sp.sau_thung - ((q.lop || 2) + (q.lop_dau || 1)) * t - 2 * (q.ho_nem || 0)) * 100) / 100]; };
     const selK = (path, label, ds, extra) => `<label>${esc(label)}<select id="${fid(path)}" data-k="${path}" ${extra || ''}>${ds.map(([v, t]) => `<option value="${esc(String(v))}"${String(getP(spec, path)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
@@ -4276,7 +4314,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const B = spec.bep; if (!B || !Core.bepTheoKieu) return false;
       const kh = spec.khoang.find(x => x && x.mu), o = Object.assign({ tang: B.tang, rong: spec.rong }, B.chuc_nang === 'goc' ? { goc_pk: B.goc_pk, ben: kh && kh.mu.ben === 'phai' ? 'phai' : 'trai' } : {}, B.chuc_nang === 'tl' && B.tb && B.tb.tl ? { may: B.tb.tl.ma } : {}, opt || {});
       if (kieu === 'tl' && B.chuc_nang !== 'tl' && !(opt && opt.may)) delete o.rong;      // khoang tủ lạnh: máy mặc định (rộng của tủ khác không phải cỡ máy)
-      const moi = Core.bepTheoKieu(Object.assign(clone(spec), { bep: Object.assign(docChuanBep(), { tang: B.tang }) }), kieu, o);
+      // (vòng soát 1.36.5) mang theo kiểu mở cánh (bep.lat) — bepTheoKieu giữ khi tủ mới vẫn lật được
+      const moi = Core.bepTheoKieu(Object.assign(clone(spec), { bep: Object.assign(docChuanBep(), { tang: B.tang }, B.lat ? { lat: 1 } : {}) }), kieu, o);
       if (!moi) return false;
       spec = moi; return true;
     }
@@ -4481,6 +4520,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         if (op) them += `<rect x="${r0(k.op === 'trai' ? x : x + w - op)}" y="${Y(z1)}" width="${r0(op)}" height="${r0(z1 - z0)}" class="bo-nep"/>`;
         const may = k.chuc === 'tl' && k.may ? (k.may.cao ? k.may : (Core.LOAI_TB_BEP.tl || []).find(q => q.ma === k.may.ma)) : null;
         if (may && may.cao) { const mr = +may.rong || 0, x0 = x + nt + (k.op === 'trai' ? op : 0) + (k.rong - mr) / 2; them += `<rect x="${r0(x0)}" y="${Y(+may.cao)}" width="${r0(mr)}" height="${r0(+may.cao)}" class="bo-may"/>`; }
+        // (vòng soát 1.36.5) tủ ở chỗ đó không nhận lật (BT-HMK, kệ, góc) → không vẽ ký hiệu
+        if (Core.latO && Core.latNhanBo(k) && Core.latO(b.lat, k)) { const x0 = x + nt + (k.op === 'trai' ? op : 0), x1 = x0 + k.rong; them += `<polyline data-bo-lat="1" points="${r0(x0 + 20)},${Y(z1) + 10} ${r0((x0 + x1) / 2)},${Y(z0) - 10} ${r0(x1 - 20)},${Y(z1) + 10}" class="bo-lat"/>`; }      // (bản 1.36.5) cánh lật: ký hiệu mở lên
         if (laKinhBo(b, k)) { const kk = 70, x0 = x + nt + (k.op === 'trai' ? op : 0); them += `<rect data-bo-kinh="1" x="${r0(x0 + kk)}" y="${Y(z1 - kk)}" width="${r0(Math.max(0, k.rong - 2 * kk))}" height="${r0(Math.max(0, z1 - z0 - 2 * kk))}" class="bo-kinh"/>`; }
         if (b.led && k.tang === 'tren' && !k.t2 && k.chuc !== 'hm') them += `<line data-bo-led="1" x1="${r0(x + nt + 20)}" y1="${Y(z0) + 12}" x2="${r0(x + w - np - 20)}" y2="${Y(z0) + 12}" class="bo-led"/>`;
         const cx = x + w / 2, cy = (Y(z1) + Y(z0)) / 2;
@@ -4551,9 +4592,13 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
 <div class="g g3">${io('rong', 'Máy rộng', my.rong)}${io('sau', 'Máy sâu', my.sau)}${io('cao', 'Máy cao', my.cao)}</div>`;
       }
       const kinhH = m.tang === 'tren' && !m.t2 && (m.chuc === 'bat' || m.chuc === 'canh') ? (on => `<button class="sec" data-act="kpop-bo-kinh" aria-pressed="${on}" title="${on ? 'Bỏ cánh kính: cánh ván như các tủ khác' : 'Làm cánh khung kính cho tủ này (khung 4 thanh + kính)'}">${on ? 'Bỏ kính' : 'Cánh kính'}</button>`)(laKinhBo(b, m)) : '';
+      // (bản 1.36.5) tủ trên có cánh (cả tầng trên kịch trần): cánh lật lên — theo CHỖ { canh, s, t2 } như cánh kính
+      // (vòng soát 1.36.5) tủ mà lật là LỖI (tay nâng không đỡ nổi — tủ 830 / 900 cao 800) → nút khoá, title nói lỗi (đang bật thì vẫn cho bỏ)
+      const latH = Core.latNhanBo && Core.latNhanBo(m) ? (on => { const ll = on ? [] : Core.latLoi(b, pa, m);
+        return `<button class="sec" data-act="kpop-bo-lat" aria-pressed="${on}"${ll.length ? ' disabled' : ''} title="${esc(on ? 'Bỏ cánh lật: cánh mở ngang như các tủ khác' : ll.length ? 'Không làm cánh lật được: ' + ll.join(' ') : 'Cánh lật lên cho tủ này: một cánh mỗi khoang, bản lề cạnh trên, 2 tay nâng / cánh')}">${on ? 'Bỏ cánh lật' : 'Cánh lật'}</button>`; })(Core.latO(b.lat, m)) : '';
       return `<div class="kph"><b>${esc(m.vt)} · ${esc(TEN_CHUC_BO[m.chuc] || m.ma)}</b><span>${esc(m.ma)} · ${tang} · rộng ${hien(m.rong)}${m.nep ? ` + nẹp ${hien((m.nep.trai || 0) + (m.nep.phai || 0))}` : ''}${m.op ? ' + ốp' : ''}${m.ghim ? ' · đã ghim' : ''}</span><button class="x" data-act="kpop-bo-dong" title="Đóng (Esc)" aria-label="Đóng ô chọn của tủ ${esc(m.vt)}">✕</button></div>
 ${tlH}${doi.length ? `<div class="bochip" role="group" aria-label="Đổi thành"><span class="bonhan">Đổi thành</span>${doi.map(x => `<button class="segb" data-act="kpop-bo-doi" data-v="${esc(x.ma)}" title="${esc(x.tip)} — ghim tại chỗ này">${esc(x.ten)}</button>`).join('')}</div>` : ''}
-<div class="frow">${kinhH}${chuan ? `<button class="sec" data-act="kpop-bo-ghim" aria-pressed="${m.ghim ? 'true' : 'false'}" title="${m.ghim ? 'Bỏ ghim: bảng tự chia lại chỗ này' : 'Ghim tủ này đúng mẫu, đúng chỗ — chia lại không đổi nó'}">${m.ghim ? 'Bỏ ghim' : '📌 Ghim'}</button>` : ''}<button class="sec" data-act="kpop-bo-mo" title="Mở tủ này thành tủ bếp lẻ ở thẻ Tủ (đúng thông số trong bộ) — để xem kỹ, vẽ từng tủ. ↶ Lùi về bộ.">Mở thành tủ</button></div>`;
+<div class="frow">${kinhH}${latH}${chuan ? `<button class="sec" data-act="kpop-bo-ghim" aria-pressed="${m.ghim ? 'true' : 'false'}" title="${m.ghim ? 'Bỏ ghim: bảng tự chia lại chỗ này' : 'Ghim tủ này đúng mẫu, đúng chỗ — chia lại không đổi nó'}">${m.ghim ? 'Bỏ ghim' : '📌 Ghim'}</button>` : ''}<button class="sec" data-act="kpop-bo-mo" title="Mở tủ này thành tủ bếp lẻ ở thẻ Tủ (đúng thông số trong bộ) — để xem kỹ, vẽ từng tủ. ↶ Lùi về bộ.">Mở thành tủ</button></div>`;
     }
     function veBoView() {
       const bv = $('.bov'); if (!bv || !boBep) return;
@@ -4681,6 +4726,12 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
         const moi = on ? ds.filter(x => !Core.kinhO([x], m)) : ds.concat([choKinh(m)]);
         doiBo(o => { o.kinh = moi.length ? moi : 'khong'; }, { giuPa: true });
         boChon = m.vt; veBoView(); return setStatus(`${m.vt}: ${on ? 'bỏ cánh kính' : 'cánh khung kính'}. ↶ Lùi để bỏ.`);
+      }
+      if (act === 'kpop-bo-lat' && Core.latNhanBo(m)) {      // (bản 1.36.5) bật / tắt cánh lật cho tủ trên này (theo chỗ, phân biệt tầng trên kịch trần)
+        const b0 = Core.chuanBo(boBep), on = Core.latO(b0.lat, m), ds = Array.isArray(b0.lat) ? b0.lat.slice() : [];
+        const cho = Object.assign(choKinh(m), m.t2 ? { t2: 1 } : {}), moi = on ? ds.filter(x => !Core.latO([x], m)) : ds.concat([cho]);
+        doiBo(o => { if (moi.length) o.lat = moi; else delete o.lat; }, { giuPa: true });
+        boChon = m.vt; veBoView(); return setStatus(`${m.vt}: ${on ? 'cánh mở ngang' : 'cánh lật lên (bản lề cạnh trên, 2 tay nâng / cánh)'}. ↶ Lùi để bỏ.`);
       }
       if (act === 'kpop-bo-ghim' || act === 'kpop-bo-doi') {
         const s0 = s0Thung(m), ma = act === 'kpop-bo-doi' ? v : m.ma, khoaCu = Object.keys(boBep.khoa || {}).find(k => { const q = boBep.khoa[k]; return k === m.vt_ghim || (q.canh === m.canh && Math.abs(q.s0 - s0) < 0.5); });
