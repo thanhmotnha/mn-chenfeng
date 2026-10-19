@@ -1118,6 +1118,57 @@ async function chonBepExt(page, H, ma) {
         await H.locator('[data-act="bo-hoan-tac"]').click();
         await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
         ok((await page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > 250000).length; })) === 0, 'B21: Hoàn tác bộ sạch'); }
+      // (bản 1.37.0) TỪNG KHOANG ở chỗ trống x 800000: (a) bộ vẽ bằng tự chia → bấm "Từng khoang" (không sửa gì) → Cập nhật không có gì (dãy y nguyên);
+      // (b) đổi chip một khoang (cánh → ngăn kéo, cùng rộng) → Cập nhật đúng MỘT tủ; (c) gõ rộng làm dãy LỖI → nút Cập nhật khoá; (d) đổi rộng → tủ sau dời → vẽ lại;
+      // (e) vẽ bộ từng khoang từ danh sách mặc định; Hoàn tác bộ theo mã tủ sạch
+      { const vung = () => page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > 790000).length; });
+        const hoanTac = async () => { await H.locator('[data-act="bo-hoan-tac"]').click(); await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000); };
+        const kq = () => page.evaluate(() => window.MNCF.app.getBoKq());
+        await page.evaluate(b => window.MNCF.app.setBo(b), { ma: 'B31', kieu: 'I', canh: [{ dai: 3600 }], tl: null, tran: 0, ong: null });
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [800000, 5000, 0], xoay: 0 }));
+        const r = await page.evaluate(() => window.MNCF.app.veBo({}));
+        ok(r && r.ok && (await vung()) > 0, 'B31 (tự chia) vẽ đủ', r);
+        await H.locator('[data-act="bo-chia"][data-v="tay"]').click();
+        ok((await page.evaluate(() => window.MNCF.app.getBo().chia)) === 'tay' && !/khác bộ đã vẽ/.test(await H.locator('[data-act="bo-cap-nhat"]').getAttribute('title')) && !(await H.locator('[data-act="bo-cap-nhat"]').isDisabled()), 'Từng khoang trên bộ đã vẽ: Cập nhật không báo lệch');
+        await page.evaluate(() => { window.__dem.update = 0; window.__dem.lenh = []; });
+        await H.locator('[data-act="bo-cap-nhat"]').click(); await choSt('đã đúng như bảng', 8000);
+        ok((await dem()).update === 0, 'bấm Cập nhật: "đã đúng như bảng" — danh sách từ phương án đang xem dựng lại y dãy đã vẽ (khứ hồi)', await st());
+        // (b) đổi chip một khoang
+        { const p = (await kq()).pa[0], m = p.ds.find(x => x.tang === 'duoi' && x.chuc === 'canh' && x.id_tay && !x.nep && !x.op), R0 = await page.evaluate(() => window.MNCF.app.getBoVe());
+          await H.locator(`.botay [data-act="bo-tay-chon"][data-id="${m.id_tay}"]`).click();
+          await H.locator(`.botay [data-act="bo-tay-kieu"][data-id="${m.id_tay}"][data-v="nk"]`).click();
+          ok((await kq()).pa[0].ds.some(x => x.vt === m.vt && /^BD-NK3-/.test(x.ma) && x.s0 === m.s0), `chip Ngăn kéo: ${m.vt} thành tủ ngăn kéo tại chỗ`);
+          await page.evaluate(() => { window.__dem.update = 0; window.__dem.doLoi = 0; });
+          await H.locator('[data-act="bo-cap-nhat"]').click(); await choSt('Đã cập nhật bộ|Cập nhật bộ .* dừng');
+          const R = await page.evaluate(() => window.MNCF.app.getBoVe()), v = await soViTri(), id = R0.da_ve.find(y => y.vt === m.vt).id;
+          ok(/Đã cập nhật bộ B31: 1 tủ cập nhật tại chỗ, 0 tủ bỏ, 0 tủ vẽ mới/.test(await st()) && (await dem()).update === 1 && R.da_ve.find(y => y.vt === m.vt).id === id, 'đổi chip một khoang → Cập nhật đúng MỘT tủ, giữ mã tủ', [await st(), (await dem()).update]);
+          ok(v.lech.length === 0 && v.chong.length === 0 && v.tu.every(t => t.n === t.can) && (await page.evaluate(i => JSON.parse(localStorage.getItem('mncf.tu.' + i)).spec.bep.chuc_nang, id)) === 'nk', 'sau Cập nhật: đúng chỗ, không chồng, thông số đã lưu là tủ ngăn kéo', [v.lech, v.chong]); }
+        // (c) gõ rộng làm dãy dài quá (mọi khoang là số) → LỖI → Cập nhật khoá
+        { const ds = (await page.evaluate(() => window.MNCF.app.getBo())).tay.canh[0].duoi, c = ds.find(q => (q.kieu === 'canh' || q.kieu === 'nk') && typeof q.rong === 'number'), o = H.locator(`.botay [data-ui="bo-tay-rong"][data-id="${c.id}"]`);
+          await o.click(); await o.fill(String(c.rong + 200)); await page.waitForTimeout(450);
+          const k = await kq();
+          ok(k.pa[0].loi.length > 0 && await H.locator('[data-act="bo-cap-nhat"]').isDisabled() && /LỖI/.test(await H.locator('[data-act="bo-ve"]').getAttribute('title')), 'dãy có LỖI: nút Cập nhật khoá, nút Vẽ nói LỖI', k.pa[0].loi);
+          const rc = await page.evaluate(() => window.MNCF.app.veBo({}));
+          ok(!(rc && rc.ok), 'veBo khi có LỖI: không vẽ', rc);
+          await o.press('Enter'); await H.locator('[data-act="lui"]').click();
+          ok((await kq()).pa[0].loi.length === 0 && !(await H.locator('[data-act="bo-cap-nhat"]').isDisabled()), '↶ Lùi: hết LỖI, Cập nhật bật lại'); }
+        // (d) khoang đầu thành tự chia + khoang cuối bớt 50 → các tủ giữa dời → Cập nhật vẽ lại đúng chỗ
+        { await page.evaluate(() => { const b = window.MNCF.app.getBo(), d = b.tay.canh[0].duoi, j = d.findIndex(q => q.kieu === 'canh' || q.kieu === 'nk'), k = d.map(q => q.kieu === 'canh' || q.kieu === 'nk').lastIndexOf(true); d[j].rong = 'auto'; d[k].rong -= 50; window.MNCF.app.setBo(b); });
+          ok((await kq()).pa[0].loi.length === 0, 'đổi rộng: dãy không lỗi', (await kq()).pa[0].loi);
+          await H.locator('[data-act="bo-cap-nhat"]').click(); await choSt('Đã cập nhật bộ|Cập nhật bộ .* dừng');
+          const v = await soViTri();
+          ok(/Đã cập nhật bộ B31/.test(await st()) && v.lech.length === 0 && v.chong.length === 0 && v.tu.every(t => t.n === t.can), 'đổi rộng khoang: Cập nhật vẽ lại các tủ dời chỗ, mọi tủ đúng chỗ', [await st(), v.lech, v.chong]); }
+        await hoanTac();
+        ok((await vung()) === 0, 'B31: Hoàn tác bộ sạch');
+        // (e) vẽ bộ Từng khoang từ đầu: danh sách mặc định (cánh · chậu · cánh · bếp · cánh, tự chia)
+        await page.evaluate(b => window.MNCF.app.setBo(b), { ma: 'B32', kieu: 'I', canh: [{ dai: 3600 }], tl: null, tran: 0, ong: null, chia: 'tay' });
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [800000, 5000, 0], xoay: 0 }));
+        { const k = await kq(), N = k.pa[0].ds.length;
+          ok(k.pa[0].loi.length === 0 && k.pa[0].ds.filter(m => m.id_tay).length === 5 && (await H.locator('.botay .bobay').count()) === 5, 'danh sách mặc định: 5 khoang, không lỗi', k.pa[0].loi);
+          const r2 = await page.evaluate(() => window.MNCF.app.veBo({})), v = await soViTri();
+          ok(r2 && r2.ok && v.tu.length === N && v.lech.length === 0 && v.chong.length === 0 && v.tu.every(t => t.n === t.can), `vẽ bộ từng khoang: đủ ${N} tủ, đúng chỗ, không chồng`, [r2, v.lech, v.chong]); }
+        await hoanTac();
+        ok((await vung()) === 0, 'B32: Hoàn tác bộ sạch'); }
       // (vòng soát 1.34) bộ E3 (3170) ở chỗ trống x 120000: (a) sửa bộ sau lần vẽ dừng → không Vẽ tiếp lên bố cục cũ, Cập nhật sửa + vẽ nốt;
       // (b) máy mất thông số lúc vẽ của một tủ bị bỏ khỏi dãy → Cập nhật vẫn bỏ nó (tìm theo mã); (c) bấm đổi món giữa lúc vẽ bộ → không cho, bộ vẫn ghi đủ
       { const bo3 = { ma: 'B7', kieu: 'I', canh: [{ dai: 3170 }], tl: null, ong: { canh: 0, s: 2300 } };

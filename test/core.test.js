@@ -2143,7 +2143,7 @@ T('Tủ bếp — chuẩn anh chốt (bản 1.33.1)', () => {
   const D = C.DEFAULT_SPEC, B0 = C.DEFAULT_BEP, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma)));
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  ok(/^1\.(33\.1|34\.|35\.|36\.)/.test(C.VERSION), 'phiên bản từ 1.33.1', C.VERSION);
+  ok(/^1\.(33\.1|34\.|35\.|36\.|37\.)/.test(C.VERSION), 'phiên bản từ 1.33.1', C.VERSION);
   // #1 mặt đá 860
   eq([B0.cao_mat, B0.day_da, B0.van_lot, B0.cach_tren, B0.cao_tren, B0.noc, B0.tay_nam], [860, 20, 0, 700, 800, 'giang', 'vat'], 'DEFAULT_BEP: mặt đá 860, đá 20, tủ trên cách 700 cao 800, giằng, tay nắm vát');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO];
@@ -2318,7 +2318,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
   const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma))), t = D.van.t, tc = D.van.t_canh;
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  eq(C.VERSION, '1.36.5', 'phiên bản 1.36.5');
+  eq(C.VERSION, '1.37.0', 'phiên bản 1.37.0');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO], co = ma => MAU.some(m => m.ma === ma);
   for (const ma of ['BC-TL-700', 'BC-TL-830', 'BC-TL-910', 'BC-LO-600', 'BD-KE-150', 'BD-KE-200', 'BD-KE-300', 'BT-KE-150', 'BT-KE-200', 'BT-KE-300',
     'BD-GOC-900-T', 'BD-GOC-900-P', 'BD-GOC-990-T', 'BD-GOC-990-P', 'BD-GOCLA-900-T', 'BD-GOCLA-900-P', 'BT-GOC-900-T', 'BT-GOC-900-P', 'BT-GOC-990-T', 'BT-GOC-990-P', 'BT-GOCLA-900-T', 'BT-GOCLA-900-P']) ok(co(ma), `có mẫu ${ma}`);
@@ -2468,7 +2468,8 @@ T('Dãy bếp (bản 1.34) — tự chia chữ I / chữ L', () => {
     const r = C.chuanBo({ kieu: 'X', canh: [{ dai: 'abc', dau: 'cua' }], tl: { may: 'la', ho_hong: -5 }, cao: [{ loai: 'lo' }, { loai: 'kho', rong: 999 }, 7], hm: 'z', vs: 12, khoa: { A1: { ma: 'XX' }, A2: { ma: 'BD-NK3-600', s0: 100 } }, chuan: { cao_mat: 870, la: 1 }, da_ve: [1], tu_id: 'x' });
     ok(r.kieu === 'I' && r.canh[0].dai > 0 && r.canh[0].dau === 'tuong' && r.tl.may === 'hai_canh_700' && r.tl.ho_hong === 20, 'chuanBo: rác → mặc định', r);
     eq(r.cao, [{ loai: 'lo', rong: 600 }, { loai: 'kho', rong: 400 }], 'chuanBo: tủ cao lò 600, kho cỡ lạ → 400, mục rác bỏ');
-    ok(r.hm === 'am' && r.vs === 380 && !('A1' in r.khoa) && r.khoa.A2.ma === 'BD-NK3-600' && r.chuan.cao_mat === 870 && !('la' in r.chuan) && !('da_ve' in r) && !('tu_id' in r), 'chuanBo: bỏ khoá lạ, ghim mẫu lạ, KHÔNG nhận da_ve / tu_id', r);
+    // (1.37.0 — C7) khoá ghim đổi tên theo CHỖ '<cạnh>:<s0>' (không còn giữ tên A2)
+    ok(r.hm === 'am' && r.vs === 380 && !('A1' in r.khoa) && r.khoa['0:100'].ma === 'BD-NK3-600' && r.chuan.cao_mat === 870 && !('la' in r.chuan) && !('da_ve' in r) && !('tu_id' in r), 'chuanBo: bỏ khoá lạ, ghim mẫu lạ, KHÔNG nhận da_ve / tu_id', r);
     ok(C.chuanBo({ tl: null }).tl === null, 'tl: null = không tủ lạnh'); }
 
   // ---- E1: chữ I 4500, hai đầu tường, tủ lạnh 830 đầu trái (bản lề phía tường), ống ở 3700 ----
@@ -3882,6 +3883,281 @@ T('Bản lề + cánh lật — vòng soát (bản 1.36.5)', () => {
     ok(!('lat' in C.bepTheoKieu(L, 'ke').bep), 'sang kệ hở: bỏ cánh lật (kệ không cánh)');
     // tủ không lật: bepTheoKieu y như trước (không thêm khoá)
     ok(!('lat' in C.bepTheoKieu(C.apMau(D, 'BT-CANH-600'), 'bat').bep), 'tủ không lật: không thêm khoá'); }
+});
+
+// Bản 1.37.0 (anh Thanh 16/10/2026: "nghiên cứu xem cách vẽ tủ bếp trên dưới cho chọn khoang có được k nhỉ", chốt "Dãy như tủ áo" bằng hộp tích): dãy bếp có thêm chế độ
+// TỪNG KHOANG (bo.chia = 'tay', danh sách bo.tay) — xepTay dựng đúng một phương án từ danh sách, mọi bước sau đọc phương án như tự chia. Anh chốt: C1 danh sách bắt đầu từ
+// phương án đang xem (tayTuPA), C2 rộng = bề thùng, C3 về Tự chia = chia lại + giữ danh sách, C4 chậu ≠ bếp cho phép + CẢNH BÁO + nút "Đặt bếp = chậu", C5 tủ trên theo mối
+// nối (đổi chức năng = tren_kieu; khác mối nối = danh sách riêng), C7 tên khoá ghim theo chỗ. Tự chia 1.35 KHÔNG đổi: E1–E3 băm y bản 1.36.5 (số băm lấy từ lõi 1.36.5).
+T('Dãy bếp từng khoang (bản 1.37.0)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  C.DEFAULT_SPEC.thung.noc_day = 'lot'; C.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
+  const bam = t => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 0x01000193) >>> 0; return ('0000000' + h.toString(16)).slice(-8); };
+  const K = (kieu, rong, id) => Object.assign({ kieu, rong: rong === undefined ? 'auto' : rong }, id ? { id } : {});
+  const duoi = (pa, canh) => pa.ds.filter(m => m.tang === 'duoi' && (canh === undefined || m.canh === canh)).sort((a, b) => a.s0 - b.s0);
+  const tren = (pa, canh) => pa.ds.filter(m => m.tang === 'tren' && !m.t2 && (canh === undefined || m.canh === canh)).sort((a, b) => a.s0 - b.s0);
+  const tom = ds => ds.map(m => [m.ma, m.s0]);
+  const khop = (a, b) => { const f = p => p.ds.map(m => [m.ma, m.s0, m.dai, m.vt, m.z].join('|')).sort(); return JSON.stringify(f(a)) === JSON.stringify(f(b)); };
+  const E1 = { kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 } };
+  const E2 = { kieu: 'L', canh: [{ dai: 3050, dau: 'tuong' }, { dai: 2450, cuoi: 'ho' }], tl: null, ong: { canh: 0, s: 3050 - 2130 }, bep: { canh: 1 } };
+  const E3 = { kieu: 'I', canh: [{ dai: 3170 }], tl: null, ong: { canh: 0, s: 2300 } };
+
+  // ---- 1. tự chia không đổi: bộ không có chia / tay băm y 1.36.5 (chuanBo + cả kết quả xepBep), số dòng LỖI / CẢNH BÁO / LƯU Ý giữ nguyên ----
+  { const nay = [E1, E2, E3].map(b => { const r = C.xepBep(b); return [bam(JSON.stringify(C.chuanBo(b))), bam(JSON.stringify(r)), r.pa.map(p => [p.loi.length, p.canh_bao.length, p.luu_y.length])]; });
+    eq(nay, [['db95db0d', '5dcc718a', [[0, 1, 4], [0, 3, 3], [0, 2, 3]]], ['8297931f', 'd79b260f', [[0, 1, 1], [0, 1, 1], [0, 1, 1]]], ['3f8e991e', '041451c8', [[0, 0, 1], [0, 0, 1], [0, 0, 2]]]],
+      'E1 / E2 / E3: chuanBo + xepBep băm y bản 1.36.5 (tách khungCanh + luật kiemDay mới không đổi gì), số dòng lỗi / cảnh báo / lưu ý giữ nguyên'); }
+  ok(!('chia' in C.chuanBo(E1)) && !('tay' in C.chuanBo(E1)), 'bộ cũ không mang khoá chia / tay');
+
+  // ---- 2. khứ hồi: phương án tự chia → danh sách (tayTuPA) → xepTay ra ĐÚNG phương án đó (ma / s0 / dai / vt / z), cùng dòng cảnh báo / lưu ý ----
+  { let seed = 11; const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const bos = [E1, E2, E3];
+    for (let i = 0; i < 30; i++) {
+      const L = rnd() < 0.5, b = L ? { kieu: 'L', canh: [{ dai: 2400 + Math.round(rnd() * 30) * 50, dau: rnd() < 0.5 ? 'tuong' : 'ho' }, { dai: 1800 + Math.round(rnd() * 30) * 50, cuoi: rnd() < 0.5 ? 'tuong' : 'ho', re: rnd() < 0.5 ? 'trai' : 'phai' }] }
+        : { kieu: 'I', canh: [{ dai: 2600 + Math.round(rnd() * 50) * 50, dau: rnd() < 0.7 ? 'tuong' : 'ho', cuoi: rnd() < 0.7 ? 'tuong' : 'ho' }] };
+      b.tl = rnd() < 0.4 ? null : { may: rnd() < 0.5 ? 'hai_canh_700' : 'am_560', canh: L && rnd() < 0.5 ? 1 : 0, dau: rnd() < 0.5 ? 'dau' : 'cuoi' };
+      if (rnd() < 0.3) b.cao = [{ loai: 'lo' }];
+      if (rnd() < 0.3) b.tran = 0;
+      if (rnd() < 0.3) b.ke = true;
+      if (rnd() < 0.2) b.hm = 'kinh';
+      if (rnd() < 0.3) b.led = false;
+      if (rnd() < 0.3) b.kinh = 'khong';
+      bos.push(b);
+    }
+    // (lưu ý riêng của BỘ CHIA — chậu tự sang cạnh kia, cỡ lùi của bộ 1.34 — không phải của dãy: theo khoang không có)
+    let n = 0, hong = [];
+    for (const b of bos) { const r = C.xepBep(b); r.pa.forEach((p, j) => {
+      n++; const tay = C.tayTuPA(r.bo, p), r2 = C.xepBep(Object.assign({}, r.bo, { chia: 'tay', tay })), q = r2.pa[0];
+      if (r2.pa.length !== 1 || !khop(p, q) || q.loi.length || JSON.stringify(q.canh_bao) !== JSON.stringify(p.canh_bao) || JSON.stringify(q.luu_y) !== JSON.stringify(p.luu_y.filter(x => !/không đủ chỗ cho chậu|^Bộ lưu ở bản 1\.34/.test(x)))) hong.push([bos.indexOf(b), j]);
+    }); }
+    ok(n >= 80 && !hong.length, `khứ hồi tayTuPA → xepTay: ${n} phương án (E1–E3 + 30 bộ ngẫu nhiên I / L, khối cao, tầng trên, kính, LED) dựng lại đúng từng tủ`, hong); }
+  { const p = C.xepBep(E1).pa[0], tay = C.tayTuPA(E1, p);
+    eq(tay.canh[0].duoi.map(q => [q.kieu, q.rong]), [['canh', 355], ['gv', 300], ['bep', 900], ['canh', 355], ['canh', 355], ['chau', 900], ['rac', 300]], 'tayTuPA E1: danh sách theo trục tủ, rộng là SỐ bề thùng, khoang tủ lạnh không nằm trong danh sách');
+    eq([tay.canh[0].nep, tay.canh[0].tren, tay.canh[0].tren_kieu, tay.dem], [{ dau: 60, cuoi: 70 }, null, {}, 7], 'tayTuPA E1: nẹp hai tường ghi số, tủ trên theo mối nối (không đổi chức năng), cấp 7 id');
+    const r = C.xepBep(Object.assign({}, E1, { chia: 'tay', tay }));
+    ok(r.pa.length === 1 && duoi(r.pa[0]).every(m => (m.chuc === 'tl') === !m.id_tay) && tren(r.pa[0]).every(m => m.id_duoi && tay.canh[0].duoi.some(q => q.id === m.id_duoi)), 'xepTay: tủ dưới mang id_tay của khoang, tủ trên theo mối nối mang id_duoi');
+    eq(r.con, [{ canh: 0, du: 0, auto: null, nep: { trai: 60, phai: 70 } }], 'xepTay: con = phần lệch 0, không khoang tự chia, nẹp 60 / 70'); }
+  { const p = C.xepBep(E2).pa[0], tay = C.tayTuPA(E2, p);
+    // cạnh A lật (u từ góc, trục tủ ngược): danh sách theo TRỤC TỦ — thùng rác (sát tường, trái khi nhìn vào tường) trước, tủ góc không nằm trong danh sách
+    eq(tay.canh.map(c => c.duoi.map(q => q.kieu)), [['rac', 'chau', 'canh'], ['nk', 'bep', 'gv']], 'tayTuPA E2 (chữ L): cạnh A theo trục tủ (rác · chậu · cánh), cạnh B (ngăn kéo đầu cạnh mang nẹp góc vẫn là khoang) — góc / tủ đầu trên cạnh B không có');
+    eq(tay.canh.map(c => c.nep), [{ dau: 70.5, cuoi: 'auto' }, { dau: 'auto', cuoi: 'auto' }], 'tayTuPA E2: nẹp tường cạnh A ở đầu trái theo trục tủ; đầu góc / đầu hở không có nẹp'); }
+
+  // ---- 3. chia khoang tự chia ----
+  const I = (dai, duoi, nep, them) => Object.assign({ kieu: 'I', canh: [{ dai }], tl: null, tran: 0, chia: 'tay', tay: { canh: [{ duoi, nep: nep || { dau: 'auto', cuoi: 'auto' } }] } }, them || {});
+  { // 3577 − nẹp tối thiểu 2 × 70 − (chậu 800 + bếp 800 + gia vị 300) = 1537 → 2 khoang 765, dư 7 vào hai nẹp (chia đôi như tự chia: 75 / 72)
+    const r = C.xepBep(I(3577, [K('chau', 800), K('canh'), K('nk'), K('bep', 800), K('gv', 300)])), p = r.pa[0];
+    eq(tom(duoi(p)), [['BD-CHAU-800', 0], ['BD-CANH-765', 875], ['BD-NK3-765', 1640], ['BD-BEP-800', 2405], ['BD-GV-300', 3205]], 'auto: 1537 → 765 + 765');
+    eq([r.con[0].auto, r.con[0].nep, r.con[0].du, p.loi], [765, { trai: 75, phai: 72 }, 0, []], 'auto: dư lẻ 7 vào hai nẹp tường 75 / 72, không LỖI');
+    eq(tren(p).map(m => m.ma), ['BT-BAT-800', 'BT-CANH-765', 'BT-CANH-765', 'BT-HM-800', 'BT-CANH-300'], 'tủ trên theo mối nối tủ dưới: giá bát trên chậu, hút mùi trên bếp'); }
+  { // nẹp gõ số 50 / 50, mọi khoang số: dư 85 không chỗ nhận → vẫn có phương án, LỖI tổng dài, con.du 85
+    const r = C.xepBep(I(100 + 800 + 600 + 800 + 600 + 85, [K('chau', 800), K('canh', 600), K('bep', 800), K('canh', 600)], { dau: 50, cuoi: 50 })), p = r.pa[0];
+    ok(r.pa.length === 1 && r.con[0].du === 85 && p.loi.some(x => /tổng khoang \+ nẹp thiếu 85/.test(x)), 'N = 0 dư 85: vẫn dựng, LỖI "thiếu 85", con.du 85', [r.con, p.loi]);
+    ok(!p.loi.some(x => /> 150/.test(x)), 'dư dồn vào nẹp: không thêm dòng "nẹp > 150" trùng ý', p.loi); }
+  { const r = C.xepBep(I(100 + 1600 + 1950, [K('chau', 800), K('canh'), K('canh'), K('bep', 800)], { dau: 50, cuoi: 50 })), p = r.pa[0];
+    ok(p.loi.some(x => x === 'Cạnh A: 2 khoang tự chia mỗi khoang 975 — thêm một khoang (khoang tự chia 150 … 900).') && !p.loi.some(x => /tổng khoang/.test(x)), 'auto 975 > 900: LỖI đúng câu (một dòng)', p.loi);
+    const r2 = C.xepBep(I(100 + 1600 + 600 + 240, [K('chau', 800), K('canh', 600), K('canh'), K('canh'), K('bep', 800)], { dau: 50, cuoi: 50 }));
+    ok(r2.pa[0].loi.some(x => x === 'Cạnh A: 2 khoang tự chia mỗi khoang chỉ còn 120 — bỏ một khoang (khoang tự chia 150 … 900).'), 'auto 120 < 150: LỖI đúng câu', r2.pa[0].loi); }
+  { const r = C.xepBep(I(100 + 1600 + 1203, [K('chau', 800), K('canh'), K('canh'), K('bep', 800)], { dau: 50, cuoi: 50 }));
+    eq(duoi(r.pa[0]).map(m => m.rong), [800, 600, 603, 800], 'phần lẻ 3 (< 5, nẹp đã gõ số) vào khoang tự chia cuối — cỡ lẻ 603'); }
+  { // chậu / bếp 'auto' = cỡ chung: bo.co, không có thì theo dài dãy (như tự chia); rổ 'auto' = cỡ nhỏ nhất có mẫu
+    const w = (dai, them) => duoi(C.xepBep(I(dai, [K('chau'), K('canh'), K('bep'), K('gv'), K('canh')], null, them)).pa[0]).map(m => m.rong);
+    eq([w(3600)[0], w(3000)[0], w(2400)[0], w(3600, { co: 700 })[2], w(3600)[3]], [900, 800, 700, 700, 200], 'auto kiểu cỡ cố định: chậu / bếp theo dài (≥ 3400 → 900, ≥ 2600 → 800) hoặc bo.co; gia vị cỡ nhỏ nhất 200'); }
+
+  // ---- 4. chuanTay ----
+  { const b = C.chuanBo({ kieu: 'I', chia: 'tay', tay: { dem: 3, canh: [{ duoi: [K('chau', 750, 'k1'), K('rac', 350, 'k1'), K('gv', 250, 'k2'), K('la', 600), K('goc', 900), K('canh', 'xx'), K('canh', 1200), K('nk', 612.3)], tren_kieu: { k1: 'bat', zz: 'hm', k2: 'la' } }, { duoi: [K('canh', 600)] }] } });
+    eq(b.tay.canh[0].duoi.map(q => [q.id, q.kieu, q.rong]), [['k1', 'chau', 800], ['k4', 'rac', 400], ['k2', 'gv', 250], ['k5', 'canh', 600], ['k6', 'canh', 'auto'], ['k7', 'canh', 905], ['k8', 'nk', 612.5]],
+      'chuanTay: chậu 750 → 800, rác 350 → 400 (cách đều thì cỡ lớn), gia vị 250 nhận, kiểu lạ → cánh, góc bỏ, số rác → tự chia, cánh 1200 → 905 (trần bộ chia dồn dư), tròn 0,5, id trùng cấp mới');
+    eq([b.tay_sua, b.tay_bo, b.tay.canh.length, b.tay.canh[0].tren_kieu, b.tay.dem], [[{ id: 'k1', cu: 750, moi: 800 }, { id: 'k4', cu: 350, moi: 400 }, { id: 'k7', cu: 1200, moi: 905 }, { id: 'k8', cu: 612.3, moi: 612.5 }], 'B', 1, { k1: 'bat' }, 8],
+      'chuanTay: tay_sua ghi các số đã sửa, chữ I bỏ cạnh B (tay_bo), tren_kieu chỉ giữ id tủ dưới + kiểu hợp lệ, dem = id lớn nhất');
+    // id không cấp lại sau khi bỏ: bỏ k8 rồi thêm khoang mới → k9
+    const o = JSON.parse(JSON.stringify(b)); o.tay.canh[0].duoi.pop(); o.tay.canh[0].duoi.push({ kieu: 'canh', rong: 'auto' });
+    eq(C.chuanBo(o).tay.canh[0].duoi.slice(-1)[0].id, 'k9', 'id không cấp lại sau khi bỏ (dem)');
+    // về Tự chia: GIỮ danh sách (anh chốt C3), dãy chia lại như tự chia
+    const tu = C.chuanBo(Object.assign({}, b, { chia: 'tu' }));
+    ok(!('chia' in tu) && tu.tay && tu.tay.canh[0].duoi.length === 7 && !('tay_sua' in tu), 'chia "tu": giữ danh sách, không lời báo sửa');
+    const r = C.xepBep(Object.assign({}, E3, { tay: C.tayTuPA(E3, C.xepBep(E3).pa[0]) }));
+    ok(r.pa.length > 1 && khop(r.pa[0], C.xepBep(E3).pa[0]), 'có danh sách mà chia "tu": tự chia y như cũ (nhiều phương án)');
+    ok(C.chuanBo({ chia: 'tay' }).tay.canh[0].duoi.map(q => q.kieu).join() === 'canh,chau,canh,bep,canh', 'chia "tay" chưa có danh sách: mặc định cánh · chậu · cánh · bếp · cánh (tự chia)');
+    // trần 40 khoang mỗi tầng mỗi cạnh (danh sách từ file / bản lưu lạ không làm bảng dựng hàng trăm thẻ)
+    const b40 = C.chuanBo({ kieu: 'I', chia: 'tay', tay: { canh: [{ duoi: Array.from({ length: 45 }, () => K('canh')), tren: Array.from({ length: 45 }, () => K('canh')) }] } });
+    eq([b40.tay.canh[0].duoi.length, b40.tay.canh[0].tren.length], [40, 40], 'chuanTay: tối đa 40 khoang mỗi tầng mỗi cạnh');
+    // khung cạnh không dựng được (khối cao đã dài hơn cạnh): không phương án, loi_chung nói số thiếu — chỗ duy nhất theo khoang không trả phương án
+    const rk = C.xepBep({ kieu: 'I', canh: [{ dai: 1200 }], tl: { may: 'bon_canh_830', dau: 'dau' }, cao: [{ loai: 'lo' }], chia: 'tay' });
+    ok(!rk.pa.length && rk.loi_chung.length === 1 && /khối cao \+ nẹp tối thiểu đã dài hơn cạnh \(thiếu 425\)/.test(rk.loi_chung[0]) && Array.isArray(rk.con), 'xepTay: khối cao dài hơn cạnh → loi_chung', rk.loi_chung); }
+
+  // ---- 5. tủ trên ----
+  const b5 = I(3600, [K('canh', 800, 'k1'), K('chau', 800, 'k2'), K('canh', 'auto', 'k3'), K('bep', 800, 'k4'), K('canh', 'auto', 'k5')]);
+  { const p = C.xepBep(b5).pa[0];
+    eq(tren(p).map(m => m.ma), ['BT-CANH-800', 'BT-BAT-800', 'BT-CANH-530', 'BT-HM-800', 'BT-CANH-530'], 'tren null: theo luật suy (cánh · giá bát trên chậu · cánh · hút mùi trên bếp · cánh)');
+    ok(!p.loi.length && !p.canh_bao.some(x => /hút mùi|giá bát|kề/.test(x)), 'dãy chuẩn: không dòng luật mới nào', [p.loi, p.canh_bao]); }
+  { const b = JSON.parse(JSON.stringify(b5)); b.tay.canh[0].tren_kieu = { k1: 'bat', k2: 'canh' };
+    const p = C.xepBep(b).pa[0];
+    eq(tren(p).map(m => [m.ma, m.id_duoi]), [['BT-BAT-800', 'k1'], ['BT-CANH-800', 'k2'], ['BT-CANH-530', 'k3'], ['BT-HM-800', 'k4'], ['BT-CANH-530', 'k5']], 'tren_kieu: giá bát đổi sang trên khoang k1, trên chậu thành cánh — đúng chỗ, mối nối giữ');
+    ok(p.luu_y.some(x => /BT-BAT-800: tủ giá bát không đặt trên tủ chậu/.test(x)), 'giá bát không trên chậu: LƯU Ý', p.luu_y); }
+  { const b = JSON.parse(JSON.stringify(b5)); b.tay.canh[0].tren_kieu = { k1: 'hm', k4: 'canh' };
+    const p = C.xepBep(b).pa[0];
+    ok(p.loi.some(x => /AT1 BT-HM-800: tủ hút mùi không nằm trên tủ bếp nấu nào/.test(x)), 'hút mùi trên khoang cánh 800: LỖI', p.loi);
+    ok(p.canh_bao.some(x => /A4 BD-BEP-800: bếp nấu không có tủ hút mùi phía trên/.test(x)), 'bếp không có hút mùi: CẢNH BÁO', p.canh_bao);
+    const s = C.suaTay(b, p);
+    ok(s.length && s[0].nhan === 'Chuyển hút mùi lên trên bếp' && !C.xepBep(s[0].bo).pa[0].loi.length && tren(C.xepBep(s[0].bo).pa[0])[3].ma === 'BT-HM-800', 'suaTay: "Chuyển hút mùi lên trên bếp" — hết LỖI', s.map(x => x.nhan)); }
+  { // đổi chức năng tủ trên mà cỡ không có mẫu (giá bát 530): giữ tủ mặc định + LƯU Ý (không làm mất tủ)
+    const b = JSON.parse(JSON.stringify(b5)); b.tay.canh[0].tren_kieu = { k3: 'bat' };
+    const p = C.xepBep(b).pa[0];
+    ok(tren(p)[2].ma === 'BT-CANH-530' && p.luu_y.some(x => /không có mẫu .* rộng 530/.test(x)) && !p.loi.length, 'tren_kieu cỡ không có mẫu: giữ cánh, LƯU Ý', p.luu_y); }
+  { // Sửa riêng (danh sách tủ trên): phủ đúng từ thùng tủ dưới đầu tới thùng tủ dưới cuối, nẹp theo tủ đầu / cuối, 'auto' chia đều; tầng trên + LED theo tủ trên riêng
+    const b = JSON.parse(JSON.stringify(b5)); b.tran = 2700; b.tay.canh[0].tren = [K('canh', 'auto', 't1'), K('bat', 800, 't2'), K('canh', 'auto', 't5'), K('hm', 800, 't3'), K('canh', 'auto', 't4')];
+    // (vòng soát 1.37.0: trước là 2 khoang tự chia 930 — nay > 900 là LỖI "thêm một khoang", phép thử thêm khoang t5; hút mùi vẫn lệch tâm bếp 90 nhưng TÂM nằm trên bếp)
+    const r = C.xepBep(b), p = r.pa[0], tr = tren(p), d = duoi(p);
+    eq(tr.map(m => [m.ma, m.id_tay]), [['BT-CANH-620', 't1'], ['BT-BAT-800', 't2'], ['BT-CANH-620', 't5'], ['BT-HM-800', 't3'], ['BT-CANH-620', 't4']], 'tren riêng: thùng 3600 − 2 × 70 − 1600 = 3 × 620');
+    ok(tr[0].u0 === d[0].u0 && tr[4].u1 === d[4].u1 && tr[0].nep.trai === d[0].nep.trai && tr[4].nep.phai === d[4].nep.phai, 'tren riêng: phủ đúng dãy dưới, nẹp tường ở tủ đầu / cuối', [tr.map(m => [m.u0, m.u1, m.nep]), d.map(m => [m.u0, m.u1])]);
+    ok(p.canh_bao.some(x => /hút mùi lệch tâm bếp/.test(x)) && !p.loi.some(x => /Tủ trên/.test(x)), 'tren riêng lệch bếp: cảnh báo lệch tâm (luật cũ), tủ trên liền mối không LỖI', [p.loi, p.canh_bao]);
+    const t2 = p.ds.filter(m => m.t2).sort((a, b2) => a.s0 - b2.s0);
+    eq(t2.map(m => [m.u0, m.u1]), tr.map(m => [m.u0, m.u1]), 'tầng trên kịch trần chồng theo mối nối TỦ TRÊN riêng');
+    const tu = C.tuBo(r.bo, p), led = tu.filter(x => x.spec.bep.led);
+    ok(led.length === 4 && led.filter(x => x.spec.bep.led_nguon).length === 1 && !tu.find(x => x.vt === tr[3].vt).spec.bep.led, 'LED: 4 tủ trên (trừ hút mùi), một nguồn', led.map(x => x.vt));
+    // tủ trên riêng hở: LỖI liền mối
+    const b2 = JSON.parse(JSON.stringify(b)); b2.tay.canh[0].tren = [K('canh', 600), K('bat', 800), K('hm', 800), K('canh', 600)];
+    ok(C.xepBep(b2).pa[0].loi.some(x => /Tủ trên cạnh A: thiếu 660/.test(x)), 'tren riêng tổng thiếu: LỖI', C.xepBep(b2).pa[0].loi); }
+  { // chữ L: tủ trên riêng ở cạnh B — tủ đầu cạnh B (b1) vẫn tự đặt, danh sách phủ từ mép b1
+    const r0 = C.xepBep(E2), tay = C.tayTuPA(E2, r0.pa[0]); tay.canh[1].tren = [K('hm', 900, 't1'), K('canh', 'auto', 't2')];
+    const p = C.xepBep(Object.assign({}, E2, { chia: 'tay', tay })).pa[0], tB = tren(p, 1), tA = tren(p, 0);
+    eq(tB.map(m => m.ma), ['BT-CANH-815', 'BT-HM-900', 'BT-CANH-300'], 'chữ L: tủ trên riêng cạnh B — b1 giữ 815, hút mùi 900, cánh tự chia 300');
+    eq(tA[tA.length - 1].ma, 'BT-GOC-900-P', 'chữ L: tủ trên góc cạnh A vẫn tự đặt');
+    ok(!p.loi.length, 'chữ L tủ trên riêng: không LỖI', p.loi); }
+
+  // ---- 6. kiemDay luật mới ----
+  { const p = C.xepBep(I(3600, [K('canh'), K('chau', 900), K('bep', 800), K('nk', 350), K('ke', 400), K('canh')])).pa[0];
+    ok(p.canh_bao.some(x => /kề .*chậu sát bếp/.test(x)), 'chậu kề bếp: CẢNH BÁO', p.canh_bao);
+    ok(p.canh_bao.some(x => x === 'Chậu 900 khác cỡ bếp 800 — chuẩn là chậu = bếp cùng cỡ (đặt bếp = chậu 900 nếu không cố ý).') && !p.loi.some(x => /cỡ/.test(x)), 'chậu ≠ bếp: CẢNH BÁO (không LỖI — anh chốt C4)', p.canh_bao);
+    ok(p.canh_bao.some(x => /ngăn kéo rộng 350 < 400/.test(x)) && p.canh_bao.some(x => /kệ hở rộng 400 > 300/.test(x)), 'theo khoang: ngăn kéo < 400, kệ > 300 — CẢNH BÁO', p.canh_bao);
+    const s = C.suaTay(C.chuanBo(I(3600, [K('canh'), K('chau', 900), K('bep', 800), K('nk', 350), K('ke', 400), K('canh')])), p);
+    ok(s.some(x => x.nhan === 'Đặt bếp = chậu 900' && duoi(C.xepBep(x.bo).pa[0])[2].ma === 'BD-BEP-900'), 'suaTay: "Đặt bếp = chậu 900"', s.map(x => x.nhan)); }
+  { // mục không ra spec (không có mẫu): tuBo bỏ lặng lẽ → kiemDay LỖI
+    const p = JSON.parse(JSON.stringify(C.xepBep(E3).pa[0])), m = tren(p).find(x => x.chuc === 'bat'); m.ma = 'BT-BAT-650';
+    ok(C.kiemDay(E3, p).loi.some(x => x.indexOf(`B1-${m.vt} BT-BAT-650: không có mẫu tủ cho cỡ này`) === 0), 'mục không ra spec: LỖI'); }
+  { const p = C.xepBep(Object.assign(I(3600, [K('canh'), K('chau', 800), K('canh'), K('bep', 800), K('canh')]), { tran: 2700 })).pa[0];
+    ok(!p.loi.length && !p.canh_bao.some(x => /kề|khác cỡ|hút mùi|ngăn kéo rộng|kệ hở/.test(x)), 'danh sách mặc định: không dòng luật mới', [p.loi, p.canh_bao]); }
+
+  // ---- 7. suaTay: khoang lệch → tự chia; thêm khoang ----
+  { const b = I(100 + 800 + 600 + 800 + 600 + 85, [K('chau', 800), K('canh', 600), K('bep', 800), K('canh', 600)], { dau: 50, cuoi: 50 }), p = C.xepBep(b).pa[0], s = C.suaTay(b, p);
+    ok(s.length >= 1 && s.every(x => C.xepBep(x.bo).pa[0].loi.length < p.loi.length) && /→ tự chia$/.test(s[0].nhan), 'suaTay: dư 85 → "Khoang … → tự chia", hết LỖI', s.map(x => x.nhan));
+    const b2 = I(100 + 1600 + 1950, [K('chau', 800), K('canh'), K('canh'), K('bep', 800)], { dau: 50, cuoi: 50 }), s2 = C.suaTay(b2, C.xepBep(b2).pa[0]);
+    ok(s2.some(x => x.nhan === 'Cạnh A: thêm một khoang tự chia' && !C.xepBep(x.bo).pa[0].loi.some(y => /khoang tự chia/.test(y))), 'suaTay: khoang tự chia 975 → thêm một khoang', s2.map(x => x.nhan));
+    // rổ lệch cỡ hãng (dòng "Đặt tủ rộng N" của kiemBep) → cỡ hãng
+    const b3 = I(3600, [K('canh'), K('chau', 800), K('canh'), K('bep', 800), K('rac', 400, 'kr')]), p3 = JSON.parse(JSON.stringify(C.xepBep(b3).pa[0])), r3 = duoi(p3).find(m => m.chuc === 'rac');
+    p3.canh_bao.push(`B1-${r3.vt} BD-RAC-400: rổ … Đặt tủ rộng 300.`, 'x', 'y');
+    ok(C.suaTay(b3, p3).some(x => x.nhan === 'Thùng rác 300' && duoi(C.xepBep(x.bo).pa[0]).find(m => m.chuc === 'rac').rong === 300), 'suaTay: rổ "Đặt tủ rộng 300" → Thùng rác 300', C.suaTay(b3, p3).map(x => x.nhan));
+    eq(C.suaTay(E1, C.xepBep(E1).pa[0]), [], 'suaTay: bộ tự chia → không nút'); }
+
+  // ---- 8. (C7) tên khoá ghim theo CHỖ: ghim cũ mang tên trùng mã vị trí mới của tủ khác không bị ghi đè ----
+  { const p = C.xepBep(E1).pa[0], a = duoi(p)[1], c = duoi(p)[4];
+    const b = C.chuanBo(Object.assign({}, E1, { khoa: { A5: { ma: 'BD-NK3-355', s0: a.s0, canh: 0 } } }));      // ghim cũ tên A5 (tên theo mã vị trí của lần chia trước)
+    eq(Object.keys(b.khoa), [C.khoaBo(0, a.s0)], 'chuanBo: tên khoá cũ nhận được, đổi thành "<cạnh>:<s0>"');
+    // bảng "Đổi thành" tủ A5 hiện tại (tủ khác) — trước 1.37.0 ghi vào o.khoa['A5'] → ghim cũ mất
+    const o = JSON.parse(JSON.stringify(b)); o.khoa[c.vt] = { ma: 'BD-NK3-355', s0: c.s0, canh: 0 };
+    const b2 = C.chuanBo(o);
+    ok(Object.keys(b2.khoa).length === 2 && Object.values(b2.khoa).some(q => q.s0 === a.s0) && Object.values(b2.khoa).some(q => q.s0 === c.s0), 'ghim cũ + "Đổi thành" tủ khác cùng tên vt: giữ cả hai', b2.khoa);
+    const r = C.xepBep(b2); ok(r.pa.length && r.pa[0].ds.filter(m => m.ghim).length === 2, 'tự chia giữ cả hai tủ ghim', r.loi_chung); }
+});
+
+// Vòng soát 1.37.0 (soát đối kháng 19/10/2026) — mỗi lỗi một phép thử: tủ trên Sửa riêng dồn dư +5 như tủ dưới, có chặn trên; khoang tự chia nhận +5 (905) gõ / khứ hồi được;
+// hút mùi / giá bát 'auto' của danh sách tủ trên theo tủ bếp / chậu bên dưới; hút mùi chỉ chạm mép bếp là LỖI.
+T('Dãy bếp từng khoang — vòng soát (bản 1.37.0)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  C.DEFAULT_SPEC.thung.noc_day = 'lot'; C.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
+  const K = (kieu, rong) => ({ kieu, rong: rong === undefined ? 'auto' : rong });
+  const tren = p => p.ds.filter(m => m.tang === 'tren' && !m.t2).sort((a, b) => a.s0 - b.s0), duoi = p => p.ds.filter(m => m.tang === 'duoi').sort((a, b) => a.s0 - b.s0);
+  { // (1) tủ trên Sửa riêng chép y dãy dưới (nẹp gõ số → tủ dưới nhận +5): phần dư ≥ 5 phải vào các khoang tự chia (+5), không LỖI "thiếu"
+    const hong = [];
+    for (let dai = 3000; dai <= 3100; dai++) {
+      const p = C.xepBep({ kieu: 'I', canh: [{ dai }], tl: null, tran: 0, chia: 'tay', tay: { canh: [{ duoi: [K('canh'), K('chau', 800), K('canh'), K('bep', 800), K('canh')], nep: { dau: 50, cuoi: 50 },
+        tren: [K('canh'), K('bat', 800), K('canh'), K('hm', 800), K('canh')] }] } }).pa[0];
+      if (p.loi.some(x => /^Tủ trên/.test(x)) || JSON.stringify(tren(p).map(m => [m.u0, m.u1])) !== JSON.stringify(duoi(p).map(m => [m.u0, m.u1]))) hong.push(dai);
+    }
+    eq(hong, [], 'tủ trên Sửa riêng = dãy dưới chép sang: trùng mối nối tủ dưới ở mọi dài 3000 … 3100, không LỖI "Tủ trên thiếu"'); }
+  { // (1b) chậu / bếp 700 gõ số, tủ trên riêng toàn 'auto' — không thiếu 5; (4a) giá bát / hút mùi 'auto' theo chậu / bếp bên dưới (không theo cỡ chung 900)
+    const p = C.xepBep({ kieu: 'I', canh: [{ dai: 3600 }], tl: null, tran: 0, chia: 'tay', tay: { canh: [{ duoi: [K('canh'), K('chau', 700), K('canh'), K('bep', 700), K('canh')], tren: [K('canh'), K('bat'), K('canh'), K('hm'), K('canh')] }] } }).pa[0];
+    ok(!p.loi.some(x => /^Tủ trên/.test(x)), 'tủ trên riêng toàn tự chia: không LỖI "thiếu 5"', p.loi);
+    eq(tren(p).filter(m => /BAT|HM/.test(m.ma)).map(m => m.ma), ['BT-BAT-700', 'BT-HM-700'], 'giá bát / hút mùi tự chia trong danh sách riêng = cỡ chậu / bếp bên dưới'); }
+  { // (2) khoang tự chia của tủ trên riêng không có chặn trên → tủ trên 2660 / 4760 dựng mà không LỖI
+    for (const dai of [3600, 5700]) {
+      const r = C.xepBep({ kieu: 'I', canh: [{ dai }], tl: null, tran: 2700, chia: 'tay', tay: { canh: [{ duoi: [K('canh'), K('chau', 800), K('canh'), K('bep', 800), K('canh')], tren: [K('bat', 800), K('canh')] }] } }), p = r.pa[0];
+      ok(p.loi.some(x => /^Tủ trên cạnh A: 1 khoang tự chia mỗi khoang \d+ — thêm một khoang/.test(x)) && !p.loi.some(x => /^Tủ trên cạnh A: (thiếu|thừa)/.test(x)), `dài ${dai}: tủ trên tự chia > 900 → LỖI đúng câu (một dòng)`, p.loi);
+      ok(p.ds.filter(m => m.tang === 'tren').every(m => m.rong <= 905), `dài ${dai}: không dựng tủ trên > 905`, p.ds.filter(m => m.tang === 'tren').map(m => m.ma)); } }
+  { // (3) khoang tự chia nhận +5 (905 / 903): Sửa riêng chép số đó, khứ hồi tayTuPA — không bị chuanTay kẹp về 900
+    const b = { kieu: 'I', canh: [{ dai: 3508 }], tl: null, tran: 0, chia: 'tay', tay: { canh: [{ duoi: [K('chau', 800), K('canh'), K('canh'), K('bep', 800)], nep: { dau: 50, cuoi: 50 } }] } };
+    const r = C.xepBep(b), p = r.pa[0];
+    eq(duoi(p).map(m => m.ma), ['BD-CHAU-800', 'BD-CANH-905', 'BD-CANH-903', 'BD-BEP-800'], 'tự chia nhận +5: 905 / 903');
+    const o = JSON.parse(JSON.stringify(r.bo)); o.tay.canh[0].tren = tren(p).map((m, j) => ({ id: 't' + (20 + j), kieu: m.chuc === 'bat' ? 'bat' : m.chuc === 'hm' ? 'hm' : 'canh', rong: m.rong }));
+    const r2 = C.xepBep(o);
+    ok(!r2.bo.tay_sua && !r2.pa[0].loi.some(x => /^Tủ trên/.test(x)) && tren(r2.pa[0]).map(m => m.ma).join() === tren(p).map(m => m.ma).join(), 'Sửa riêng chưa sửa gì: tủ trên y nguyên, không LỖI', [r2.bo.tay_sua, r2.pa[0].loi]);
+    const r3 = C.xepBep(Object.assign({}, r.bo, { tay: C.tayTuPA(r.bo, p) }));
+    ok(!r3.bo.tay_sua && duoi(r3.pa[0]).map(m => m.ma).join() === duoi(p).map(m => m.ma).join() && !r3.pa[0].loi.some(x => /tổng khoang/.test(x)), 'khứ hồi tayTuPA với 905 / 903: y nguyên', [r3.bo.tay_sua, r3.pa[0].loi]);
+    eq(C.chuanBo({ chia: 'tay', tay: { canh: [{ duoi: [K('canh', 906)] }] } }).tay.canh[0].duoi[0].rong, 905, 'gõ tay: rộng tự do tối đa 905 (= trần bộ chia dồn dư)'); }
+  { // (4b) hút mùi chỉ chạm mép bếp (tâm nằm ngoài bếp) → LỖI, không chỉ cảnh báo lệch tâm
+    const p = C.xepBep({ kieu: 'I', canh: [{ dai: 3600 }], tl: null, tran: 2700, chia: 'tay', tay: { canh: [{ duoi: [K('canh'), K('chau', 800), K('canh'), K('bep', 800), K('canh')], tren: [K('canh'), K('hm', 800), K('ke')] }] } }).pa[0];
+    ok(p.loi.some(x => /BT-HM-800: tủ hút mùi không nằm trên tủ bếp nấu nào/.test(x)), 'hút mùi gần như trên tủ cánh, chỉ chồng mép bếp: LỖI', [p.loi, tren(p).map(m => [m.ma, m.u0, m.u1])]); }
+});
+
+// Vòng soát 2 — 1.37.0 (soát đối kháng 19/10/2026): khứ hồi khi tự chia để dư < 20 ở đầu hở; hút mùi tâm trúng mép bếp; đổi chữ I ↔ L khi đang Từng khoang;
+// tổng khoang lệch (nẹp đã gõ số sau C1): hình / dòng tổng / LỖI nói cùng một ý + lối ra "Nẹp tự"; lưu ý tủ trên đổi chức năng nêu mã vị trí.
+T('Dãy bếp từng khoang — vòng soát 2 (bản 1.37.0)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  C.DEFAULT_SPEC.thung.noc_day = 'lot'; C.DEFAULT_SPEC.ngan_keo.khung_mat = 0;
+  const K = (kieu, rong) => ({ kieu, rong: rong === undefined ? 'auto' : rong });
+  const cho = { goc: [0, 0, 0], xoay: 0 };
+  { // (1) tự chia để dư < 20 ở đầu hở (pa.canh[i].du): khứ hồi giữ dư đúng chỗ — không LỖI "thiếu 2,5", không dời góc / cạnh A (doiDay giữ hết)
+    const bos = [{ kieu: 'I', canh: [{ dai: 3750, dau: 'tuong', cuoi: 'ho' }], tl: { may: 'bon_canh_830', dau: 'dau' }, cao: [{ loai: 'lo' }], tran: 0, co: 700, chau: { s: 1591 } },
+      { kieu: 'L', canh: [{ dai: 2850, dau: 'ho' }, { dai: 4400, cuoi: 'tuong', re: 'trai' }], tl: { may: 'hai_canh_700', canh: 1 }, co: 900, chau: { s: 1273 } }];
+    for (const b of bos) {
+      const r = C.xepBep(b); let n = 0;
+      r.pa.forEach((p, j) => {
+        if (!p.canh.some(e => e.du)) return; n++;
+        const tay = C.tayTuPA(r.bo, p), r2 = C.xepBep(Object.assign({}, r.bo, { chia: 'tay', tay })), q = r2.pa[0];
+        const dd = C.doiDay(C.datDay(r.bo, p, cho).map(x => ({ vt: x.vt, id: x.vt, sig: x.sig, at: x.at, xoay: x.xoay })), C.datDay(r2.bo, q, cho));
+        ok(!q.loi.length && !dd.doi.length && !dd.sua.length && JSON.stringify(q.canh.map(e => e.du || 0)) === JSON.stringify(p.canh.map(e => e.du || 0)),
+          `chữ ${b.kieu} phương án ${j + 1}: dư ${p.canh.map(e => e.du || 0).join(' / ')} ở đầu hở giữ nguyên, không LỖI, bộ đã vẽ không phải sửa`, [q.loi, dd.doi.length, dd.sua.length, q.canh.map(e => e.du)]);
+      });
+      ok(n > 0, `chữ ${b.kieu}: có phương án tự chia để dư ở đầu hở`);
+    }
+    eq(C.chuanBo({ kieu: 'I', canh: [{ dai: 3000, cuoi: 'ho' }], chia: 'tay', tay: { canh: [{ duoi: [K('canh')], du: 25 }] } }).tay.canh[0].du, undefined, 'chuanTay: dư ≥ 20 không nhận');
+    // mọi chỗ nhận đã gõ số, đầu cuối là đầu hở: gõ bớt 3 → dư 3 ở đầu hở (lưu ý như tự chia), không LỖI
+    const bo3 = w => ({ kieu: 'I', canh: [{ dai: 3000, dau: 'tuong', cuoi: 'ho' }], tl: null, tran: 0, chia: 'tay', tay: { canh: [{ duoi: [K('chau', 800), K('canh', 600), K('bep', 800), K('canh', w)], nep: { dau: 50 } }] } });
+    const p0 = C.xepBep(bo3()).pa[0], w0 = p0.ds.find(m => m.tang === 'duoi' && m.s0 > 2000 && m.chuc === 'canh').rong, du = (p0.canh[0].du || 0) + 3, r = C.xepBep(bo3(w0 - 3));
+    ok(!r.pa[0].loi.length && r.pa[0].canh[0].du === du && r.pa[0].luu_y.some(x => x.indexOf(`dư ${String(du).replace('.', ',')} ở đầu phải`) >= 0), `nẹp gõ số + đầu hở: gõ bớt 3 → dư ${du} để lại ở đầu hở như tự chia`, [r.pa[0].loi, r.pa[0].canh]); }
+  { // (2) hút mùi tâm trúng ĐÚNG mép bếp: LỖI "không nằm trên tủ bếp", bếp CẢNH BÁO không có hút mùi
+    const p = C.xepBep({ kieu: 'I', canh: [{ dai: 3600 }], tl: null, tran: 0, chia: 'tay', tay: { canh: [{ duoi: [K('canh', 600), K('bep', 800), K('canh'), K('chau', 800), K('canh')], tren: [K('canh', 200), K('hm', 800), K('canh'), K('bat', 800), K('canh')] }] } }).pa[0];
+    const b = p.ds.find(m => m.ma === 'BD-BEP-800'), h = p.ds.find(m => m.ma === 'BT-HM-800');
+    ok(Math.abs((h.u0 + h.u1) / 2 - b.u0) < 0.5, 'ca thử: tâm hút mùi trúng mép bếp', [b.u0, h.u0, h.u1]);
+    ok(p.loi.some(x => /BT-HM-800: tủ hút mùi không nằm trên tủ bếp nấu nào/.test(x)) && p.canh_bao.some(x => /BD-BEP-800: bếp nấu không có tủ hút mùi/.test(x)), 'tâm trúng mép bếp: LỖI + cảnh báo bếp không hút mùi', [p.loi, p.canh_bao]); }
+  { // (3) đổi kiểu dãy khi đang Từng khoang: danh sách dựng lại từ phương án tự chia của kiểu mới (C1) — không mang danh sách chữ I sang chữ L (cạnh B rỗng)
+    const bI = { kieu: 'I', canh: [{ dai: 4200 }], tl: null }, rI = C.xepBep(bI), oI = Object.assign({}, rI.bo, { chia: 'tay', tay: C.tayTuPA(rI.bo, rI.pa[0]) });
+    const oL = C.tayDoiKieu(Object.assign({}, oI, { kieu: 'L' })), rL = C.xepBep(oL), tL = C.xepBep(Object.assign({}, oL, { chia: undefined, tay: undefined }));
+    ok(oL.chia === 'tay' && oL.tay.canh.length === 2 && oL.tay.canh.every(c => c.duoi.length) && !rL.pa[0].loi.length, 'I → L: hai cạnh có khoang, không LỖI', [oL.tay && oL.tay.canh.map(c => c.duoi.length), rL.pa[0].loi]);
+    ok(tL.pa.length && JSON.stringify(rL.pa[0].ds.map(m => [m.ma, m.s0, m.canh])) === JSON.stringify(tL.pa[0].ds.map(m => [m.ma, m.s0, m.canh])), 'I → L: danh sách = phương án tự chia đầu của chữ L');
+    const oI2 = C.tayDoiKieu(Object.assign({}, oL, { kieu: 'I' }));
+    ok(oI2.tay.canh.length === 1 && !C.xepBep(oI2).pa[0].loi.length, 'L → I: dựng lại từ tự chia chữ I, không LỖI');
+    const tu = C.tayDoiKieu(Object.assign({}, oI, { chia: undefined, kieu: 'L' }));
+    ok(!('tay' in tu) && !('chia' in tu), 'đang Tự chia mà còn giữ danh sách kiểu kia: bỏ danh sách (bấm Từng khoang là bắt đầu từ phương án chữ L)'); }
+  { // (4) bộ I 4200 → Từng khoang (nẹp 70 / 70 là số) → bớt một khoang cánh 50: hình, dòng tổng (con), LỖI cùng nói "thiếu 50"; có lối ra "Nẹp tự"
+    const r = C.xepBep({ kieu: 'I', canh: [{ dai: 4200 }], tl: null }), tay = C.tayTuPA(r.bo, r.pa[0]);
+    eq(tay.canh[0].nep, { dau: 70, cuoi: 70 }, 'ca thử: nẹp hai tường là số');
+    for (const dw of [-50, 50]) {
+      const o = JSON.parse(JSON.stringify(tay)); o.canh[0].duoi.find(q => q.kieu === 'canh').rong += dw;
+      const bo = Object.assign({}, r.bo, { chia: 'tay', tay: o }), r2 = C.xepBep(bo), q = r2.pa[0], d = q.ds.filter(m => m.tang === 'duoi').sort((a, b) => a.u0 - b.u0);
+      const chu = dw < 0 ? 'thiếu' : 'thừa';
+      eq([r2.con[0].nep, r2.con[0].du], [{ trai: 70, phai: 70 }, -dw], `${dw}: dòng tổng giữ nẹp đã gõ 70 / 70, lệch ${-dw}`);
+      ok(d[d.length - 1].nep.phai === 70 && Math.abs(d[d.length - 1].u1 - (4200 + dw)) < 0.5, `${dw}: hình không dồn lệch vào nẹp đã gõ — dãy ${dw < 0 ? 'hở' : 'thò'} ${Math.abs(dw)} ở cuối`, d.map(m => [m.ma, m.u1, m.nep]));
+      const s = C.suaTay(bo, q).find(x => /Nẹp/.test(x.nhan));
+      if (dw < 0) {
+        ok(q.loi.some(x => new RegExp(`tổng khoang \\+ nẹp thiếu 50 .*bấm “Nẹp tự”`).test(x)), `${dw}: LỖI "thiếu 50" chỉ lối ra có thật (nút Nẹp tự)`, q.loi);
+        ok(s && s.bo.tay.canh[0].nep.dau === 'auto' && s.bo.tay.canh[0].nep.cuoi === 'auto' && !C.xepBep(s.bo).pa[0].loi.length, `${dw}: nút sửa nhanh "Nẹp tự" gỡ hết LỖI`, s && C.xepBep(s.bo).pa[0].loi);
+      } else ok(q.loi.some(x => /tổng khoang \+ nẹp thừa 50 .* hoặc gõ lại rộng\.$/.test(x)) && !q.loi.some(x => /Nẹp tự/.test(x)) && !s, `${dw}: nẹp tự không gỡ được (nẹp tối thiểu) — LỖI "thừa 50" không nhắc "Nẹp tự", không nút`, [q.loi, s]);
+    } }
+  { // (5) lưu ý tủ trên đổi chức năng không có mẫu cỡ đó: nêu mã vị trí (A4), không nêu id nội bộ (k4)
+    const r = C.xepBep({ kieu: 'I', canh: [{ dai: 4200 }], tl: null }), tay = C.tayTuPA(r.bo, r.pa[0]), id = tay.canh[0].duoi.find(q => q.kieu === 'canh').id;
+    tay.canh[0].tren_kieu = { [id]: 'hm' };
+    const p = C.xepBep(Object.assign({}, r.bo, { chia: 'tay', tay })).pa[0], m = p.ds.find(x => x.id_tay === id);
+    ok(p.luu_y.some(x => x.indexOf(`Tủ trên khoang ${m.vt}: không có mẫu`) === 0) && !p.luu_y.some(x => new RegExp(`khoang ${id}\\b`).test(x)), 'lưu ý nêu mã vị trí của khoang', p.luu_y); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);
