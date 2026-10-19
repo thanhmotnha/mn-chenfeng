@@ -4389,7 +4389,8 @@
         const co = coBo(kieu, tang), x = num(q.rong, NaN);
         if (isFinite(x)) {
           if (co) { rong = coGan(co, x); if (Math.abs(rong - x) > TOL) sua.push({ id, cu: x, moi: rong }); }
-          else { rong = so(x, BO.e_min, BO.e_max); if (Math.abs(rong - x) > TOL) sua.push({ id, cu: x, moi: rong }); }
+          // trần = e_max + 5: bộ chia (tự chia lẫn khoang 'auto') dồn dư +5 tới 905 — kẹp 900 thì Sửa riêng / khứ hồi tayTuPA của phương án đó hụt 5 (vòng soát 1.37.0)
+          else { rong = so(x, BO.e_min, BO.e_max + 5); if (Math.abs(rong - x) > TOL) sua.push({ id, cu: x, moi: rong }); }
         }
       }
       return { id, kieu, rong };
@@ -4403,7 +4404,8 @@
       const tk = {}, ids = new Set(duoi.map(q => q.id));
       if (c.tren_kieu && typeof c.tren_kieu === 'object') for (const k of Object.keys(c.tren_kieu)) if (ids.has(k) && TAY_TREN.indexOf(c.tren_kieu[k]) >= 0) tk[k] = c.tren_kieu[k];
       const np = c.nep && typeof c.nep === 'object' ? c.nep : {};
-      canh.push({ duoi, tren, tren_kieu: tk, nep: { dau: nepSo(np.dau), cuoi: nepSo(np.cuoi) } });
+      const du = num(c.du, 0);      // (vòng soát 2 — 1.37.0) dư đầu hở của phương án gốc (tayTuPA) — chỉ nhận 0 … DU_CHI
+      canh.push(Object.assign({ duoi, tren, tren_kieu: tk, nep: { dau: nepSo(np.dau), cuoi: nepSo(np.cuoi) } }, du > TOL && du < DU_CHI - TOL ? { du: rn(du, 2) } : {}));
     }
     const bo_canh = ca.slice(n).some(c => c && ((Array.isArray(c.duoi) && c.duoi.length) || (Array.isArray(c.tren) && c.tren.length)));
     return { tay: { dem, canh }, sua, bo_canh };
@@ -4948,7 +4950,7 @@
         else if (m.loai === 'KE') q = { k: 'tu', ma: `BT-KE-${m.w}`, u0: th0, u1: th1, w: m.w };
         else q = { k: 'tu', loai: m.loai === 'GV' ? 'GV' : 'CANH', ma: null, u0: th0, u1: th1, w: rn(th1 - th0, 2), le: !!m.le };
         if (L && i === 1 && j === 0) q = { k: 'b1', u0: rn(Pt, 2), u1: th1, nep_dau: G.N_t };
-        else if (TK && m.id && TK[m.id] && m.k !== 'goc') { const q2 = trenKieu(TK[m.id], th0, th1, `Tủ trên khoang ${m.id}`); if (q2) q = q2; }
+        else if (TK && m.id && TK[m.id] && m.k !== 'goc') { const q2 = trenKieu(TK[m.id], th0, th1, `Tủ trên khoang \u0001${m.id}\u0001`); if (q2) q = q2; }
         if (m.id && q.k !== 'b1' && q.k !== 'goc_tren') q.tren_cua = m.id;
         q.nep_dau = q.nep_dau || (m.nep_dau && !m.goc ? m.nep_dau : 0); q.nep_cuoi = m.nep_cuoi || 0; q.op_dau = m.op_dau; q.op_cuoi = m.op_cuoi;
         if (q.nep_dau && q.k !== 'b1') q.u0 = m.u0; if (q.nep_cuoi || q.op_cuoi) q.u1 = m.u1; if (q.op_dau) q.u0 = m.u0;
@@ -4962,13 +4964,16 @@
         else if (L && i === 1) { const th1 = thU(m0)[1]; tren.push({ k: 'b1', u0: rn(Pt, 2), u1: th1, nep_dau: G.N_t, nep_cuoi: 0 }); u = th1; }
         const het = thU(mN)[1], ds2 = e.lat ? TA.slice().reverse() : TA.slice();
         const ws = ds2.map(q => (q.rong === 'auto' ? null : q.rong)), N = ws.filter(w => w === null).length, Fx = sum(ws.filter(w => w !== null));
-        // 'auto' tối thiểu 150 (danh sách dài quá chỗ: tủ trên thò ra — kiemDay báo LỖI liền mối, không dựng tủ rộng âm); không chặn trên — tủ trên cánh rộng
-        // tự chia hai khoang ở tuBo (như tủ đầu cạnh B tới ~1160)
-        const wa0 = N ? floor5((het - u - Fx) / N) : 0, wa = N ? Math.max(BO.e_min, wa0) : 0, le = N && wa === wa0 ? rn(het - u - Fx - N * wa, 2) : 0;
+        // 'auto' chia đều như khoang tự chia tủ dưới: tròn 5, kẹp 150 … 900 (ngoài khoảng đó vẫn dựng ở mức kẹp — kiemDay báo LỖI "thêm / bỏ một khoang", không
+        // dựng tủ trên 2660 lặng lẽ), phần dư +5 vào các khoang từ đầu, phần lẻ < 5 vào khoang cuối (vòng soát 1.37.0: trước chỉ nhận lẻ < 5 → dư ≥ 5 mất, tủ
+        // trên hụt so với dãy dưới mỗi khi tủ dưới đã nhận +5 — LỖI "thiếu" oan khi chép y dãy dưới)
+        const T0 = rn(het - u - Fx, 2), wTho = N ? floor5(T0 / N) : null, wa = N ? Math.max(BO.e_min, Math.min(BO.e_max, wTho)) : 0, wsA = Array(N).fill(wa);
+        if (N && wa === wTho) { let d = rn(T0 - N * wa, 2), kk = Math.floor(d / 5 + 1e-9); for (let j = 0; j < N && kk > 0; j++, kk--) { wsA[j] = rn(wsA[j] + 5, 2); d = rn(d - 5, 2); } if (d > TOL) wsA[N - 1] = rn(wsA[N - 1] + d, 2); }
+        (x.tin_tren = x.tin_tren || [])[i] = { w_tu: wTho, n_tu: N };
         let na = 0;
         const dau = tren.length === 0;
         ds2.forEach((T, j) => {
-          let w = ws[j]; if (w === null) { na++; w = rn(wa + (na === N && le > TOL && le < 5 ? le : 0), 2); }
+          let w = ws[j]; if (w === null) w = wsA[na++];
           const q = trenKieu(T.kieu, rn(u, 2), rn(u + w, 2), `Tủ trên ${T.id}`) || { k: 'tu', loai: 'CANH', ma: null, u0: rn(u, 2), u1: rn(u + w, 2), w };
           q.id = T.id; q.nep_dau = 0; q.nep_cuoi = 0;
           if (j === 0 && dau) { if (m0.nep_dau && !m0.goc) { q.nep_dau = m0.nep_dau; q.u0 = m0.u0; } if (m0.op_dau) { q.op_dau = 1; q.u0 = m0.u0; } }
@@ -5018,7 +5023,9 @@
     const p = { ds, canh: E.map((e, i) => Object.assign({ dai: e.dai, lat: e.lat, dau: e.dau, cuoi: e.cuoi }, x.R[i].v.du ? { du: x.R[i].v.du } : {})), so_che: x.sc, cost: x.cost, goc: null, tang2: Q.h2 > 0 ? { z: Q.zT2, cao: Q.h2 } : null };
     if (L) { const dl = x.R[0].v.delta; p.goc = { pk: G.pk, X: rn(G.X + dl, 2), X_t: BO.khe_tren_goc, Wg: G.Wg, c: G.c, Wg_t: rn(G.Wg_t + dl, 2), c_t: rn(G.c_t + dl, 2), mu: G.mu, d: dl, N: G.N, N_t: G.N_t, F, P_t: Q.Pt, nep_B: x.R[1].v.nep_goc }; }
     p.da = daDay(bo, p);
-    if (x.luu_y && x.luu_y.length) Object.defineProperty(p, 'tay_luu_y', { value: x.luu_y.slice(), enumerable: false });
+    // (vòng soát 2 — 1.37.0) lưu ý nêu khoang bằng MÃ VỊ TRÍ (A4) — id (k4) là khoá nội bộ, người dùng không thấy; mã vị trí chỉ có sau khi đánh số
+    const vtId = id => { const m = ds.find(q => q.id_tay === id && q.tang === 'duoi'); return m ? m.vt : id; };
+    if (x.luu_y && x.luu_y.length) Object.defineProperty(p, 'tay_luu_y', { value: x.luu_y.map(t => t.replace(/\u0001([^\u0001]*)\u0001/g, (a, id) => vtId(id))), enumerable: false });
     return p;
   }
   /**
@@ -5026,7 +5033,7 @@
    * dòng đỏ; loi_chung chỉ khi không dựng được khung cạnh). Mỗi cạnh: khoang số giữ đúng số; khoang 'auto' (cánh / ngăn kéo / kệ) chia đều phần còn lại (tròn 5,
    * kẹp 150 … 900 — ngoài khoảng đó kiemDay báo LỖI); khoang 'auto' kiểu cỡ cố định lấy cỡ chung (chậu / bếp = bo.co, không có thì theo dài dãy như tự chia; rổ /
    * xoong: cỡ nhỏ nhất có mẫu). Phần dư vào nẹp tường 'auto' (như tự chia: hai tường chữ I chia đôi), rồi góc phình / nẹp góc, rồi +5 vào vài khoang auto, phần lẻ
-   * < 5 vào khoang auto cuối. Không chỗ nào nhận hết thì VẪN dựng: phần lệch dồn vào nẹp ở đầu phải (theo u) / dư cuối dãy, pa.canh[i].tay.lech ≠ 0 → kiemDay LỖI.
+   * < 5 vào khoang auto cuối. Không chỗ nào nhận hết thì VẪN dựng: phần lệch dồn vào nẹp "tự" ở đầu phải (theo u) / dư cuối dãy (nẹp đã gõ số giữ số — vòng soát 2), pa.canh[i].tay.lech ≠ 0 → kiemDay LỖI.
    * @returns { bo, pa: [p], loi_chung, con: [{ canh, du (lệch không nhận được: > 0 dư, < 0 thiếu), auto (rộng khoang tự chia), nep: { trai, phai } }] }
    *   p.ds[].id_tay = id khoang của danh sách; tủ trên theo mối nối mang id_duoi = id khoang bên dưới.
    */
@@ -5043,8 +5050,12 @@
     const coTu = (kieu, tang) => { const co = coBo(kieu, tang); return co ? (kieu === 'chau' || kieu === 'bep' || tang === 'tren' ? coGan(co, coChung) : co[0]) : null; };
     const LOAI = { canh: 'CANH', nk: 'NK3', ke: 'KE' }, RO = { gv: 'GV', rac: 'RAC', gao: 'GAO' };
     // phần dư d (trên mức tối thiểu đang có ở v0) vào các chỗ nhận chưa gõ số — null = không nhận hết
-    const phan = (e, v0, co, d) => {
+    // (vòng soát 2 — 1.37.0) du0 = phần dư < DU_CHI ở đầu hở của phương án gốc (tayTuPA ghi tay.canh[i].du): giữ ĐÚNG chỗ đó trước — không thì nó chui vào
+    // delta của góc (tủ góc + cả cạnh A dời 3) hoặc vào nẹp đã gõ (LỖI "thiếu 2,5" ngay khi vừa bấm Từng khoang)
+    const phan = (e, v0, co, d, du0) => {
       const auto = e.hut.filter(h => !co[h.k]);
+      const giu = du0 > TOL && e.cuoi === 'ho' && d >= du0 - TOL ? du0 : 0;
+      if (giu) { const vv = phan(e, v0, co, rn(d - giu, 2), 0); if (vv) { vv.du = rn((vv.du || 0) + giu, 2); if (vv.du < DU_CHI - TOL) return vv; } }
       if (!L && auto.length === 2 && auto.every(h => /^nep_/.test(h.k))) return chia2(e, rn(e.hutMin + d, 2));      // hai tường chữ I: chia đôi như tự chia
       const v = Object.assign({}, v0); let rem = rn(d, 2);
       const them = (h, cap) => { const a = Math.max(0, Math.min(rem, cap - v[h.k])); v[h.k] = rn(v[h.k] + a, 2); rem = rn(rem - a, 2); };
@@ -5052,6 +5063,8 @@
       for (const h of auto) if (h.k === 'delta' || h.k === 'nep_goc') them(h, h.max);
       for (const h of auto) if (/^nep_/.test(h.k)) them(h, h.max);
       if (!e.hut.length && rem > TOL && rem < DU_CHI - TOL) { v.du = rem; rem = 0; }
+      // (vòng soát 2 — 1.37.0) mọi chỗ nhận đã gõ số mà đầu cuối (theo u) là đầu HỞ: phần dư < DU_CHI để lại ở đó như tự chia (ganBen), không thành LỖI
+      else if (!auto.length && e.cuoi === 'ho' && rem > TOL && rem < DU_CHI - TOL) { v.du = rem; rem = 0; }
       return Math.abs(rem) > TOL ? null : v;
     };
     const R = [], lap = [], con = [], tinTay = [];
@@ -5061,24 +5074,33 @@
       const ds = e.lat ? c.duoi.slice().reverse() : c.duoi.slice();      // danh sách theo trục tủ → theo u
       const v0 = vMin(e), co = {}, nepU = { nep_dau: e.lat ? c.nep.cuoi : c.nep.dau, nep_cuoi: e.lat ? c.nep.dau : c.nep.cuoi };
       for (const k of ['nep_dau', 'nep_cuoi']) if (k in v0 && typeof nepU[k] === 'number') { v0[k] = nepU[k]; co[k] = true; }
-      const ws = ds.map(K => (K.rong !== 'auto' ? K.rong : coBo(K.kieu, 'duoi') ? coTu(K.kieu, 'duoi') : null));
-      const N = ws.filter(w => w === null).length, Fx = rn(sum(ws.filter(w => w !== null)), 2), S = rn(r1Cua(e, v0) - r0Cua(e, v0), 2);
-      let wTho = null, wa = [], d = rn(S - Fx, 2);
-      if (N) { wTho = floor5((S - Fx) / N); const w = Math.max(BO.e_min, Math.min(BO.e_max, wTho)); wa = Array(N).fill(w); d = rn(S - Fx - N * w, 2); }
-      let v = d >= -TOL ? phan(e, v0, co, Math.max(0, d)) : null;
-      const trong = wTho === null || (wTho >= BO.e_min - TOL && wTho <= BO.e_max + TOL);
-      if (!v && N && trong) { const b = bump(wa, d, false); if (b) { const vv = phan(e, v0, co, b.d); if (vv) { v = vv; wa = b.ws; } } }
-      if (!v && N && trong) { const b = bump(wa, d, true); if (b) { const vv = phan(e, v0, co, 0); if (vv) { v = vv; wa = b.ws; } } }
-      let lech = 0;
-      if (!v) {
-        // không nhận hết: chỗ nhận lấy tới mức tối đa, phần lệch dồn vào nẹp (đầu u cuối trước) hoặc dư cuối dãy — vẫn dựng để bảng thấy, kiemDay báo LỖI
-        v = Object.assign({}, v0); let rem = d;
-        if (rem > 0) for (const h of e.hut.filter(h => !co[h.k])) { const a = Math.max(0, Math.min(rem, h.max - v[h.k])); v[h.k] = rn(v[h.k] + a, 2); rem = rn(rem - a, 2); }
-        lech = rn(rem, 2);
-        // còn chỗ trống: nẹp (đầu u cuối trước) rộng ra; tủ dài quá: dãy THÒ ra cuối (du âm) — không bao giờ ép nẹp âm (module rộng âm)
-        const dich = lech > 0 ? ['nep_cuoi', 'nep_dau'].find(k => k in v && !co[k]) || ['nep_cuoi', 'nep_dau'].find(k => k in v) : null;
-        if (dich) v[dich] = rn(v[dich] + lech, 2); else v.du = rn((v.du || 0) + lech, 2);
-      }
+      const du0 = c.du || 0;
+      // (vòng soát 2 — 1.37.0) cách chia của cạnh với một bộ nẹp (v0 / co) — gọi lại với nẹp "tự" để biết nút “Nẹp tự” có gỡ được phần lệch không
+      const tinh = (v0, co) => {
+        const ws = ds.map(K => (K.rong !== 'auto' ? K.rong : coBo(K.kieu, 'duoi') ? coTu(K.kieu, 'duoi') : null));
+        const N = ws.filter(w => w === null).length, Fx = rn(sum(ws.filter(w => w !== null)), 2), S = rn(r1Cua(e, v0) - r0Cua(e, v0), 2);
+        let wTho = null, wa = [], d = rn(S - Fx, 2);
+        if (N) { wTho = floor5((S - Fx) / N); const w = Math.max(BO.e_min, Math.min(BO.e_max, wTho)); wa = Array(N).fill(w); d = rn(S - Fx - N * w, 2); }
+        let v = d >= -TOL ? phan(e, v0, co, Math.max(0, d), du0) : null;
+        const trong = wTho === null || (wTho >= BO.e_min - TOL && wTho <= BO.e_max + TOL);
+        if (!v && N && trong) { const b = bump(wa, d, false); if (b) { const vv = phan(e, v0, co, b.d, du0); if (vv) { v = vv; wa = b.ws; } } }
+        if (!v && N && trong) { const b = bump(wa, d, true); if (b) { const vv = phan(e, v0, co, 0); if (vv) { v = vv; wa = b.ws; } } }
+        let lech = 0;
+        if (!v) {
+          // không nhận hết: chỗ nhận lấy tới mức tối đa, phần lệch dồn vào nẹp (đầu u cuối trước) hoặc dư cuối dãy — vẫn dựng để bảng thấy, kiemDay báo LỖI
+          v = Object.assign({}, v0); let rem = d;
+          if (rem > 0) for (const h of e.hut.filter(h => !co[h.k])) { const a = Math.max(0, Math.min(rem, h.max - v[h.k])); v[h.k] = rn(v[h.k] + a, 2); rem = rn(rem - a, 2); }
+          lech = rn(rem, 2);
+          // còn chỗ trống: nẹp "tự" (đầu u cuối trước) rộng ra; tủ dài quá: dãy THÒ ra cuối (du âm) — không bao giờ ép nẹp âm (module rộng âm)
+          // (vòng soát 2 — 1.37.0) nẹp ĐÃ GÕ SỐ không nhận lệch (trước: dồn vào nẹp đã gõ — hình vừa khít tường với nẹp 120 mà dòng tổng + LỖI vẫn nói thiếu 50):
+          // không có nẹp "tự" thì dãy hở / thò đúng số lệch ở cuối — hình, dòng tổng, LỖI cùng một ý
+          const dich = lech > 0 ? ['nep_cuoi', 'nep_dau'].find(k => k in v && !co[k]) : null;
+          if (dich) v[dich] = rn(v[dich] + lech, 2); else v.du = rn((v.du || 0) + lech, 2);
+        }
+        return { v, wa, wTho, N, lech, ws };
+      };
+      const { v, wa, wTho, N, lech, ws } = tinh(v0, co);
+      const nepGo = Math.abs(lech) > 0.5 && Object.keys(co).length > 0 && Math.abs(tinh(vMin(e), {}).lech) < 0.5;
       const r0 = r0Cua(e, v), r1 = r1Cua(e, v), items = [];
       let u = r0, na = 0;
       ds.forEach((K, j) => {
@@ -5094,17 +5116,21 @@
         if (it.k === 'bep' && !b0) b0 = { e: i, u0: it.u0, u1: it.u1 };
       });
       R.push({ v, r0, r1, S: rn(r1 - r0, 2) }); lap.push(items);
-      tinTay.push({ lech, w_tu: N ? wTho : null, n_tu: N });
+      tinTay.push(Object.assign({ lech, w_tu: N ? wTho : null, n_tu: N }, nepGo ? { nep_go: true } : {}));      // nep_go: nẹp tường đã gõ số, để "tự" thì hết lệch (lối ra "Nẹp tự")
       const nepT = (e.lat ? v.nep_cuoi : v.nep_dau), nepP = (e.lat ? v.nep_dau : v.nep_cuoi);
       con.push({ canh: i, du: lech, auto: N ? wa[0] : null, nep: { trai: nepT === undefined ? null : nepT, phai: nepP === undefined ? null : nepP } });
     });
     // tủ trên: 'auto' kiểu cỡ cố định của danh sách riêng lấy cỡ chung; danh sách riêng chỉ nhận ở cạnh có
-    const tren = tay.canh.map(c => (c && Array.isArray(c.tren) ? c.tren.map(T => (T.rong === 'auto' && coBo(T.kieu, 'tren') ? Object.assign({}, T, { rong: coTu(T.kieu, 'tren') }) : T)) : null));
+    // (vòng soát 1.37.0) hút mùi 'auto' = rộng tủ bếp nấu bên dưới (luật 1.35: tủ hút mùi rộng ĐÚNG tủ bếp), giá bát 'auto' = rộng tủ chậu — không có / không có mẫu cỡ đó
+    // thì cỡ chung như trước
+    const coTren = (kieu, i) => { const co = coBo(kieu, 'tren'), q = (lap[i] || []).find(it => it.k === (kieu === 'bat' ? 'chau' : 'bep'));
+      return q && (kieu === 'hm' || kieu === 'hmk' || kieu === 'bat') && co.some(c => Math.abs(c - q.w) < TOL) ? q.w : coTu(kieu, 'tren'); };
+    const tren = tay.canh.map((c, i) => (c && Array.isArray(c.tren) ? c.tren.map(T => (T.rong === 'auto' && coBo(T.kieu, 'tren') ? Object.assign({}, T, { rong: coTren(T.kieu, i) }) : T)) : null));
     const tk = {}; for (const c of tay.canh) Object.assign(tk, c && c.tren_kieu);
     const x = { R, lap, tren: tren.some(Boolean) ? tren : null, tren_kieu: Object.keys(tk).length ? tk : null, sc: c0 && b0 ? soCheBo(c0, b0, F) : undefined, cost: 0 };
     const p = dungPA(bo, Q, G, E, x);
     if (p.so_che === undefined) delete p.so_che;
-    p.canh.forEach((e, i) => { e.tay = tinTay[i]; });
+    p.canh.forEach((e, i) => { e.tay = tinTay[i]; const tt = x.tin_tren && x.tin_tren[i]; if (tt && tt.n_tu) Object.assign(e.tay, { tren_w: tt.w_tu, tren_n: tt.n_tu }); });
     const k = kiemDay(bo, p, { nen: opt.nen });
     p.loi = k.loi; p.canh_bao = k.canh_bao; p.luu_y = (p.tay_luu_y || []).concat(k.luu_y);
     return { bo, pa: [p], loi_chung: [], con };
@@ -5141,9 +5167,24 @@
       let tren = null; const tren_kieu = {};
       if (theoNoi) tr.forEach((t, j) => { const id = duoi[duoiM.indexOf(thuDuoi[j])].id, k = kieuTrenTay(t); if (k !== suy(thuDuoi[j])) tren_kieu[id] = k; });
       else tren = tr.slice().sort((a, b) => a.s0 - b.s0).map(t => ({ id: 't' + (++dem), kieu: kieuTrenTay(t), rong: t.rong }));
-      return { duoi, tren, tren_kieu, nep };
+      // (vòng soát 2 — 1.37.0) phần dư < DU_CHI tự chia để lại ở đầu hở: ghi lại để xepTay giữ đúng chỗ đó (khứ hồi)
+      return Object.assign({ duoi, tren, tren_kieu, nep }, e.du > TOL && e.du < DU_CHI - TOL ? { du: e.du } : {});
     });
     return { dem, canh };
+  }
+  /**
+   * (vòng soát 2 — 1.37.0) Đổi kiểu dãy (chữ I ↔ L) khi bộ còn danh sách "Từng khoang": danh sách của kiểu cũ không dùng được (chữ I → L: cạnh B rỗng, cạnh A
+   * thừa cả nghìn) → đang Từng khoang thì dựng lại từ phương án tự chia ĐẦU của kiểu mới (C1, như lúc bấm "Từng khoang"; không có phương án thì danh sách mặc
+   * định), đang Tự chia thì bỏ danh sách (bấm "Từng khoang" là bắt đầu từ phương án đang xem của kiểu mới). boIn đã mang kiểu MỚI. Trả bản sao (khoá bộ khác giữ).
+   */
+  function tayDoiKieu(boIn, opt) {
+    const o = clone(boIn || {}), tay = o.chia === 'tay';
+    delete o.tay; delete o.chia; delete o.tay_sua; delete o.tay_bo;
+    if (!tay) return o;
+    const r = xepBep(o, opt);
+    o.tay = r.pa.length ? tayTuPA(r.bo, r.pa[0]) : tayMacDinh(chuanBo(o));
+    o.chia = 'tay';
+    return o;
   }
   /**
    * (bản 1.37.0) Nút sửa nhanh của dãy "Từng khoang": tối đa 3, mỗi nút { nhan, bo } chỉ khi bớt được LỖI (hoặc cùng số LỖI mà bớt cảnh báo).
@@ -5157,11 +5198,13 @@
     const K = id => { for (const c of bo.tay.canh) for (const q of c.duoi) if (q.id === id) return q; return null; };
     const sua = (o, id, f) => { for (const c of o.tay.canh) for (const q of c.duoi) if (q.id === id) f(q); };
     // 1. cạnh lệch dài: khoang cánh / ngăn kéo / kệ RỘNG nhất đang gõ số → tự chia
+    // (vòng soát 2 — 1.37.0) nẹp tường đã gõ số (C1: mọi nẹp là số) → "Nẹp tự": hai nẹp nhận phần lệch (cùng việc với nút “Nẹp tự” ở dòng tổng)
     (pa.canh || []).forEach((e, i) => {
       if (!e.tay || Math.abs(e.tay.lech) < 0.5 || e.tay.n_tu) return;
       const ms = pa.ds.filter(m => m.canh === i && m.id_tay && /^(canh|nk|ke)$/.test(kieuTay(m) || '')).sort((a, b) => b.rong - a.rong);
       if (ms.length) thu(`Khoang ${ms[0].vt} → tự chia`, o => sua(o, ms[0].id_tay, q => { q.rong = 'auto'; }));
     });
+    (pa.canh || []).forEach((e, i) => { if (e.tay && Math.abs(e.tay.lech) > 0.5 && e.tay.nep_go) thu(`Nẹp tự${pa.canh.length > 1 ? ` (cạnh ${'AB'[i]})` : ''}`, o => { o.tay.canh[i].nep = { dau: 'auto', cuoi: 'auto' }; }); });
     // 1b. khoang tự chia ngoài 150 … 900: thêm một khoang tự chia (sau khoang tự chia cuối) / bỏ khoang tự chia cuối
     (pa.canh || []).forEach((e, i) => {
       const ty = e.tay; if (!ty || ty.w_tu === null || !bo.tay.canh[i]) return;
@@ -5382,7 +5425,8 @@
       // (bản 1.37.0) theo khoang: khoang tự chia ngoài 150 … 900; tổng khoang + nẹp lệch dài (phần lệch không chỗ nào nhận); dư cuối dãy ≥ 20 / âm
       const ty = e.tay, tuNgoai = ty && ty.w_tu !== null && (ty.w_tu < BO.e_min - TOL || ty.w_tu > BO.e_max + TOL);
       if (tuNgoai) loi.push(`Cạnh ${'AB'[i]}: ${ty.n_tu} khoang tự chia mỗi khoang ${ty.w_tu > BO.e_max ? '' : 'chỉ còn '}${g(ty.w_tu)} — ${ty.w_tu > BO.e_max ? 'thêm một khoang' : 'bỏ một khoang'} (khoang tự chia ${g(BO.e_min)} … ${g(BO.e_max)}).`);
-      else if (ty && Math.abs(ty.lech) > 0.5) loi.push(`Cạnh ${'AB'[i]}: tổng khoang + nẹp ${ty.lech > 0 ? 'thiếu' : 'thừa'} ${g(Math.abs(ty.lech))} so với dài ${g(e.dai)} — để một khoang "tự chia", gõ lại rộng hoặc để nẹp "tự".`);
+      // (vòng soát 2 — 1.37.0) lối ra phải có thật trên bảng: nẹp tường đã gõ số (sau C1 là mọi nẹp) → nút “Nẹp tự” ở dòng tổng của cạnh
+      else if (ty && Math.abs(ty.lech) > 0.5) loi.push(`Cạnh ${'AB'[i]}: tổng khoang + nẹp ${ty.lech > 0 ? 'thiếu' : 'thừa'} ${g(Math.abs(ty.lech))} so với dài ${g(e.dai)} — để một khoang "tự chia"${ty.nep_go ? ', gõ lại rộng hoặc bấm “Nẹp tự”' : ' hoặc gõ lại rộng'}.`);
       if (e.du && (e.du >= DU_CHI - TOL || e.du < -TOL) && !(ty && Math.abs(ty.lech) > 0.5)) loi.push(`Cạnh ${'AB'[i]}: dãy ${e.du > 0 ? 'ngắn' : 'dài'} hơn dài gõ ${g(Math.abs(e.du))} ở đầu hở.`);
       if (kho) loi.push(`Cạnh ${'AB'[i]}: tổng tủ + nẹp ${g(rn(sum(d.map(m => m.u1 - m.u0)) + x0, 2))} khác dài ${g(e.dai)} (hoặc có chỗ hở / chồng giữa các tủ).`);
       if (L && i === 0 && pa.goc && pa.goc.X < -TOL) loi.push(`Tủ góc cách tường cạnh B ${g(pa.goc.X)} < 0 — tủ góc quá rộng so với cánh.`);
@@ -5424,7 +5468,10 @@
       // tủ trên tầng dưới liền nhau và hết đúng ở mép tủ dưới cuối (danh sách tủ trên riêng có thể hở / chồng)
       for (let j = 1; j < tr.length; j++) if (Math.abs(tr[j].u0 - tr[j - 1].u1) > 0.5) loi.push(`Tủ trên cạnh ${'AB'[i]}: ${tr[j].u0 > tr[j - 1].u1 ? 'hở' : 'chồng'} ${g(rn(Math.abs(tr[j].u0 - tr[j - 1].u1), 2))} giữa ${tr[j - 1].vt} và ${tr[j].vt}.`);
       // so theo THÙNG (bỏ nẹp / ốp ở đầu dãy): tủ trên cuối thiếu thì không mang nẹp tường — so mép tủ là tính lẫn bề nẹp
-      if (tr.length && du.length) { const a = thungU(tr[tr.length - 1], e.lat)[1], b = thungU(du[du.length - 1], e.lat)[1];
+      // (vòng soát 1.37.0) khoang tự chia của tủ trên riêng ngoài 150 … 900: một dòng nói rõ (tủ dựng ở mức kẹp nên dòng "thiếu / thừa" là cùng một ý — bỏ)
+      const tt = e.tay && e.tay.tren_n ? e.tay : null, trNgoai = tt && (tt.tren_w < BO.e_min - TOL || tt.tren_w > BO.e_max + TOL);
+      if (trNgoai) loi.push(`Tủ trên cạnh ${'AB'[i]}: ${tt.tren_n} khoang tự chia mỗi khoang ${tt.tren_w > BO.e_max ? '' : 'chỉ còn '}${g(tt.tren_w)} — ${tt.tren_w > BO.e_max ? 'thêm một khoang' : 'bỏ một khoang'} (khoang tự chia ${g(BO.e_min)} … ${g(BO.e_max)}).`);
+      else if (tr.length && du.length) { const a = thungU(tr[tr.length - 1], e.lat)[1], b = thungU(du[du.length - 1], e.lat)[1];
         if (Math.abs(a - b) > 0.5) loi.push(`Tủ trên cạnh ${'AB'[i]}: ${a < b ? 'thiếu' : 'thừa'} ${g(rn(Math.abs(a - b), 2))} so với dãy dưới — gõ lại rộng tủ trên hoặc để một tủ "tự chia".`); }
       if (!L && tr.length && du.length) { const a = thungU(tr[0], e.lat)[0], b = thungU(du[0], e.lat)[0]; if (Math.abs(a - b) > 0.5) loi.push(`Tủ trên cạnh ${'AB'[i]}: bắt đầu lệch ${g(rn(Math.abs(a - b), 2))} so với dãy dưới.`); }
       // chậu kề bếp, không tủ nào xen giữa
@@ -5434,7 +5481,9 @@
       // chậu khác cỡ bếp: luật cỡ chung 1.35 là luật của bộ chia, không phải lỗi sản xuất — CẢNH BÁO (anh chốt C4: cho phép + nút "Đặt bếp = chậu")
       if (cs.length && bs.length && Math.abs(cs[0].rong - bs[0].rong) > TOL) canh_bao.push(`Chậu ${g(cs[0].rong)} khác cỡ bếp ${g(bs[0].rong)} — chuẩn là chậu = bếp cùng cỡ (đặt bếp = chậu ${g(cs[0].rong)} nếu không cố ý).`);
       // hút mùi không nằm trên tủ bếp nấu nào / bếp không có hút mùi phía trên
-      const tren = ds.filter(m => m.tang === 'tren' && !m.t2), chong = (a, b) => a.canh === b.canh && a.u0 < b.u1 - TOL && a.u1 > b.u0 + TOL;
+      // (vòng soát 1.37.0) "trên bếp" = TÂM tủ hút mùi nằm trong bề tủ bếp (trước: chồng > 0 — hút mùi chỉ chạm mép bếp lọt qua, chỉ còn cảnh báo lệch tâm);
+      // (vòng soát 2) TRONG hẳn, không tính mép: tâm trúng đúng mép bếp = hút mùi lệch nửa bề ra ngoài bếp
+      const tren = ds.filter(m => m.tang === 'tren' && !m.t2), chong = (a, b) => a.canh === b.canh && (a.u0 + a.u1) / 2 > b.u0 + TOL && (a.u0 + a.u1) / 2 < b.u1 - TOL;
       for (const h of tren.filter(m => m.chuc === 'hm')) if (!bs.some(b => chong(h, b))) loi.push(`${ten(h)}: tủ hút mùi không nằm trên tủ bếp nấu nào — đổi tủ trên này về cánh, đặt hút mùi trên bếp.`);
       for (const b of bs) if (!tren.some(h => h.chuc === 'hm' && chong(h, b))) canh_bao.push(`${ten(b)}: bếp nấu không có tủ hút mùi phía trên.`);
       for (const t of tren.filter(m => m.chuc === 'bat')) if (!cs.some(c => chong(t, c))) luu_y.push(`${ten(t)}: tủ giá bát không đặt trên tủ chậu — bát rửa xong phải mang qua (giá bát nâng hạ thường trên chậu).`);
@@ -5817,5 +5866,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { xepTay, tayTuPA, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { xepTay, tayTuPA, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
