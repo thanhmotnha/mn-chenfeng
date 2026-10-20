@@ -630,7 +630,7 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
     let spec = Core.normalize(daLuu.spec || undefined);
     let model = null, showDoors = true, busy = false, lastRep = null;
     // (bản 1.34) bộ bếp chữ I / L đang làm (null = đang làm một món lẻ), phương án đang xem, tủ đang chọn, cạnh đang xem mặt đứng… — xem khối BỘ BẾP
-    let boTranNho = 0, boBep = null, boPa = 0, boChon = null, boCanh = 0, boThem = false, boNho = null, boGo = null, boTmr = 0, boKeo = null, boKeoXong = 0;
+    let boReNho = '', boTranNho = 0, boBep = null, boPa = 0, boChon = null, boCanh = 0, boThem = false, boNho = null, boGo = null, boTmr = 0, boKeo = null, boKeoXong = 0;
     let boTayId = null, boTayTren = false, boTayBao = null, boNhan = false, boHoan = null;      // boNhan: đang giữ chuột trong bảng; boHoan: lần vẽ lại hoãn tới khi nhả chuột (vòng soát 1.37.0)      // (bản 1.37.0) Từng khoang: thẻ đang chọn (id khoang; boTayTren = đang chọn tủ trên theo mối nối của khoang đó), lời báo của lần chuẩn hoá vừa rồi
     let boPaTim = false, boLechNho = null;      // (vòng soát 2 — 1.34) chia lại xong thì chọn phương án gần bộ ĐÃ VẼ nhất (không về phương án 1 — Cập nhật sẽ xếp lại cả dãy)
     let boCho = null, boVe = null;      // (1.34 bước 4) chỗ đặt dãy đang giữ { goc, xoay }; bản ghi bộ đã vẽ { ma, cho, da_ve: [{ vt, id, sig, at, xoay, tang }], tong, dung }
@@ -938,7 +938,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
      * (lần gõ đầu nhớ trạng thái trước khi gõ — goPK), nên lùi không bao giờ xoá ngầm số vừa gõ. */
     let hist = [], nhich = null, goPK = null;
     // (bản 1.34) đang làm bộ bếp: gói cả bộ (bộ, phương án, cạnh đang xem) — lùi qua lần vào / rời bộ bếp cũng đúng
-    const chup = () => (boBep ? JSON.stringify({ __bo: { bo: boBep, pa: boPa, canh: boCanh }, spec }) : JSON.stringify(spec));
+    // (vòng soát 1.37.1) kèm chỗ đặt (boCho): lùi qua lần đổi góc / kiểu (chỗ đặt bị bỏ) thì chỗ đặt của lúc đó trở lại — xem lui()
+    const chup = () => (boBep ? JSON.stringify({ __bo: { bo: boBep, pa: boPa, canh: boCanh, cho: boCho }, spec }) : JSON.stringify(spec));
     // ô số của thẻ Tủ (ngoài Chuẩn xưởng) theo thông số hiện tại — sau khi sửa trên hình / lùi
     const napO = () => $$('[data-k]').forEach(i => { if (i.closest('.settings')) return; i.value = fmt(getP(spec, i.dataset.k)); });
     const capNut = () => { const b = $('[data-act="lui"]'); if (b) b.disabled = !hist.length; };
@@ -952,7 +953,12 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       while (hist.length && (s = hist.pop()) === nay) s = null;
       capNut(); if (!s) return;
       const o = JSON.parse(s);
-      if (o && o.__bo) { boBep = o.__bo.bo; boPa = o.__bo.pa || 0; boCanh = o.__bo.canh || 0; spec = Core.normalize(o.spec); luuBo(); napBoVe(); } else { boBep = null; spec = Core.normalize(o); }
+      if (o && o.__bo) {
+        // chỗ đặt chỉ trả lại khi bước lùi đổi góc chữ L / kiểu dãy (chỗ đặt gắn với góc trong / đầu trái); bước khác giữ chỗ đang có
+        const gocKhac = (x, y) => !x || !y || x.kieu !== y.kieu || (x.kieu === 'L' && Core.chuanBo(x).canh[1].re !== Core.chuanBo(y).canh[1].re);
+        if ('cho' in o.__bo && gocKhac(boBep, o.__bo.bo)) boCho = o.__bo.cho ? clone(o.__bo.cho) : null;
+        boBep = o.__bo.bo; boPa = o.__bo.pa || 0; boCanh = o.__bo.canh || 0; spec = Core.normalize(o.spec); luuBo(); napBoVe();
+      } else { boBep = null; spec = Core.normalize(o); }
       boChon = null; boGo = null; boTayBao = null;      // (vòng soát 1.37.0) lời báo "Rộng đã gõ … → …" là của lần sửa vừa lùi bỏ
       sel = null; nhich = null; goPK = null; capLoai(); napO(); renderBays(); renderSettings(); rebuild(); setStatus('Đã lùi 1 bước.');      // lùi qua lần đổi giường ↔ tủ: ô thông số + hình theo loại
     }
@@ -4415,6 +4421,17 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     const laKinhBo = (b, m) => m.tang === 'tren' && !m.t2 && (m.chuc === 'bat' || m.chuc === 'canh') && (b.kinh === 'bat' ? m.chuc === 'bat' : Core.kinhO(b.kinh, m));
     const choKinh = m => ({ canh: m.canh, s: Math.round((m.s0 + m.dai / 2) * 10) / 10 });
     const thayBo = (o, x) => { Object.keys(o).forEach(k => delete o[k]); Object.assign(o, x); };
+    // (1.37.1) lật góc chữ L (chip Góc trái / phải và Chỗ khi điểm bấm cho góc kia — MỘT đường): s0 của tủ ghim, tâm chậu / bếp / ống, chỗ kính / cánh lật đo theo
+    // trục tủ — lật góc là trục đảo chiều, giữ số cũ là tủ nhảy chỗ / ghim không xếp được → bỏ; Từng khoang dựng lại từ tự chia của góc mới. → phần lời báo đã bỏ ('' = không bỏ gì)
+    function lanGoc(o, re) {
+      const b0 = Core.chuanBo(o);
+      const co = !!(b0.khoa && Object.keys(b0.khoa).length) || !!(b0.chau && b0.chau.s != null) || !!(b0.bep && b0.bep.s != null) || !!b0.ong || Array.isArray(b0.kinh) || !!(b0.lat && b0.lat.length);
+      o.canh[1] = Object.assign({}, o.canh[1], { re });
+      o.khoa = {}; if (o.chau) o.chau = Object.assign({}, o.chau, { s: null }); if (o.bep) o.bep = Object.assign({}, o.bep, { s: null }); delete o.ong;
+      if (Array.isArray(o.kinh)) o.kinh = 'khong'; delete o.lat;
+      if (o.tay) thayBo(o, Core.tayDoiKieu(o, { nen: nenBo() }));
+      return co ? '; tủ ghim / tâm chậu / bếp / ống / kính / cánh lật đã bỏ (đo theo hướng cũ)' : '';
+    }
     /** Một bước của bộ: chụp trước → sửa bản sao → chuẩn hoá → nhớ ↶ Lùi + máy → vẽ lại (form nữa trừ khi đang gõ). */
     function doiBo(f, opt) {
       opt = opt || {};
@@ -4432,7 +4449,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (cu.kieu !== kieu && cu.bep && typeof cu.bep === 'object') cu.bep = Object.assign({}, cu.bep, { canh: null });      // bộ nhớ là kiểu kia: bếp tự chọn cạnh
       // (vòng soát 2 — 1.37.0) bộ nhớ là kiểu kia mà còn danh sách "Từng khoang": dựng lại theo kiểu này (như chip Chữ I / L)
       const moi = cu.kieu !== kieu && cu.tay ? Core.tayDoiKieu(Object.assign({}, cu, { kieu }), { nen: nenBo() }) : Object.assign({}, cu, { kieu });
-      sel = null; boBep = gonBo(Core.chuanBo(moi)); boPa = 0; boPaTim = true; boChon = null; boTayId = null; boTayBao = null; boCanh = 0; boGo = null; boCho = null; boVe = null;
+      sel = null; boReNho = ''; boBep = gonBo(Core.chuanBo(moi)); boPa = 0; boPaTim = true; boChon = null; boTayId = null; boTayBao = null; boCanh = 0; boGo = null; boCho = null; boVe = null;
       // (vòng soát 2 — 1.34) bộ nhớ là kiểu kia mà đã vẽ: kiểu này là bộ MỚI (mã khác) — không bám bản ghi + chỗ đặt của bộ kiểu kia (góc trong ≠ đầu trái)
       const mm = maKhacKieu(boBep.ma, kieu); if (mm) boBep.ma = mm;
       napBoVe();
@@ -4959,7 +4976,9 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
         const kieu = v === 'L' ? 'L' : 'I', cu = boBep.ma, mm = maKhacKieu(cu, kieu), coCho = !!boCho, tay = laTay();
         // (vòng soát 2 — 1.37.0) danh sách "Từng khoang" của kiểu cũ không dùng được (chữ I → L: cạnh B rỗng, cạnh A thừa cả nghìn): đang Từng khoang thì
         // dựng lại từ phương án tự chia của kiểu mới (C1), đang Tự chia thì bỏ danh sách cũ — ↶ Lùi lấy lại cả hai
-        doiBo(o => { o.kieu = kieu; if (o.bep) o.bep.canh = null; if (mm) o.ma = mm; if (o.tay) thayBo(o, Core.tayDoiKieu(o, { nen: nenBo() })); });
+        // (vòng soát 1.37.1) chữ I chỉ giữ một cạnh (mất góc): L → I nhớ góc, I → L đặt lại góc đó
+        if (boBep.kieu === 'L') boReNho = Core.chuanBo(boBep).canh[1].re;
+        doiBo(o => { o.kieu = kieu; if (kieu === 'L' && boReNho) { if (!o.canh[1]) o.canh[1] = {}; o.canh[1] = Object.assign({}, o.canh[1], { re: boReNho }); } if (o.bep) o.bep.canh = null; if (mm) o.ma = mm; if (o.tay) thayBo(o, Core.tayDoiKieu(o, { nen: nenBo() })); });
         boVe = null; boCho = null; napBoVe(); capBoNut();
         if (tay) setStatus(`Chữ ${kieu}: danh sách từng khoang dựng lại từ phương án tự chia của chữ ${kieu}${mm ? ` (bộ mới ${mm} — bộ ${cu} đã vẽ giữ nguyên)` : ''}${mm || coCho ? '; bấm “Chỗ” để chọn chỗ đặt' : ''}. ↶ Lùi để về chữ ${kieu === 'L' ? 'I' : 'L'}.`);
         else if (mm) setStatus(`Chữ ${kieu}: bộ ${cu} (chữ ${kieu === 'L' ? 'I' : 'L'}) đã vẽ giữ nguyên — đây là bộ mới ${mm}; bấm “Chỗ” để chọn chỗ đặt.`);
@@ -4970,19 +4989,14 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
         const re = v === 'trai' ? 'trai' : 'phai', b0 = Core.chuanBo(boBep);
         if (b0.kieu !== 'L' || b0.canh[1].re === re) return;
         if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng đổi góc.');
-        const dv = docBoVe(boBep.ma);
-        if (dv && dv.da_ve && dv.da_ve.length) return setStatus(`Bộ ${boBep.ma} đã vẽ với góc ${b0.canh[1].re === 'trai' ? 'trái' : 'phải'} — đổi góc là dựng bộ khác: Hoàn tác bộ rồi đổi, hoặc bấm “Chỗ” để đặt bộ mới (góc theo điểm bấm).`);
-        // s0 của tủ ghim, tâm chậu / bếp / ống, chỗ kính / cánh lật đo theo trục tủ — lật góc là trục đảo chiều, giữ số cũ là tủ nhảy sang chỗ khác
-        const coGhim = !!(b0.khoa && Object.keys(b0.khoa).length) || !!(b0.chau && b0.chau.s != null) || !!(b0.bep && b0.bep.s != null) || !!b0.ong || Array.isArray(b0.kinh) || !!(b0.lat && b0.lat.length), tay = laTay(), coCho = !!boCho;
+        // (vòng soát 1.37.1) chặn theo bộ CÓ trên bản vẽ đang mở (boVeCo sau napBoVe / locBoVe) — bản ghi của bản vẽ khác không khoá chip (vẽ thì veBoBep tự lấy mã mới)
+        napBoVe(); locBoVe();
+        if (boVeCo()) return setStatus(`Bộ ${boBep.ma} đã vẽ với góc ${b0.canh[1].re === 'trai' ? 'trái' : 'phải'} — đổi góc là dựng bộ khác: Hoàn tác bộ rồi đổi, hoặc bấm “Chỗ” để đặt bộ mới (góc theo điểm bấm).`);
+        const tay = laTay(), coCho = !!boCho; let bo = '';
         boChon = null; boTayId = null; boTayTren = false;
-        doiBo(o => {
-          o.canh[1] = Object.assign({}, o.canh[1], { re });
-          o.khoa = {}; if (o.chau) o.chau = Object.assign({}, o.chau, { s: null }); if (o.bep) o.bep = Object.assign({}, o.bep, { s: null }); delete o.ong;
-          if (Array.isArray(o.kinh)) o.kinh = 'khong'; delete o.lat;
-          if (o.tay) thayBo(o, Core.tayDoiKieu(o, { nen: nenBo() }));
-        });
+        doiTay(o => { bo = lanGoc(o, re); }, b);
         boCho = null; capBoNut();
-        return setStatus(`Góc ${re === 'trai' ? 'trái' : 'phải'}: cạnh B chạy về phía ${re === 'trai' ? 'trái' : 'phải'}${coGhim ? '; tủ ghim / tâm chậu / bếp / ống / kính / cánh lật đã bỏ (đo theo hướng cũ)' : ''}${tay ? '; danh sách từng khoang dựng lại' : ''}${coCho ? '; bấm “Chỗ” để chọn lại chỗ đặt' : ''}. ↶ Lùi để về như cũ.`);
+        return setStatus(`Góc ${re === 'trai' ? 'trái' : 'phải'}: cạnh B chạy về phía ${re === 'trai' ? 'trái' : 'phải'}${bo}${tay ? '; danh sách từng khoang dựng lại' : ''}${coCho ? '; bấm “Chỗ” để chọn lại chỗ đặt' : ''}. ↶ Lùi để về như cũ.`);
       }
       if (act === 'bo-tl') return doiBo(o => {
         if (!v) { o.tl = null; o.tl2 = null; return; }
@@ -5171,9 +5185,14 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       const ghi = [];
       // bộ này đã có trên bản vẽ: chỗ mới = bộ mới (bộ cũ giữ nguyên, Cập nhật / Hoàn tác vẫn theo bản ghi của nó)
       if (boVeCo()) { const cu = boVe.ma, m = maBoMoi(); boBep = gonBo(Core.chuanBo(Object.assign({}, boBep, { ma: m }))); boVe = null; luuBo(); ghi.push(`Bộ ${cu} đã có trên bản vẽ — đây là bộ mới ${m}.`); }
-      boCho = { goc: c.goc, xoay: c.xoay };
-      if (L && c.re && c.re !== Core.chuanBo(boBep).canh[1].re) { doiBo(o => { o.canh[1].re = c.re; }); ghi.push(`Cạnh B rẽ ${c.re === 'trai' ? 'trái' : 'phải'} theo điểm bấm.`); }
-      else veBo(true);
+      // (vòng soát 1.37.1) góc theo điểm bấm khác bộ: đi chung đường với chip Góc trái / phải (lanGoc — bỏ ghim / tâm / ống…, Từng khoang dựng lại);
+      // chỗ đặt ghi SAU bước đó để ↶ Lùi về góc cũ không mang chỗ của góc mới
+      if (L && c.re && c.re !== Core.chuanBo(boBep).canh[1].re) {
+        let bo = ''; const tay = laTay(); boChon = null; boTayId = null; boTayTren = false;
+        doiBo(o => { bo = lanGoc(o, c.re); });
+        ghi.push(`Cạnh B rẽ ${c.re === 'trai' ? 'trái' : 'phải'} theo điểm bấm${bo.replace(/^;/, ' —')}${tay ? '; danh sách từng khoang dựng lại' : ''}.`);
+        boCho = { goc: c.goc, xoay: c.xoay };
+      } else { boCho = { goc: c.goc, xoay: c.xoay }; veBo(true); }
       const b = Core.chuanBo(boBep), lech = c.dai.map((d, i) => (b.canh[i] && Math.abs(d - b.canh[i].dai) > 30 ? `${L ? 'cạnh ' + 'AB'[i] : 'dài'} đo được ≈ ${hien(Math.round(d))} (bảng: ${hien(b.canh[i].dai)})` : '')).filter(Boolean);
       setStatus(`Đã chọn chỗ đặt dãy: ${L ? 'góc trong' : 'đầu trái'} ${c.goc.map(x => hien(Math.round(x))).join(', ')}, hướng ${hien(c.xoay)}°. ${ghi.join(' ')}${lech.length ? ` Lưu ý: ${lech.join('; ')} — điểm thứ hai chỉ cho hướng; dài lấy theo ô Dài.` : ''} Bấm “Vẽ bộ bếp”.`.replace(/\s+/g, ' ').trim());
       capBoNut();

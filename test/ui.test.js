@@ -1308,6 +1308,52 @@ async function testBoBep(browser) {
     ok(await S(page, '[data-act="bo-re"][data-v="trai"]').getAttribute('aria-pressed') === 'true' && /Góc trái/.test(await page.evaluate(() => window.MNCF.app.getStatus ? window.MNCF.app.getStatus() : document.getElementById('mncf-host').shadowRoot.textContent)), 'chip Góc trái sáng + lời báo');
     await S(page, '[data-act="lui"]').click(); ok((await bo()).canh[1].re !== 'trai' && Object.keys((await bo()).khoa || {}).length === 1, 'đổi góc là MỘT bước ↶ Lùi (về góc phải, ghim trở lại)');
     await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
+  // (1.37.1 — vòng soát) góc trái / phải: Chỗ lật góc đi chung đường với chip, chặn theo bộ CÓ trên bản vẽ đang mở, tiêu điểm, ↶ Lùi trả chỗ đặt, I → L nhớ góc
+  { const b0 = await bo(), st = () => page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent);
+    const thuTu = async (canh) => (await kq()).pa[0].ds.filter(q => q.tang === 'duoi' && q.canh === canh).sort((p, q) => p.u0 - q.u0).map(q => q.chuc).join(' ');
+    const datRe = re => page.evaluate(re => { const o = window.MNCF.app.getBo(); o.canh[1].re = re; o.khoa = {}; delete o.ong; delete o.chia; window.MNCF.app.setBo(o); }, re);
+    // vá driver của trang độc lập: bấm điểm theo góc PHẢI (choDiem → re 'phai'); trả lại sau khối
+    const vaDrv = () => page.evaluate(() => { const D = window.MNCF.driver; window.__drvCu = { available: D.available, hoiDiem2: D.hoiDiem2, khongDau: D.khongDau, all: D.all };
+      D.available = () => true; D.all = () => []; D.khongDau = x => x; D.hoiDiem2 = async () => ({ diem: (window.__pts || []).shift() }); });
+    const traDrv = () => page.evaluate(() => { const D = window.MNCF.driver; Object.assign(D, window.__drvCu); });
+    const choPhai = () => page.evaluate(async () => { window.__pts = [[0, 0, 0], [-1000, 0, 0], [0, -1000, 0]]; const re = window.MNCFCore.choDiem('L', window.__pts.slice()).re; await window.MNCF.app.chonChoBo(); return re; }).catch(e => String(e));
+    await datRe('trai'); await vaDrv();
+    // (a) chip đã bỏ ghim khi lật góc — bấm Chỗ lật góc cũng phải bỏ: ghim tủ chậu + ống ở góc trái, rồi Chỗ cho ra góc phải
+    await page.evaluate(() => { const o = window.MNCF.app.getBo(), m = window.MNCF.app.getBoKq().pa[0].ds.find(q => q.chuc === 'chau'); o.khoa = { [window.MNCFCore.khoaBo(m.canh, m.s0)]: { ma: m.ma, s0: m.s0, canh: m.canh } }; o.ong = { canh: m.canh, s: m.s0 + m.dai / 2 }; window.MNCF.app.setBo(o); });
+    const ghimTrai = (await bo()).khoa;
+    ok((await choPhai()) === 'phai', 'điểm bấm cho ra góc phải');
+    { const b1 = await bo(), k1 = await kq(), s = await st();
+      ok(b1.canh[1].re === 'phai' && !Object.keys(b1.khoa || {}).length && !b1.ong && k1.pa.length > 0 && !(k1.loi_chung || []).length, 'Chỗ lật góc: bỏ ghim + ống như chip (không thì không phương án nào)', [b1.canh[1], b1.khoa, b1.ong, k1.pa.length, k1.loi_chung]);
+      ok(/rẽ phải theo điểm bấm/.test(s) && /đã bỏ/.test(s), 'lời báo của Chỗ nêu phần đã bỏ', s);
+      ok(!!(await page.evaluate(() => window.MNCF.app.getBoCho())), 'Chỗ đặt giữ sau khi lật góc'); }
+    await S(page, '[data-act="lui"]').click();
+    { const b1 = await bo(); ok(b1.canh[1].re === 'trai' && JSON.stringify(b1.khoa) === JSON.stringify(ghimTrai) && !(await page.evaluate(() => window.MNCF.app.getBoCho())), '↶ Lùi sau Chỗ lật góc: về góc trái + ghim, chỗ đặt (góc phải) bỏ', [b1.canh[1], b1.khoa]); }
+    // (b) Từng khoang: Chỗ lật góc dựng lại danh sách theo trục mới — thứ tự tính từ góc giữ như cũ (lõi đối xứng gương)
+    await datRe('trai'); await S(page, '[data-act="bo-chia"][data-v="tay"]').click();
+    const tA = await thuTu(0); await choPhai();
+    ok((await bo()).canh[1].re === 'phai' && (await thuTu(0)) === tA, 'Từng khoang + Chỗ lật góc: cạnh A tính từ góc vẫn ' + tA, await thuTu(0));
+    await page.evaluate(() => { const o = window.MNCF.app.getBo(); delete o.chia; window.MNCF.app.setBo(o); });
+    // (c) bản ghi bộ cùng mã ở BẢN VẼ KHÁC (không tủ nào trên bản vẽ đang mở): chip không bị khoá
+    const ma = (await bo()).ma;
+    await page.evaluate(ma => localStorage.setItem('mncf.tu.bo:' + ma, JSON.stringify({ spec: { ma, kieu: 'L', cho: { goc: [0, 0, 0], xoay: 0 }, da_ve: [{ vt: 'A1', id: 'ZZZ9', sig: 'x', at: [0, 0, 0], xoay: 0, tang: 'duoi' }] }, ban: '1.37.1', luc: Date.now() })), ma);
+    await S(page, '[data-act="bo-re"][data-v="trai"]').click();
+    ok((await bo()).canh[1].re === 'trai' && !(await page.evaluate(() => window.MNCF.app.getBoVe())), 'bản ghi bộ ở bản vẽ khác: chip Góc trái vẫn đổi được', [(await bo()).canh[1], await st()]);
+    await page.evaluate(ma => localStorage.removeItem('mncf.tu.bo:' + ma), ma);
+    await traDrv();
+    // (d) tiêu điểm ở lại chip vừa bấm
+    await S(page, '[data-act="bo-re"][data-v="phai"]').click();
+    ok(await page.evaluate(() => { const a = document.getElementById('mncf-host').shadowRoot.activeElement; return !!a && a.dataset.act === 'bo-re' && a.dataset.v === 'phai'; }), 'bấm chip Góc: tiêu điểm ở lại chip');
+    // (e) ↶ Lùi trả chỗ đặt mà chip đã bỏ
+    await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [100, 200, 0], xoay: 0 }));
+    await S(page, '[data-act="bo-re"][data-v="trai"]').click();
+    ok(!(await page.evaluate(() => window.MNCF.app.getBoCho())), 'đổi góc bỏ chỗ đặt');
+    await S(page, '[data-act="lui"]').click();
+    { const c = await page.evaluate(() => window.MNCF.app.getBoCho()); ok((await bo()).canh[1].re === 'phai' && c && c.goc[0] === 100 && c.goc[1] === 200, '↶ Lùi đổi góc: chỗ đặt trở lại', c); }
+    // (f) Chữ L → I → L nhớ góc đã chọn
+    await S(page, '[data-act="bo-re"][data-v="trai"]').click();
+    await S(page, '[data-act="bo-kieu"][data-v="I"]').click(); await S(page, '[data-act="bo-kieu"][data-v="L"]').click();
+    ok((await bo()).canh[1].re === 'trai' && (await S(page, '[data-act="bo-re"][data-v="trai"]').getAttribute('aria-pressed')) === 'true', 'Chữ L → I → L: góc trái vẫn giữ', (await bo()).canh[1]);
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
   // (vòng soát 2 — 1.34) chữ L, bếp tự chọn cạnh: gõ Tâm bếp theo cạnh đang có bếp → bếp ở lại cạnh đó (không nhảy sang tường kia với cùng số)
   { const b0 = await bo(); await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.canh = [{ dai: 3800 }, { dai: 2600 }]; o.tl = null; o.ke = false; o.bep = { canh: null, s: null }; window.MNCF.app.setBo(o); });
     const m = (await kq()).pa[0].ds.find(x => x.chuc === 'bep');
