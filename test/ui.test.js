@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.37\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.37\.1/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -1294,6 +1294,20 @@ async function testBoBep(browser) {
     await S(page, '[data-act="bo-canh"][data-v="1"]').click();
     const vts = await S(page, '.bov svg[data-bo="md"] [data-bo-vt]').evaluateAll(es => es.map(e => e.dataset.boVt));
     ok(vts.length > 0 && vts.every(v => v[0] === 'B'), 'mặt đứng cạnh B', vts); }
+  // (1.37.1) góc trái / phải — anh Thanh 20/10/2026: "góc L bên trái góc L bên phải nhiều nhà bếp như này, a đang thấy có 1 góc"
+  { const b0 = await bo();
+    ok(await S(page, '[data-act="bo-re"][data-v="phai"]').getAttribute('aria-pressed') === 'true', 'chữ L: chip Góc phải sáng (mặc định)');
+    const mb = async () => S(page, '.bov svg[data-bo="mb"] [data-bo-vt^="B"]').evaluateAll(es => es.map(e => { const r = e.getBBox(); return r.x + r.width / 2; }));
+    const xa = await S(page, '.bov svg[data-bo="mb"] [data-bo-vt^="A"]').evaluateAll(es => es.map(e => { const r = e.getBBox(); return r.x + r.width / 2; }));
+    const xP = await mb(), giua = (Math.min(...xa) + Math.max(...xa)) / 2;
+    await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.khoa = { 'A:600': { ma: 'BD-CANH-600', s0: 600, canh: 0 } }; window.MNCF.app.setBo(o); });
+    await S(page, '[data-act="bo-re"][data-v="trai"]').click();
+    const b1 = await bo(), k1 = await kq(), xT = await mb();
+    ok(b1.canh[1].re === 'trai' && k1.pa.length > 0 && !Object.keys(b1.khoa || {}).length, 'bấm Góc trái: cạnh B rẽ trái, có phương án, bỏ ghim (đo theo hướng cũ)', [b1.canh[1], k1.loi_chung]);
+    ok(xP.length && xT.length && xP.every(x => x > giua) && xT.every(x => x < giua), 'mặt bằng: cạnh B nằm bên phải / bên trái cạnh A', [xP, xT, giua]);
+    ok(await S(page, '[data-act="bo-re"][data-v="trai"]').getAttribute('aria-pressed') === 'true' && /Góc trái/.test(await page.evaluate(() => window.MNCF.app.getStatus ? window.MNCF.app.getStatus() : document.getElementById('mncf-host').shadowRoot.textContent)), 'chip Góc trái sáng + lời báo');
+    await S(page, '[data-act="lui"]').click(); ok((await bo()).canh[1].re !== 'trai' && Object.keys((await bo()).khoa || {}).length === 1, 'đổi góc là MỘT bước ↶ Lùi (về góc phải, ghim trở lại)');
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
   // (vòng soát 2 — 1.34) chữ L, bếp tự chọn cạnh: gõ Tâm bếp theo cạnh đang có bếp → bếp ở lại cạnh đó (không nhảy sang tường kia với cùng số)
   { const b0 = await bo(); await page.evaluate(() => { const o = window.MNCF.app.getBo(); o.canh = [{ dai: 3800 }, { dai: 2600 }]; o.tl = null; o.ke = false; o.bep = { canh: null, s: null }; window.MNCF.app.setBo(o); });
     const m = (await kq()).pa[0].ds.find(x => x.chuc === 'bep');

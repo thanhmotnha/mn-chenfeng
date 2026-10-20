@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Một Nhà · Vẽ tủ vào Chenfeng
 // @namespace    https://motnha.vn/
-// @version      1.37.0
+// @version      1.37.1
 // @description  Nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → tự vẽ thùng, hậu, phào, chân, cánh, ngăn kéo, suốt treo vào Chenfeng WebCAD. Chenfeng tự khoan lỗ.
 // @match        https://cfcad.cn/*
 // @match        https://www.cfcad.cn/*
@@ -13,7 +13,7 @@
 // @updateURL    https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // @downloadURL  https://raw.githubusercontent.com/thanhmotnha/mn-chenfeng/main/dist/mn-chenfeng.user.js
 // ==/UserScript==
-/* Một Nhà · Vẽ tủ vào Chenfeng — v1.37.0 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
+/* Một Nhà · Vẽ tủ vào Chenfeng — v1.37.1 — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */
 ;(function(){
 /*!
  * mncf-core.js — Một Nhà · Vẽ tủ vào Chenfeng
@@ -29,7 +29,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.37.0';
+  const VERSION = '1.37.1';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -16590,7 +16590,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       f.push(`<legend>Bộ bếp chữ ${L ? 'L' : 'I'}</legend>`);
       // (bản 1.37.0) cách chia: Tự chia (bảng chấm điểm, ‹ › phương án) | Từng khoang (danh sách khoang như tủ áo — anh chốt "Dãy như tủ áo")
       const tay = b.chia === 'tay';
-      f.push(`<div class="frow bohang"><div class="bochip" role="group" aria-label="Kiểu dãy">${nut('bo-kieu', 'I', 'Chữ I', !L, 'Một dãy thẳng')}${nut('bo-kieu', 'L', 'Chữ L', L, 'Hai cạnh, góc trong là tủ góc mù + phụ kiện góc')}</div><div class="bochip" role="group" aria-label="Cách chia">${nut('bo-chia', 'tu', 'Tự chia', !tay, 'Bảng tự chia tủ dưới / tủ trên theo dài tường, tủ lạnh, ống thoát (‹ › xem phương án khác)')}${nut('bo-chia', 'tay', 'Từng khoang', tay, 'Tự chọn từng khoang như tủ áo: chức năng + rộng mỗi khoang (bắt đầu từ phương án đang xem); bảng vẫn kiểm lỗi')}</div></div>`);
+      f.push(`<div class="frow bohang"><div class="bochip" role="group" aria-label="Kiểu dãy">${nut('bo-kieu', 'I', 'Chữ I', !L, 'Một dãy thẳng')}${nut('bo-kieu', 'L', 'Chữ L', L, 'Hai cạnh, góc trong là tủ góc mù + phụ kiện góc')}</div>${L ? `<div class="bochip" role="group" aria-label="Góc chữ L">${nut('bo-re', 'trai', 'Góc trái', b.canh[1].re === 'trai', 'Đứng nhìn vào tường A: góc trong ở bên TRÁI, cạnh B chạy về phía trái')}${nut('bo-re', 'phai', 'Góc phải', b.canh[1].re !== 'trai', 'Đứng nhìn vào tường A: góc trong ở bên PHẢI, cạnh B chạy về phía phải')}</div>` : ''}<div class="bochip" role="group" aria-label="Cách chia">${nut('bo-chia', 'tu', 'Tự chia', !tay, 'Bảng tự chia tủ dưới / tủ trên theo dài tường, tủ lạnh, ống thoát (‹ › xem phương án khác)')}${nut('bo-chia', 'tay', 'Từng khoang', tay, 'Tự chọn từng khoang như tủ áo: chức năng + rộng mỗi khoang (bắt đầu từ phương án đang xem); bảng vẫn kiểm lỗi')}</div></div>`);
       f.push(`<div class="g g3">${ip('bo-dai-a', L ? 'Dài A (cạnh có tủ góc)' : 'Dài tường', b.canh[0].dai, 'title="Dài tường đặt tủ (mm), tính cả nẹp hai đầu. Chữ L: cạnh A đi vào góc, tính từ góc trong"')}${L ? ip('bo-dai-b', 'Dài B', b.canh[1].dai, 'title="Dài cạnh B (mm), tính từ góc trong"') : ''}${sl('bo-hm', 'Hút mùi', [['am', 'Âm tủ'], ['kinh', 'Kính / chữ T']], b.hm)}${b.tran > 0 ? ip('bo-tran', 'Trần', b.tran, 'title="Cao trần chỗ đặt bếp (mm) — tầng trên của tủ trên chồng tới sát trần (khe 10)"') : ''}${L ? sl('bo-goc', 'Góc', Object.keys(Core.GOC_BEP || {}).map(k => [k, Core.GOC_BEP[k].ten]), b.goc.pk, 'title="Phụ kiện góc cho tủ góc mù (chỉ Higold / Eurogold)"') : ''}</div>`);
       f.push(`<div class="bochip" data-ui="bo-tl" role="group" aria-label="Tủ lạnh"><span class="bonhan">Tủ lạnh</span>${nut('bo-tl', '', '—', !tl, 'Không có khoang tủ lạnh')}${(Core.LOAI_TB_BEP.tl || []).map(x => nut('bo-tl', x.ma, String(x.rong), may === x.ma, `${x.ten}: ${x.rong} × ${x.sau} × ${x.cao}`)).join('')}${nut('bo-tl', 'tu_chon', 'gõ', may === 'tu_chon', 'Gõ kích thước máy thật (ở ⋯)')}</div>`);
       // (bản 1.35) cỡ chung chậu = bếp (700 / 800 / 900; "tự" = theo dài phần dãy dưới — chip ghi cỡ đang dùng) + tủ trên: 2 tầng kịch trần, cánh kính, LED
@@ -17106,6 +17106,24 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
         else if (mm) setStatus(`Chữ ${kieu}: bộ ${cu} (chữ ${kieu === 'L' ? 'I' : 'L'}) đã vẽ giữ nguyên — đây là bộ mới ${mm}; bấm “Chỗ” để chọn chỗ đặt.`);
         else if (coCho) setStatus(`Chữ ${kieu}: chọn lại chỗ đặt (bấm “Chỗ”) — ${kieu === 'L' ? 'chữ L đặt theo góc trong' : 'chữ I đặt theo đầu trái'}.`);
         return;
+      }
+      if (act === 'bo-re') {      // (1.37.1) góc chữ L bên trái / phải — trước đây chỉ đổi được bằng điểm bấm lúc chọn Chỗ
+        const re = v === 'trai' ? 'trai' : 'phai', b0 = Core.chuanBo(boBep);
+        if (b0.kieu !== 'L' || b0.canh[1].re === re) return;
+        if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng đổi góc.');
+        const dv = docBoVe(boBep.ma);
+        if (dv && dv.da_ve && dv.da_ve.length) return setStatus(`Bộ ${boBep.ma} đã vẽ với góc ${b0.canh[1].re === 'trai' ? 'trái' : 'phải'} — đổi góc là dựng bộ khác: Hoàn tác bộ rồi đổi, hoặc bấm “Chỗ” để đặt bộ mới (góc theo điểm bấm).`);
+        // s0 của tủ ghim, tâm chậu / bếp / ống, chỗ kính / cánh lật đo theo trục tủ — lật góc là trục đảo chiều, giữ số cũ là tủ nhảy sang chỗ khác
+        const coGhim = !!(b0.khoa && Object.keys(b0.khoa).length) || !!(b0.chau && b0.chau.s != null) || !!(b0.bep && b0.bep.s != null) || !!b0.ong || Array.isArray(b0.kinh) || !!(b0.lat && b0.lat.length), tay = laTay(), coCho = !!boCho;
+        boChon = null; boTayId = null; boTayTren = false;
+        doiBo(o => {
+          o.canh[1] = Object.assign({}, o.canh[1], { re });
+          o.khoa = {}; if (o.chau) o.chau = Object.assign({}, o.chau, { s: null }); if (o.bep) o.bep = Object.assign({}, o.bep, { s: null }); delete o.ong;
+          if (Array.isArray(o.kinh)) o.kinh = 'khong'; delete o.lat;
+          if (o.tay) thayBo(o, Core.tayDoiKieu(o, { nen: nenBo() }));
+        });
+        boCho = null; capBoNut();
+        return setStatus(`Góc ${re === 'trai' ? 'trái' : 'phải'}: cạnh B chạy về phía ${re === 'trai' ? 'trái' : 'phải'}${coGhim ? '; tủ ghim / tâm chậu / bếp / ống / kính / cánh lật đã bỏ (đo theo hướng cũ)' : ''}${tay ? '; danh sách từng khoang dựng lại' : ''}${coCho ? '; bấm “Chỗ” để chọn lại chỗ đặt' : ''}. ↶ Lùi để về như cũ.`);
       }
       if (act === 'bo-tl') return doiBo(o => {
         if (!v) { o.tl = null; o.tl2 = null; return; }
