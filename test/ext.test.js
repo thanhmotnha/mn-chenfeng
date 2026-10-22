@@ -1118,6 +1118,44 @@ async function chonBepExt(page, H, ma) {
         await H.locator('[data-act="bo-hoan-tac"]').click();
         await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
         ok((await page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > 250000).length; })) === 0, 'B21: Hoàn tác bộ sạch'); }
+      // (bản 1.37.2) bộ có khoang tủ lạnh + tủ lò THẤP tách rời ở đầu kia (ảnh bếp chữ I của anh Thanh) ở chỗ trống x 1200000: vẽ đủ, đúng chỗ; tủ cao phủ bì 620
+      // (thùng 602,5) nhô trước tủ dưới 42,5, lưng cùng sát tường; tủ lò trên bản vẽ là lò thấp (cánh dưới, hốc lò 480, vi sóng trên lò)
+      { const boA = { ma: 'B33', kieu: 'I', canh: [{ dai: 4200 }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', lo_dau: 'kia', tran: 0 };
+        await page.evaluate(b => window.MNCF.app.setBo(b), boA);
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [1200000, 5000, 0], xoay: 0 }));
+        const k = await page.evaluate(() => window.MNCF.app.getBoKq()), N = k.pa[0].ds.length, lo = k.pa[0].ds.find(m => m.chuc === 'lo');
+        ok(lo && lo.u0 > 3000 && k.pa[0].ds.find(m => m.chuc === 'tl').u0 === 0 && !k.pa[0].loi.length, 'B33: tủ lạnh đầu trái, tủ lò đầu phải, không lỗi', k.pa[0].ds.map(m => m.vt + ':' + m.ma + '@' + m.u0));
+        const r = await page.evaluate(() => window.MNCF.app.veBo({}));
+        const v = await soViTri(), R = await page.evaluate(() => window.MNCF.app.getBoVe());
+        ok(r && r.ok && R && R.da_ve.length === N && /Đã vẽ bộ bếp B33/.test(await st()), `B33: vẽ đủ ${N} tủ`, [r, await st()]);
+        ok(v.lech.length === 0 && v.tu.every(t => t.n === t.can) && v.chong.length === 0, 'B33: mọi tủ đủ tấm, đúng chỗ, không chồng', [v.lech, v.chong, v.tu.filter(t => t.n !== t.can)]);
+        const ve = vt => v.tu.find(t => t.vt === vt), cao = R.da_ve.filter(y => y.tang === 'cao').map(y => ve(y.vt)), duoi = R.da_ve.filter(y => y.tang === 'duoi').map(y => ve(y.vt));
+        ok(cao.length === 2 && cao.every(t => Math.abs(t.h[3] - 5000) < 0.6) && duoi.every(t => Math.abs(t.h[3] - 5000) < 0.6), 'B33: lưng tủ cao + tủ dưới cùng sát tường (y 5000)', [cao.map(t => t.h), duoi.map(t => t.h)]);
+        ok(cao.every(t => Math.abs(t.h[3] - t.h[2] - 620) < 0.6) && Math.abs(Math.max(...duoi.map(t => t.h[3] - t.h[2])) - 577.5) < 0.6, 'B33: tủ cao phủ bì 620 gồm cánh (thùng 602,5), tủ dưới phủ bì 577,5 (560 + cánh) — tủ cao nhô 42,5', [cao.map(t => t.h[3] - t.h[2]), duoi.map(t => t.h[3] - t.h[2])]);
+        const sp = await page.evaluate(id => JSON.parse(localStorage.getItem('mncf.tu.' + id)).spec, R.da_ve.find(y => y.vt === lo.vt).id);
+        ok(sp.bep.lo_z === 'thap' && JSON.stringify(sp.khoang[0].dot) === '[462.5,1070,1467.5]', 'B33: thông số tủ lò đã lưu = lò thấp (đợt đỡ lò 462,5, hốc lò → 1070, vi sóng → 1467,5)', [sp.bep, sp.khoang[0].dot]);
+        await H.locator('[data-act="bo-hoan-tac"]').click();
+        await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
+        ok((await page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > 1190000).length; })) === 0, 'B33: Hoàn tác bộ sạch'); }
+      // (vòng soát 1.37.2) bộ vẽ với tủ cao thùng 560 (chuẩn cũ) rồi chuẩn về mặc định 602,5 → dòng vàng nêu tủ cao đã vẽ 560 + nút "Giữ thùng 560" (ghi chuẩn máy, dòng thôi)
+      { const LS = 'mncf.bep.v1', luu = await page.evaluate(k => localStorage.getItem(k), LS);
+        await page.evaluate(k => localStorage.setItem(k, JSON.stringify({ sau_cao: 560, ban: '1.37.2' })), LS);
+        const boA = { ma: 'B34', kieu: 'I', canh: [{ dai: 4200 }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', tran: 0 };
+        await page.evaluate(b => window.MNCF.app.setBo(b), boA);
+        await page.evaluate(() => window.MNCF.app.setBoCho({ goc: [1300000, 5000, 0], xoay: 0 }));
+        const r = await page.evaluate(() => window.MNCF.app.veBo({})), R = await page.evaluate(() => window.MNCF.app.getBoVe());
+        ok(r && r.ok && R && R.ma === 'B34', 'B34: vẽ bộ với tủ cao 560', [r, await st()]);
+        ok((await H.locator('[data-ui="bo-cao-cu"]').count()) === 0, 'B34: chuẩn đang 560 — không báo');
+        await page.evaluate(k => localStorage.setItem(k, JSON.stringify({ ban: '1.37.2' })), LS);
+        await page.evaluate(b => window.MNCF.app.setBo(b), boA); await page.waitForTimeout(400);
+        const t = await H.locator('[data-ui="bo-cao-cu"]').textContent().catch(() => '');
+        ok(/AC1/.test(t) && /AC2/.test(t) && /560/.test(t) && /620/.test(t), 'B34: chuẩn về 602,5 → dòng vàng nêu tủ cao đã vẽ thùng 560 (AC1, AC2)', [t, await page.evaluate(() => window.MNCF.app.getBoVe() && window.MNCF.app.getBoVe().ma)]);
+        await H.locator('[data-act="bo-giu-cao"]').click(); await page.waitForTimeout(300);
+        ok((await H.locator('[data-ui="bo-cao-cu"]').count()) === 0 && JSON.parse(await page.evaluate(k => localStorage.getItem(k), LS)).sau_cao === 560, 'B34: Giữ thùng 560 → chuẩn máy 560, thôi báo');
+        await H.locator('[data-act="bo-hoan-tac"]').click();
+        await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 120000);
+        ok((await page.evaluate(() => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > 1290000).length; })) === 0, 'B34: Hoàn tác bộ sạch');
+        await page.evaluate(([k, v]) => { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }, [LS, luu]); }
       // (bản 1.37.0) TỪNG KHOANG ở chỗ trống x 800000: (a) bộ vẽ bằng tự chia → bấm "Từng khoang" (không sửa gì) → Cập nhật không có gì (dãy y nguyên);
       // (b) đổi chip một khoang (cánh → ngăn kéo, cùng rộng) → Cập nhật đúng MỘT tủ; (c) gõ rộng làm dãy LỖI → nút Cập nhật khoá; (d) đổi rộng → tủ sau dời → vẽ lại;
       // (e) vẽ bộ từng khoang từ danh sách mặc định; Hoàn tác bộ theo mã tủ sạch

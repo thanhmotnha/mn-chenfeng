@@ -822,6 +822,17 @@ async function testBep(browser) {
   const chon = async ma => { if (ma) return chonBep(page, ma); await chonMau(page, ''); await page.waitForFunction(() => !window.MNCF.app.getSpec().loai_sp); };
   const chip = () => S(page, '[data-act="bep-kieu"]').evaluateAll(bs => bs.map(b => [b.dataset.v, b.getAttribute('aria-pressed')]));
   const spec = () => page.evaluate(() => window.MNCF.app.getSpec());
+  // (bản 1.37.2) tủ cao lò lẻ: lò thấp mặc định; hàng Lò (thấp / ngang mặt đá) + Vi sóng — mỗi lần bấm một bước ↶ Lùi
+  { await chonBep(page, 'BC-LO-600');
+    const s0 = await spec(); ok(s0.bep.lo_z === 'thap' && s0.sau_thung === 602.5 && await S(page, '[data-ui="bep-lo"]').isVisible() && (await S(page, '[data-act="bep-loz"][data-v="thap"]').getAttribute('aria-pressed')) === 'true', 'tủ lò lẻ: lò thấp, thùng 602,5 (phủ bì 620), hàng Lò hiện', s0.bep);
+    ok((await S(page, '[data-ui="bep-lo"] .bochip').count()) === 2 && (await S(page, '[data-ui="bep-lo"] .bochip').nth(1).evaluate(e => e.querySelectorAll('[data-act="bep-vs"]').length)) === 3, 'vòng soát: hàng Lò và hàng Vi sóng là hai .bochip riêng (màn hẹp không tách nhãn khỏi cỡ)');
+    await S(page, '[data-act="bep-loz"][data-v="mat_da"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().bep.lo_z !== 'thap');      // (vòng soát 1.37.2) ngang mặt đá = thiếu khoá
+    ok(JSON.stringify((await spec()).khoang[0].dot.slice(0, 1)) === '[842.5]' && (await S(page, '[data-act="bep-loz"][data-v="mat_da"]').getAttribute('aria-pressed')) === 'true', 'Ngang mặt đá: đợt đỡ lò 842,5', (await spec()).khoang[0]);
+    await S(page, '[data-act="bep-vs"][data-v="0"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().bep.vs === 0);
+    ok((await spec()).khoang[0].dot.length === 2, 'Vi sóng không: bỏ đợt hốc vi sóng', (await spec()).khoang[0].dot);
+    await S(page, '[data-act="lui"]').click(); ok((await spec()).bep.vs === 380 && !('lo_z' in (await spec()).bep), '↶ Lùi: vi sóng về 380 (một bước)');
+    await S(page, '[data-act="lui"]').click(); ok((await spec()).bep.lo_z === 'thap', '↶ Lùi: về lò thấp');
+  }
   // chip chức năng: tầng dưới 10 chip, mục Thư viện ra tủ cánh 600 (chip Cánh bấm sẵn)
   { await chonMau(page, '@BEP-duoi');
     await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
@@ -1065,9 +1076,15 @@ async function testBep(browser) {
     { const t2 = await baoRow(p4); ok(!/Cao mặt đá 850/.test(t2) && /Tay nắm: tay nắm nổi/.test(t2), 'đặt lại mặt đá 850: thôi báo mặt đá, còn báo tay nắm (chưa đặt lại)', t2); }
     await S(p4, '[data-bep="tay_nam"]').selectOption('noi');
     await p4.waitForFunction(() => window.MNCF.app.getSpec().bep.tay_nam === 'noi'); await p4.waitForTimeout(300);
-    ok(!(await baoRow(p4)), 'đặt lại cả tay nắm nổi: thôi báo');
+    { const t3 = await baoRow(p4); ok(!/Cao mặt đá 850|Tay nắm:/.test(t3) && (!t3 || /Sâu thùng tủ cao 560/.test(t3)), 'đặt lại cả tay nắm nổi: thôi báo mặt đá / tay nắm (1.37.2: còn dòng tủ cao 620 — chưa đặt Sâu tủ cao)', t3); }
     const st2 = await chonBep(p4, 'BD-NK3-600');
     ok((await p4.evaluate(() => window.MNCF.app.getSpec().bep.cao_mat)) === 850 && !/Chuẩn bếp mới/.test(st2) && !/Chuẩn bếp mới/.test(await p4.evaluate(inPage.status)), 'mẫu sau theo 850 người dùng đặt, không báo lại');
+  });
+  // (vòng soát 1.37.2) bản lưu cũ (không khoá sâu tủ cao) + vào thẳng Bộ bếp: câu tủ cao 620 hiện ở Bộ bếp (trước chỉ ở tủ bếp lẻ — người làm bộ không bao giờ thấy)
+  await lan([['mncf.bep.v1', JSON.stringify({ cao_mat: 860, tay_nam: 'vat', chan: 100, ban: '1.36.5' })]], async p4 => {
+    await chonMau(p4, '@BO-I'); await p4.waitForFunction(() => window.MNCF.app.getBo && window.MNCF.app.getBo());
+    await p4.waitForTimeout(400); const t = await baoRow(p4);
+    ok(/620/.test(t) && /602,5/.test(t), 'Bộ bếp: dòng vàng tủ cao 620 (thùng 602,5)', t);
   });
   // (soát #5) tủ bếp đang mở mang 850 / nổi (không dấu phiên bản nào — vd mở từ tệp / setSpec), máy chưa lưu chuẩn: dựng lại không ghi chuẩn; mẫu bếp chọn sau lấy
   // chuẩn đã lưu (= mặc định mới 860 / vát), KHÔNG số của tủ đang mở
@@ -1277,7 +1294,57 @@ async function testBoBep(browser) {
   // + Lò / + Kho
   await S(page, '[data-act="bo-cao"][data-v="lo"]').click();
   ok(JSON.stringify((await bo()).cao) === JSON.stringify([{ loai: 'lo', rong: 600 }]) && (await kq()).pa.some(q => q.ds.some(x => x.ma === 'BC-LO-600')) && (await S(page, '[data-act="bo-cao"][data-v="lo"]').getAttribute('aria-pressed')) === 'true', '+ Lò: tủ cao lò vào dãy', await bo());
+  // (bản 1.37.2) tủ lò: + Lò mới = lò thấp; ô chọn của tủ lò có Lò thấp / Ngang mặt đá, Vi sóng, Liền tủ lạnh / Đầu kia; mặt đứng vẽ hốc lò + vi sóng
+  { ok((await bo()).lo_z === 'thap' && !('lo_dau' in (await bo())), '+ Lò (1.37.2): lò thấp, liền khối cao', await bo());
+    const vtLo = () => kq().then(k => (k.pa[0].ds.find(x => x.chuc === 'lo') || {}).vt), hoc = () => page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('.bov svg[data-bo="md"] [data-bo-hoc]')].map(e => e.dataset.boHoc));
+    ok(JSON.stringify(await hoc()) === '["lo","vs"]', 'mặt đứng: hốc lò + hốc vi sóng của tủ lò', await hoc());
+    await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${await vtLo()}"]`).click();
+    ok(await S(page, '.bokpop [data-act="kpop-bo-loz"][data-v="thap"]').isVisible() && (await S(page, '.bokpop [data-act="kpop-bo-loz"][data-v="thap"]').getAttribute('aria-pressed')) === 'true' && await S(page, '.bokpop [data-act="kpop-bo-vs"][data-v="380"]').isVisible() && await S(page, '.bokpop [data-act="kpop-bo-lodau"][data-v="kia"]').isVisible(), 'ô chọn tủ lò: chip Lò / Vi sóng / Đặt');
+    const y = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot.querySelector('.bov svg[data-bo="md"] [data-bo-hoc="lo"]'); return r ? +r.getAttribute('y') + +r.getAttribute('height') : null; });
+    const yThap = await y();
+    await S(page, '.bokpop [data-act="kpop-bo-vs"][data-v="0"]').click();
+    ok((await bo()).vs === 0 && JSON.stringify(await hoc()) === '["lo"]' && await S(page, '.bokpop [data-act="kpop-bo-vs"][data-v="0"]').isVisible(), 'Vi sóng "không": bộ vs 0, mặt đứng chỉ còn hốc lò, ô chọn vẫn mở', [await bo(), await hoc()]);
+    await S(page, '.bokpop [data-act="kpop-bo-loz"][data-v="mat_da"]').click();
+    ok((await bo()).lo_z === 'mat_da' && (await y()) < yThap - 100, 'Ngang mặt đá: lo_z mat_da, đáy hốc lò lên ngang mặt đá', [await bo(), yThap, await y()]);
+    await S(page, '[data-act="lui"]').click(); ok((await bo()).lo_z === 'thap' && (await bo()).vs === 0, '↶ Lùi: một bước (về lò thấp)');
+    await S(page, '[data-act="lui"]').click(); ok((await bo()).vs === 380, '↶ Lùi: vi sóng về 380');
+    const p0 = (await kq()).pa[0], tl0 = p0.ds.find(x => x.chuc === 'tl');
+    await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${await vtLo()}"]`).click();
+    await S(page, '.bokpop [data-act="kpop-bo-lodau"][data-v="kia"]').click();
+    { const p = (await kq()).pa[0], lo = p.ds.find(x => x.chuc === 'lo');
+      ok((await bo()).lo_dau === 'kia' && lo && lo.u0 > p.canh[0].dai / 2 && tl0.u0 === 0 && (await S(page, '.bokpop [data-act="kpop-bo-lodau"][data-v="kia"]').getAttribute('aria-pressed')) === 'true', 'Đầu kia: tủ lò tách rời sang đầu phải, ô chọn tủ lò vẫn mở', [await bo(), p.ds.map(x => [x.chuc, x.u0])]); }
+    await S(page, '[data-act="lui"]').click(); ok(!('lo_dau' in (await bo())), '↶ Lùi: tủ lò về liền tủ lạnh'); }
   await S(page, '[data-act="bo-cao"][data-v="lo"]').click(); ok((await bo()).cao.length === 0, 'bấm lại + Lò: bỏ');
+  ok(!('lo_z' in (await bo())), 'bỏ tủ lò: bỏ luôn khoá kiểu lò');
+  // (bản 1.37.2) + Lò khi không có tủ lạnh: vẫn có tủ lò (đầu trái), Đầu kia sang đầu phải
+  { await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'I', canh: [{ dai: 3600 }], tl: null })); await cho();
+    await S(page, '[data-act="bo-cao"][data-v="lo"]').click();
+    const p = (await kq()).pa[0], lo = p && p.ds.find(x => x.chuc === 'lo');
+    ok(lo && !p.ds.some(x => x.chuc === 'tl') && lo.u0 === 0 && (await bo()).lo_z === 'thap', 'không tủ lạnh: + Lò vẫn có tủ lò ở đầu trái', p && p.ds.map(x => [x.chuc, x.u0]));
+    await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${lo.vt}"]`).click();
+    ok((await S(page, '.bokpop [data-act="kpop-bo-lodau"][data-v="cung"]').textContent()) === 'Đầu này', 'không tủ lạnh: chip "Đầu này" / "Đầu kia"');
+    await S(page, '.bokpop [data-act="kpop-bo-lodau"][data-v="kia"]').click();
+    const p2 = (await kq()).pa[0], lo2 = p2.ds.find(x => x.chuc === 'lo'); ok(lo2 && lo2.u1 > 3500, 'không tủ lạnh, Đầu kia: tủ lò ở đầu phải', p2.ds.map(x => [x.chuc, x.u0, x.u1])); }
+  // (vòng soát 1.37.2) + Kệ mà tủ lò "Đầu kia" chiếm đầu hở: dòng vàng nói kệ không đặt được (không bỏ lặng lẽ)
+  { await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'I', canh: [{ dai: 4500, dau: 'tuong', cuoi: 'ho' }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', lo_dau: 'kia', ke: true })); await cho();
+    ok(await S(page, '[data-ui="bo-ke-bo"]').isVisible() && (await S(page, '[data-act="bo-ke"]').getAttribute('aria-pressed')) === 'true', 'vòng soát: + Kệ không còn đầu hở trống → dòng vàng "bo-ke-bo"');
+    await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'I', canh: [{ dai: 4500, dau: 'tuong', cuoi: 'ho' }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', ke: true })); await cho();
+    ok((await S(page, '[data-ui="bo-ke-bo"]').count()) === 0, 'lò liền tủ lạnh: kệ ở đầu hở, không dòng vàng'); }
+  // (vòng soát 1.37.2) mặt bằng: tủ cao vẽ đủ sâu = thùng + cánh + cách tường (như tủ dưới) — chuẩn cách tường 30: tủ cao nhô 42,5 so với tủ dưới
+  { await page.evaluate(() => localStorage.setItem('mncf.bep.v1', JSON.stringify({ cach_tuong: 30, ban: '1.37.2' })));
+    await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'I', canh: [{ dai: 4200 }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', tran: 0 })); await cho();
+    const p = (await kq()).pa[0], vc = p.ds.find(x => x.chuc === 'lo').vt, vd = p.ds.find(x => x.tang === 'duoi').vt;
+    const hh = await page.evaluate(([a, b]) => { const r = document.getElementById('mncf-host').shadowRoot, f = v => { const e = r.querySelector(`.bov svg[data-bo="mb"] [data-bo-vt="${v}"]`); return e ? e.getBBox().height : null; }; return [f(a), f(b)]; }, [vc, vd]);
+    ok(hh[0] && hh[1] && Math.abs(hh[0] - hh[1] - 42.5) < 1, 'mặt bằng: tủ cao sâu 650 (620 + cách tường 30), tủ dưới 607,5 — chênh 42,5', hh);
+    await page.evaluate(() => localStorage.removeItem('mncf.bep.v1')); }
+  // (vòng soát 1.37.2) chữ L: tủ lò "Đầu kia" sang cạnh B → mặt đứng chuyển theo, tủ đang chọn còn trên hình
+  { await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'L', canh: [{ dai: 3000 }, { dai: 3000 }], tl: { may: 'hai_canh_700', canh: 0 }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', tran: 0 })); await cho();
+    await S(page, '[data-act="bo-canh"][data-v="0"]').click();
+    const lo = (await kq()).pa[0].ds.find(x => x.chuc === 'lo');
+    await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${lo.vt}"]`).click();
+    await S(page, '.bokpop [data-act="kpop-bo-lodau"][data-v="kia"]').click();
+    const lo2 = (await kq()).pa[0].ds.find(x => x.chuc === 'lo');
+    ok(lo2.canh === 1 && (await S(page, '[data-act="bo-canh"][data-v="1"]').getAttribute('aria-pressed')) === 'true' && (await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${lo2.vt}"]`).count()) === 1 && (await S(page, '.bov svg[data-bo="md"] [data-bo-hoc]').count()) > 0, 'chữ L Đầu kia: mặt đứng sang cạnh B, có tủ lò + hốc', [lo2.vt, lo2.canh]); }
   // nút sửa nhanh: tủ lạnh đầu trái, ống thoát sát đầu trái → không xếp được; "Đổi bên tủ lạnh" chỉ hiện khi đỡ hơn, bấm = một bước ↶ Lùi
   await page.evaluate(() => window.MNCF.app.setBo({ kieu: 'I', canh: [{ dai: 3700 }], tl: { may: 'hai_canh_700', dau: 'dau' }, ong: { canh: 0, s: 600 } }));
   await page.waitForFunction(() => !!document.getElementById('mncf-host').shadowRoot.querySelector('[data-act="bo-sua-tl"]'), null, { timeout: 5000 }).catch(() => {});

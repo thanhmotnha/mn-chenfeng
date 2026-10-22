@@ -3931,11 +3931,11 @@ T('Dãy bếp từng khoang (bản 1.37.0)', () => {
       if (rnd() < 0.3) b.kinh = 'khong';
       bos.push(b);
     }
-    // (lưu ý riêng của BỘ CHIA — chậu tự sang cạnh kia, cỡ lùi của bộ 1.34 — không phải của dãy: theo khoang không có)
+    // (lưu ý riêng của BỘ CHIA — chậu tự sang cạnh kia, cỡ lùi của bộ 1.34, (1.37.2) "+ Kệ" không đặt được vì khối cao ở đầu hở — không phải của dãy: theo khoang không có)
     let n = 0, hong = [];
     for (const b of bos) { const r = C.xepBep(b); r.pa.forEach((p, j) => {
       n++; const tay = C.tayTuPA(r.bo, p), r2 = C.xepBep(Object.assign({}, r.bo, { chia: 'tay', tay })), q = r2.pa[0];
-      if (r2.pa.length !== 1 || !khop(p, q) || q.loi.length || JSON.stringify(q.canh_bao) !== JSON.stringify(p.canh_bao) || JSON.stringify(q.luu_y) !== JSON.stringify(p.luu_y.filter(x => !/không đủ chỗ cho chậu|^Bộ lưu ở bản 1\.34/.test(x)))) hong.push([bos.indexOf(b), j]);
+      if (r2.pa.length !== 1 || !khop(p, q) || q.loi.length || JSON.stringify(q.canh_bao) !== JSON.stringify(p.canh_bao) || JSON.stringify(q.luu_y) !== JSON.stringify(p.luu_y.filter(x => !/không đủ chỗ cho chậu|^Bộ lưu ở bản 1\.34/.test(x) && x !== C.KE_BO_CAO))) hong.push([bos.indexOf(b), j]);
     }); }
     ok(n >= 80 && !hong.length, `khứ hồi tayTuPA → xepTay: ${n} phương án (E1–E3 + 30 bộ ngẫu nhiên I / L, khối cao, tầng trên, kính, LED) dựng lại đúng từng tủ`, hong); }
   { const p = C.xepBep(E1).pa[0], tay = C.tayTuPA(E1, p);
@@ -4198,11 +4198,11 @@ T('Tủ cao 620 + tủ lò thấp (bản 1.37.2)', () => {
   eq(C.hocLo({ lo_z: 'thap', vs: 380, chan: lo.chan.cao, cao: lo.cao, t: lo.van.t }).hoc.map(x => [x.tb, x.z0, x.z1]), H.map(x => [x.tb, x.z0, x.z1]), 'Core.hocLo (mặt đứng bộ bếp) = hốc của tủ dựng thật');
   { const s0 = C.datBep(lo, { vs: 0 }), M = C.build(s0); eq([s0.khoang[0].dot, M.info.bep.hoc.map(x => x.tb), P(M, 'CANH').length], [[462.5, 1070], ['lo'], 2], 'vi sóng "không": chỉ hốc lò, cánh trên từ trên lò'); }
   { const s0 = C.datBep(lo, { vs: 460 }), M = C.build(s0); eq(M.info.bep.hoc.map(x => [x.tb, x.z0, x.z1]), [['lo', 480, 1070], ['vs', 1087.5, 1547.5]], 'vi sóng 460'); ok(!M.errors.length, 'vi sóng 460 không lỗi', M.errors); }
-  { const s0 = C.datBep(lo, { chan: 400 }), M = C.build(s0); ok(M.info.bep.hoc[0].z0 === 417.5 && s0.khoang[0].dot[0] === 1007.5 && P(M, 'CANH').length === 1, 'chân 400: ô cánh dưới < 150 → bỏ, lò đứng trên đáy', [s0.khoang[0].dot, M.info.bep.hoc]); }
+  { const s0 = C.datBep(lo, { chan: 300 }), M = C.build(s0); ok(M.info.bep.hoc[0].z0 === 317.5 && s0.khoang[0].dot[0] === 907.5 && P(M, 'CANH').length === 1, 'chân 300 (ô dưới 145): ô cánh dưới < 150 → bỏ, lò đứng trên đáy', [s0.khoang[0].dot, M.info.bep.hoc]); }
   { const s0 = C.datBep(lo, { cao_rieng: 1300 }), M = C.build(s0); ok(M.errors.some(x => /Hốc vi sóng cao .* < 380/.test(x)), 'tủ thấp 1300: hốc vi sóng chạm nóc → LỖI', M.errors); }
-  { const s0 = C.datBep(lo, { cao_rieng: 1000 }), M = C.build(s0); ok(M.errors.some(x => /Hốc lò cao .* < 585 — hốc chạm nóc/.test(x)), 'tủ 1000: hốc lò chạm nóc → LỖI', M.errors); }
+  { const s0 = C.datBep(lo, { cao_rieng: 1000 }), M = C.build(s0); ok(M.errors.some(x => /Hốc lò cao .* < 585 .*hốc chạm nóc/.test(x)), 'tủ 1000: hốc lò chạm nóc → LỖI', M.errors); }
   // tủ lò lưu trước 1.37.2 (không khoá lo_z) → ngang mặt đá như cũ; chip chức năng 'lo' ra lò thấp
-  { const old = JSON.parse(JSON.stringify(lo)); delete old.bep.lo_z; const s0 = C.normalize(old); eq([s0.bep.lo_z, s0.khoang[0].dot], ['mat_da', [842.5, 1450, 1847.5]], 'tủ lò cũ (thiếu lo_z): ngang mặt đá, 2 ngăn kéo'); }
+  { const old = JSON.parse(JSON.stringify(lo)); delete old.bep.lo_z; const s0 = C.normalize(old); eq([s0.bep.lo_z, s0.khoang[0].dot], [undefined, [842.5, 1450, 1847.5]], 'tủ lò cũ (thiếu lo_z): ngang mặt đá, 2 ngăn kéo — khoá vẫn thiếu (vòng soát: thiếu = mat_da)'); }
   { const s0 = C.bepTheoKieu(C.apMau(C.DEFAULT_SPEC, '@BEP-cao'), 'lo', { tang: 'cao' }); ok(s0 && s0.bep.lo_z === 'thap', 'chip Lò (tủ lẻ): lò thấp', s0 && s0.bep); }
   { const s0 = C.datBep(lo, { lo_z: 'mat_da' }); eq(s0.khoang[0].dot, [842.5, 1450, 1847.5], 'datBep lo_z mat_da: về kiểu ngang mặt đá'); }
   // ---- bộ bếp: khoá lo_z / lo_dau ----
@@ -4234,6 +4234,43 @@ T('Tủ cao 620 + tủ lò thấp (bản 1.37.2)', () => {
   { const r = C.xepBep({ kieu: 'I', canh: [{ dai: 4200 }], tl: TL, cao: LO, lo_z: 'thap', lo_dau: 'kia' }), tay = C.tayTuPA(r.bo, r.pa[0]);
     const p = C.xepBep(Object.assign({}, r.bo, { chia: 'tay', tay })).pa[0], lo2 = p.ds.find(m => m.chuc === 'lo'), lo1 = r.pa[0].ds.find(m => m.chuc === 'lo');
     ok(lo2 && Math.abs(lo2.u0 - lo1.u0) < 0.5 && !p.loi.length, 'Từng khoang: tủ lò đầu kia đứng đúng chỗ như tự chia', [lo1 && lo1.u0, lo2 && lo2.u0, p.loi]); }
+});
+
+T('Tủ cao 620 + tủ lò thấp — vòng soát (bản 1.37.2)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  const cho = { goc: [0, 0, 0], xoay: 0 };
+  // (1) dấu sig của tủ KHÔNG phải tủ cao không đổi theo mặc định sau_cao 560 → 602,5 (bộ vẽ ở 1.37.1 không bị coi là "đã khác" cả dãy)
+  for (const bo of [{ kieu: 'I', canh: [{ dai: 3600 }], tl: null, cao: [], tran: 0 }, { kieu: 'I', canh: [{ dai: 4200 }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], tran: 0 }]) {
+    const dau = chuan => { const r = C.xepBep(Object.assign({}, bo, { chuan })); return C.datDay(r.bo, r.pa[0], cho); };
+    const a = dau({}), b = dau({ sau_cao: 560 });
+    ok(a.filter(q => q.tang !== 'cao').every(q => (b.find(y => y.vt === q.vt) || {}).sig === q.sig), 'tủ không phải tủ cao: dấu y như khi chuẩn tủ cao 560 (= 1.37.1)', a.map(q => q.vt));
+    ok(a.filter(q => q.tang === 'cao').every(q => (b.find(y => y.vt === q.vt) || {}).sig !== q.sig), 'tủ cao: dấu theo sâu thật (đổi thật)');
+    const v = C.doiDay(b.map(q => ({ vt: q.vt, id: q.vt, sig: q.sig, at: q.at, xoay: q.xoay })), a);
+    ok(v.sua.length === 0 && v.giu.length === a.filter(q => q.tang !== 'cao').length, 'doiDay: chỉ tủ cao đổi, không tủ nào "sửa" oan', { sua: v.sua.map(q => q.vt), doi: v.doi.map(q => q.vt) });
+  }
+  // (2) tủ lò ngang mặt đá: KHÔNG ghi lo_z (thiếu = mat_da) — tủ lò bộ cũ dựng ra spec y cũ
+  { const r = C.xepBep({ kieu: 'I', canh: [{ dai: 4200 }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], tran: 0 }), t = C.tuBo(r.bo, r.pa[0]).find(q => q.spec.bep.chuc_nang === 'lo');
+    ok(t && !('lo_z' in t.spec.bep) && JSON.stringify(t.spec.khoang[0].dot) === '[842.5,1450,1847.5]', 'tuBo bộ cũ: tủ lò không khoá lo_z, đợt y cũ', t && t.spec.bep); }
+  { const s0 = C.datBep(C.apMau(C.DEFAULT_SPEC, 'BC-LO-600'), { lo_z: 'mat_da' }); ok(!('lo_z' in s0.bep), 'datBep mat_da: bỏ khoá', s0.bep); }
+  // (3) lò thấp chân 300: lò đứng trên đáy — không ghi "đợt đỡ lò ngắn 50", cảnh báo thiếu khe thoát nhiệt
+  { const M = C.build(C.datBep(C.apMau(C.DEFAULT_SPEC, 'BC-LO-600'), { chan: 300 }));
+    ok(!M.notes.some(x => /Đợt đỡ lò/.test(x)) && M.warnings.some(x => /Lò đứng trên đáy .*thoát nhiệt.*hạ chân ≤ 295/.test(x)), 'chân 300: báo thoát nhiệt, không ghi đợt đỡ', [M.notes, M.warnings]); }
+  { const M = C.build(C.apMau(C.DEFAULT_SPEC, 'BC-LO-600')); ok(M.notes.some(x => /Đợt đỡ lò/.test(x)) && !M.warnings.some(x => /thoát nhiệt/.test(x)), 'chân 100: đợt đỡ lò ngắn như cũ'); }
+  // (4) + Kệ mà đầu hở đã có khối cao (tủ lò "Đầu kia"): lưu ý, không bỏ lặng lẽ
+  { const b = { kieu: 'I', canh: [{ dai: 4500, dau: 'tuong', cuoi: 'ho' }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', ke: true };
+    const k1 = C.xepBep(Object.assign({}, b, { lo_dau: 'kia' })).pa[0], k0 = C.xepBep(b).pa[0];
+    ok(k1 && k1.luu_y.indexOf(C.KE_BO_CAO) >= 0 && !k1.ds.some(m => m.chuc === 'ke' && m.tang === 'duoi'), 'lò đầu kia chiếm đầu hở: lưu ý "+ Kệ" không đặt được', k1 && k1.luu_y);
+    ok(k0 && k0.luu_y.indexOf(C.KE_BO_CAO) < 0 && k0.ds.some(m => m.chuc === 'ke' && m.tang === 'duoi'), 'lò liền tủ lạnh: kệ ở đầu hở, không lưu ý', k0 && k0.ds.map(m => m.chuc)); }
+  // (5) câu "nhô trước mặt cánh dãy" tính theo dãy DƯỚI (577,5), không theo phủ bì tủ cao 620
+  { const M = C.build(C.apMau(C.DEFAULT_SPEC, 'BC-TL-700')), n = M.notes.find(x => /nhô/.test(x)) || '';
+    ok(/nhô 172,5 trước mặt cánh dãy dưới \(130 trước mặt cánh khối cao\)/.test(n), 'tủ lạnh 700 + hở 50: nhô 172,5 trước dãy dưới, 130 trước khối cao', n); }
+  // (6) hốc lò cao hơn cỡ hãng (vi sóng 0, tủ thấp — hốc chạy tới nóc): cảnh báo
+  { const M = C.build(C.datBep(C.apMau(C.DEFAULT_SPEC, 'BC-LO-600'), { vs: 0, cao_rieng: 1150 })); ok(M.warnings.some(x => /Hốc lò cao 652,5 > 595/.test(x)), 'hốc lò 652,5 > 595: cảnh báo', M.warnings); }
+  // (8) Sâu tủ dưới gõ lớn → đá sâu hơn mặt cánh tủ cao: cảnh báo ở tủ cao kề đá (không ở tủ cao khuất bên trong khối)
+  { const b = { kieu: 'I', canh: [{ dai: 4200 }], tl: { may: 'hai_canh_700', dau: 'dau' }, cao: [{ loai: 'lo', rong: 600 }], lo_z: 'thap', tran: 0 };
+    const p1 = C.xepBep(Object.assign({}, b, { chuan: { sau_duoi: 600 } })).pa[0], w = p1.canh_bao.filter(x => /đá sâu 637,5 thò 17,5 trước mặt cánh tủ cao/.test(x));
+    ok(w.length === 1 && /BC-LO/.test(w[0]), 'sâu tủ dưới 600: một cảnh báo ở tủ lò (kề đá), không ở khoang tủ lạnh (khuất trong khối)', p1.canh_bao);
+    const p0 = C.xepBep(b).pa[0]; ok(!p0.canh_bao.some(x => /đá sâu/.test(x)), 'chuẩn mặc định: đá 597,5 < 620 — không báo'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);
