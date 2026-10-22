@@ -302,6 +302,63 @@ async function chonBepExt(page, H, ma) {
       const st = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent);
       ok(!(await H.locator('#mncf-ui-useat').isChecked()) && /bỏ chỗ đặt của món trước/.test(st), 'táp B → C (sâu phủ bì 420): bỏ chỗ đặt, có báo', st);
     }
+    /* --- (bản 1.37.3) TỦ TRÊN âm dương: hậu ván thùng lùi một dày ván + xà âm dương sau hậu sát nóc; vẽ bằng nhập tấm vào trang giả lập rồi Hoàn tác sạch --- */
+    {
+      await H.locator('.tab[data-tab="tu"]').click();
+      await chonBepExt(page, H, 'BT-CANH-600');
+      if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      ok((await page.evaluate(() => window.MNCF.app.getSpec().bep.treo)) === 'am_duong' && await H.locator('[data-bep="treo"]').isVisible() && !(await H.locator('[data-bep="thanh_treo"]').count()), 'tủ trên mới: Treo tủ = âm dương, không ô Thanh treo');
+      const n0 = await page.evaluate(() => window.MNCFDriver.all().length);
+      await H.locator('#mncf-ui-ax').fill('40000'); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('1550');
+      if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+      await H.locator('[data-act="draw"]').click();
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 40000) < 1; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      const r = await page.evaluate(() => { const D = window.MNCFDriver, bs = D.last.added.filter(e => D.isBoard(e) && !e.IsErase), hop = n => bs.filter(e => e.Name === n).map(D.boxOf);
+        return { ten: bs.map(e => e.Name), xa: hop('Xà âm dương'), hau: hop('Hậu'), noc: hop('Nóc'), hoi: hop('Hồi trái') }; });
+      const bc = await H.locator('.report').innerText(), t = 17.5, xa = r.xa[0], hau = r.hau[0], hoi = r.hoi[0];
+      ok(r.xa.length === 1 && !r.ten.includes('Thanh treo') && (await H.locator('.report .msg.err').count()) === 0 && /Đã vẽ xong/.test(bc), 'tủ trên âm dương: vẽ xong, có 1 xà âm dương, không thanh treo, không dòng lỗi', [r.ten, bc.slice(0, 400)]);
+      // mock: hộp theo toạ độ thế giới (y có thể lật) — so quan hệ: xà sát mặt sau hậu, mặt sau xà trùng mép sau hồi, xà cao 100 sát dưới nóc
+      const sau = hoi && (Math.abs(hoi[3] - xa[3]) < 0.1 || Math.abs(hoi[2] - xa[2]) < 0.1);
+      ok(xa && hau && sau && Math.min(Math.abs(xa[2] - hau[3]), Math.abs(xa[3] - hau[2])) < 0.1 && Math.abs(hau[3] - hau[2] - t) < 0.1 && Math.abs(xa[5] - xa[4] - 100) < 0.1 && Math.abs(xa[5] - r.noc[0][4]) < 0.1,
+        'hậu dày 17,5 áp ngay trước xà, xà phẳng mép sau hồi, cao 100 sát dưới nóc', r);
+      ok(!/(Xà âm dương|Hậu)[^\n]*(chưa có lỗ|lơ lửng|đè lên|va chạm)/.test(bc), 'dò lỗi sau vẽ không báo oan xà / hậu', bc);
+      await H.locator('[data-act="undo"]').click();
+      await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
+      ok((await page.evaluate(() => window.MNCFDriver.all().length)) === n0, 'hoàn tác tủ trên âm dương: bản vẽ sạch như trước', [n0]);
+    }
+    /* --- (vòng soát 1.37.3) Sửa tủ trên vẽ kiểu thanh treo cũ: giữ 'thanh' + báo; chip chức năng giữ kiểu treo; Thôi sửa → âm dương + báo --- */
+    {
+      await page.evaluate(() => { window.__truocTT = new Set(window.MNCFDriver.all()); });
+      const sp0 = await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'BT-CANH-600'); s.bep.treo = 'thanh'; return window.MNCF.app.setSpec(s); });
+      ok(sp0.bep.treo === 'thanh', 'đặt tủ trên thanh treo');
+      await H.locator('.tab[data-tab="tu"]').click();
+      if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+      await H.locator('#mncf-ui-ax').fill('42000'); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('1550');
+      await H.locator('footer [data-act="draw"]').click();
+      await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 42000) < 1; }, null, { timeout: 30000 });
+      await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+      const idT = await page.evaluate(() => window.MNCFDriver.last.id);
+      // thông số lưu lúc vẽ như ở 1.37.2 (bản 1.37.2 luôn ghi treo 'thanh')
+      await page.evaluate(id => { const k = 'mncf.tu.' + id, o = JSON.parse(localStorage.getItem(k)); o.ban = '1.37.2'; localStorage.setItem(k, JSON.stringify(o)); }, idT);
+      await H.locator('.tab[data-tab="tu"]').click(); if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+      await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+      await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idT);
+      if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();
+      await H.locator('[data-act="pick"]').click();
+      let st = await H.locator('.status').innerText(), sp = await page.evaluate(() => window.MNCF.app.getSpec());
+      ok(/Đã mở thông số của tủ/.test(st) && !/thiếu/.test(st) && sp.bep.treo === 'thanh' && /thanh treo \+ vít nở/.test(st), 'Sửa tủ trên vẽ ở 1.37.2: giữ thanh treo như lúc vẽ, báo một dòng', [st, sp.bep.treo]);
+      await H.locator('[data-act="bep-kieu"][data-v="bat"]').click(); await page.waitForTimeout(300);
+      sp = await page.evaluate(() => window.MNCF.app.getSpec());
+      ok(sp.bep.chuc_nang === 'bat' && sp.bep.treo === 'thanh', 'chip Giá bát khi đang Sửa: giữ kiểu treo của tủ (như gõ Rộng)', sp.bep);
+      await H.locator('footer [data-act="unlink"]').click();
+      st = await H.locator('.status').innerText(); sp = await page.evaluate(() => window.MNCF.app.getSpec());
+      ok(sp.bep.treo === 'am_duong' && /Tủ trên về chuẩn: treo âm dương/.test(st) && (await page.evaluate(() => window.MNCF.app.getModel().parts.some(p => p.ad))), 'Thôi sửa: tủ trên về âm dương, có báo', [sp.bep.treo, st]);
+      await page.evaluate(async () => { const D = window.MNCFDriver, cu = window.__truocTT; await D.erase(D.all().filter(e => !cu.has(e))); });
+      ok((await page.evaluate(() => window.MNCFDriver.all().filter(e => !window.__truocTT.has(e)).length)) === 0, 'tủ trên thanh treo: dọn sạch');
+    }
     /* --- (bản 1.33) TỦ BẾP: 3 module cạnh nhau — tủ chậu (nhập tấm), tủ 3 ngăn kéo, tủ trên treo ở z 1550 (bảng tự cộng cao độ treo vào toạ độ) --- */
     {
       await H.locator('.tab[data-tab="tu"]').click();

@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.37\.2/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.37\.3/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -484,6 +484,28 @@ async function testTouchAndThemes(browser) {
   }
 }
 
+// (vòng soát 1.37.3) thông số bảng lưu ở 1.37.2 (tủ trên luôn mang treo 'thanh') → mở lại theo âm dương + một dòng báo; gõ Rộng / chip chức năng giữ kiểu treo của tủ đang mở
+async function testTreoCu(browser) {
+  console.log('— Tủ trên lưu ở 1.37.2: mở lại theo âm dương, chip giữ kiểu treo');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  const C = require('../src/mncf-core.js'), sp0 = C.normalize(C.apMau(C.DEFAULT_SPEC, 'BT-CANH-600')); sp0.bep.treo = 'thanh';
+  await page.addInitScript(v => { try { if (!sessionStorage.getItem('mncf.thu.tc')) { sessionStorage.setItem('mncf.thu.tc', '1'); localStorage.setItem('mncf.spec.v2', v); localStorage.setItem('mncf.spec.ban', '1.37.2'); } } catch (e) { /* bỏ qua */ } }, JSON.stringify(sp0));
+  await ctx.route('http://mncf.test/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: fs.readFileSync(path.join(DIST, 'mn-chenfeng.html'), 'utf8') }));
+  await page.goto('http://mncf.test/');
+  await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCF.app.getModel());
+  const H = page.locator('#mncf-host'), g = () => page.evaluate(() => { const s = window.MNCF.app.getSpec(); return { rong: s.rong, cn: s.bep.chuc_nang, treo: s.bep.treo, xa: window.MNCF.app.getModel().parts.some(p => p.ad) }; });
+  let r = await g(), st = await page.evaluate(inPage.status);
+  ok(r.treo === 'am_duong' && r.xa && /Tủ trên nay treo âm dương/.test(st), 'bản lưu 1.37.2: tủ trên theo âm dương, có báo', [r, st]);
+  await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.bep.treo = 'thanh'; window.MNCF.app.setSpec(s); });
+  await H.locator('[data-k="rong"]').fill('800'); await page.waitForTimeout(400);
+  r = await g(); ok(r.rong === 800 && r.treo === 'thanh', 'gõ Rộng: giữ thanh treo', r);
+  await H.locator('[data-act="bep-kieu"][data-v="bat"]').click(); await page.waitForTimeout(300);
+  r = await g(); ok(r.cn === 'bat' && r.treo === 'thanh', 'chip Giá bát: giữ thanh treo (như gõ Rộng)', r);
+  ok(errs.length === 0, 'không lỗi JS', errs);
+  await ctx.close();
+}
 async function testOldSaved(browser) {
   console.log('— Thông số lưu từ bản 1.0–1.1 trong máy vẫn mở được');
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -1773,7 +1795,7 @@ async function testBoBep(browser) {
 
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBanLe(browser); await testBoBep(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testTreoCu(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBanLe(browser); await testBoBep(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);

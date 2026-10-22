@@ -188,7 +188,8 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     console.log('— (bản 1.33) Tủ bếp: tủ trên ở z 1550, tủ 3 ngăn kéo, tủ chậu');
     {
       await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
-      const mau = ma => page.evaluate(m => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, m); s.hau = Object.assign({}, s.hau, { t: 6 }); return s; }, ma);
+      // (1.37.3) tủ trên ghim treo 'thanh' (kết cấu đã đo lệnh gốc ở 1.33); tủ trên âm dương (mặc định mới) rơi về nhập tấm — ca riêng ngay dưới
+      const mau = ma => page.evaluate(m => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, m); s.hau = Object.assign({}, s.hau, { t: 6 }); if (s.bep && s.bep.tang === 'tren') s.bep.treo = 'thanh'; return s; }, ma);
       const hopTu = () => page.evaluate(() => { const D = window.MNCFDriver, b = D.last.added.filter(e => D.isBoard(e) && !e.IsErase).map(D.boxOf); return [Math.min(...b.map(x => x[0])), Math.max(...b.map(x => x[1])), Math.min(...b.map(x => x[4])), Math.max(...b.map(x => x[5]))].map(v => Math.round(v * 10) / 10); });
       const BT = await mau('BT-CANH-800');
       r = await ve(BT, { corner: [20000, 0, 1550] });
@@ -200,6 +201,12 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
       eq((await page.evaluate(() => window.__thu.hop('Thanh treo'))).map(b => [b[4], b[5]]), [[2252.5, 2332.5]], '… thanh treo sát dưới nóc (80)');
       ht = await page.evaluate(() => window.__thu.hoanTac());
       eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch');
+      // (bản 1.37.3) tủ trên âm dương (hậu lùi + xà): lệnh gốc chưa đo hậu lùi → nhập tấm, lời báo nói lý do
+      { const AD = await page.evaluate(() => { const C = window.MNCFCore; return C.apMau(C.DEFAULT_SPEC, 'BT-CANH-800'); });
+        r = await ve(AD, { corner: [20000, 0, 1550] });
+        ok(r.ok && r.gd === 'xong' && !r.goc && r.warnings.some(w => /xà âm dương/.test(w)), 'BT-CANH-800 âm dương: vẽ xong bằng nhập tấm, lời báo nêu xà âm dương', [r.ok, r.gd, r.goc, r.warnings]);
+        ht = await page.evaluate(() => window.__thu.hoanTac());
+        eq([ht.ok, ht.con], [true, 0], '… hoàn tác: sạch'); }
       const NK = await mau('BD-NK3-600');
       r = await ve(NK, { corner: [24000, 0, 0] });
       eq([r.ok, r.gd, r.errors, r.goc, r.nk, r.mat_lech, r.lenh_nk], [true, 'xong', [], true, { tong: 1, so: 1, lui: [] }, [], ['ok']], 'BD-NK3-600: lệnh gốc cho thùng, ba ngăn kéo bằng lệnh DRAWER (ngăn trên 180)');
