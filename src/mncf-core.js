@@ -12,7 +12,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.37.1';
+  const VERSION = '1.37.2';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -3505,13 +3505,18 @@
     // tay nắm vát cạnh / ấn mở (không tay nắm nổi). Bản 1.33.0: 850, nóc liền, tay nắm nổi — MAC_DINH_BEP_CU (chuẩn đã lưu ở máy: nangChuanBep).
     tang: 'duoi', chuc_nang: 'canh', ket_cau_chan: 'hoi_san', noc: 'giang',
     cao_mat: 860, day_da: 20, van_lot: 0, chan: 100, len_lui: 50, sau_duoi: 560, dua_da: 20, cach_tuong: 0, vien_da: 0,      // mặt đá 860 + chân 100 + lùi 50 anh đã chốt; [CĐ] lót ván, đua 20
-    sau_tren: 350, sau_cao: 560, giang_rong: 100,                                                                            // [CĐ] tủ trên 320 / 350, giằng 80 – 100
+    // (bản 1.37.2 — anh Thanh 22/10/2026: "khoang tủ lạnh là 620 lòi ra khỏi bếp để khi ghép đá vào thì sẽ đẹp nhất", rồi "620 là cả cánh") sau_cao = sâu THÙNG tủ cao
+    // (tủ lạnh, lò, đồ khô) 602,5 = PHỦ BÌ 620 gồm cánh 17,5: tủ dưới 560 + cánh 17,5 + đá đua 20 = 597,5 → mặt cánh tủ cao nhô ~22,5 trước mép đá, đầu đá tì vào hông tủ cao.
+    // Bản ≤ 1.37.1: 560 (bản lưu mang 560 cũ — nangChuanBep). [CĐ] đổi dày cánh ở Chuẩn xưởng thì thùng vẫn 602,5 (phủ bì không còn đúng 620) — gõ lại Sâu thùng tủ cao
+    sau_tren: 350, sau_cao: 602.5, giang_rong: 100,                                                                           // [CĐ] tủ trên 320 / 350, giằng 80 – 100
     cao_tren: 800, cach_tren: 700, treo: 'thanh', thanh_treo: 80, canh_trum_duoi: 0,                                         // [CĐ] cách mặt đá 650 / 700, thanh treo 80 – 100
     bep_loai: 'tu', cach_hm_tu: 650, cach_hm_gas: 700, nk_nong: 180, nk_cach_bep: 80, canh_1_duoi: 600, canh_1_tren: 500,
     tay_nam: 'vat', nep_tuong: 70, van_chau: '', pk: '', tb: {},
   };
   /** Mặc định của bản 1.33.0 (trước khi anh chốt) — chuẩn đã lưu ở máy mang đúng số này mà lưu trước 1.33.1 thì coi như người dùng chưa chọn (nangChuanBep). */
   const MAC_DINH_BEP_CU = { cao_mat: 850, tay_nam: 'noi' };
+  /** (bản 1.37.2) chuẩn đổi ở 1.37.2: bản lưu ở máy trước 1.37.2 mang đúng số này (hoặc không ghi khoá — đang theo mặc định cũ) thì nhận số mới (nangChuanBep). */
+  const MAC_DINH_BEP_CU2 = { sau_cao: 560 };
   /**
    * (bản vá 1.33.1) Tủ bếp lưu / vẽ trước 1.33.1 mang mặc định cũ (mặt đá 850, tay nắm nổi): ghi các khoá đó vào `bep.chuan_cu`. Số của CHÍNH tủ đó giữ nguyên
    * (tủ đã vẽ phải dựng lại đúng như lúc vẽ), nhưng khoá trong `chuan_cu` không phải lựa chọn của người dùng: mẫu bếp chọn sau (mauBep.ap) và chuẩn nhớ ở máy
@@ -3525,12 +3530,16 @@
   }
   /** (bản vá 1.33.1) Câu báo khi mẫu bếp vừa chọn bỏ mặc định cũ (khoá trong `doi`) để theo chuẩn anh chốt — gian bếp làm dở ở bản trước lệch mặt đá. Rỗng = không đổi gì. */
   function baoChuanBepMoi(doi) {
-    doi = Array.isArray(doi) ? doi.filter(k => k in MAC_DINH_BEP_CU) : [];
+    doi = Array.isArray(doi) ? doi.filter(k => k in MAC_DINH_BEP_CU || k in MAC_DINH_BEP_CU2) : [];
     if (!doi.length) return '';
+    // (bản 1.37.2) tủ cao sâu 620 (anh Thanh 22/10/2026) — câu riêng (không cùng đợt chốt 12/10)
+    const sc = doi.indexOf('sau_cao') >= 0, c2 = sc ? `Tủ cao (tủ lạnh, lò, đồ khô) nay sâu thùng ${g(DEFAULT_BEP.sau_cao)} — phủ bì 620 gồm cánh (bản trước thùng ${g(MAC_DINH_BEP_CU2.sau_cao)}) — nhô ra trước dãy dưới, đầu đá tì vào hông tủ cao (anh chốt 22/10/2026). Gian bếp đang làm dở có tủ cao đã vẽ muốn khớp thì đặt lại Sâu thùng tủ cao ${g(MAC_DINH_BEP_CU2.sau_cao)}.` : '';
+    doi = doi.filter(k => k in MAC_DINH_BEP_CU);
+    if (!doi.length) return c2;
     const TEN_TAY = { vat: 'vát cạnh', an_mo: 'ấn mở', noi: 'tay nắm nổi', gola: 'Gola', j: 'nẹp J' };
     const p = doi.map(k => (k === 'cao_mat' ? `mặt đá ${g(DEFAULT_BEP.cao_mat)} (bản trước ${g(MAC_DINH_BEP_CU.cao_mat)})` : `tay nắm ${TEN_TAY[DEFAULT_BEP.tay_nam]} (bản trước ${TEN_TAY[MAC_DINH_BEP_CU.tay_nam]})`));
     const lai = doi.map(k => (k === 'cao_mat' ? `Cao mặt đá ${g(MAC_DINH_BEP_CU.cao_mat)}` : `Tay nắm: ${TEN_TAY[MAC_DINH_BEP_CU.tay_nam]}`)).join(', ');
-    return `Chuẩn bếp mới (anh chốt 12/10/2026): ${p.join(', ')}. Tủ bếp đã vẽ ở bản trước giữ số cũ — gian bếp đang làm dở muốn khớp tủ đã vẽ thì đặt lại ${lai} ở khối Tủ bếp (bảng nhớ cho các tủ sau).`;
+    return `Chuẩn bếp mới (anh chốt 12/10/2026): ${p.join(', ')}. Tủ bếp đã vẽ ở bản trước giữ số cũ — gian bếp đang làm dở muốn khớp tủ đã vẽ thì đặt lại ${lai} ở khối Tủ bếp (bảng nhớ cho các tủ sau).${c2 ? ' ' + c2 : ''}`;
   }
   /** Kiểu tay nắm tủ bếp: vat = cánh vát cạnh 45° làm chỗ cầm (mép trên cánh tủ dưới / mép dưới cánh tủ trên / mép đứng phía mở của tủ cao), an_mo = ấn mở (bộ nhấn mở + bản lề
    *  không giảm chấn, ngăn kéo ray nhấn mở), noi = tay nắm nổi (khách chọn mẫu, không kê), gola = rãnh nhôm, j = nẹp J. */
@@ -3697,6 +3706,10 @@
   };
   const GOC_MAC_DINH = 'hg_lh';
   const VS_MAC_DINH = 380, HOC_LO = 590, TL_KE = 250;      // (bản 1.34) hốc vi sóng 380 (anh chốt; 460 = lò compact, 0 = không hốc); hốc lò 590 (hãng 585 – 595); ô trên tủ lạnh < 250 thì làm kệ hở [CĐ]
+  // (bản 1.37.2 — ảnh mẫu anh Thanh 22/10/2026) tủ lò đặt lò THẤP: 1 cánh dưới | hốc lò 590 đáy ở +LO_THAP (thấp hơn mặt đá, lò cắt ngang mặt đá) | hốc vi sóng | cánh trên.
+  // [CĐ] 480 đọc theo ảnh (chưa đo ở xưởng); ô cánh dưới / trên thấp hơn LO_CANH_MIN thì bỏ (lò đứng trên đáy / hốc chạy tới nóc).
+  // LO_MAU = khoá mẫu tủ lò mới (Thư viện, + Lò của bộ): lo_z 'thap' — tủ lò lưu trước 1.37.2 không có khoá = 'mat_da' (2 ngăn kéo, đợt đỡ lò mặt trên = mặt đá)
+  const LO_THAP = 480, LO_CANH_MIN = 150, LO_Z = ['thap', 'mat_da'], LO_MAU = { vs: VS_MAC_DINH, lo_z: 'thap' };
   /**
    * (bản 1.34) Số đo góc chữ L (hàm thuần): tủ góc mù thuộc cạnh A, phần mù chui sau đầu cạnh B; F = sâu phủ bì tủ dưới cạnh B (thùng + cánh + cách tường), N = nẹp góc.
    * X = F + N − (Wg − c − khe) = khoảng tủ góc cách tường B (X < 0: tủ góc quá rộng so với cánh). Tủ trên góc: mối nối trùng tủ dưới —
@@ -3747,6 +3760,9 @@
     if (B.chuc_nang === 'tl') B.tb.tl = tbBep('tl', tb.tl, W);
     // (bản 1.34) khoá riêng theo chức năng: hốc vi sóng của tủ lò, phụ kiện góc của tủ góc — tủ khác không mang
     if (B.chuc_nang === 'lo') { const v = num(B.vs, VS_MAC_DINH); B.vs = [0, 380, 460].indexOf(v) >= 0 ? v : VS_MAC_DINH; } else delete B.vs;
+    // (bản 1.37.2) kiểu đặt lò: thiếu khoá = 'mat_da' (tủ lò lưu / vẽ trước 1.37.2 dựng lại y cũ); mẫu mới ghi 'thap' (LO_MAU)
+    // (vòng soát 1.37.2) 'mat_da' = THIẾU khoá (không ghi) — tủ lò lưu / vẽ trước 1.37.2 giữ đúng từng byte của spec (dấu sig của bộ đã vẽ không đổi)
+    if (B.chuc_nang !== 'lo' || B.lo_z !== 'thap') delete B.lo_z;
     if (B.chuc_nang === 'goc') B.goc_pk = GOC_BEP[B.goc_pk] ? B.goc_pk : GOC_MAC_DINH; else delete B.goc_pk;
     if (B.chuc_nang !== 'tl') delete B.ke_tu;
     // (bản 1.35) khoá riêng của tủ trên trong dãy: tang2 = tầng trên kịch trần (đặt chồng lên đỉnh tầng dưới), kinh = cánh khung kính, led (+ led_nguon mm: tủ mang nguồn cho cả dãy)
@@ -3812,9 +3828,36 @@
     return normalize(s);
   }
   /**
+   * (bản 1.37.2) Ruột tủ cao lò (hàm thuần — ruotBep và mặt đứng của bộ bếp dùng chung): q = { lo_z, vs, cao_mat, chan, cao, t } →
+   * { dot (mặt dưới các đợt), o (ô hốc của khoang), hoc: [{ tb: 'lo' | 'vs', z0 (mặt trên đợt / đáy), z1 (mặt dưới đợt / nóc) }], cdu (có cánh dưới) }.
+   *   'mat_da' (bản 1.34): 2 ngăn kéo | đợt đỡ lò mặt trên = mặt đá | hốc lò 590 | đợt | hốc vi sóng vs | đợt | ô cánh.
+   *   'thap'  (ảnh anh Thanh 22/10/2026): ô cánh | đợt đỡ lò mặt trên +LO_THAP | hốc lò 590 | đợt | hốc vi sóng vs | đợt | ô cánh.
+   *     Ô cánh dưới < LO_CANH_MIN (chân rất cao) → lò đứng trên đáy; ô cánh trên < LO_CANH_MIN → bỏ đợt trên cùng (hốc cuối chạy tới nóc) — thiếu chỗ thì kiemBep báo.
+   */
+  function hocLo(q) {
+    const t = num(q.t, DEFAULT_SPEC.van.t), vs = num(q.vs, 0), cao = num(q.cao, 0), zTop = rn(cao - t), hoc = [];
+    const o = (tu, tb) => ({ tu, kieu: 'hoc', tb, hau: false, san: false });
+    if (q.lo_z !== 'thap') {
+      const cm = num(q.cao_mat, DEFAULT_BEP.cao_mat), zLo = rn(cm + HOC_LO), dot = [rn(cm - t), zLo], oo = [{ tu: 0, kieu: 'nk_trum', so: 2 }, o(rn(cm - t), 'lo')];
+      if (vs > 0) { dot.push(rn(zLo + t + vs)); oo.push(o(zLo, 'vs')); }
+      hoc.push({ tb: 'lo', z0: cm, z1: zLo }); if (vs > 0) hoc.push({ tb: 'vs', z0: rn(zLo + t), z1: Math.min(rn(zLo + t + vs), zTop) });
+      return { dot, o: oo, hoc, cdu: false };
+    }
+    const zDay = rn(num(q.chan, 0) + t), cdu = LO_THAP - t - zDay >= LO_CANH_MIN - TOL;
+    const z0 = cdu ? LO_THAP : zDay, zLo = rn(z0 + HOC_LO), dot = cdu ? [rn(z0 - t)] : [], oo = [o(cdu ? rn(z0 - t) : 0, 'lo')];
+    const conDu = z => zTop - (z + t) >= LO_CANH_MIN - TOL;      // đợt ở z (mặt dưới) còn chừa ô cánh trên ≥ LO_CANH_MIN
+    let zL1 = zTop;
+    if (vs > 0) {
+      if (zLo + t < zTop - TOL) { dot.push(zLo); oo.push(o(zLo, 'vs')); zL1 = zLo; const zV = rn(zLo + t + vs); hoc.push({ tb: 'vs', z0: rn(zLo + t), z1: conDu(zV) ? zV : zTop }); if (conDu(zV)) dot.push(zV); }
+    } else if (conDu(zLo)) { dot.push(zLo); zL1 = zLo; }
+    hoc.unshift({ tb: 'lo', z0, z1: Math.min(zL1, zTop) });
+    return { dot, o: oo, hoc, cdu };
+  }
+  /**
    * (bản 1.34) Ruột CỐ ĐỊNH theo thiết bị — dựng lại mỗi lần normalize (đổi chuẩn bếp / máy / hốc vi sóng là ruột theo ngay; số người dùng gõ là của thiết bị, không của đợt):
    *   tl  khoang tủ lạnh: hốc từ sàn tới đợt = cao máy + hở trên; ô trên cánh (lọt < TL_KE thì kệ hở, ke_tu = tự bỏ cánh)
-   *   lo  tủ lò: 2 ngăn kéo | đợt đỡ lò (mặt trên = mặt đá) | hốc lò 590 | đợt | hốc vi sóng `vs` | đợt | ô cánh
+   *   lo  tủ lò lo_z 'mat_da': 2 ngăn kéo | đợt đỡ lò (mặt trên = mặt đá) | hốc lò 590 | đợt | hốc vi sóng `vs` | đợt | ô cánh
+   *       lo_z 'thap' (1.37.2): ô cánh | đợt đỡ lò mặt trên +LO_THAP | hốc lò 590 | đợt | hốc vi sóng `vs` | đợt | ô cánh (ô cánh < LO_CANH_MIN thì bỏ)
    *   goc tủ góc mù dưới: một khoang, tấm che mù rộng (Wg − c − khe) phía mù, một cánh c phía hở (bản lề phía ngoài [CĐ]), rổ góc cả lọt lòng
    */
   function ruotBep(s, B) {
@@ -3822,9 +3865,8 @@
     if (B.chuc_nang !== 'lo' && B.chuc_nang !== 'tl' && !goc) return;
     const t = s.van.t, k0 = Object.assign({ canh: 1, ban_le: 'trai' }, s.khoang[0] || {}, { rong: 'auto' });
     if (B.chuc_nang === 'lo') {
-      const cm = B.cao_mat, zLo = rn(cm + HOC_LO);
-      k0.dot = [rn(cm - t), zLo]; k0.o = [{ tu: 0, kieu: 'nk_trum', so: 2 }, { tu: rn(cm - t), kieu: 'hoc', tb: 'lo', hau: false, san: false }];
-      if (B.vs > 0) { k0.dot.push(rn(zLo + t + B.vs)); k0.o.push({ tu: zLo, kieu: 'hoc', tb: 'vs', hau: false, san: false }); }
+      const h = hocLo({ lo_z: B.lo_z, vs: B.vs, cao_mat: B.cao_mat, chan: num(s.chan && s.chan.cao, 0), cao: s.cao, t });
+      k0.dot = h.dot; k0.o = h.o;
     } else if (B.chuc_nang === 'tl' && B.tb.tl.kieu === 'am') {
       // (bản 1.35) TỦ LẠNH ÂM: tủ cao bao quanh có đáy + chân + hậu; hốc từ mặt trên đáy tới đợt = cao máy + hở trên; cánh ốp phủ hốc (gắn vào cánh máy qua ray dẫn cánh),
       // ô trên cánh riêng. Số cánh theo máy: rộng > 650 (side-by-side âm) thì 2 [CĐ]
@@ -3903,10 +3945,12 @@
   function nangChuanBep(o) {
     const soBan = v => { const m = /^(\d+)\.(\d+)(?:\.(\d+))?/.exec(String(v == null ? '' : v)); return m ? (+m[1]) * 1e6 + (+m[2]) * 1e3 + (+(m[3] || 0)) : NaN; };
     o = o && typeof o === 'object' && !Array.isArray(o) ? o : {};
-    const cu = !(soBan(o.ban) >= soBan('1.33.1')), chuan = {}, doi = [];
-    for (const k of KHOA_CHUAN_BEP) if (k in o) { if (cu && k in MAC_DINH_BEP_CU && o[k] === MAC_DINH_BEP_CU[k]) doi.push(k); else chuan[k] = o[k]; }
+    const cu = !(soBan(o.ban) >= soBan('1.33.1')), cu2 = !(soBan(o.ban) >= soBan('1.37.2')), chuan = {}, doi = [];
+    for (const k of KHOA_CHUAN_BEP) if (k in o) { if ((cu && k in MAC_DINH_BEP_CU && o[k] === MAC_DINH_BEP_CU[k]) || (cu2 && k in MAC_DINH_BEP_CU2 && num(o[k], NaN) === MAC_DINH_BEP_CU2[k])) doi.push(k); else chuan[k] = o[k]; }
     // (bản vá 1.33.1) bản lưu cũ không ghi khoá đó = lúc ấy đang theo mặc định cũ → nay đổi sang mặc định mới: cũng là "đã đổi" (để báo)
     if (cu && KHOA_CHUAN_BEP.some(k => k in o)) for (const k of Object.keys(MAC_DINH_BEP_CU)) if (!(k in chuan) && doi.indexOf(k) < 0) doi.push(k);
+    // (bản 1.37.2) như trên cho tủ cao 560 → 620: bản lưu cũ có chuẩn mà không ghi sâu tủ cao = đang theo 560 — nay 620 (báo một lần)
+    if (cu2 && KHOA_CHUAN_BEP.some(k => k in o)) for (const k of Object.keys(MAC_DINH_BEP_CU2)) if (!(k in chuan) && doi.indexOf(k) < 0) doi.push(k);
     return { chuan, luu: Object.assign({}, chuan, { ban: VERSION }), doi };
   }
   const MUC_KIEM_BEP = MUC_KIEM.concat([{ ma: 'bep', ten: 'Phụ kiện, thiết bị bếp (rổ, chậu, bếp nấu, hút mùi)' }]);
@@ -4029,8 +4073,9 @@
         if (hoc && rn(hoc.z1 - z0) < tl.cao + tl.ho_tren - TOL) err(`Hốc tủ lạnh âm cao ${g(rn(hoc.z1 - z0))} < máy ${g(tl.cao)} + hở trên ${g(tl.ho_tren)} — tăng Cao tủ.`);
         note(`Tủ lạnh âm: tủ cao bao quanh có đáy + hậu, cánh ốp cùng màu gắn vào cánh máy qua bộ ray dẫn cánh; hở ${g(tl.ho_hong)} mỗi hông, ${g(tl.ho_tren)} trên — kiểm catalogue máy âm (kích thước hốc, khe thoát nhiệt chân / nóc, bản lề máy) trước khi cắt [CĐ].`);
       } else {
-        const nho = rn(tl.sau + tl.ho_sau - (s.sau_thung + s.van.t_canh + B.cach_tuong));
-        if (nho > 0) note(`Tủ lạnh sâu ${g(tl.sau)} + hở sau ${g(tl.ho_sau)}: mặt cánh tủ lạnh nhô ${g(nho)} trước mặt cánh dãy — để vậy, không làm hồi sâu theo máy.`);
+        // (vòng soát 1.37.2) "mặt cánh dãy" = dãy tủ DƯỚI (sau_duoi + cánh), không phải phủ bì của chính tủ cao (nay 620, khác dãy dưới 577,5)
+        const nho = rn(tl.sau + tl.ho_sau - (B.sau_duoi + s.van.t_canh + B.cach_tuong)), nhoC = rn(tl.sau + tl.ho_sau - (s.sau_thung + s.van.t_canh + B.cach_tuong));
+        if (nho > 0) note(`Tủ lạnh sâu ${g(tl.sau)} + hở sau ${g(tl.ho_sau)}: mặt cánh tủ lạnh nhô ${g(nho)} trước mặt cánh dãy${Math.abs(nhoC - nho) > TOL ? ` dưới${nhoC > 0 ? ` (${g(nhoC)} trước mặt cánh khối cao)` : ''}` : ''} — để vậy, không làm hồi sâu theo máy.`);
         note('Khoang tủ lạnh không đáy, không xà chân, không giằng chân: hai hồi cao bắt ke L xuống sàn, ô trên bắt vít nở vào tường qua thanh treo (anh chốt 12/10/2026).');
       }
     }
@@ -4040,9 +4085,20 @@
         const ten = x.tb === 'lo' ? 'Hốc lò' : 'Hốc vi sóng', cao = rn(x.z1 - x.z0);
         if ((x.lot < HOC_LO_RONG[0] - TOL || x.lot > HOC_LO_RONG[1] + TOL) && !daBao.has('r')) { daBao.add('r'); err(`${ten} lọt rộng ${g(x.lot)} ngoài ${HOC_LO_RONG[0]} – ${HOC_LO_RONG[1]} (hốc lò / vi sóng âm 60 của hãng) — ván ${g(t)}: ${x.lot < HOC_LO_RONG[0] ? 'tủ rộng hơn hoặc ván mỏng hơn' : 'tủ hẹp hơn hoặc ván dày hơn'}.`); }
         if (x.sau < HOC_LO_SAU - TOL && !daBao.has('s')) { daBao.add('s'); err(`${ten} sâu lọt ${g(x.sau)} < ${HOC_LO_SAU} hãng cần — tăng sâu tủ.`); }
-        if (x.tb === 'lo' && cao < 585 - TOL) err(`Hốc lò cao ${g(cao)} < 585 (hốc hãng 585 – 595).`);
+        if (x.tb === 'lo' && cao < 585 - TOL) err(`Hốc lò cao ${g(cao)} < 585 (hốc hãng 585 – 595)${x.z1 >= s.cao - t - TOL ? ' — hốc chạm nóc: tăng cao tủ' : ''}.`);
+        // (vòng soát 1.37.2) lò thấp không vi sóng, tủ thấp: ô cánh trên < 150 bị bỏ → hốc lò chạy tới nóc, cao hơn hẳn cỡ hãng
+        if (x.tb === 'lo' && cao > 595 + TOL) warn(`Hốc lò cao ${g(cao)} > 595 (hốc hãng 585 – 595) — lò hở ${g(rn(cao - 590))} phía trên: thêm nẹp bịt trên lò, chọn hốc vi sóng hoặc tăng cao tủ cho có ô cánh trên.`);
+        // (bản 1.37.2) hốc vi sóng thấp hơn cỡ đã chọn (tủ thấp: hốc chạy tới nóc mà vẫn thiếu)
+        if (x.tb === 'vs' && B.vs > 0 && cao < B.vs - TOL) err(`Hốc vi sóng cao ${g(cao)} < ${g(B.vs)} đã chọn — hốc chạm nóc: tăng cao tủ hoặc chọn hốc vi sóng nhỏ hơn / không.`);
       }
-      if ((I.hoc || []).some(x => x.tb === 'lo')) note('Đợt đỡ lò cố định, ngắn 50 phía sau (thoát nhiệt); hốc lò / vi sóng không hậu. Hốc theo cỡ phổ biến của hãng (lò 60: 560 – 568 × 585 – 595 × 550) — đối chiếu model khách mua.'); }
+      // (bản 1.37.2) tủ cao lò chọn hốc vi sóng mà không còn chỗ trên lò (lò chạm nóc)
+      if (B.chuc_nang === 'lo' && B.vs > 0 && !(I.hoc || []).some(x => x.tb === 'vs')) err(`Tủ cao ${g(s.cao)}: không còn chỗ hốc vi sóng ${g(B.vs)} trên lò — tăng cao tủ hoặc bỏ hốc vi sóng.`);
+      // (vòng soát 1.37.2) lò thấp + chân cao (> ~295): không còn chỗ cánh dưới → lò đứng trên ĐÁY nguyên sâu, không có đợt đỡ ngắn → không khe thoát nhiệt
+      const doLo = M.parts.some(p => p.loai === 'DOT' && /đợt đỡ lò/.test(p.ghi_bep || ''));
+      if ((I.hoc || []).some(x => x.tb === 'lo')) {
+        if (doLo) note('Đợt đỡ lò cố định, ngắn 50 phía sau (thoát nhiệt); hốc lò / vi sóng không hậu. Hốc theo cỡ phổ biến của hãng (lò 60: 560 – 568 × 585 – 595 × 550) — đối chiếu model khách mua.');
+        else { warn(`Lò đứng trên đáy tủ (chân ${g(num(s.chan && s.chan.cao, 0))} cao, không còn chỗ cánh dưới ${LO_CANH_MIN}) — đáy nguyên sâu, sau lò không có khe thoát nhiệt: hạ chân ≤ ${g(rn(LO_THAP - LO_CANH_MIN - 2 * t))} hoặc khoét khe ${g(LO_THOAT)} phía sau đáy tại xưởng.`); note('Hốc lò / vi sóng không hậu. Hốc theo cỡ phổ biến của hãng (lò 60: 560 – 568 × 585 – 595 × 550) — đối chiếu model khách mua.'); }
+      } }
     // (bản 1.34) TỦ GÓC MÙ: cánh phía hở ≥ cánh tối thiểu của phụ kiện góc
     if (I.goc) {
       const p = PK((GOC_BEP[B.goc_pk] || {}).pk || '') || (I.ro[0] && PK(I.ro[0].pk));
@@ -4216,7 +4272,7 @@
     // (bản 1.34) khoang tủ lạnh: rộng = máy + 2 × hở hông 20 + 2 hồi (không làm tròn — dư dồn vào nẹp của dãy); tủ lò + vi sóng 600 (hốc vi sóng 380, anh chốt)
     // (bản 1.35) máy âm: mã BC-TLA-<rộng> — tủ cao bao quanh (hở 5 mỗi hông), cánh ốp
     ...LOAI_TB_BEP.tl.map(m => [maTL(m), `${m.kieu === 'am' ? 'Tủ cao tủ lạnh âm' : 'Khoang tủ lạnh'} ${m.rong} (${m.ten.replace(/ \(ví dụ\)$/, '')})`, 'tl', (Bm, t) => rn(m.rong + 2 * hoTL(m.kieu).ho_hong + 2 * t), 2, RUOT_BEP.trong, { tb: { tl: { ma: m.ma } } }]),
-    ['BC-LO-600', 'Tủ cao lò nướng + vi sóng 600', 'lo', 600, 1, RUOT_BEP.trong, { vs: VS_MAC_DINH }]].map(mauBep('cao'));
+    ['BC-LO-600', 'Tủ cao lò nướng + vi sóng 600', 'lo', 600, 1, RUOT_BEP.trong, LO_MAU]].map(mauBep('cao'));      // (1.37.2) lò thấp theo ảnh anh (LO_MAU)
 
   /* ------------------------------------------------------------------ *
    * (bản 1.34.1 — anh Thanh 14/10/2026: "làm hệ thư viện để vẽ bếp như tủ áo") THƯ VIỆN BẾP GỌN: ô Thư viện chỉ còn Tủ bếp dưới / trên / cao (+ Bộ bếp I / L);
@@ -4426,6 +4482,11 @@
     const r = chia && !(o.tay && typeof o.tay === 'object') ? { tay: tayMacDinh({ kieu, canh, chau, bep }), sua: [], bo_canh: false } : chuanTay(o.tay, { canh });
     return Object.assign(chia ? { chia } : {}, { tay: r.tay }, chia && r.sua.length ? { tay_sua: r.sua } : {}, chia && r.bo_canh ? { tay_bo: 'B' } : {});
   }
+  /**
+   * (bản 1.37.2) khoá tủ lò của bộ — chỉ có khi bộ có tủ lò (bộ khác không đổi một byte): lo_z 'thap' | 'mat_da' (thiếu = 'mat_da': bộ lưu trước 1.37.2 dựng lại y cũ;
+   * bảng ghi 'thap' khi bấm "+ Lò"), lo_dau 'kia' = tủ lò đứng ở ĐẦU KIA dãy (tách rời tủ lạnh) — thiếu = liền khối cao của tủ lạnh như 1.34 / 1.35.
+   */
+  const loCua = (o, cao) => (cao.some(c => c.loai === 'lo') ? Object.assign({ lo_z: o.lo_z === 'thap' ? 'thap' : 'mat_da' }, o.lo_dau === 'kia' ? { lo_dau: 'kia' } : {}) : {});
   function chuanBo(o) {
     o = o && typeof o === 'object' && !Array.isArray(o) ? clone(o) : {};
     const cu = num(o.v, 0) === 1;
@@ -4491,7 +4552,7 @@
     const lat = Array.isArray(o.lat) ? o.lat.filter(v => v && typeof v === 'object' && soN(v.s, -1000, 20000) !== null).map(v => Object.assign({ canh: ci(v.canh), s: soN(v.s, -1000, 20000) }, v.t2 ? { t2: 1 } : {})).slice(0, 40) : [];
     return { v: 2, ma: String(o.ma == null || o.ma === '' ? 'B1' : o.ma).trim().slice(0, 16) || 'B1', kieu, canh, tl, tl2, cao, chau, bep, co, ro, hm: o.hm === 'kinh' ? 'kinh' : 'am',
       vs: [0, 380, 460].indexOf(num(o.vs, VS_MAC_DINH)) >= 0 ? num(o.vs, VS_MAC_DINH) : VS_MAC_DINH, goc, khoa, ong, cua_so: cs, chuan, tran, kinh, led: typeof o.led === 'boolean' ? o.led : !cu,
-      ...(o.ke === true ? { ke: true } : {}), ...(coLui ? { co_lui: co } : {}), ...(lat.length ? { lat } : {}), ...tayCua(o, kieu, canh, chau, bep) };      // ke: "+ Kệ" (kệ hở sát đầu hở) — chỉ có khoá khi bật
+      ...(o.ke === true ? { ke: true } : {}), ...(coLui ? { co_lui: co } : {}), ...(lat.length ? { lat } : {}), ...loCua(o, cao), ...tayCua(o, kieu, canh, chau, bep) };      // ke: "+ Kệ" (kệ hở sát đầu hở) — chỉ có khoá khi bật
   }
   /**
    * (bản 1.35) "+ Tủ lạnh" ở một đầu dãy (bấm lần nữa = bỏ) — hàm thuần. q = { canh (chữ L: 0 = đầu xa góc cạnh A, 1 = cạnh B), dau ('dau' | 'cuoi' — chữ I), may?, kieu? }.
@@ -4525,11 +4586,18 @@
   /** (bản 1.35) khối cao theo đầu dãy: tủ lạnh chính (ngoài cùng) + lò / kho ở một đầu, tủ lạnh thứ hai ở đầu kia. ds xếp từ NGOÀI vào. */
   function khoiCaoBo(bo, t) {
     const L = bo.kieu === 'L', out = [], wTL = tl => rn(tbBep('tl', tlMay(tl), 0).rong + 2 * tl.ho_hong + 2 * t), ben = tl => (L ? 'cuoi' : tl.dau);
-    const ds0 = [];
+    const ds0 = [], kia = bo.lo_dau === 'kia', lo = [];
     if (bo.tl) ds0.push({ loai: 'tl', w: wTL(bo.tl), tl: bo.tl, tl_i: 0 });
-    for (const c of bo.cao) ds0.push({ loai: c.loai, w: c.rong });
-    if (ds0.length) out.push({ canh: bo.tl ? bo.tl.canh : 0, ben: bo.tl ? ben(bo.tl) : (L ? 'cuoi' : 'dau'), ds: ds0 });
-    if (bo.tl && bo.tl2) out.push({ canh: bo.tl2.canh, ben: ben(bo.tl2), ds: [{ loai: 'tl', w: wTL(bo.tl2), tl: bo.tl2, tl_i: 1 }] });
+    for (const c of bo.cao) (kia && c.loai === 'lo' ? lo : ds0).push({ loai: c.loai, w: c.rong });
+    // đầu của khối cao chính: tủ lạnh chính; không tủ lạnh thì đầu trái (chữ I) / đầu xa góc cạnh A (chữ L)
+    const d0 = { canh: bo.tl ? bo.tl.canh : 0, ben: bo.tl ? ben(bo.tl) : (L ? 'cuoi' : 'dau') };
+    if (ds0.length) out.push(Object.assign({}, d0, { ds: ds0 }));
+    // (bản 1.37.2) tủ lò TÁCH RỜI (bo.lo_dau 'kia'): đầu kia của dãy — chữ I: đầu đối diện; chữ L: đầu xa góc của cạnh kia. Đầu đó có tủ lạnh thứ hai thì lò đứng
+    // liền trong nó (từ ngoài vào: tủ lạnh → lò), như khối cao chính
+    const d1 = L ? { canh: 1 - d0.canh, ben: 'cuoi' } : { canh: 0, ben: d0.ben === 'dau' ? 'cuoi' : 'dau' };
+    const ds1 = bo.tl && bo.tl2 ? [{ loai: 'tl', w: wTL(bo.tl2), tl: bo.tl2, tl_i: 1 }] : [];
+    if (bo.tl && bo.tl2) { const k = { canh: bo.tl2.canh, ben: ben(bo.tl2) }; out.push(Object.assign(k, { ds: k.canh === d1.canh && k.ben === d1.ben ? ds1.concat(lo) : ds1 })); if (!(k.canh === d1.canh && k.ben === d1.ben) && lo.length) out.push(Object.assign({}, d1, { ds: lo })); }
+    else if (lo.length) out.push(Object.assign({}, d1, { ds: lo }));
     return out;
   }
   /**
@@ -4682,6 +4750,7 @@
   }
   /** (bản 1.37.0) mặt sơ chế giữa chậu c và bếp b ({ e, u0, u1 }): cùng cạnh = khoảng giữa hai tủ; khác cạnh (chữ L) = hai đoạn tới mặt tủ cạnh kia (F) — dùng chung tự chia / theo khoang. */
   const soCheBo = (c, b, F) => (c.e === b.e ? rn(Math.max(c.u0 - b.u1, b.u0 - c.u1), 2) : rn((c.u0 - F) + (b.u0 - F), 2));
+  const KE_BO_CAO = '+ Kệ: đầu hở của dãy đã có khối cao (tủ lạnh / tủ lò) — không còn chỗ đặt kệ hở 300; tắt + Kệ hoặc dời khối cao về đầu tường.';
   function xepBep1(boIn, opt) {
     opt = opt || {};
     const bo = chuanBo(boIn), Q = soBo(bo, opt.nen), { B, t, tc, F } = Q, L = bo.kieu === 'L';
@@ -4901,6 +4970,8 @@
       tot.push(p);
     }
     const pa = tot.sort((a, b) => a.cost - b.cost).slice(0, so);
+    // (vòng soát 1.37.2) "+ Kệ" chỉ dựng ở đầu HỞ chưa có khối cao — khối cao (tủ lạnh ở đầu hở, tủ lò "Đầu kia") chiếm hết đầu hở thì kệ bị bỏ: nói ra (chip vẫn sáng)
+    if (bo.ke && pa.length && !E.some(e => ['dau', 'cuoi'].some(b => e[b] === 'ho' && !e.cao[b].length && e.Lmax >= BO_KE_DAU - TOL))) for (const p of pa) p.luu_y.unshift(KE_BO_CAO);
     if (!pa.length) return { bo, pa: [], loi_chung: loiGan ? [`Không có phương án nào qua được phép kiểm dãy — phương án gần được nhất còn ${loiGan.length} lỗi:`, ...loiGan.slice(0, 4).concat(loiGan.length > 4 ? [`… và ${loiGan.length - 4} lỗi khác.`] : [])]
       : ['Không có phương án nào qua được phép kiểm dãy.'] };
     return { bo, pa, loi_chung: [] };
@@ -5278,7 +5349,7 @@
       if (m.chuc === 'tl') { const tlo = m.tl_i === 1 && bo.tl2 ? bo.tl2 : bo.tl; s.bep.tb = { tl: Object.assign(tlMay(tlo), { kieu: tlo.kieu, ho_hong: tlo.ho_hong, ho_tren: tlo.ho_tren, ho_sau: tlo.ho_sau }, tlo.tan_nhiet !== null ? { tan_nhiet: tlo.tan_nhiet } : {}) };
         // tủ lạnh âm: cánh ốp bản lề phía tường (đầu dãy) — trừ khi chọn bản lề phía trong
         if (tlo.kieu === 'am' && s.khoang[0]) { const tuong = (m.nep && (m.nep.trai ? 'trai' : m.nep.phai ? 'phai' : '')) || m.op || ''; s.khoang[0].ban_le = tuong && tlo.ban_le !== 'trong' ? tuong : tuong === 'trai' ? 'phai' : 'trai'; } }
-      if (m.chuc === 'lo') s.bep.vs = bo.vs;
+      if (m.chuc === 'lo') { s.bep.vs = bo.vs; if (bo.lo_z === 'thap') s.bep.lo_z = 'thap'; else delete s.bep.lo_z; }      // (1.37.2) kiểu đặt lò của bộ (thiếu = bộ cũ: ngang mặt đá)
       s.rong = m.dai;
       // (bản 1.35) tầng trên kịch trần: chồng lên đỉnh tầng dưới (tang2 → z đặt = đỉnh tầng dưới), cao riêng h2; trên tủ cao thì sâu theo tủ cao; thấp thì không đợt
       if (m.t2) {
@@ -5541,6 +5612,11 @@
       for (const k of M.kq) if (k.muc === 'loi' && M.errors.indexOf(k.t) < 0) loi.push(`${ten(m)}: ${k.t}`);
       for (const w of M.warnings) canh_bao.push(`${ten(m)}: ${w}`);
       for (const n of M.notes || []) if (/nhô/.test(n)) luu_y.push(`${ten(m)}: ${n}`);
+      // (vòng soát 1.37.2) đầu đá phải TÌ vào hông tủ cao (anh Thanh: tủ cao 620 lòi ra trước đá) — Sâu tủ dưới gõ lớn thì đá sâu hơn mặt cánh tủ cao, thò ra ở đầu tì
+      if (x.tang === 'cao' && m && ds.some(q => q.canh === m.canh && q.tang === 'duoi' && (Math.abs(q.u1 - m.u0) < 0.5 || Math.abs(q.u0 - m.u1) < 0.5))) {      // tủ cao kề tủ dưới (đầu tì)
+        const pb = rn(x.spec.sau_thung + x.spec.van.t_canh + num(x.spec.bep && x.spec.bep.cach_tuong, 0), 2);
+        if (pb > Q.F + TOL && Q.sauDa > pb + TOL) canh_bao.push(`${ten(m)}: đá sâu ${g(Q.sauDa)} thò ${g(rn(Q.sauDa - pb, 2))} trước mặt cánh tủ cao (${g(pb)}) — đầu đá không tì vào hông tủ cao; giảm Sâu tủ dưới hoặc đặt Sâu thùng tủ cao ≥ ${g(rn(Q.sauDa - x.spec.van.t_canh - num(x.spec.bep && x.spec.bep.cach_tuong, 0), 2))}.`);
+      }
       if (m.chuc === 'tl' && x.spec.sau_thung > B.sau_cao + TOL) luu_y.push(`${ten(m)}: tủ cao sâu ${g(x.spec.sau_thung)} theo máy âm (chuẩn ${g(B.sau_cao)}) — mặt cánh nhô ${g(rn(x.spec.sau_thung - B.sau_cao))} trước tủ cao khác.`);
     }
     const uniq = a => a.filter((v, i) => a.indexOf(v) === i);
@@ -5593,6 +5669,16 @@
    * Chỗ đặt từng tủ của một phương án (thiết kế §9). cho = { goc: [x, y, z] (chữ I: lưng đầu trái; chữ L: góc trong), xoay: hướng cạnh A }. Chữ L: rẽ theo bo.canh[1].re.
    * @returns [{ vt, canh, tang, ma, spec, at: gốc thiết kế tủ trên bản vẽ (mép trái, mặt trước thùng, sàn — tủ trên + cao độ treo), xoay, sig }] theo thứ tự vẽ: dưới A → dưới B → cao → trên | null
    */
+  /**
+   * (vòng soát 1.37.2) spec đưa vào dấu `sig` của datDay: mọi tủ bếp mang khoá chuẩn `bep.sau_cao` (sâu thùng tủ cao) dù không phải tủ cao — khoá đó không đổi
+   * tấm nào của tủ dưới / tủ trên. Mặc định đổi 560 → 602,5 ở 1.37.2 → dấu của MỌI tủ bộ đã vẽ ở 1.37.1 đổi theo (boLech báo cả dãy "đã khác", Cập nhật gửi
+   * D.update vô ích). Tủ không phải tầng cao mang đúng mặc định mới thì băm như mặc định cũ — dấu y 1.37.1; tủ cao (sâu thật đổi) vẫn băm số thật.
+   */
+  function sigSpec(x) {
+    const B = x.spec && x.spec.bep;
+    if (x.tang === 'cao' || !B || B.sau_cao !== DEFAULT_BEP.sau_cao) return x.spec;
+    return Object.assign({}, x.spec, { bep: Object.assign({}, B, { sau_cao: MAC_DINH_BEP_CU2.sau_cao }) });
+  }
   function datDay(boIn, pa, cho, opt) {
     if (!pa || !Array.isArray(pa.ds) || !cho || !so3(cho.goc)) return null;
     const bo = chuanBo(boIn), L = bo.kieu === 'L', a = xoayChuan(cho.xoay), G = [num(cho.goc[0], 0), num(cho.goc[1], 0), num(cho.goc[2], 0)];
@@ -5607,7 +5693,7 @@
       const m = pa.ds.find(q => q.vt === x.vt), e = E[x.canh] || E[0], d = huong(e.a), n = [d[1], -d[0]];
       const M = dungBo(x.spec), bb = bbox(M.parts), lung = Math.max(bb ? bb.y1 : 0, x.spec.sau_thung) + (x.tang === 'tren' && !x.sau_cao ? 0 : num(x.spec.bep && x.spec.bep.cach_tuong, 0));
       const at = [rn(e.p0[0] + d[0] * x.s0 + n[0] * lung, 2), rn(e.p0[1] + d[1] * x.s0 + n[1] * lung, 2), rn(G[2] + x.z, 2)];
-      out.push({ vt: x.vt, canh: x.canh, tang: x.tang, ma: m ? m.ma : '', spec: x.spec, at, xoay: e.a, sig: dauBam(JSON.stringify([x.spec, at, e.a])) });
+      out.push({ vt: x.vt, canh: x.canh, tang: x.tang, ma: m ? m.ma : '', spec: x.spec, at, xoay: e.a, sig: dauBam(JSON.stringify([sigSpec(x), at, e.a])) });
     }
     const hang = x => ['duoi', 'cao', 'tren'].indexOf(x.tang) * 10 + (x.tang === 'cao' ? 0 : x.canh);
     return out.map((x, i) => [x, i]).sort((p, q) => hang(p[0]) - hang(q[0]) || p[1] - q[1]).map(p => p[0]);
@@ -5866,5 +5952,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { xepTay, tayTuPA, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { KE_BO_CAO, xepTay, tayTuPA, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
