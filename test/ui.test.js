@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.37\.4/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.38\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -1765,6 +1765,53 @@ async function testBoBep(browser) {
       ok(await h.isDisabled() && /Không có mẫu .* rộng/.test(await h.getAttribute('title')), 'chip "Trên: Hút mùi" khoá, title nói cỡ có', await h.getAttribute('title'));
       ok(!(await S(page, `.botay [data-act="bo-tay-tren-kieu"][data-id="${c.id}"][data-v="ke"]`).isDisabled()), 'chip Kệ hở (không cỡ cố định) vẫn bấm được');
       ok(JSON.stringify((await bo()).tay) === t0, 'không đổi bộ'); }
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
+  // (bản 1.38.0) THÂN LIỀN THEO ĐOẠN: hình vẽ khung đoạn + vạch vách đơn (cách chia không đổi); ô chọn khoang nói đoạn; ⋯ → Thân dãy: Từng tủ (một bước ↶ Lùi); Mở thành tủ nói khác kết cấu
+  { const b0 = await bo(), E1 = { kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 } };
+    await page.evaluate(o => window.MNCF.app.setBo(o), E1); await cho();
+    const dd = await page.evaluate(() => window.MNCF.app.getBoDoan()), C = await page.evaluate(b => { const r = window.MNCFCore.xepBep(b); return window.MNCFCore.doanBo(r.bo, r.pa[0]); }, E1);
+    ok(JSON.stringify(dd) === JSON.stringify(C) && dd.filter(d => !d.rieng).length === 6, 'đoạn của bảng = Core.doanBo (6 đoạn)', dd.map(d => d.ma));
+    const md = () => page.evaluate(() => { const g = document.getElementById('mncf-host').shadowRoot.querySelector('.bov svg[data-bo="md"]'); return { doan: [...g.querySelectorAll('[data-bo-doan]')].map(e => e.dataset.boDoan), vach: g.querySelectorAll('[data-bo-vach]').length, k: [...g.querySelectorAll('[data-bo-vt][data-doan]')].map(e => e.dataset.boVt) }; });
+    { const h = await md(), kd = dd.filter(d => !d.rieng);
+      ok(JSON.stringify(h.doan.slice().sort()) === JSON.stringify(kd.map(d => d.ma).sort()) && h.vach === kd.reduce((a, d) => a + d.vt.length - 1, 0) && JSON.stringify(h.k.slice().sort()) === JSON.stringify([].concat(...kd.map(d => d.vt)).sort()), 'mặt đứng: khung mỗi đoạn, vạch vách đơn giữa các khoang trong đoạn, khoang mang mã đoạn', h);
+      ok((await S(page, '.bov svg[data-bo="mb"] [data-bo-doan]').count()) === kd.filter(d => d.tang === 'duoi').length, 'mặt bằng: khung các đoạn tầng dưới'); }
+    { const p = (await kq()).pa[0], ds0 = JSON.stringify(p.ds);
+      await S(page, '.bov svg[data-bo="md"] [data-bo-vt="A4"]').click();
+      ok(/Thân liền A3 \+ A4 \+ A5/.test(await S(page, '[data-ui="bok-doan"]').innerText()), 'ô chọn khoang A4: "Thân liền A3 + A4 + A5"', await S(page, '.bokpop').innerText());
+      await S(page, '[data-act="kpop-bo-dong"]').click();
+      await S(page, '.bov svg[data-bo="md"] [data-bo-vt="A6"]').click();
+      ok(!(await S(page, '[data-ui="bok-doan"]').count()), 'tủ chậu đứng riêng: ô chọn không nói thân liền');
+      await S(page, '[data-act="kpop-bo-dong"]').click();
+      // ⋯ → Thân dãy: Từng tủ — không còn khung đoạn; cách chia y hệt; ↶ Lùi một bước
+      if (!(await S(page, '[data-ui="bo-than"]').isVisible())) await S(page, '[data-act="bo-them"]').click();
+      ok((await S(page, '[data-ui="bo-than"]').inputValue()) === 'lien', 'ô Thân dãy: mặc định Liền theo đoạn');
+      await S(page, '[data-ui="bo-than"]').selectOption('tung_tu');
+      ok((await bo()).than === 'tung_tu' && (await md()).doan.length === 0 && (await md()).vach === 0 && JSON.stringify((await kq()).pa[0].ds) === ds0, 'Thân dãy: Từng tủ — bộ ghi than, hết khung đoạn, chia dãy không đổi', [await bo(), await md()]);
+      ok((await page.evaluate(() => window.MNCF.app.getBoDoan())).every(d => d.rieng), 'Từng tủ: mọi tủ riêng');
+      await S(page, '[data-act="lui"]').click();
+      ok(!('than' in (await bo())) && (await md()).doan.length === 6, '↶ Lùi: về thân liền (một bước)');
+      // Mở thành tủ khoang trong đoạn: tủ lẻ hai hồi + nói khác kết cấu dãy
+      await S(page, '.bov svg[data-bo="md"] [data-bo-vt="A4"]').click();
+      await S(page, '.bokpop [data-act="kpop-bo-mo"]').click();
+      const st = await S(page, '.status').innerText(), sp = await page.evaluate(() => window.MNCF.app.getSpec());
+      ok(/thùng riêng hai hồi, còn trong bộ khoang này thuộc thân liền A3 \+ A4 \+ A5/.test(st) && !sp.bep.doan && (await page.evaluate(() => window.MNCF.app.getModel().parts.filter(p => p.loai === 'HOI').length)) === 2, 'Mở thành tủ (khoang trong đoạn): tủ lẻ hai hồi, lời báo nói khác kết cấu dãy', st);
+      await S(page, '[data-act="lui"]').click();
+      ok((await S(page, '.panel').getAttribute('data-loai')) === 'bo-bep', '↶ Lùi: về bộ bếp'); }
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
+  // (vòng soát 1.38.0) Core.kiemDoan nay hiện trên bảng: cảnh báo bản lề trùm 0 (trước không ai gọi kiemDoan — xưởng không biết đặt trùm 0), ô chọn khoang nhắc,
+  // lưu ý hậu đối xuyên vào khối Lưu ý; "Giữ kiểu từng tủ" (Từng tủ) thì không có
+  { const b0 = await bo();
+    await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B2', kieu: 'I', canh: [{ dai: 3600 }] }); await cho();
+    const C = await page.evaluate(() => { const r = window.MNCFCore.xepBep({ ma: 'B2', kieu: 'I', canh: [{ dai: 3600 }] }); return window.MNCFCore.kiemDoan(r.bo, r.pa[0]); });
+    const cb = await S(page, '.bomsgs [data-ui="bo-doan-cb"]').allInnerTexts();
+    ok(C.canh_bao.length >= 2 && cb.length === C.canh_bao.length && cb.every(t => /trùm 0/.test(t)) && /B2-AT@825-2430: AT2: cánh trái mép trái không trùm/.test(cb.join('\n')), 'bảng hiện cảnh báo trùm 0 của Core.kiemDoan', cb);
+    await S(page, '.bov svg[data-bo="md"] [data-bo-vt="AT2"]').click();
+    ok(/Thân liền AT1 \+ AT2.*cánh trái mép trái không trùm lên tấm đứng nào.*trùm 0/.test(await S(page, '[data-ui="bok-doan"]').innerText()), 'ô chọn AT2: nhắc bản lề trùm 0', await S(page, '[data-ui="bok-doan"]').innerText());
+    await S(page, '[data-act="kpop-bo-dong"]').click();
+    ok(C.luu_y.some(t => /hậu thùng/.test(t)) && /hậu thùng \(17,5\) hai khoang áp hai mặt/.test(await S(page, '.bomsgs .boluuy').textContent()), 'lưu ý thân liền (hậu đối xuyên) vào khối Lưu ý (details đang gập: đọc textContent)');
+    if (!(await S(page, '[data-ui="bo-than"]').isVisible())) await S(page, '[data-act="bo-them"]').click();
+    await S(page, '[data-ui="bo-than"]').selectOption('tung_tu');
+    ok(!(await S(page, '.bomsgs [data-ui="bo-doan-cb"]').count()), 'Từng tủ: không cảnh báo thân liền');
     await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
   // rời bộ: chọn một tủ lẻ ở Thư viện
   await vao('@BEP-duoi');

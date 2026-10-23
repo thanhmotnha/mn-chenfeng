@@ -21,14 +21,17 @@
     ApplyMatrix(m) { if (window.__MOCK_NK_KHONG_THEO__ && this.Name === '抽面板' && this.Template && this.Template.Object.Parent) return;      // giả định xấu: mặt ngăn kéo lệnh gốc không theo phép dời của tủ
       const e = m.elements, b = this.box, xs = [], ys = [], zs = [], r = v => Math.round(v * 1e6) / 1e6;
       for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) for (const z of [b[4], b[5]]) { xs.push(e[0] * x + e[4] * y + e[8] * z + e[12]); ys.push(e[1] * x + e[5] * y + e[9] * z + e[13]); zs.push(e[2] * x + e[6] * y + e[10] * z + e[14]); }
-      if (hm.mo) { const cu = b.slice(), dinh = this.dinh, M0 = this.M; hm.mo.snap.push(() => { this.box = cu; this.dinh = dinh; this.M = M0; }); }
+      if (hm.mo) { const cu = b.slice(), dinh = this.dinh, dinhD = this.dinhD, M0 = this.M; hm.mo.snap.push(() => { this.box = cu; this.dinh = dinh; this.dinhD = dinhD; this.M = M0; }); }
       this.box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), Math.min(...zs), Math.max(...zs)].map(r);
       if (this.dinh) this.dinh = this.dinh.map(q => [r(e[0] * q[0] + e[4] * q[1] + e[12]), r(e[1] * q[0] + e[5] * q[1] + e[13])]);
+      if (this.dinhD) this.dinhD = this.dinhD.map(q => [r(e[0] * q[0] + e[4] * q[1] + e[8] * q[2] + e[12]), r(e[1] * q[0] + e[5] * q[1] + e[9] * q[2] + e[13]), r(e[2] * q[0] + e[6] * q[1] + e[10] * q[2] + e[14])]);
       this.M = new M4().copy(m).multiply(this.M); }
     // tấm có đường bao nhiều đỉnh (tấm nằm khoét góc — khấu cột): bản thật trả về từng đỉnh đường bao ở 2 mặt
-    GetStretchPoints() { const b = this.box, o = []; if (this.dinh) { for (const q of this.dinh) for (const z of [b[4], b[5]]) o.push(new V3(q[0], q[1], z)); return o; } for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) for (const z of [b[4], b[5]]) o.push(new V3(x, y, z)); return o; }
+    // (1.38.0) tấm ĐỨNG có đường bao nhiều đỉnh (vách đơn thân liền khoét khấu góc trên — dinhD, xem boardFromJSON): đỉnh 2i ở mặt này, 2i + 1 ở mặt kia
+    GetStretchPoints() { const b = this.box, o = []; if (this.dinhD) return this.dinhD.map(q => new V3(q[0], q[1], q[2])); if (this.dinh) { for (const q of this.dinh) for (const z of [b[4], b[5]]) o.push(new V3(q[0], q[1], z)); return o; } for (const x of [b[0], b[1]]) for (const y of [b[2], b[3]]) for (const z of [b[4], b[5]]) o.push(new V3(x, y, z)); return o; }
     get BoundingBox() { const b = this.box; return { min: { x: b[0], y: b[2], z: b[4] }, max: { x: b[1], y: b[3], z: b[5] } }; }
     move(d) { this.box = [this.box[0] + d[0], this.box[1] + d[0], this.box[2] + d[1], this.box[3] + d[1], this.box[4] + d[2], this.box[5] + d[2]]; if (this.dinh) this.dinh = this.dinh.map(q => [q[0] + d[0], q[1] + d[1]]);
+      if (this.dinhD) this.dinhD = this.dinhD.map(q => [q[0] + d[0], q[1] + d[1], q[2] + d[2]]);
       const M = new M4().copy(this.M); M.elements[12] += d[0]; M.elements[13] += d[1]; M.elements[14] += d[2]; this.M = M; } }
   // mẫu (TemplateRecord) giả lập: đủ các đường mà MNCFDriver.modelize dùng
   class V3 { constructor(x, y, z) { this.x = x; this.y = y; this.z = z; } clone() { return new V3(this.x, this.y, this.z); } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } }
@@ -82,21 +85,28 @@
     get truc() { const b = this.box, e = [b[1] - b[0], b[3] - b[2], b[5] - b[4]]; return [1, 0, 2].find(a => Math.abs(e[a] - this._t) < 0.01); }
     get Thickness() { return this._t; }
     set Thickness(v) { const a = this._t === undefined ? undefined : this.truc; if (a !== undefined) this.box[a * 2 + 1] = this.box[a * 2] + v; this._t = v; }
-    get OCS() { const m = new M4(), a = this.truc; m.elements[8] = m.elements[9] = m.elements[10] = 0; if (a !== undefined) m.elements[8 + a] = 1; if (this.dinh) m.elements[14] = this.box[4]; return m; }
+    // (1.38.0) dinhD: hệ riêng dựng lại từ các đỉnh hiện có — gốc = đỉnh 0 (đường bao bắt đầu ở (0, 0)), u theo đỉnh 1, v theo đỉnh cuối, pháp tuyến sang mặt kia
+    get _heD() { const P = this.dinhD, A = i => P[2 * i], n = P.length / 2, tru = (p, q) => [p[0] - q[0], p[1] - q[1], p[2] - q[2]], dv = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+      return { O: A(0), eu: dv(tru(A(1), A(0))), ev: dv(tru(A(n - 1), A(0))), en: dv(tru(P[1], P[0])), n }; }
+    get OCS() { if (this.dinhD) { const h = this._heD, m = new M4(); m.elements = [...h.eu, 0, ...h.ev, 0, ...h.en, 0, ...h.O, 1]; return m; }
+      const m = new M4(), a = this.truc; m.elements[8] = m.elements[9] = m.elements[10] = 0; if (a !== undefined) m.elements[8 + a] = 1; if (this.dinh) m.elements[14] = this.box[4]; return m; }
     // bản thật (đo 04/10/2026): ContourCurve.LineData = đường bao [{ pt: {x, y}, bul }] trong hệ riêng của tấm, OCS đưa (u, v) về toạ độ bản vẽ; tấm khoét góc (khấu cột) có 6 đỉnh.
     // Giả lập: tấm khoét trả đúng các đỉnh thật (OCS = trục bản vẽ đặt ở cao độ mặt dưới tấm); tấm thường là hình chữ nhật Width × Height.
-    get ContourCurve() { const W = this.Width, H = this.Height; return { LineData: (this.dinh || [[0, 0], [W, 0], [W, H], [0, H]]).map(q => ({ pt: { x: q[0], y: q[1] }, bul: 0 })) }; }
+    get ContourCurve() { if (this.dinhD) { const h = this._heD, r = v => Math.round(v * 1e6) / 1e6; return { LineData: Array.from({ length: h.n }, (_, i) => { const q = this.dinhD[2 * i], d = [q[0] - h.O[0], q[1] - h.O[1], q[2] - h.O[2]]; return { pt: { x: r(d[0] * h.eu[0] + d[1] * h.eu[1] + d[2] * h.eu[2]), y: r(d[0] * h.ev[0] + d[1] * h.ev[1] + d[2] * h.ev[2]) }, bul: 0 }; }) }; }
+      const W = this.Width, H = this.Height; return { LineData: (this.dinh || [[0, 0], [W, 0], [W, H], [0, H]]).map(q => ({ pt: { x: q[0], y: q[1] }, bul: 0 })) }; }
     // bản thật (đo 04/10/2026): Width / Height = hai cạnh của tấm; OBB = { ocs: Matrix4 (3 cột đầu = trục riêng, cột 3 = pháp tuyến), halfSizes, center }
     get _kt() { const b = this.box, e = [b[1] - b[0], b[3] - b[2], b[5] - b[4]], a = this.truc === undefined ? 1 : this.truc; return { e, a }; }
     get Width() { const { e, a } = this._kt; return e[(a + 1) % 3]; } get Height() { const { e, a } = this._kt; return e[(a + 2) % 3]; }
     get OBB() { const b = this.box, { e, a } = this._kt, E = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], m = new M4(); m.elements = [...E[(a + 1) % 3], 0, ...E[(a + 2) % 3], 0, ...E[a], 0, b[0], b[2], b[4], 1];
       return { ocs: m, halfSizes: new V3(e[(a + 1) % 3] / 2, e[(a + 2) % 3] / 2, e[a] / 2), center: new V3((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2) }; }
     // điểm co giãn số k = ix*4 + iy*2 + iz (xem Ent.GetStretchPoints): kéo đủ 4 điểm của một mặt thì mặt đó dời theo
-    MoveStretchPoints(ks, v) { const d = [v.x, v.y, v.z], bit = [4, 2, 1], b = this.box.slice(), tr = this.truc;
+    MoveStretchPoints(ks, v) { if (this.dinhD) { const P = this.dinhD.map(q => q.slice()); for (const k of ks) if (P[k]) { P[k][0] += v.x; P[k][1] += v.y; P[k][2] += v.z; } this.dinhD = P;
+        this.box = [0, 1, 2].reduce((a, i) => a.concat([Math.min(...P.map(q => q[i])), Math.max(...P.map(q => q[i]))]), []); return; }
+      const d = [v.x, v.y, v.z], bit = [4, 2, 1], b = this.box.slice(), tr = this.truc;
       for (let a = 0; a < 3; a++) for (let s = 0; s < 2; s++) { const mat = [0, 1, 2, 3, 4, 5, 6, 7].filter(k => (k & bit[a] ? 1 : 0) === s); if (mat.every(k => ks.includes(k))) b[a * 2 + s] += d[a]; }
       this.box = b;
       if (tr !== undefined) this._t = Math.round((b[tr * 2 + 1] - b[tr * 2]) * 1000) / 1000; }      // kéo mặt theo trục dày = đổi bề dày (tham số BH của mẫu làm đúng việc này)
-    WriteAllObjectRecord() { if (hm.mo) { const e = this, box = e.box.slice(), t = e._t, o = e.BoardProcessOption, dt = o.drillType, hd = o.highDrill.slice(), ten = e._ten; hm.mo.snap.push(() => { e.box = box; e._t = t; o.drillType = dt; o.highDrill = hd; e._ten = ten; }); } }
+    WriteAllObjectRecord() { if (hm.mo) { const e = this, box = e.box.slice(), t = e._t, dD = e.dinhD, o = e.BoardProcessOption, dt = o.drillType, hd = o.highDrill.slice(), ten = e._ten; hm.mo.snap.push(() => { e.dinhD = dD; e.box = box; e._t = t; o.drillType = dt; o.highDrill = hd; e._ten = ten; }); } }
     // bản thật: gán Name tự ghi lịch sử (đổi tên tấm trong một lệnh thì Ctrl+Z trả lại tên cũ)
     get Name() { return this._ten; } set Name(v) { if (hm.mo && this._ten !== undefined) { const cu = this._ten; hm.mo.snap.push(() => { this._ten = cu; }); } this._ten = v; } }
   // nét 2D / chữ do Chenfeng dựng từ file DXF thả vào (bản thật: Line, Circle, Polyline, Text — ColorIndex lấy từ mã 62)
@@ -202,6 +212,9 @@
     // (1.36.4) mặt nhận chén cam: GIẢ ĐỊNH — bản thật CHƯA ĐO FrontDrill / BackDrill làm gì. Trang giả lập đặt chén ở mặt "lớn" (Back) như trước,
     // chỉ tấm khai FrontDrill bật + BackDrill tắt mới nhận chén ở mặt "nhỏ" (Front = y nhỏ của tấm đứng type 2) — xem camCho.
     b._fd = o.FrontDrill !== false; b._bd = o.BackDrill !== false;
+    // (1.38.0) tấm ĐỨNG type 1 (vách đơn thân liền khoét khấu góc trên): GIẢ ĐỊNH — CHƯA ĐO trên bản thật — hệ riêng u = y − y0, v = z − z0 (như Core.duongBaoKhauDung,
+    // cùng giả định với hồi bo góc của táp); bề dày theo +x. Đỉnh lưu ở cả hai mặt (dinhD). Tấm bo cong (bul ≠ 0) giữ hình chữ nhật như trước.
+    if (o.BrType === 1 && o.ContourCurve.length > 4 && o.ContourCurve.every(c => !c.bul) && !window.__MOCK_BO_KHOET__) { b.dinhD = []; for (const c of o.ContourCurve) b.dinhD.push([x, y + c.pt[0], z + c.pt[1]], [x + t, y + c.pt[0], z + c.pt[1]]); }
     if (o.BrType === 0 && o.ContourCurve.length > 4 && !window.__MOCK_BO_KHOET__) b.dinh = o.ContourCurve.map(c => [x + h - c.pt[1], y + c.pt[0]]);      // tấm nằm (đo trên bản thật): u của đường bao = chiều sâu (y), v = chiều ngang ĐẢO (x = x1 − v)
     return b;
   }
