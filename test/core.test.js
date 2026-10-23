@@ -2325,7 +2325,7 @@ T('Dãy bếp (bản 1.34) — ô hốc, khoang tủ lạnh, tủ lò, kệ, gó
   const D = C.DEFAULT_SPEC, ap = ma => JSON.parse(JSON.stringify(C.apMau(D, ma))), t = D.van.t, tc = D.van.t_canh;
   const loiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'loi').map(x => x.t), canhBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'luu_y').map(x => x.t), ghiBep = M => M.kq.filter(x => x.ma === 'bep' && x.muc === 'ghi').map(x => x.t);
   const P2 = (M, l) => M.parts.filter(p => p.loai === l), pkBep = M => C.cutList(M).phu_kien.filter(x => x.bep);
-  eq(C.VERSION, '1.37.3', 'phiên bản 1.37.3');
+  eq(C.VERSION, '1.37.4', 'phiên bản 1.37.4');
   const MAU = [...C.MAU_BEP_DUOI, ...C.MAU_BEP_TREN, ...C.MAU_BEP_CAO], co = ma => MAU.some(m => m.ma === ma);
   for (const ma of ['BC-TL-700', 'BC-TL-830', 'BC-TL-910', 'BC-LO-600', 'BD-KE-150', 'BD-KE-200', 'BD-KE-300', 'BT-KE-150', 'BT-KE-200', 'BT-KE-300',
     'BD-GOC-900-T', 'BD-GOC-900-P', 'BD-GOC-990-T', 'BD-GOC-990-P', 'BD-GOCLA-900-T', 'BD-GOCLA-900-P', 'BT-GOC-900-T', 'BT-GOC-900-P', 'BT-GOC-990-T', 'BT-GOC-990-P', 'BT-GOCLA-900-T', 'BT-GOCLA-900-P']) ok(co(ma), `có mẫu ${ma}`);
@@ -4381,6 +4381,29 @@ T('Tủ trên âm dương — vòng soát (bản 1.37.3)', () => {
   // (6) tủ trên rất thấp: xà không đè đáy
   for (const H of [130, 100]) { const s = C.apMau(D, 'BT-CANH-600'); s.cao = H; s.khoang.forEach(q => { q.dot = []; }); const M = C.build(C.normalize(s)), day = M.parts.find(p => p.loai === 'DAY');
     ok(!M.errors.some(x => /Va chạm.*Xà âm dương|Xà âm dương.*Va chạm/.test(x)) && XA(M).every(p => p.z0 >= day.z1 - 0.01), `cao ${H}: xà không đè đáy`, [M.errors, XA(M).map(p => [p.z0, p.z1])]); }
+});
+
+
+// Bản 1.37.4 (anh Thanh 23/10/2026, hộp tích: "Cùng màu thùng"): hậu dày của tủ trên âm dương là VÁN THÙNG — tên "Hậu thùng", van_thung (vật liệu, dán cạnh, bảng kê nhóm thùng), nhomMau 'thung'
+T('Tủ trên âm dương: hậu cùng màu thùng (bản 1.37.4)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  const D = C.DEFAULT_SPEC;
+  for (const ma of ['BT-CANH-600', 'BT-KE-300', 'BT-BAT-800']) {
+    const s = C.apMau(D, ma), M = C.build(s), hau = M.parts.filter(p => p.loai === 'HAU');
+    ok(hau.length && hau.every(p => p.ten === 'Hậu thùng' && p.van_thung && p.ad), `${ma}: hậu tên "Hậu thùng", van_thung`, hau.map(p => [p.ten, p.van_thung]));
+    const cf = C.toChenfeng(M).json.ModelSpace, ds = cf.map(b => ({ ten: b.Name, hop: [0, 1, 0, 1, 0, 1] }));
+    const nm = C.nhomMau(M.parts.map(p => ({ ten: p.ten, hop: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })));
+    ok(M.parts.every((p, i) => p.loai !== 'HAU' || nm[i] === 'thung'), `${ma}: nhomMau hậu = thùng`, nm);
+    const cl = C.cutList(M);
+    ok(!cl.rows.some(r => r.nhom === 'Hậu'), `${ma}: bảng kê không còn nhóm Hậu (hậu kê cùng ván thùng)`, cl.rows.map(r => r.nhom));
+    ok(cf.filter(b => b.Name === 'Hậu thùng').every(b => cf.find(h => h.Name === 'Hồi trái') && b.MaterialName === cf.find(h => h.Name === 'Hồi trái').MaterialName), `${ma}: vật liệu hậu = vật liệu hồi`, cf.filter(b => /Hậu|Hồi trái/.test(b.Name)).map(b => [b.Name, b.MaterialName]));
+  }
+  // tủ áo: hậu dày lọt lòng vẫn tên "Hậu", nhóm hậu (không đổi)
+  { const s = C.normalize(Object.assign({}, D, { hau: Object.assign({}, D.hau, { kieu: 'day' }) })), M = C.build(s), h = M.parts.filter(p => p.loai === 'HAU');
+    ok(h.every(p => p.ten === 'Hậu' && !p.van_thung), 'tủ áo hậu dày: không đổi', h.map(p => [p.ten, p.van_thung])); }
+  // tủ trên thanh treo cũ (hậu phủ mỏng) không đổi
+  { const s = C.apMau(D, 'BT-CANH-600'); s.bep.treo = 'thanh'; const M = C.build(C.normalize(s));
+    ok(M.parts.filter(p => p.loai === 'HAU').every(p => p.ten === 'Hậu' && !p.van_thung), 'tủ trên thanh treo cũ: hậu không đổi'); }
 });
 
 console.log(`\n${pass} đạt, ${fail} hỏng`);
