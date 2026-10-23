@@ -316,7 +316,7 @@ async function chonBepExt(page, H, ma) {
       await page.waitForFunction(() => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - 40000) < 1; }, null, { timeout: 30000 });
       await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
       const r = await page.evaluate(() => { const D = window.MNCFDriver, bs = D.last.added.filter(e => D.isBoard(e) && !e.IsErase), hop = n => bs.filter(e => e.Name === n).map(D.boxOf);
-        return { ten: bs.map(e => e.Name), xa: hop('Xà âm dương'), hau: hop('Hậu'), noc: hop('Nóc'), hoi: hop('Hồi trái') }; });
+        return { ten: bs.map(e => e.Name), xa: hop('Xà âm dương'), hau: hop('Hậu thùng'), noc: hop('Nóc'), hoi: hop('Hồi trái') }; });
       const bc = await H.locator('.report').innerText(), t = 17.5, xa = r.xa[0], hau = r.hau[0], hoi = r.hoi[0];
       ok(r.xa.length === 1 && !r.ten.includes('Thanh treo') && (await H.locator('.report .msg.err').count()) === 0 && /Đã vẽ xong/.test(bc), 'tủ trên âm dương: vẽ xong, có 1 xà âm dương, không thanh treo, không dòng lỗi', [r.ten, bc.slice(0, 400)]);
       // mock: hộp theo toạ độ thế giới (y có thể lật) — so quan hệ: xà sát mặt sau hậu, mặt sau xà trùng mép sau hồi, xà cao 100 sát dưới nóc
