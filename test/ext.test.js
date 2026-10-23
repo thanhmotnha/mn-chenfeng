@@ -1057,6 +1057,9 @@ async function chonBepExt(page, H, ma) {
         return out; });
       // vào Bộ bếp chữ I — E1 (4500, tủ lạnh 830 đầu trái, ống 3700)
       await chonMauL(H, '@BO-I');
+      // (bản 1.38.0) các ca bộ bếp 1.34 … 1.37 GHIM "Giữ kiểu từng tủ" (đếm tủ, mã vị trí, một lần Cập nhật tủ…) — setBo không nói than thì ghim 'tung_tu';
+      // ca thân liền truyền than: 'lien' (chuanBo bỏ khoá đó = thân liền mặc định) — khối "THÂN LIỀN (bản 1.38.0)" ở cuối
+      await page.evaluate(() => { const a = window.MNCF.app, f = a.setBo; a.setBo = b => f(b && b.than === undefined ? Object.assign({}, b, { than: 'tung_tu' }) : b); });
       const bo1 = { kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 } };
       await page.evaluate(b => window.MNCF.app.setBo(b), bo1);
       ok(await H.locator('footer .bohang').isVisible() && !(await H.locator('footer [data-act="draw"]').isVisible()) && await H.locator('footer [data-act="bo-cho"]').isVisible(), 'Bộ bếp: chân bảng là hàng của bộ (Vẽ bộ bếp, Chỗ, Cập nhật, Hoàn tác) — nút vẽ tủ lẻ ẩn');
@@ -1471,6 +1474,71 @@ async function chonBepExt(page, H, ma) {
         ok(!(r16b && r16b.ok) && (await vung(590000)) === n16, 'bấm Vẽ lần nữa: không vẽ chồng bộ thứ hai', [r16b, await vung(590000), n16]);
         await hoanTac();
         ok((await vung(590000)) === 0, 'bộ đổi mã: Hoàn tác bộ sạch'); }
+      /* --- (bản 1.38.0) THÂN LIỀN: E1 vẽ theo đoạn (vách đơn khoét khấu, đáy / xà liền), Cập nhật một khoang = một đoạn, Hoàn tác theo mã, bộ vẽ từng tủ → Cập nhật từng đoạn / Giữ kiểu từng tủ, Sửa tủ đang chọn trên đoạn --- */
+      { const X0 = 700000, vung = x0 => page.evaluate(x => { const D = window.MNCFDriver; return D.all().filter(e => !e.IsErase && e.box && e.box[0] > x && e.box[0] < x + 90000).length; }, x0);
+        const hoanTac = async () => { await H.locator('[data-act="bo-hoan-tac"]').click(); await choSt('Đã bỏ bộ bếp|Hoàn tác bộ .* dừng', 180000); };
+        const E1 = { ma: 'B35', kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 }, than: 'lien' };
+        await page.evaluate(b => window.MNCF.app.setBo(b), E1);
+        await page.evaluate(x => window.MNCF.app.setBoCho({ goc: [x, 5000, 0], xoay: 0 }), X0);
+        const dd = await page.evaluate(() => window.MNCF.app.getBoDoan()), nD = dd.filter(d => !d.rieng).length;
+        ok(dd.length === 12 && nD === 6 && /Vẽ bộ bếp \(12 module\)/.test(await H.locator('[data-act="bo-ve"]').innerText()), 'thân liền E1: nút "Vẽ bộ bếp (12 module)" — 6 đoạn + 6 tủ riêng thay 23 tủ', [dd.length, nD, await H.locator('[data-act="bo-ve"]').innerText()]);
+        ok((await H.locator('svg[data-bo="md"] [data-bo-doan]').count()) === 6 && (await H.locator('svg[data-bo="md"] [data-bo-vach]').count()) === dd.filter(d => !d.rieng).reduce((a, d) => a + d.vt.length - 1, 0) && (await H.locator('svg[data-bo="mb"] [data-bo-doan]').count()) === 2, 'mặt đứng: khung từng đoạn + vạch vách đơn; mặt bằng: khung 2 đoạn tầng dưới');
+        await page.evaluate(() => { window.__dem.doLoi = 0; window.__dem.update = 0; window.__dem.lenh = []; });
+        const r = await page.evaluate(() => window.MNCF.app.veBo({}));
+        const R = await page.evaluate(() => window.MNCF.app.getBoVe()), v = await soViTri();
+        ok(r && r.ok && r.tong === 12 && R.than === 'lien' && R.da_ve.length === 12 && R.da_ve.filter(y => y.khoang).length === 6 && /Đã vẽ bộ bếp B35: 12 module — 6 đoạn thân liền \+ 6 tủ riêng/.test(await st()), 'vẽ E1 thân liền: 12 module, bản ghi ghi kiểu thân + khoang của từng đoạn', [r, await st()]);
+        ok(v.tu.every(t => t.n === t.can) && v.lech.length === 0 && v.chong.length === 0 && v.tu.reduce((a, t) => a + t.n, 0) === 150, 'mỗi đơn vị đủ tấm, đúng chỗ, không chồng; cả bộ 150 tấm (từng tủ: 194)', [v.tu.map(t => [t.vt, t.n, t.can]), v.lech, v.chong]);
+        { const k = await page.evaluate(ids => { const D = window.MNCFDriver, o = { duoi: [], tren: [], hoi: 0, mod: true };
+            for (const id of ids) for (const e of D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id)) { if (e.Name === 'Vách' && e.box[4] < 1000) o.duoi.push(e.ContourCurve.LineData.length); else if (e.Name === 'Vách') o.tren.push(e.ContourCurve.LineData.length); else if (e.Name === 'Hồi' && e.ContourCurve.LineData.length !== 4) o.hoi++; if (!e.Template) o.mod = false; }
+            return o; }, R.da_ve.filter(y => y.khoang).map(y => y.id));
+          ok(k.duoi.length === 3 && k.duoi.every(n => n === 8) && k.tren.length === 8 && k.tren.every(n => n === 6) && k.hoi === 0 && k.mod, 'khấu vào Chenfeng: vách tủ dưới đường bao 8 đỉnh (khấu giằng trước + sau), vách tủ trên 6 đỉnh (khấu xà âm dương), hồi chữ nhật; mỗi đoạn một module', k); }
+        ok((await dem()).doLoi === 1 && !/lỗi —/.test(await st()) && !(await dem()).lenh.includes('UNDO'), 'dò lỗi sản xuất MỘT lần cả bộ, không mục lỗi (giằng / xà lọt khấu không bị coi là đè)', [await st()]);
+        // ô chọn khoang trong đoạn
+        await H.locator('svg[data-bo="md"] [data-bo-vt="A4"]').click();
+        ok(/Thân liền A3 \+ A4 \+ A5/.test(await H.locator('[data-ui="bok-doan"]').innerText()), 'ô chọn khoang A4: nói thuộc thân liền A3 + A4 + A5');
+        await H.locator('[data-act="kpop-bo-dong"]').click();
+        // Cập nhật một khoang (cánh kính cho một tủ trên trong đoạn) → đúng MỘT lần Cập nhật tủ (vẽ lại đúng đoạn đó), đoạn khác giữ mã
+        { const p = (await page.evaluate(() => window.MNCF.app.getBoKq())).pa[0], kO = m => ({ canh: 0, s: Math.round((m.s0 + m.dai / 2) * 10) / 10 });
+          // giá bát giữ kính như mặc định ('bat'), thêm kính cho AT2 (cùng đoạn với một tủ trên khác) — chỉ đoạn chứa AT2 đổi
+          await page.evaluate(([b, k]) => window.MNCF.app.setBo(Object.assign({}, b, { kinh: k })), [E1, p.ds.filter(m => m.tang === 'tren' && !m.t2 && (m.chuc === 'bat' || m.vt === 'AT2')).map(kO)]);
+          await page.evaluate(() => { window.__dem.doLoi = 0; window.__dem.update = 0; window.__dem.lenh = []; });
+          await H.locator('[data-act="bo-cap-nhat"]').click(); await choSt('Đã cập nhật bộ|Cập nhật bộ .* dừng');
+          const d = await dem(), R2 = await page.evaluate(() => window.MNCF.app.getBoVe()), v2 = await soViTri();
+          ok(/Đã cập nhật bộ B35: 1 tủ cập nhật tại chỗ, 0 tủ bỏ, 0 tủ vẽ mới; 11 tủ giữ nguyên/.test(await st()) && d.update === 1 && JSON.stringify(R2.da_ve.map(y => y.id).sort()) === JSON.stringify(R.da_ve.map(y => y.id).sort()), 'kính một khoang: Cập nhật đúng một đoạn (AT@…), 11 đơn vị giữ nguyên, giữ mã', [await st(), d.update]);
+          ok(v2.lech.length === 0 && v2.chong.length === 0 && v2.tu.every(t => t.n === t.can), 'sau Cập nhật: đúng chỗ, đủ tấm', [v2.lech, v2.chong]); }
+        // Sửa tủ đang chọn trên tấm của một đoạn: mở bộ, chọn khoang đầu của đoạn (không mở thành tủ lẻ)
+        { const idD = R.da_ve.find(y => y.vt === 'AD@1620-3230').id;
+          await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idD);
+          await page.evaluate(() => window.MNCF.app.pick());
+          ok(/Đoạn thân liền A3 \+ A4 \+ A5 của bộ B35: đã mở bộ, chọn khoang A3/.test(await st()) && (await H.locator('.panel').getAttribute('data-loai')) === 'bo-bep' && /A3/.test(await H.locator('.bokpop .kph b').innerText()), 'Sửa tủ đang chọn trên đoạn: mở bộ, chọn khoang A3', await st());
+          await page.evaluate(() => window.__MOCK__.userSelect([])); }
+        await hoanTac();
+        ok((await vung(X0 - 5000)) === 0 && /Đã bỏ bộ bếp B35 khỏi bản vẽ \(12 tủ/.test(await st()), 'Hoàn tác bộ thân liền theo mã: sạch', [await vung(X0 - 5000), await st()]);
+        // bộ vẽ TỪNG TỦ (như ở ≤ 1.37.4: bản ghi không có khoá than) → bảng nay thân liền: báo trước số đoạn, "Giữ kiểu từng tủ", Cập nhật vẽ lại TỪNG ĐOẠN
+        const E1c = Object.assign({}, E1, { ma: 'B36', than: 'tung_tu' }), X1 = X0 + 20000;
+        await page.evaluate(b => window.MNCF.app.setBo(b), E1c);
+        await page.evaluate(x => window.MNCF.app.setBoCho({ goc: [x, 5000, 0], xoay: 0 }), X1);
+        const rc = await page.evaluate(() => window.MNCF.app.veBo({}));
+        ok(rc && rc.ok && rc.tong === 23, 'bộ từng tủ: 23 tủ', rc);
+        await page.evaluate(() => { const k = 'mncf.tu.bo:B36', o = JSON.parse(localStorage.getItem(k)); delete o.spec.than; localStorage.setItem(k, JSON.stringify(o)); });
+        await page.evaluate(b => window.MNCF.app.setBo(Object.assign({}, b, { than: 'lien' })), E1c);
+        await H.locator('[data-ui="bo-than-cu"]').waitFor({ timeout: 8000 });
+        ok(/Cập nhật sẽ vẽ lại 6 đoạn/.test(await H.locator('[data-ui="bo-than-cu"]').innerText()) && /6 đoạn/.test(await H.locator('[data-act="bo-cap-nhat"]').getAttribute('title')), 'bộ cũ: báo trước "vẽ lại 6 đoạn" (dòng vàng + title nút Cập nhật)', await H.locator('[data-ui="bo-than-cu"]').innerText());
+        await H.locator('[data-act="bo-giu-tu"]').click();
+        ok((await page.evaluate(() => window.MNCF.app.getBo().than)) === 'tung_tu' && !(await H.locator('[data-ui="bo-than-cu"]').count()), '"Giữ kiểu từng tủ": bộ ghi than tung_tu, hết dòng báo');
+        await page.evaluate(() => { window.__dem.update = 0; window.__dem.lenh = []; });
+        await H.locator('[data-act="bo-cap-nhat"]').click(); await choSt('Đã cập nhật bộ|đã đúng như bảng|Cập nhật bộ .* dừng');
+        ok(/B36 trên bản vẽ đã đúng như bảng/.test(await st()) && (await dem()).update === 0, 'giữ kiểu từng tủ: Cập nhật không vẽ lại gì', await st());
+        await H.locator('[data-act="lui"]').click(); await H.locator('[data-ui="bo-than-cu"]').waitFor({ timeout: 8000 });
+        ok((await page.evaluate(() => window.MNCF.app.getBo().than)) === undefined, '↶ Lùi: về thân liền, dòng báo hiện lại');
+        await page.evaluate(() => { window.__dem.doLoi = 0; window.__dem.update = 0; window.__dem.lenh = []; });
+        await H.locator('[data-act="bo-cap-nhat"]').click(); await choSt('Đã cập nhật bộ|Cập nhật bộ .* dừng', 400000);
+        { const R3 = await page.evaluate(() => window.MNCF.app.getBoVe()), v3 = await soViTri(), d = await dem();
+          ok(/6 đoạn thân liền vẽ lại/.test(await st()) && R3.than === 'lien' && R3.da_ve.length === 12 && R3.da_ve.filter(y => y.khoang).length === 6 && d.doLoi === 1 && !d.lenh.includes('UNDO'), 'Cập nhật bộ cũ: vẽ lại 6 đoạn (bỏ tủ cũ trong đoạn rồi vẽ đoạn), bản ghi 12 module, kiểu thân liền', [await st(), R3.da_ve.length]);
+          ok(v3.lech.length === 0 && v3.chong.length === 0 && v3.tu.every(t => t.n === t.can) && !(await H.locator('[data-ui="bo-than-cu"]').count()), 'sau đó: mọi đơn vị đúng chỗ, đủ tấm, không chồng; hết dòng báo', [v3.lech, v3.chong]);
+          ok((await page.evaluate(ids => { const D = window.MNCFDriver; return D.all().filter(e => D.isBoard(e) && !e.IsErase && e.box[0] > 715000 && !ids.includes(D.tagOf(e))).length; }, R3.da_ve.map(y => y.id))) === 0, 'không còn tấm nào của tủ cũ (mọi tấm trong vùng mang mã của bản ghi)'); }
+        await hoanTac();
+        ok((await vung(X1 - 5000)) === 0, 'Hoàn tác bộ sau Cập nhật từng đoạn: sạch'); }
       await page.evaluate(async () => { const D = window.MNCFDriver; await D.erase(D.all()); });
       await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
       ok((await H.locator('.panel').getAttribute('data-loai')) !== 'bo-bep' && await H.locator('footer [data-act="draw"]').isVisible() && !(await H.locator('footer .bohang').isVisible()), 'rời bộ bếp: chân bảng về hàng tủ lẻ');

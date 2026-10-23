@@ -368,10 +368,23 @@
         } catch (e) { ok = false; }
         if (!ok) wrong.push(`${p.ten}: chưa có góc khoét khấu cột (Chenfeng dựng tấm chữ nhật)`);
       }
+      // (bản 1.38.0) vách đơn thân liền khoét khấu góc trên (tấm ĐỨNG, đường bao trong mặt y–z): phải có đỉnh ở góc lõm của từng khấu
+      // [CĐ] GetStretchPoints của tấm đứng có đường bao trên Chenfeng thật chưa đo (tấm nằm khấu cột: đã đo — trả từng đỉnh ở 2 mặt)
+      if (p.khau_dung && p.khau_dung.length) {
+        let ok = false;
+        try {
+          const pts = hit.GetStretchPoints().map(q => [r2(q.y - offset[1]), r2(q.z - offset[2])]);
+          ok = p.khau_dung.every(k => { const cy = Math.abs(k.y0 - p.y0) < TOL ? k.y1 : k.y0; return pts.some(q => Math.abs(q[0] - cy) < TOL && Math.abs(q[1] - k.z0) < TOL); });
+        } catch (e) { ok = false; }
+        if (!ok) wrong.push(`${p.ten}: chưa có khấu góc trên cho xà / giằng chạy suốt (Chenfeng dựng tấm chữ nhật — trục đường bao tấm đứng chưa đo)`);
+      }
     }
     // vùng đã khoét của từng tấm thật (toạ độ bản vẽ) — dò va chạm phải bỏ qua
     const khoet = new Map(); for (const [p, b] of match) if (p.khau && p.khau.length) khoet.set(b, p.khau.map(k => [k.x0 + offset[0], k.x1 + offset[0], k.y0 + offset[1], k.y1 + offset[1]]));
-    const trongKhoet = (b, p, q) => { const ks = khoet.get(b); if (!ks) return false; const x0 = Math.max(p[0], q[0]), x1 = Math.min(p[1], q[1]), y0 = Math.max(p[2], q[2]), y1 = Math.min(p[3], q[3]); return ks.some(k => x0 >= k[0] - 0.02 && x1 <= k[1] + 0.02 && y0 >= k[2] - 0.02 && y1 <= k[3] + 0.02); };
+    // (1.38.0) khấu góc trên của vách đơn: vùng khoét suốt bề dày (x), theo y / z
+    const khoetD = new Map(); for (const [p, b] of match) if (p.khau_dung && p.khau_dung.length) khoetD.set(b, p.khau_dung.map(k => [p.x0 + offset[0], p.x1 + offset[0], k.y0 + offset[1], k.y1 + offset[1], k.z0 + offset[2], k.z1 + offset[2]]));
+    const trongKhoetD = (b, p, q) => { const ks = khoetD.get(b); if (!ks) return false; const c = [0, 1, 2].map(i => [Math.max(p[2 * i], q[2 * i]), Math.min(p[2 * i + 1], q[2 * i + 1])]); return ks.some(k => c.every(([a, z], i) => a >= k[2 * i] - 0.02 && z <= k[2 * i + 1] + 0.02)); };
+    const trongKhoet = (b, p, q) => { if (trongKhoetD(b, p, q)) return true; const ks = khoet.get(b); if (!ks) return false; const x0 = Math.max(p[0], q[0]), x1 = Math.min(p[1], q[1]), y0 = Math.max(p[2], q[2]), y1 = Math.min(p[3], q[3]); return ks.some(k => x0 >= k[0] - 0.02 && x1 <= k[1] + 0.02 && y0 >= k[2] - 0.02 && y1 <= k[3] + 0.02); };
     // lỗ khoan theo tấm
     const holeCount = new Map();
     const idOf = x => { try { return x && (x.Object || x); } catch (e) { return null; } };
@@ -938,6 +951,18 @@
           p.khau.forEach((k, q) => ck.forEach((c, e) => {
             const v = k[c] + offset[b.truc], he = hk[q][e];
             if (Math.abs(v - mn) < 0.01 || Math.abs(v - mx) < 0.01 || Math.abs(he - a) < 1e-9) return;      // mép trùng mép tấm đã có hệ số của mép tấm; hệ số bằng hệ số dời cả tấm thì khỏi kéo
+            const idx = []; toa.forEach((u, j) => { if (Math.abs(u - v) < 0.01) idx.push(j); });
+            if (idx.length) N(Math.round((he - a) * 1e6) / 1e6).map.push({ entity: tam.Id, indexs: idx });
+          }));
+        }
+        // (bản 1.38.0) vách đơn thân liền khoét khấu góc trên: đỉnh ở mép khấu (theo Sâu: mép trong khấu sau đi theo lưng; theo Cao: đáy khấu đi theo mặt trên thùng)
+        // co giãn theo hệ số riêng của mép đó (Core.heSo bien[].khau_dung). [CĐ] đường bao tấm đứng trên Chenfeng thật chưa đo — trang giả lập theo giả định của Core.duongBaoKhauDung
+        const hd = b.khau_dung && b.khau_dung[i];
+        if (hd && p.khau_dung && (b.truc === 1 || b.truc === 2)) {
+          const pts = tam.GetStretchPoints(), toa = pts.map(q => [q.x, q.y, q.z][b.truc]), mn = Math.min.apply(null, toa), mx = Math.max.apply(null, toa), ck = b.truc === 1 ? ['y0', 'y1'] : ['z0', 'z1'];
+          p.khau_dung.forEach((k, q) => ck.forEach((c, e) => {
+            const v = k[c] + offset[b.truc], he = hd[q] && hd[q][e];
+            if (typeof he !== 'number' || Math.abs(v - mn) < 0.01 || Math.abs(v - mx) < 0.01 || Math.abs(he - a) < 1e-9) return;
             const idx = []; toa.forEach((u, j) => { if (Math.abs(u - v) < 0.01) idx.push(j); });
             if (idx.length) N(Math.round((he - a) * 1e6) / 1e6).map.push({ entity: tam.Id, indexs: idx });
           }));
@@ -3331,7 +3356,12 @@
   D.specTuLuu = null;
   const vanChauCua = s => { try { const b = s && s.loai_sp === 'bep' && s.bep; return b && b.chuc_nang === 'chau' && b.van_chau ? String(b.van_chau).trim() : ''; } catch (e) { return ''; } };
   // (vòng soát 4) nhớ cả giá trị trước đó vào D.last.van_cu: hoàn tác một lần Cập nhật (cùng mã tủ) thì tủ CŨ quay lại bản vẽ → trả lại ván riêng của tủ cũ
-  const nhoVanRieng = (M, id) => { try { if (!id) return; id = String(id); if (D.last && D.last.id != null && String(D.last.id) === id) D.last.van_cu = vanTu.has(id) ? { v: vanTu.get(id) } : null; vanTu.set(id, vanChauCua(M && M.spec)); } catch (e) { /* bỏ qua */ } };
+  // (bản 1.38.0) thân liền: tủ KHÔNG phải tủ chậu mà có TẤM ván chống ẩm (hồi đầu đoạn / hồi tủ đứng riêng áp vào hồi tủ chậu — p.van_chau, Core partToCF):
+  // nhận theo TẤM — mã tủ → mô hình của tủ (amTu), tấm thật khớp hộp của tấm p.van_chau (D.locate: dời + khung của tủ) thì giữ tên ván chống ẩm khi đổ màu
+  const amTu = new Map();      // mã tủ → { van, M } | null
+  D._amTu = amTu;
+  const amCua = s => { try { const b = s && s.loai_sp === 'bep' && s.bep; if (!b || !b.van_chau || b.chuc_nang === 'chau' || !(b.hoi_am || (b.doan && b.doan.am))) return null; const M = Core.build(s); return M.parts.some(p => p.van_chau) ? { van: String(b.van_chau).trim(), M } : null; } catch (e) { return null; } };
+  const nhoVanRieng = (M, id) => { try { if (!id) return; id = String(id); if (D.last && D.last.id != null && String(D.last.id) === id) D.last.van_cu = vanTu.has(id) ? { v: vanTu.get(id) } : null; vanTu.set(id, vanChauCua(M && M.spec)); amTu.set(id, M && M.spec ? amCua(M.spec) : null); } catch (e) { /* bỏ qua */ } };
   const traVanRieng = L => { try { if (!L || L.id == null || !('van_cu' in L)) return; const id = String(L.id); if (L.van_cu) vanTu.set(id, L.van_cu.v); else vanTu.delete(id); } catch (e) { /* bỏ qua */ } };
   const vanCuaMaTu = id => {
     if (!id) return '';
@@ -3341,8 +3371,25 @@
   };
   const laLotDa = b => /^Ván lót đá/.test(String((b && b.Name) || ''));
   // tấm → van_chau phải ghi (chỉ tấm nhóm thùng + ván lót đá của tủ chậu; ván lót mỏng ≤ 9 nằm nhóm hậu theo Core.nhomMau nhưng nhập là tấm Thùng)
+  const amCuaMaTu = id => {
+    if (!id) return null;
+    if (amTu.has(id)) return amTu.get(id);
+    let s = null; try { s = typeof D.specTuLuu === 'function' ? D.specTuLuu(id) : null; } catch (e) { s = null; }
+    const v = amCua(s); amTu.set(id, v); return v;
+  };
+  const vanAmTam = (boards, ra) => {
+    const theo = new Map();
+    for (const b of boards || []) { if (!b || b.IsErase || !D.isBoard(b)) continue; const id = D.tagOf(b), a = amCuaMaTu(id); if (!a) continue; if (!theo.has(id)) theo.set(id, []); theo.get(id).push(b); }
+    for (const [id, ds] of theo) {
+      const a = amTu.get(id); let loc = null; try { loc = D.locate(id, a.M); } catch (e) { loc = null; }
+      if (!loc || !loc.ok) continue;
+      const P = a.M.parts.filter(p => p.van_chau).map(p => [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1].map((v, i) => v + loc.offset[i >> 1]));
+      for (const b of ds) { let h = null; try { h = D.hopTheo(b, loc.khung || null); } catch (e) { h = null; } if (h && P.some(q => near(q, h, TOL_TIM))) ra.set(b, a.van); }
+    }
+    return ra;
+  };
   const vanRiengCua = (boards) => {
-    const ra = new Map(), co = (boards || []).filter(b => b && !b.IsErase && vanCuaMaTu(D.tagOf(b)));
+    const ra = vanAmTam(boards, new Map()), co = (boards || []).filter(b => b && !b.IsErase && vanCuaMaTu(D.tagOf(b)));
     if (!co.length) return ra;
     const tu = D.tamCuaTu(co), pn = D.phanNhomMau(tu), nh = new Map(tu.map((b, i) => [b, pn.nhom[i]]));
     for (const b of co) if (nh.get(b) === 'thung' || laLotDa(b)) ra.set(b, vanCuaMaTu(D.tagOf(b)));
@@ -4042,11 +4089,11 @@
       const x = ds[i];
       if (D.busy() || hopThoai()) { kq.con = ds.slice(i).map(y => y.vt); kq.loi = `Chenfeng đang chạy dở lệnh ${tenLenhCuoi() || 'khác'} — chưa xoá tiếp (còn ${ds.length - i} tủ)`; return false; }
       const ents = doTu(x);
-      if (!ents.some(D.isBoard)) { kq.mat.push(x.vt); vanTu.delete(String(x.id)); continue; }      // không còn trên bản vẽ (người dùng đã xoá)
+      if (!ents.some(D.isBoard)) { kq.mat.push(x.vt); vanTu.delete(String(x.id)); amTu.delete(String(x.id)); continue; }      // không còn trên bản vẽ (người dùng đã xoá)
       bao(`Bỏ tủ ${x.vt} (${i + 1}/${ds.length})…`);
       const er = await D.erase(ents);
       if (!er.ok) { kq.con = ds.slice(i).map(y => y.vt); kq.loi = `Chưa xoá được tủ ${x.vt} (còn ${er.con} đối tượng)`; return false; }
-      kq.xoa.push(x.vt); vanTu.delete(String(x.id));
+      kq.xoa.push(x.vt); vanTu.delete(String(x.id)); amTu.delete(String(x.id));
       if (D.last && String(D.last.id) === String(x.id)) D.last = null;      // "Hoàn tác lần vẽ này" không còn trỏ vào tủ đã bỏ
     }
     return true;
@@ -4069,7 +4116,7 @@
    */
   D.capNhatDay = async (viec, opt) => {
     opt = Object.assign({ onStatus() {} }, opt || {}); viec = viec || {};
-    const ve = viec.ve || [], kq = Object.assign(kqDay(ve.length), { xoa: { xoa: [], mat: [], con: [], loi: '' }, sua: [] });
+    const ve = viec.ve || [], nhom = viec.doan || [], kq = Object.assign(kqDay(ve.length + nhom.length), { xoa: { xoa: [], mat: [], con: [], loi: '' }, sua: [], doan: 0 });
     if (!truocDay(kq)) return gonKq(kq);
     await khoaVe(async () => {
       const bao = guard(opt.onStatus);
@@ -4099,9 +4146,21 @@
       }
       kq.xong = 0;
       await veLoat(ve, opt, kq);
+      // (bản 1.38.0) ĐOẠN thân liền thay các tủ cũ (bộ vẽ từng tủ ở ≤ 1.37.4, hay ranh đoạn đổi): TỪNG ĐOẠN một — bỏ các tủ cũ nằm trong đoạn đó rồi vẽ đoạn,
+      // giao diện ghi bản ghi ngay (onDoan) — dừng giữa chừng chỉ dở một đoạn, các đoạn khác hoặc đã xong hoặc còn nguyên tủ cũ
+      for (let gi = 0; gi < nhom.length && !kq.dung; gi++) {
+        const g = nhom[gi];
+        if (D.busy() || hopThoai()) { kq.dung = { i: -1, vt: g.vt, ly_do: 'ban', loi: `Chenfeng đang chạy dở lệnh ${tenLenhCuoi() || 'khác'}` }; break; }
+        if ((g.xoa || []).length && !(await xoaLoat(g.xoa.slice().reverse(), opt, kq.xoa))) { kq.dung = { i: -1, vt: kq.xoa.con[0], ly_do: 'xoa', loi: kq.xoa.loi }; break; }
+        if (typeof opt.onXoaDoan === 'function') { try { await opt.onXoaDoan(gi, g); } catch (e) { /* bỏ qua */ } }
+        bao(`Vẽ đoạn ${g.vt} (${gi + 1}/${nhom.length})…`);
+        const x0 = kq.xong;
+        await veLoat([g], Object.assign({}, opt, { onTu: async (i, rep, x) => { if (typeof opt.onDoan === 'function') await opt.onDoan(gi, rep, x); } }), kq);
+        if (kq.xong > x0) kq.doan++;
+      }
       ketDay(kq, opt);
     });
-    kq.ok = !kq.dung && kq.xong === ve.length && !kq.van_de.length;
+    kq.ok = !kq.dung && kq.xong === ve.length + nhom.length && !kq.van_de.length;
     return gonKq(kq);
   };
   for (const k of ['draw', 'update', 'drawRoom', 'veKho', 'veDay', 'xoaDay', 'capNhatDay']) {

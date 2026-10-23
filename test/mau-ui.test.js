@@ -422,6 +422,23 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
     m = await xem('K7');
     ok(/Hồi trái/.test(m['388EV/MDF/MDF/388EV'] || ''), 'thay màu cả bản vẽ: tủ áo nhận ván của màu', m);
 
+    console.log('— (1.38.0) Thân liền: hồi đầu đoạn áp vào hồi tủ chậu là ván chống ẩm THEO TẤM — đổ màu giữ tên ván chống ẩm ở đúng tấm đó, các tấm khác của đoạn theo màu');
+    r = await page.evaluate(async () => { const D = window.MNCFDriver, C = window.MNCFCore, K = await D.khoVatLieu(), m = t => K.ds.find(x => x.ten === t);
+      const E1 = { ma: 'BM', kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 }, chuan: { van_chau: 'MDF chống ẩm' } };
+      const x = C.xepBep(E1), ds = C.datDay(x.bo, x.pa[0], { goc: [0, 0, 0], xoay: 0 }), dn = ds.find(q => q.spec.bep.doan && q.spec.bep.doan.am), le = ds.find(q => q.spec.bep.hoi_am);
+      const out = {};
+      for (const [k, q, X] of [['doan', dn, 50000], ['le', le, 54000]]) {
+        const rv = await window.MNCF.draw(q.spec, { at: [X, 0, 0] }), id = rv.id, bs = () => D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id);
+        D._vanTu.clear(); D._amTu.clear();      // như tủ vẽ từ phiên trước: chỉ còn thông số đã lưu của tủ (khoTu)
+        window.localStorage.setItem('mncf.tu.' + id, JSON.stringify({ spec: q.spec, ban: C.VERSION, luc: Date.now() }));
+        const rm = await D.doMauTu(D.tamCuaTu(bs()), { thung: m('103T'), mat: m('LUX279PRL') });
+        const M = C.build(q.spec), am = M.parts.filter(p => p.van_chau).map(p => p.x0 + X), hoi = bs().filter(b => /^Hồi/.test(b.Name));
+        out[k] = { ok: rv.ok && rm.ok, am: am.length, chongAm: hoi.filter(b => b.BoardProcessOption.boardName === 'MDF chống ẩm').map(b => Math.round(b.box[0])), canAm: am.map(Math.round), khac: bs().filter(b => b.BoardProcessOption.boardName === 'MDF chống ẩm' && !/^Hồi/.test(b.Name)).length, thuong: hoi.filter(b => b.BoardProcessOption.boardName === 'MDF').length };
+      }
+      return out; });
+    ok(r.doan.ok && r.doan.am === 1 && JSON.stringify(r.doan.chongAm) === JSON.stringify(r.doan.canAm) && r.doan.khac === 0 && r.doan.thuong === 1, 'đoạn kề tủ chậu: chỉ hồi đầu đoạn phía chậu giữ ván chống ẩm, hồi kia + đáy / vách theo màu', r.doan);
+    ok(r.le.ok && r.le.am >= 1 && JSON.stringify(r.le.chongAm) === JSON.stringify(r.le.canAm) && r.le.khac === 0, 'tủ đứng riêng kề tủ chậu (hoi_am): hồi phía chậu giữ ván chống ẩm', r.le);
+
     console.log('— (1.33 vòng soát 4) Cập nhật tủ chậu thành tủ bếp nấu rồi hoàn tác: tủ chậu quay lại → đổ màu vẫn giữ ván chống ẩm');
     r = await page.evaluate(async () => { const D = window.MNCFDriver, C = window.MNCFCore, K = await D.khoVatLieu(), m = t => K.ds.find(x => x.ten === t);
       let a = C.apMau(C.normalize({}), 'BD-CHAU-800'); a = C.datBep(a, { van_chau: 'MDF chống ẩm', van_lot: 10 }); a.ma = 'K6';
