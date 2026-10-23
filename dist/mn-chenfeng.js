@@ -1386,7 +1386,8 @@
               // tấm nằm chạy tới hồi / vách (đợt cố định; 1.31.1: cả đáy, nóc — cánh thấp) → đế bản lề (chữ thập, cao ~40–50) bắt trên hồi / vách cấn nó: tâm bản lề cách mặt tấm ít nhất DE_BL / 2
               for (const d of M.parts) if ((d.loai === 'DOT' || d.loai === 'DAY' || d.loai === 'NOC' || d.loai === 'GIANG') && d.khoang <= dc.khoang && dc.khoang <= (d.den_khoang === undefined ? d.khoang : d.den_khoang) && d.z1 > z0 - DE_BL && d.z0 < z1 + DE_BL) tranh.push([rn(d.z0 - z0 - (DE_BL / 2 - r)), rn(d.z1 - z0 + (DE_BL / 2 - r))]);
               // (bản 1.38.0) thân liền: lỗ ở mặt bên kia vách đơn (cam đợt / đế bản lề khoang bên — specDoan ghi theo z tuyệt đối) → bản lề so le ≥ SO_LE
-              for (const c of (s.khoang[dc.khoang] && s.khoang[dc.khoang].tranh_bl) || []) if (Array.isArray(c) && c[1] > z0 && c[0] < z1) tranh.push([rn(c[0] - z0), rn(c[1] - z0)]);
+              //  (vòng soát 2) chỉ vùng của vách phía bản lề (c[2] = 'trai' | 'phai'; thiếu = cả hai — dạng cũ)
+              for (const c of (s.khoang[dc.khoang] && s.khoang[dc.khoang].tranh_bl) || []) if (Array.isArray(c) && (!c[2] || c[2] === (benTrai ? 'trai' : 'phai')) && c[1] > z0 && c[0] < z1) tranh.push([rn(c[0] - z0), rn(c[1] - z0)]);
               xepBL(dc.khoang, so => banLeCanh(hh, dc.w, { cach_dau: ch.cach_dau, r, tranh, so }), bl => {
                 p.ban_le = { so: bl.so, z: bl.z, ben: benTrai ? 'trai' : 'phai', loai: s.canh.loai_ban_le };
                 baoEp(dc.khoang, bl, hh, 'cao');
@@ -5792,6 +5793,71 @@
     for (const y of cu.values()) r.bo.push({ vt: y.vt, id: y.id });
     return r;
   }
+  /**
+   * (vòng soát 2 — 1.38.0) Hộp của một đơn vị vẽ trên bản vẽ (hàm thuần): { p: 4 góc mặt bằng [x, y] (xoay quanh trục đứng qua at, như datDay), z0, z1 } — null khi không dựng được.
+   */
+  function hopDonVi(x) {
+    if (!x || !x.spec || !so3(x.at)) return null;
+    let bb = null; try { bb = bbox(build(x.spec).parts); } catch (e) { bb = null; }
+    if (!bb) return null;
+    const r = num(x.xoay, 0) * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r), A = x.at.map(v => num(v, 0));
+    const P = (X, Y) => [A[0] + X * c - Y * sn, A[1] + X * sn + Y * c];
+    return { p: [P(bb.x0, bb.y0), P(bb.x1, bb.y0), P(bb.x1, bb.y1), P(bb.x0, bb.y1)], z0: A[2] + bb.z0, z1: A[2] + bb.z1 };
+  }
+  /** Hai hộp đơn vị chồng nhau quá `tol` (mm) — tách trục (SAT) trên mặt bằng + khoảng cao. Hai tủ áp mặt nhau (hồi áp hồi) không tính là chồng. */
+  function chongDonVi(a, b, tol) {
+    if (!a || !b) return false;
+    const e = tol === undefined ? 1 : tol;
+    if (Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0) <= e) return false;
+    for (const h of [a, b]) for (let i = 0; i < 2; i++) {
+      const d = [h.p[i + 1][0] - h.p[i][0], h.p[i + 1][1] - h.p[i][1]], L = Math.hypot(d[0], d[1]); if (L < 1e-9) continue;
+      const n = [-d[1] / L, d[0] / L], pr = q => q.p.map(v => v[0] * n[0] + v[1] * n[1]), pa = pr(a), pb = pr(b);
+      if (Math.min(Math.max(...pa), Math.max(...pb)) - Math.max(Math.min(...pa), Math.min(...pb)) <= e) return false;
+    }
+    return true;
+  }
+  /**
+   * (vòng soát 2 — 1.38.0) Kế hoạch Cập nhật bộ (hàm thuần; giao diện gửi thẳng cho D.capNhatDay): daVe = bản ghi bộ [{ vt, id, sig, at, xoay, khoang? }],
+   * ds = datDay hiện tại, specCu(id) = thông số lúc vẽ (null = máy không còn). Driver làm theo PHA: 0 = bỏ `xoa` → sửa tại chỗ `sua` → vẽ `ve`; rồi từng đoạn
+   * gi (pha gi + 1): bỏ `doan[gi].xoa` → vẽ đoạn đó. Đơn vị cũ gom vào đoạn mới theo khoang chung (bộ vẽ từng tủ → thân liền), nhưng mã vị trí đánh lại khi chèn /
+   * bỏ khoang (A6 cũ là chậu, A6 mới là kệ) nên trùng TÊN không nói chỗ: đơn vị cũ nào CHỒNG HỘP THẬT với một đơn vị mới vẽ ở pha sớm hơn pha nó bị bỏ thì dời
+   * sang pha đó (bỏ ngay trước khi vẽ cái chồng lên nó) — dừng giữa hai pha không bao giờ để lại hai tủ chồng nhau.
+   * @returns { v (doiDay), xoa: [{ vt, id, spec }], sua: [{ vt, id, spec, specCu, x }], ve: [x], doan: [{ vt, spec, at, xoay, khoang, x, xoa: [{ vt, id, spec }] }] }
+   */
+  function phaCapNhat(daVe, ds, specCu) {
+    const sc = typeof specCu === 'function' ? id => specCu(id) || null : () => null;
+    const v = doiDay(daVe, ds), ghiCu = new Map((daVe || []).filter(y => y && y.vt).map(y => [y.vt, y])), nhan = new Set();
+    const sua = [], xoa = [], ve = [], doan = [];
+    const khoangCu = vt => { const y = ghiCu.get(vt); return (y && y.khoang) || [vt]; };
+    // đơn vị cũ có khoang trùng một TỦ RIÊNG sắp vẽ (ranh đoạn đổi) không gom vào nhóm của đoạn mới: bỏ ở bước xoá đầu tiên
+    const veRieng = new Set(v.them.filter(x => !x.khoang).map(x => x.vt).concat(v.doi.filter(q => !q.x.khoang).map(q => q.x.vt)));
+    for (const q of v.bo) if (khoangCu(q.vt).some(k => veRieng.has(k))) nhan.add('truoc:' + q.vt);
+    for (const x of v.them.concat(v.doi.map(q => q.x))) {
+      if (!x.khoang) continue;
+      const g = { vt: x.vt, spec: x.spec, at: x.at, xoay: x.xoay, khoang: x.khoang, x, xoa: [] }, dq = v.doi.find(q => q.x === x);
+      if (dq) { g.xoa.push({ vt: dq.vt, id: dq.id, spec: sc(dq.id) || x.spec }); nhan.add('doi:' + dq.vt); }
+      for (const q of v.bo) { if (nhan.has(q.vt) || nhan.has('truoc:' + q.vt)) continue; if (khoangCu(q.vt).some(k => x.khoang.indexOf(k) >= 0)) { g.xoa.push({ vt: q.vt, id: q.id, spec: sc(q.id) }); nhan.add(q.vt); } }
+      doan.push(g);
+    }
+    for (const q of v.sua) { const c = sc(q.id); if (c) sua.push({ vt: q.vt, id: q.id, spec: q.x.spec, specCu: c, x: q.x }); else { xoa.push({ vt: q.vt, id: q.id, spec: q.x.spec }); ve.push(q.x); } }
+    for (const q of v.doi) { if (nhan.has('doi:' + q.vt)) continue; xoa.push({ vt: q.vt, id: q.id, spec: sc(q.id) || q.x.spec }); ve.push(q.x); }
+    for (const q of v.bo) if (!nhan.has(q.vt)) xoa.push({ vt: q.vt, id: q.id, spec: sc(q.id) });      // máy không còn thông số lúc vẽ: vẫn bỏ — driver tìm theo mã tủ
+    for (const x of v.them) if (!x.khoang) ve.push(x);
+    // dời đơn vị cũ theo hộp thật: pha sớm nhất có đơn vị mới chồng lên nó
+    if (doan.length) {
+      const moi = sua.map(q => ({ pha: 0, h: hopDonVi(q.x) })).concat(ve.map(x => ({ pha: 0, h: hopDonVi(x) })), doan.map((g, gi) => ({ pha: gi + 1, h: hopDonVi(g.x) })));
+      for (let gi = 0; gi < doan.length; gi++) {
+        const g = doan[gi], con = [];
+        for (const q of g.xoa) {
+          const y = ghiCu.get(q.vt), h = y && q.spec ? hopDonVi({ spec: q.spec, at: y.at, xoay: y.xoay }) : null;
+          let e = gi + 1; if (h) for (const m of moi) if (m.pha < e && chongDonVi(h, m.h)) e = m.pha;
+          if (e === gi + 1) con.push(q); else if (e === 0) xoa.push(q); else doan[e - 1].xoa.push(q);
+        }
+        g.xoa = con;
+      }
+    }
+    return { v, xoa, sua, ve, doan };
+  }
 
   /* ---- (bản 1.38.0) DÃY BẾP THÂN LIỀN — anh Thanh 23/10/2026: "bếp này mà theo module này tốn ván lắm nghiên cứu lại nhé với lại làm khấu xà trước luôn nhé
    * chứ k phải là cục riêng biệt như vậy"; chốt bằng hộp tích (bản thiết kế bep/than-lien.md): thân LIỀN THÙNG theo ĐOẠN, vách ĐƠN đứng trên đáy liền, xà trước +
@@ -5915,7 +5981,9 @@
         });
         k.dot = moi.sort((a, b) => a - b); doi = true;
       }
-      if (k.canh > 0) { k.tranh_bl = F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1)]); doi = true; }
+      // (vòng soát 2 — 1.38.0) vùng tránh mang BÊN vách: chỉ cánh có bản lề bắt trên vách TRÁI (ban_le 'trai') né lỗ mặt kia của nó — cánh mở phải bắt trên tấm
+      // đứng khác (hồi đầu đoạn / vách phải), trước đây cũng bị dời lệch chuẩn vô cớ (100 / 698 → 63 / 661)
+      if (k.canh > 0) { k.tranh_bl = F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1), 'trai']); doi = true; }
       if (doi) Ms[j] = dungBo(s);
     }
     const top = clone(subs[0]), B = top.bep;
@@ -5950,8 +6018,10 @@
     SP.forEach((sp, j) => {
       const k0 = sp.khoang && sp.khoang[0];
       if (doiCo && k0 && k0.canh > 0) {
-        const F = (j > 0 && S[j - 1] ? datLo(S[j - 1].M, 'phai') : []).concat(dotTrai[j + 1] || []), r = sp.canh.chen.d / 2;
-        if (F.length) k0.tranh_bl = F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1)]); else delete k0.tranh_bl;
+        // vách TRÁI: lỗ mặt phải của khoang trước (cánh bản lề trái né); vách PHẢI: cam đợt mặt trái của khoang sau (cánh bản lề phải né) — mỗi vùng mang bên của nó
+        const r = sp.canh.chen.d / 2, vung = (F, ben) => F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1), ben]);
+        const F = vung(j > 0 && S[j - 1] ? datLo(S[j - 1].M, 'phai') : [], 'trai').concat(vung(dotTrai[j + 1] || [], 'phai'));
+        if (F.length) k0.tranh_bl = F; else delete k0.tranh_bl;
       }
       const m = dungBo(sp); S.push({ j, vt: (Dn.vt || [])[j] || String(j + 1), X: num((Dn.x || [])[j], 0), M: m, H: hoiTu(m) });
     });
@@ -6130,7 +6200,9 @@
     const bo = chuanBo(boIn), T = tuBo(bo, pa, opt);
     if (!thanLien(bo)) return T;
     // (vòng soát 1.38.0) hồi kề tủ chậu chống ẩm: tủ dưới VÀ tủ cao (tủ lạnh / lò / đồ khô đứng sát tủ chậu — hồi của nó áp hồi tủ chậu như tủ dưới)
-    const chau = T.filter(x => x.tang === 'duoi' && x.spec.bep && x.spec.bep.chuc_nang === 'chau');
+    // (vòng soát 2 — 1.38.0) chỉ khi tủ chậu có ván chống ẩm riêng (chuẩn bếp van_chau): van_chau rỗng thì hồi kề chậu y ván thường — gắn dấu là đổi sig của tủ riêng
+    // (bộ vẽ từng tủ Cập nhật sang thân liền sẽ vẽ lại vô cớ tủ kề chậu) + ghi "ván chống ẩm" làm xưởng hiểu lầm
+    const chau = T.filter(x => x.tang === 'duoi' && x.spec.bep && x.spec.bep.chuc_nang === 'chau' && x.spec.bep.van_chau);
     const keChau = (canh, s) => chau.some(c => c.canh === canh && (Math.abs(c.s0 - s) < 0.5 || Math.abs(c.s0 + c.spec.rong - s) < 0.5));
     const out = [];
     for (const d of gomDoan(T)) {
@@ -6424,7 +6496,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, hopDonVi, chongDonVi, phaCapNhat, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
 
 /*!
@@ -14778,8 +14850,14 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     function moDoanTu(id, sp) {
       const ma = sp.bep.day && sp.bep.day.ma, kh = (sp.bep.doan.vt || []).map(String), ten = kh.join(' + ');
       let b = boBep && boBep.ma === ma ? boBep : null; if (!b) { const cu = docBoLuu(); if (cu && cu.ma === ma) b = cu; }
-      const r0 = ma ? docBoVe(ma) : null;
-      if (!b || !r0 || !r0.da_ve.some(y => String(y.id) === String(id))) { setStatus(`Tấm đang chọn thuộc đoạn thân liền ${ten} của bộ bếp ${ma || '?'} — nhiều khoang ghép chung (vách đơn, đáy / xà liền) nên bảng không mở riêng để sửa. Mở bộ ${ma || ''} trên máy đã vẽ nó (Thư viện → Bếp → Bộ bếp), sửa rồi bấm Cập nhật.`); return; }
+      const r0 = ma ? docBoVe(ma) : null, coTam = !!(r0 && r0.da_ve.some(y => String(y.id) === String(id)));
+      // (vòng soát 2 — 1.38.0) bảng đã sang bộ khác (Chỗ mới, bộ khác ở Thư viện): mở lại từ thông số bộ ghi trong bản ghi bộ lúc vẽ / Cập nhật (r0.bo)
+      if (!b && coTam && r0.bo && typeof r0.bo === 'object' && r0.bo.ma === ma) b = r0.bo;
+      if (!b || !coTam) {
+        const loi = !r0 ? `Máy này không có bản ghi của bộ ${ma || '?'} (vẽ ở máy / trình duyệt khác): mở bộ đó trên máy đã vẽ nó (Thư viện → Bếp → Bộ bếp), sửa rồi bấm Cập nhật.`
+          : !coTam ? `Bản ghi bộ ${ma} ở máy này không còn đoạn này (đã vẽ lại / hoàn tác) — tấm đang chọn có thể là phần còn sót: xoá tay, hoặc mở bộ ${ma} rồi bấm Cập nhật.`
+          : `Máy này không còn thông số của bộ ${ma} (vẽ ở bản trước khi bản ghi bộ lưu thông số, và bảng đã sang bộ khác): ↶ Lùi về bộ ${ma} nếu còn, hoặc Hoàn tác bộ rồi vẽ lại.`;
+        setStatus(`Tấm đang chọn thuộc đoạn thân liền ${ten} của bộ bếp ${ma || '?'} — nhiều khoang ghép chung (vách đơn, đáy / xà liền) nên bảng không mở riêng để sửa. ${loi}`); return; }
       if (boBep !== b) { const truoc = chup(); sel = null; noi = null; boBep = gonBo(Core.chuanBo(b)); boPa = 0; boPaTim = true; boChon = null; boTayId = null; boTayTren = false; boTayBao = null; boCanh = 0; boGo = null; boCho = null; boVe = null; napBoVe(); capLoai(); nho(truoc); luuBo(); }
       const pa = paBo(tinhBo()), m = pa && pa.ds.find(q => kh.indexOf(q.vt) >= 0);
       boChon = m ? m.vt : null; if (m) boCanh = m.canh || 0;
@@ -17263,8 +17341,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       // (vòng soát 2 — 1.34) bộ nhớ là kiểu kia mà đã vẽ: kiểu này là bộ MỚI (mã khác) — không bám bản ghi + chỗ đặt của bộ kiểu kia (góc trong ≠ đầu trái)
       const mm = maKhacKieu(boBep.ma, kieu); if (mm) boBep.ma = mm;
       napBoVe();
+      // (vòng soát 2 — 1.38.0) "Giữ kiểu từng tủ" là của bộ đang thi công đã vẽ: bộ mở ra mà không có trên bản vẽ này (bộ mới) thì về thân liền
+      const tt = !boVeCo() ? thoiTungTu() : ''; if (tt) delete boBep.than;
       capLoai(); nho(truoc); luuBo();
-      setStatus(`Bộ bếp chữ ${kieu}: gõ dài tường, chọn tủ lạnh / + Lò / + Kho — bảng tự chia tủ dưới, tủ trên, nẹp, đá. ↶ Lùi để lấy lại món đang làm.`);
+      setStatus(`Bộ bếp chữ ${kieu}: gõ dài tường, chọn tủ lạnh / + Lò / + Kho — bảng tự chia tủ dưới, tủ trên, nẹp, đá. ↶ Lùi để lấy lại món đang làm.${tt}`);
     }
     function boHTML() {
       const b = Core.chuanBo(boBep), L = b.kieu === 'L', tl = b.tl, may = tl ? (typeof tl.may === 'object' ? 'tu_chon' : tl.may) : '';
@@ -17442,8 +17522,8 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       { const cu = treoCuBo(); if (cu.length) h.push(`<div class="msg warn" data-ui="bo-treo-cu">Tủ trên đã vẽ ${esc(cu.join(', '))} treo bằng thanh treo + vít nở — chuẩn nay hậu lùi ${hien(spec.van.t)} + xà âm dương (bản 1.37.3): Cập nhật sẽ vẽ lại ${cu.length > 1 ? 'chúng' : 'tủ đó'} theo kết cấu mới. <button class="sec mini" data-act="bo-giu-treo" title="Ghi Treo tủ: Thanh treo vào chuẩn bếp của máy này — bộ khớp lại tủ đã vẽ">Giữ thanh treo</button></div>`); }
       // (bản 1.38.0) bộ đã vẽ từng tủ (≤ 1.37.4, hoặc Thân dãy: Từng tủ) mà bộ nay thân liền → Cập nhật vẽ lại TỪNG ĐOẠN; lối giữ: "Giữ kiểu từng tủ"
       // (vòng soát 1.38.0) Cập nhật dừng giữa chừng: bản ghi đã có đoạn thân liền mà vẫn còn tủ cũ — nói đúng là bộ đang dở hai kiểu; "Giữ kiểu từng tủ" lúc đó vẽ ngược đoạn đã vẽ về từng tủ
-      { const n = thanCuBo(pa), dd = n ? boVe.da_ve.filter(y => y.khoang && y.khoang.length > 1).length : 0;
-        if (n) h.push(`<div class="msg warn" data-ui="bo-than-cu">${dd ? `Bộ ${esc(boVe.ma)} đang dở hai kiểu (lần Cập nhật trước dừng giữa chừng): đã vẽ ${dd} đoạn thân liền, còn tủ cũ vẽ từng tủ — Cập nhật sẽ vẽ nốt ${n} đoạn.` : `Bộ ${esc(boVe.ma)} đã vẽ từng tủ — chuẩn nay thân liền theo đoạn (bản 1.38): Cập nhật sẽ vẽ lại ${n} đoạn (bỏ các tủ cũ trong đoạn rồi vẽ đoạn, từng đoạn một).`} <button class="sec mini" data-act="bo-giu-tu" title="${dd ? `Về mỗi tủ một thùng: Cập nhật sẽ vẽ lại cả ${dd} đoạn đã vẽ thành từng tủ (đổi lại ở ⋯ → Thân dãy)` : 'Bộ này giữ mỗi tủ một thùng như đã vẽ (đổi lại ở ⋯ → Thân dãy)'}">Giữ kiểu từng tủ</button></div>`); }
+      { const tc = thanCuBo(pa), n = tc.n, dd = n ? boVe.da_ve.filter(y => y.khoang && y.khoang.length > 1).length : 0, rg = tuRiengCu(tc);
+        if (n) h.push(`<div class="msg warn" data-ui="bo-than-cu">${dd ? `Bộ ${esc(boVe.ma)} đang dở hai kiểu (lần Cập nhật trước dừng giữa chừng): đã vẽ ${dd} đoạn thân liền, còn tủ cũ vẽ từng tủ — Cập nhật sẽ vẽ nốt ${n} đoạn${esc(rg)}.` : `Bộ ${esc(boVe.ma)} đã vẽ từng tủ — chuẩn nay thân liền theo đoạn (bản 1.38): Cập nhật sẽ vẽ lại ${n} đoạn (bỏ các tủ cũ trong đoạn rồi vẽ đoạn, từng đoạn một)${esc(rg)}.`} <button class="sec mini" data-act="bo-giu-tu" title="${dd ? `Về mỗi tủ một thùng: Cập nhật sẽ vẽ lại cả ${dd} đoạn đã vẽ thành từng tủ (đổi lại ở ⋯ → Thân dãy)` : 'Bộ này giữ mỗi tủ một thùng như đã vẽ (đổi lại ở ⋯ → Thân dãy)'}">Giữ kiểu từng tủ</button></div>`); }
       { const cu = caoCuBo(); if (cu.length) h.push(`<div class="msg warn" data-ui="bo-cao-cu">Tủ cao đã vẽ ${esc(cu.join(', '))} sâu thùng ${hien(Core.MAC_DINH_BEP_CU2.sau_cao)} — chuẩn nay ${hien(Core.DEFAULT_BEP.sau_cao)} (phủ bì 620 gồm cánh, bản 1.37.2): Cập nhật sẽ vẽ lại ${cu.length > 1 ? 'chúng' : 'tủ đó'} sâu 620. <button class="sec mini" data-act="bo-giu-cao" title="Ghi Sâu thùng tủ cao ${hien(Core.MAC_DINH_BEP_CU2.sau_cao)} vào chuẩn bếp của máy này — bộ khớp lại tủ đã vẽ">Giữ thùng ${hien(Core.MAC_DINH_BEP_CU2.sau_cao)}</button></div>`); }
       if (pa && pa.luu_y.indexOf(Core.KE_BO_CAO) >= 0) h.push(`<div class="msg warn" data-ui="bo-ke-bo">${esc(Core.KE_BO_CAO)}</div>`);
       if (tay && boTayBao && boTayBao.bo) h.push(`<div class="msg warn">Chữ I: bỏ danh sách khoang của cạnh B.</div>`);
@@ -18017,14 +18097,18 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
     }
     /** (bản 1.38.0) bộ đã vẽ (bản vẽ đang mở) KHÔNG theo thân liền (bản ghi thiếu khoá than = vẽ ở ≤ 1.37.4) mà bộ nay thân liền → số đoạn Cập nhật sẽ vẽ lại (0 = không báo). */
     function thanCuBo(pa) {
-      if (!pa || !boVeCo() || boVe.than === 'lien' || !laThanLien() || !boVe.cho) return 0;
+      const KH = { n: 0, rieng: [] };
+      if (!pa || !boVeCo() || boVe.than === 'lien' || !laThanLien() || !boVe.cho) return KH;
       const k = JSON.stringify([boVe.ma, boVe.cho, boVe.da_ve.map(y => [y.vt, y.sig])]);
-      if (boNho && boNho.thanCu && boNho.thanCu.pa === pa && boNho.thanCu.k === k) return boNho.thanCu.n;
-      let n = 0;
-      try { const ds = Core.datDay(boKem(), pa, boVe.cho, { nen: nenBo() }), v = Core.doiDay(boVe.da_ve, ds), giu = new Set(v.giu.map(q => q.vt)); n = ds.filter(x => x.khoang && !giu.has(x.vt)).length; } catch (e) { n = 0; }
-      if (boNho) boNho.thanCu = { pa, k, n };
-      return n;
+      if (boNho && boNho.thanCu && boNho.thanCu.pa === pa && boNho.thanCu.k === k) return boNho.thanCu.r;
+      let r = KH;
+      // (vòng soát 2 — 1.38.0) kèm TỦ RIÊNG cũng sửa / vẽ lại theo (hồi kề tủ chậu nay ván chống ẩm…) — lời báo trước khi bấm nói đủ
+      try { const ds = Core.datDay(boKem(), pa, boVe.cho, { nen: nenBo() }), v = Core.doiDay(boVe.da_ve, ds), giu = new Set(v.giu.map(q => q.vt));
+        r = { n: ds.filter(x => x.khoang && !giu.has(x.vt)).length, rieng: v.sua.concat(v.doi).filter(q => !q.x.khoang).map(q => q.vt) }; } catch (e) { r = KH; }
+      if (boNho) boNho.thanCu = { pa, k, r };
+      return r;
     }
+    function tuRiengCu(tc) { return tc && tc.rieng.length ? `, kèm sửa ${tc.rieng.length} tủ riêng ${tc.rieng.slice(0, 6).join(', ')}${tc.rieng.length > 6 ? '…' : ''} (hồi kề tủ chậu ván chống ẩm / tủ đổi khác)` : ''; }
     function caoCuBo() {
       if (!boVeCo() || !Core.MAC_DINH_BEP_CU2) return [];
       const cu = Core.MAC_DINH_BEP_CU2.sau_cao, c = boChuan(), nay = 'sau_cao' in c ? +c.sau_cao : Core.DEFAULT_BEP.sau_cao;
@@ -18062,14 +18146,16 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       v.textContent = co ? `Bộ ${boVe.ma} đã vẽ ${daN}` : v.textContent;
       if (t) { t.hidden = !thieu || !!doi; t.disabled = busy || !pa || loi; }
       if (c && !c.dataset.t0) c.dataset.t0 = c.title;
-      const nThan = co && pa ? thanCuBo(pa) : 0;
-      if (c) c.title = nThan ? (boVe.da_ve.some(y => y.khoang && y.khoang.length > 1) ? `Bộ đang dở hai kiểu (lần Cập nhật trước dừng) — Cập nhật sẽ vẽ nốt ${nThan} đoạn thân liền (từng đoạn một).` : `Bộ đã vẽ từng tủ — Cập nhật sẽ vẽ lại ${nThan} đoạn thân liền (từng đoạn một); muốn giữ như đã vẽ: “Giữ kiểu từng tủ”.`) : doi ? (thieu ? `Bộ đã sửa sau lần vẽ dừng (${doi}) — bấm Cập nhật để sửa tủ đã vẽ và vẽ nốt.` : `Phương án đang xem khác bộ đã vẽ (${doi}) — bấm Cập nhật để vẽ lại các tủ đó.`) : (c.dataset.t0 || c.title);
+      const tcN = co && pa ? thanCuBo(pa) : { n: 0, rieng: [] }, nThan = tcN.n, rgN = tuRiengCu(tcN);
+      if (c) c.title = nThan ? (boVe.da_ve.some(y => y.khoang && y.khoang.length > 1) ? `Bộ đang dở hai kiểu (lần Cập nhật trước dừng) — Cập nhật sẽ vẽ nốt ${nThan} đoạn thân liền (từng đoạn một)${rgN}.` : `Bộ đã vẽ từng tủ — Cập nhật sẽ vẽ lại ${nThan} đoạn thân liền (từng đoạn một)${rgN}; muốn giữ như đã vẽ: “Giữ kiểu từng tủ”.`) : doi ? (thieu ? `Bộ đã sửa sau lần vẽ dừng (${doi}) — bấm Cập nhật để sửa tủ đã vẽ và vẽ nốt.` : `Phương án đang xem khác bộ đã vẽ (${doi}) — bấm Cập nhật để vẽ lại các tủ đó.`) : (c.dataset.t0 || c.title);
       if (c) c.disabled = busy || !co || !pa || loi;
       if (h) h.disabled = busy || !co;
       if (ch) ch.disabled = busy;
       if (tt) tt.textContent = boCho ? `Chỗ đặt: ${boBep && boBep.kieu === 'L' ? 'góc trong' : 'đầu trái'} ${boCho.goc.map(x => hien(Math.round(x))).join(', ')} · hướng ${hien(boCho.xoay)}°${co ? ` · bộ ${boVe.ma} đã vẽ ${daN}` : ''}` : 'Chưa chọn chỗ đặt trên bản vẽ.';
     }
     // mã bộ còn trống trên bản vẽ này (bộ đã vẽ ở bản vẽ khác không giữ chỗ)
+    /** (vòng soát 2 — 1.38.0) bộ sắp thành bộ MỚI (mã mới / không có trên bản vẽ): "Giữ kiểu từng tủ" của bộ cũ không theo sang — trả câu báo ('' = bộ không mang khoá). */
+    function thoiTungTu() { return boBep && boBep.than === 'tung_tu' ? ' Bộ mới vẽ thân liền theo đoạn (“Giữ kiểu từng tủ” chỉ cho bộ đã vẽ — chọn lại ở ⋯ → Thân dãy nếu cần).' : ''; }
     function maBoMoi() {
       // (vòng soát 3 — 1.34) mã còn bản ghi bộ đã vẽ (dù ở bản vẽ khác) không dùng lại: vẽ bộ mới với mã đó là ghi đè bản ghi của bộ kia
       for (let i = 1; i < 1000; i++) { const m = 'B' + i, r = docBoVe(m); if (!r || !r.da_ve.length) return m; }
@@ -18094,7 +18180,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!c) { capBoNut(); setStatus(L ? 'Hai cạnh bấm chưa vuông góc (hoặc điểm quá gần góc) — bấm lại: góc trong, một điểm trên tường A, một điểm trên tường B.' : 'Hai điểm quá gần nhau — bấm lại: đầu trái dãy, rồi một điểm dọc tường cách xa hơn.'); return null; }
       const ghi = [];
       // bộ này đã có trên bản vẽ: chỗ mới = bộ mới (bộ cũ giữ nguyên, Cập nhật / Hoàn tác vẫn theo bản ghi của nó)
-      if (boVeCo()) { const cu = boVe.ma, m = maBoMoi(); boBep = gonBo(Core.chuanBo(Object.assign({}, boBep, { ma: m }))); boVe = null; luuBo(); ghi.push(`Bộ ${cu} đã có trên bản vẽ — đây là bộ mới ${m}.`); }
+      if (boVeCo()) { const cu = boVe.ma, m = maBoMoi(), tt = thoiTungTu(); boBep = gonBo(Core.chuanBo(Object.assign({}, boBep, { ma: m }, tt ? { than: undefined } : {}))); boVe = null; luuBo(); ghi.push(`Bộ ${cu} đã có trên bản vẽ — đây là bộ mới ${m}.${tt}`); }
       // (vòng soát 1.37.1) góc theo điểm bấm khác bộ: đi chung đường với chip Góc trái / phải (lanGoc — bỏ ghim / tâm / ống…, Từng khoang dựng lại);
       // chỗ đặt ghi SAU bước đó để ↶ Lùi về góc cũ không mang chỗ của góc mới
       if (L && c.re && c.re !== Core.chuanBo(boBep).canh[1].re) {
@@ -18130,12 +18216,13 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!cho) { setStatus('Bấm “Chỗ” để chọn chỗ đặt dãy trên bản vẽ trước.'); return null; }
       // (vòng soát 3 — 1.34) mã bộ còn bản ghi của bộ đã vẽ ở bản vẽ khác (locBoVe không ghi đè nó nữa): bộ này lấy mã mới — không ghi đè bản ghi kia
       let maDoi = '';
-      if (!opt.tiep) { const cu = docBoVe(boBep.ma); if (cu && cu.da_ve.length) { const m = maBoMoi(); maDoi = ` (mã ${boBep.ma} là bộ đã vẽ ở bản vẽ khác — bộ này lấy mã ${m})`; const maCu = boBep.ma; boBep = gonBo(Core.chuanBo(Object.assign({}, boBep, { ma: m }))); luuBo(); doiMaLui(maCu, m); } }
+      if (!opt.tiep) { const cu = docBoVe(boBep.ma); if (cu && cu.da_ve.length) { const m = maBoMoi(), tt = thoiTungTu(); maDoi = ` (mã ${boBep.ma} là bộ đã vẽ ở bản vẽ khác — bộ này lấy mã ${m}${tt ? `;${tt.replace(/\.$/, '')}` : ''})`; const maCu = boBep.ma; boBep = gonBo(Core.chuanBo(Object.assign({}, boBep, { ma: m }, tt ? { than: undefined } : {}))); luuBo(); doiMaLui(maCu, m); } }
       let ds = null; try { ds = Core.datDay(boKem(), pa, cho, { nen: nenBo() }); } catch (e) { ds = null; }
       if (!ds || !ds.length) { setStatus('Chưa tính được chỗ đặt các tủ của bộ.'); return null; }
       if (!opt.tiep) boVe = { ma: boBep.ma, kieu: boBep.kieu, than: laThanLien() ? 'lien' : 'tung_tu', cho: clone(cho), da_ve: [], tong: ds.length, dung: null };      // (1.38.0) than: kiểu thân của lần vẽ
       // (vòng soát 1.34) bản ghi CỦA LẦN VẼ NÀY: người dùng đổi món giữa chừng (renderAll → boVe = null) thì các tủ vẽ sau vẫn được ghi vào bộ
       const dv = boVe, daCo = new Set(dv.da_ve.map(y => y.vt)), ids_cu = dv.da_ve.map(y => String(y.id));
+      dv.bo = gonBo(boBep);      // (vòng soát 2 — 1.38.0) thông số bộ của lần vẽ: "Sửa tủ đang chọn" trên đoạn mở lại bộ này cả khi bảng đã sang bộ khác (moDoanTu)
       const lam = ds.filter(x => !daCo.has(x.vt));
       dv.tong = ds.length; luuBoVe(dv);
       busy = true; capBoNut(pa); lastRep = null; capKQ();
@@ -18174,30 +18261,16 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       const pa = paBo(tinhBo()); if (!pa || loiBo(pa).length) { setStatus('Bộ còn LỖI (dòng đỏ) — sửa xong mới cập nhật được.'); return null; }
       let ds = null; try { ds = Core.datDay(boKem(), pa, boVe.cho, { nen: nenBo() }); } catch (e) { ds = null; }
       if (!ds) { setStatus('Chưa tính được chỗ đặt các tủ của bộ.'); return null; }
-      const v = Core.doiDay(boVe.da_ve, ds), specCu = id => { const l = khoTu.get(id); return l && l.spec ? l.spec : null; };
-      // tủ đã vẽ mà máy này không còn thông số lúc vẽ: không dò lại được → bỏ rồi vẽ lại (theo mã) thay vì cập nhật tại chỗ
-      const sua = [], xoa = [], ve = [], doan = [];
-      // (bản 1.38.0) ĐOẠN thân liền mới / dời chỗ (bộ vẽ từng tủ ở ≤ 1.37.4, ranh đoạn đổi): gom các tủ cũ nằm trong đoạn (theo mã vị trí khoang — bản ghi đoạn mang `khoang`)
-      // → driver bỏ chúng rồi vẽ đoạn, TỪNG ĐOẠN một (dừng giữa chừng chỉ dở một đoạn)
-      const ghiCu = new Map(boVe.da_ve.map(y => [y.vt, y])), nhan = new Set();
-      // (vòng soát 1.38.0) đơn vị cũ có khoang trùng một TỦ RIÊNG sắp vẽ (ranh đoạn đổi: đoạn A3 + A4 + A5 → A3 riêng + đoạn A4 + A5) không gom vào nhóm của đoạn
-      // mới: bỏ nó ở bước xoá đầu tiên — không thì A3 vẽ (pha ve) chồng lên đoạn cũ chưa bỏ, dừng giữa hai pha là để lại tấm chồng nhau
-      const veRieng = new Set(v.them.filter(x => !x.khoang).map(x => x.vt).concat(v.doi.filter(q => !q.x.khoang).map(q => q.x.vt)));
-      for (const q of v.bo) { const y = ghiCu.get(q.vt), kh = (y && y.khoang) || [q.vt]; if (kh.some(k => veRieng.has(k))) nhan.add('truoc:' + q.vt); }
-      for (const x of v.them.concat(v.doi.map(q => q.x))) {
-        if (!x.khoang) continue;
-        const g = { vt: x.vt, spec: x.spec, at: x.at, xoay: x.xoay, khoang: x.khoang, x, xoa: [] }, dq = v.doi.find(q => q.x === x);
-        if (dq) { g.xoa.push({ vt: dq.vt, id: dq.id, spec: specCu(dq.id) || x.spec }); nhan.add('doi:' + dq.vt); }
-        for (const q of v.bo) { if (nhan.has(q.vt) || nhan.has('truoc:' + q.vt)) continue; const y = ghiCu.get(q.vt), kh = (y && y.khoang) || [q.vt]; if (kh.some(k => x.khoang.indexOf(k) >= 0)) { g.xoa.push({ vt: q.vt, id: q.id, spec: specCu(q.id) }); nhan.add(q.vt); } }
-        doan.push(g);
-      }
-      for (const q of v.sua) { const c = specCu(q.id); if (c) sua.push({ vt: q.vt, id: q.id, spec: q.x.spec, specCu: c, x: q.x }); else { xoa.push({ vt: q.vt, id: q.id, spec: q.x.spec }); ve.push(q.x); } }
-      for (const q of v.doi) { if (nhan.has('doi:' + q.vt)) continue; xoa.push({ vt: q.vt, id: q.id, spec: specCu(q.id) || q.x.spec }); ve.push(q.x); }
-      for (const q of v.bo) if (!nhan.has(q.vt)) xoa.push({ vt: q.vt, id: q.id, spec: specCu(q.id) });      // (vòng soát 1.34) máy không còn thông số lúc vẽ: vẫn bỏ — driver tìm theo mã tủ
-      for (const x of v.them) if (!x.khoang) ve.push(x);
+      const specCu = id => { const l = khoTu.get(id); return l && l.spec ? l.spec : null; };
+      // (bản 1.38.0) ĐOẠN thân liền mới / dời chỗ: gom các tủ cũ nằm trong đoạn → driver bỏ chúng rồi vẽ đoạn, TỪNG ĐOẠN một (dừng giữa chừng chỉ dở một đoạn).
+      // (vòng soát 2 — 1.38.0) kế hoạch là hàm thuần Core.phaCapNhat: tủ cũ CHỒNG HỘP THẬT với đơn vị vẽ ở pha sớm hơn thì bỏ ngay trước pha đó (mã vị trí đánh lại
+      // khi chèn / bỏ khoang — gom theo tên để chậu cũ "A6" vào đoạn của kệ "A6" mới trong khi chậu mới A7 đã vẽ ở pha trước: dừng giữa chừng là hai chậu chồng khít)
+      const kh = Core.phaCapNhat(boVe.da_ve, ds, specCu), v = kh.v, sua = kh.sua, xoa = kh.xoa, ve = kh.ve, doan = kh.doan;
+      const ghiCu = new Map(boVe.da_ve.map(y => [y.vt, y]));
       if (!sua.length && !xoa.length && !ve.length && !doan.length) { setStatus(`Bộ ${boVe.ma} trên bản vẽ đã đúng như bảng — không có tủ nào phải cập nhật.`); return { ok: true, sua: 0, xoa: 0, ve: 0 }; }
       busy = true; capBoNut(pa); lastRep = null; capKQ();
       const dv = boVe, giu = new Set(v.giu.map(q => q.vt));
+      dv.bo = gonBo(boBep);      // (vòng soát 2 — 1.38.0) bộ của lần Cập nhật (moDoanTu mở lại từ đây)
       let kq;
       try {
         kq = await Drv.capNhatDay({ xoa, sua: sua.map(q => ({ vt: q.vt, id: q.id, spec: q.spec, specCu: q.specCu, at: q.x.at, xoay: q.x.xoay })), ve: ve.map(x => ({ vt: x.vt, spec: x.spec, at: x.at, xoay: x.xoay })), doan: doan.map(g => ({ vt: g.vt, spec: g.spec, at: g.at, xoay: g.xoay, khoang: g.khoang, xoa: g.xoa })) },
@@ -18218,7 +18291,12 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       const soSua = (kq.sua || []).filter(q => q.giai_doan === 'xong').length;
       if (kq.loi) setStatus(kq.loi);
       // (vòng soát 1.38.0) dừng giữa chừng: tủ cũ đã bỏ mà khoang của nó chưa có đơn vị mới nào thay → nói ra (trên bản vẽ đang có chỗ trống)
-      else if (kq.dung) { const phu = new Set([].concat(...dv.da_ve.map(y => y.khoang || [y.vt]))), hut = xoa.concat(...doan.map(g => g.xoa)).filter(q => bo_.has(q.vt)).map(q => q.vt).filter(vt => ((ghiCu.get(vt) || {}).khoang || [vt]).some(k => !phu.has(k)));
+      // (vòng soát 2) "trống chỗ" xét theo HỘP THẬT: tủ cũ đã bỏ mà không đơn vị mới đã vẽ nào phủ lên chỗ nó (mã vị trí đánh lại — chậu cũ A6 nay là chậu mới A7);
+      //  thiếu thông số (máy khác) thì theo khoang như trước
+      else if (kq.dung) { const phu = new Set([].concat(...dv.da_ve.map(y => y.khoang || [y.vt]))), cuIds = new Set([...ghiCu.values()].map(y => String(y.id)));
+        const hopMoi = dv.da_ve.filter(y => !cuIds.has(String(y.id))).map(y => Core.hopDonVi({ spec: specCu(y.id), at: y.at, xoay: y.xoay })).filter(Boolean);
+        const trong = q => { const y = ghiCu.get(q.vt), h = y && q.spec ? Core.hopDonVi({ spec: q.spec, at: y.at, xoay: y.xoay }) : null; return h ? !hopMoi.some(m => Core.chongDonVi(h, m)) : ((y || {}).khoang || [q.vt]).some(k => !phu.has(k)); };
+        const hut = xoa.concat(...doan.map(g => g.xoa)).filter(q => bo_.has(q.vt) && trong(q)).map(q => q.vt);
         setStatus(`Cập nhật bộ ${dv.ma} dừng: ${tomDung(kq.dung)}.${hut.length ? ` Đã bỏ ${hut.length > 1 ? 'các tủ cũ' : 'tủ cũ'} ${hut.join(', ')} mà chưa vẽ lại — trên bản vẽ đang trống chỗ đó; bấm Cập nhật lần nữa để vẽ nốt.` : ' Bấm Cập nhật lần nữa khi sẵn sàng.'}`); }
       else setStatus(`Đã cập nhật bộ ${dv.ma}: ${soSua} tủ cập nhật tại chỗ, ${bo_.size} tủ bỏ, ${(kq.xong || 0) - (kq.doan || 0)} tủ vẽ mới${kq.doan ? `, ${kq.doan} đoạn thân liền vẽ lại` : ''}; ${v.giu.length} tủ giữ nguyên${tomVanDe(kq.van_de) || '.'}${tomDoLoi(kq.do_loi)}`);
       if (!dv.da_ve.length && boVe === dv) boVe = null;

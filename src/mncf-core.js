@@ -1384,7 +1384,8 @@
               // tấm nằm chạy tới hồi / vách (đợt cố định; 1.31.1: cả đáy, nóc — cánh thấp) → đế bản lề (chữ thập, cao ~40–50) bắt trên hồi / vách cấn nó: tâm bản lề cách mặt tấm ít nhất DE_BL / 2
               for (const d of M.parts) if ((d.loai === 'DOT' || d.loai === 'DAY' || d.loai === 'NOC' || d.loai === 'GIANG') && d.khoang <= dc.khoang && dc.khoang <= (d.den_khoang === undefined ? d.khoang : d.den_khoang) && d.z1 > z0 - DE_BL && d.z0 < z1 + DE_BL) tranh.push([rn(d.z0 - z0 - (DE_BL / 2 - r)), rn(d.z1 - z0 + (DE_BL / 2 - r))]);
               // (bản 1.38.0) thân liền: lỗ ở mặt bên kia vách đơn (cam đợt / đế bản lề khoang bên — specDoan ghi theo z tuyệt đối) → bản lề so le ≥ SO_LE
-              for (const c of (s.khoang[dc.khoang] && s.khoang[dc.khoang].tranh_bl) || []) if (Array.isArray(c) && c[1] > z0 && c[0] < z1) tranh.push([rn(c[0] - z0), rn(c[1] - z0)]);
+              //  (vòng soát 2) chỉ vùng của vách phía bản lề (c[2] = 'trai' | 'phai'; thiếu = cả hai — dạng cũ)
+              for (const c of (s.khoang[dc.khoang] && s.khoang[dc.khoang].tranh_bl) || []) if (Array.isArray(c) && (!c[2] || c[2] === (benTrai ? 'trai' : 'phai')) && c[1] > z0 && c[0] < z1) tranh.push([rn(c[0] - z0), rn(c[1] - z0)]);
               xepBL(dc.khoang, so => banLeCanh(hh, dc.w, { cach_dau: ch.cach_dau, r, tranh, so }), bl => {
                 p.ban_le = { so: bl.so, z: bl.z, ben: benTrai ? 'trai' : 'phai', loai: s.canh.loai_ban_le };
                 baoEp(dc.khoang, bl, hh, 'cao');
@@ -5790,6 +5791,71 @@
     for (const y of cu.values()) r.bo.push({ vt: y.vt, id: y.id });
     return r;
   }
+  /**
+   * (vòng soát 2 — 1.38.0) Hộp của một đơn vị vẽ trên bản vẽ (hàm thuần): { p: 4 góc mặt bằng [x, y] (xoay quanh trục đứng qua at, như datDay), z0, z1 } — null khi không dựng được.
+   */
+  function hopDonVi(x) {
+    if (!x || !x.spec || !so3(x.at)) return null;
+    let bb = null; try { bb = bbox(build(x.spec).parts); } catch (e) { bb = null; }
+    if (!bb) return null;
+    const r = num(x.xoay, 0) * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r), A = x.at.map(v => num(v, 0));
+    const P = (X, Y) => [A[0] + X * c - Y * sn, A[1] + X * sn + Y * c];
+    return { p: [P(bb.x0, bb.y0), P(bb.x1, bb.y0), P(bb.x1, bb.y1), P(bb.x0, bb.y1)], z0: A[2] + bb.z0, z1: A[2] + bb.z1 };
+  }
+  /** Hai hộp đơn vị chồng nhau quá `tol` (mm) — tách trục (SAT) trên mặt bằng + khoảng cao. Hai tủ áp mặt nhau (hồi áp hồi) không tính là chồng. */
+  function chongDonVi(a, b, tol) {
+    if (!a || !b) return false;
+    const e = tol === undefined ? 1 : tol;
+    if (Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0) <= e) return false;
+    for (const h of [a, b]) for (let i = 0; i < 2; i++) {
+      const d = [h.p[i + 1][0] - h.p[i][0], h.p[i + 1][1] - h.p[i][1]], L = Math.hypot(d[0], d[1]); if (L < 1e-9) continue;
+      const n = [-d[1] / L, d[0] / L], pr = q => q.p.map(v => v[0] * n[0] + v[1] * n[1]), pa = pr(a), pb = pr(b);
+      if (Math.min(Math.max(...pa), Math.max(...pb)) - Math.max(Math.min(...pa), Math.min(...pb)) <= e) return false;
+    }
+    return true;
+  }
+  /**
+   * (vòng soát 2 — 1.38.0) Kế hoạch Cập nhật bộ (hàm thuần; giao diện gửi thẳng cho D.capNhatDay): daVe = bản ghi bộ [{ vt, id, sig, at, xoay, khoang? }],
+   * ds = datDay hiện tại, specCu(id) = thông số lúc vẽ (null = máy không còn). Driver làm theo PHA: 0 = bỏ `xoa` → sửa tại chỗ `sua` → vẽ `ve`; rồi từng đoạn
+   * gi (pha gi + 1): bỏ `doan[gi].xoa` → vẽ đoạn đó. Đơn vị cũ gom vào đoạn mới theo khoang chung (bộ vẽ từng tủ → thân liền), nhưng mã vị trí đánh lại khi chèn /
+   * bỏ khoang (A6 cũ là chậu, A6 mới là kệ) nên trùng TÊN không nói chỗ: đơn vị cũ nào CHỒNG HỘP THẬT với một đơn vị mới vẽ ở pha sớm hơn pha nó bị bỏ thì dời
+   * sang pha đó (bỏ ngay trước khi vẽ cái chồng lên nó) — dừng giữa hai pha không bao giờ để lại hai tủ chồng nhau.
+   * @returns { v (doiDay), xoa: [{ vt, id, spec }], sua: [{ vt, id, spec, specCu, x }], ve: [x], doan: [{ vt, spec, at, xoay, khoang, x, xoa: [{ vt, id, spec }] }] }
+   */
+  function phaCapNhat(daVe, ds, specCu) {
+    const sc = typeof specCu === 'function' ? id => specCu(id) || null : () => null;
+    const v = doiDay(daVe, ds), ghiCu = new Map((daVe || []).filter(y => y && y.vt).map(y => [y.vt, y])), nhan = new Set();
+    const sua = [], xoa = [], ve = [], doan = [];
+    const khoangCu = vt => { const y = ghiCu.get(vt); return (y && y.khoang) || [vt]; };
+    // đơn vị cũ có khoang trùng một TỦ RIÊNG sắp vẽ (ranh đoạn đổi) không gom vào nhóm của đoạn mới: bỏ ở bước xoá đầu tiên
+    const veRieng = new Set(v.them.filter(x => !x.khoang).map(x => x.vt).concat(v.doi.filter(q => !q.x.khoang).map(q => q.x.vt)));
+    for (const q of v.bo) if (khoangCu(q.vt).some(k => veRieng.has(k))) nhan.add('truoc:' + q.vt);
+    for (const x of v.them.concat(v.doi.map(q => q.x))) {
+      if (!x.khoang) continue;
+      const g = { vt: x.vt, spec: x.spec, at: x.at, xoay: x.xoay, khoang: x.khoang, x, xoa: [] }, dq = v.doi.find(q => q.x === x);
+      if (dq) { g.xoa.push({ vt: dq.vt, id: dq.id, spec: sc(dq.id) || x.spec }); nhan.add('doi:' + dq.vt); }
+      for (const q of v.bo) { if (nhan.has(q.vt) || nhan.has('truoc:' + q.vt)) continue; if (khoangCu(q.vt).some(k => x.khoang.indexOf(k) >= 0)) { g.xoa.push({ vt: q.vt, id: q.id, spec: sc(q.id) }); nhan.add(q.vt); } }
+      doan.push(g);
+    }
+    for (const q of v.sua) { const c = sc(q.id); if (c) sua.push({ vt: q.vt, id: q.id, spec: q.x.spec, specCu: c, x: q.x }); else { xoa.push({ vt: q.vt, id: q.id, spec: q.x.spec }); ve.push(q.x); } }
+    for (const q of v.doi) { if (nhan.has('doi:' + q.vt)) continue; xoa.push({ vt: q.vt, id: q.id, spec: sc(q.id) || q.x.spec }); ve.push(q.x); }
+    for (const q of v.bo) if (!nhan.has(q.vt)) xoa.push({ vt: q.vt, id: q.id, spec: sc(q.id) });      // máy không còn thông số lúc vẽ: vẫn bỏ — driver tìm theo mã tủ
+    for (const x of v.them) if (!x.khoang) ve.push(x);
+    // dời đơn vị cũ theo hộp thật: pha sớm nhất có đơn vị mới chồng lên nó
+    if (doan.length) {
+      const moi = sua.map(q => ({ pha: 0, h: hopDonVi(q.x) })).concat(ve.map(x => ({ pha: 0, h: hopDonVi(x) })), doan.map((g, gi) => ({ pha: gi + 1, h: hopDonVi(g.x) })));
+      for (let gi = 0; gi < doan.length; gi++) {
+        const g = doan[gi], con = [];
+        for (const q of g.xoa) {
+          const y = ghiCu.get(q.vt), h = y && q.spec ? hopDonVi({ spec: q.spec, at: y.at, xoay: y.xoay }) : null;
+          let e = gi + 1; if (h) for (const m of moi) if (m.pha < e && chongDonVi(h, m.h)) e = m.pha;
+          if (e === gi + 1) con.push(q); else if (e === 0) xoa.push(q); else doan[e - 1].xoa.push(q);
+        }
+        g.xoa = con;
+      }
+    }
+    return { v, xoa, sua, ve, doan };
+  }
 
   /* ---- (bản 1.38.0) DÃY BẾP THÂN LIỀN — anh Thanh 23/10/2026: "bếp này mà theo module này tốn ván lắm nghiên cứu lại nhé với lại làm khấu xà trước luôn nhé
    * chứ k phải là cục riêng biệt như vậy"; chốt bằng hộp tích (bản thiết kế bep/than-lien.md): thân LIỀN THÙNG theo ĐOẠN, vách ĐƠN đứng trên đáy liền, xà trước +
@@ -5913,7 +5979,9 @@
         });
         k.dot = moi.sort((a, b) => a - b); doi = true;
       }
-      if (k.canh > 0) { k.tranh_bl = F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1)]); doi = true; }
+      // (vòng soát 2 — 1.38.0) vùng tránh mang BÊN vách: chỉ cánh có bản lề bắt trên vách TRÁI (ban_le 'trai') né lỗ mặt kia của nó — cánh mở phải bắt trên tấm
+      // đứng khác (hồi đầu đoạn / vách phải), trước đây cũng bị dời lệch chuẩn vô cớ (100 / 698 → 63 / 661)
+      if (k.canh > 0) { k.tranh_bl = F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1), 'trai']); doi = true; }
       if (doi) Ms[j] = dungBo(s);
     }
     const top = clone(subs[0]), B = top.bep;
@@ -5948,8 +6016,10 @@
     SP.forEach((sp, j) => {
       const k0 = sp.khoang && sp.khoang[0];
       if (doiCo && k0 && k0.canh > 0) {
-        const F = (j > 0 && S[j - 1] ? datLo(S[j - 1].M, 'phai') : []).concat(dotTrai[j + 1] || []), r = sp.canh.chen.d / 2;
-        if (F.length) k0.tranh_bl = F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1)]); else delete k0.tranh_bl;
+        // vách TRÁI: lỗ mặt phải của khoang trước (cánh bản lề trái né); vách PHẢI: cam đợt mặt trái của khoang sau (cánh bản lề phải né) — mỗi vùng mang bên của nó
+        const r = sp.canh.chen.d / 2, vung = (F, ben) => F.map(f => [rn(f - SO_LE + r, 1), rn(f + SO_LE - r, 1), ben]);
+        const F = vung(j > 0 && S[j - 1] ? datLo(S[j - 1].M, 'phai') : [], 'trai').concat(vung(dotTrai[j + 1] || [], 'phai'));
+        if (F.length) k0.tranh_bl = F; else delete k0.tranh_bl;
       }
       const m = dungBo(sp); S.push({ j, vt: (Dn.vt || [])[j] || String(j + 1), X: num((Dn.x || [])[j], 0), M: m, H: hoiTu(m) });
     });
@@ -6128,7 +6198,9 @@
     const bo = chuanBo(boIn), T = tuBo(bo, pa, opt);
     if (!thanLien(bo)) return T;
     // (vòng soát 1.38.0) hồi kề tủ chậu chống ẩm: tủ dưới VÀ tủ cao (tủ lạnh / lò / đồ khô đứng sát tủ chậu — hồi của nó áp hồi tủ chậu như tủ dưới)
-    const chau = T.filter(x => x.tang === 'duoi' && x.spec.bep && x.spec.bep.chuc_nang === 'chau');
+    // (vòng soát 2 — 1.38.0) chỉ khi tủ chậu có ván chống ẩm riêng (chuẩn bếp van_chau): van_chau rỗng thì hồi kề chậu y ván thường — gắn dấu là đổi sig của tủ riêng
+    // (bộ vẽ từng tủ Cập nhật sang thân liền sẽ vẽ lại vô cớ tủ kề chậu) + ghi "ván chống ẩm" làm xưởng hiểu lầm
+    const chau = T.filter(x => x.tang === 'duoi' && x.spec.bep && x.spec.bep.chuc_nang === 'chau' && x.spec.bep.van_chau);
     const keChau = (canh, s) => chau.some(c => c.canh === canh && (Math.abs(c.s0 - s) < 0.5 || Math.abs(c.s0 + c.spec.rong - s) < 0.5));
     const out = [];
     for (const d of gomDoan(T)) {
@@ -6422,5 +6494,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, hopDonVi, chongDonVi, phaCapNhat, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
