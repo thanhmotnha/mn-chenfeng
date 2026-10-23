@@ -318,7 +318,7 @@
         let hau = null; const cho2 = [];
         for (const q of M.parts) {
           if (q.loai === 'CANH' || !chong(q.x0, q.x1, x - r, x + r) || !chong(q.z0, q.z1, z - h, z + h)) continue;
-          if (q.loai === 'HAU' && !q.van_thung) { if (!hau || (x >= q.x0 && x <= q.x1 && z >= q.z0 && z <= q.z1)) hau = q; continue; }
+          if (q.loai === 'HAU' && (!q.van_thung || q.ad)) { if (!hau || (x >= q.x0 && x <= q.x1 && z >= q.z0 && z <= q.z1)) hau = q; continue; }
           if (q.y1 < bb.y1 - 40) continue;      // tấm không ra tới lưng tủ (chân trước, phào, xà / nẹp hộc kéo…)
           it.trung.push(tenTam(q)); cho2.push(choTam(q));
         }
