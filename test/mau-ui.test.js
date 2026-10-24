@@ -433,10 +433,10 @@ const TU = { ma: 'A1', rong: 1200, cao: 2000, than: { cao_duoi: 0 }, khoang: [{ 
         window.localStorage.setItem('mncf.tu.' + id, JSON.stringify({ spec: q.spec, ban: C.VERSION, luc: Date.now() }));
         const rm = await D.doMauTu(D.tamCuaTu(bs()), { thung: m('103T'), mat: m('LUX279PRL') });
         const M = C.build(q.spec), am = M.parts.filter(p => p.van_chau).map(p => p.x0 + X), hoi = bs().filter(b => /^Hồi/.test(b.Name));
-        out[k] = { ok: rv.ok && rm.ok, am: am.length, chongAm: hoi.filter(b => b.BoardProcessOption.boardName === 'MDF chống ẩm').map(b => Math.round(b.box[0])), canAm: am.map(Math.round), khac: bs().filter(b => b.BoardProcessOption.boardName === 'MDF chống ẩm' && !/^Hồi/.test(b.Name)).length, thuong: hoi.filter(b => b.BoardProcessOption.boardName === 'MDF').length };
+        out[k] = { ok: rv.ok && rm.ok, am: am.length, chongAm: bs().filter(b => /^(Hồi|Đế hông)/.test(b.Name) && b.BoardProcessOption.boardName === 'MDF chống ẩm').map(b => Math.round(b.box[0])).sort(), canAm: am.map(Math.round).sort(), khac: bs().filter(b => b.BoardProcessOption.boardName === 'MDF chống ẩm' && !/^(Hồi|Đế hông)/.test(b.Name)).length, thuong: hoi.filter(b => b.BoardProcessOption.boardName === 'MDF').length };
       }
       return out; });
-    ok(r.doan.ok && r.doan.am === 1 && JSON.stringify(r.doan.chongAm) === JSON.stringify(r.doan.canAm) && r.doan.khac === 0 && r.doan.thuong === 1, 'đoạn kề tủ chậu: chỉ hồi đầu đoạn phía chậu giữ ván chống ẩm, hồi kia + đáy / vách theo màu', r.doan);
+    ok(r.doan.ok && r.doan.am === 2 && JSON.stringify(r.doan.chongAm) === JSON.stringify(r.doan.canAm) && r.doan.khac === 0 && r.doan.thuong === 1, 'đoạn kề tủ chậu: chỉ hồi đầu đoạn phía chậu + đế hông dưới nó (vòng soát 1.39.0) giữ ván chống ẩm, hồi kia + đáy / vách theo màu', r.doan);
     ok(r.le.ok && r.le.am >= 1 && JSON.stringify(r.le.chongAm) === JSON.stringify(r.le.canAm) && r.le.khac === 0, 'tủ đứng riêng kề tủ chậu (hoi_am): hồi phía chậu giữ ván chống ẩm', r.le);
 
     console.log('— (1.33 vòng soát 4) Cập nhật tủ chậu thành tủ bếp nấu rồi hoàn tác: tủ chậu quay lại → đổ màu vẫn giữ ván chống ẩm');

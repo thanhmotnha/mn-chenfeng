@@ -1399,5 +1399,47 @@ T('Nhà (1.36) soát: hai phòng tự do đặt sai khoảng cách → lưu ý (
 });
 }
 
+T('Điện – nước dưới tủ bếp khung đế ván (vòng soát 1.39.0)', () => {
+  // tủ dưới khung đế ván: đế sau chạy suốt bề rộng sát lưng, đứng từ sàn — ống chờ sàn sát tường đi qua nó: phải khoét đế sau (chữ U từ mép dưới) + khoét đáy,
+  // không phải "kéo vách tránh ra" (không có vách nào để kéo)
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C2 = require(k); require.cache[k] = cu;
+  for (const ma of ['BD-CHAU-900', 'BD-CANH-600']) {
+    const kq = kc => { const s = C2.normalize(C2.apMau(C2.DEFAULT_SPEC, ma)); s.bep.ket_cau_chan = kc; const M = C2.build(s), bb = M.info.hop;
+      const pt = P.macDinh(); pt.dn = [{ tuong: 0, loai: 'ong_san', cach: 500 + s.rong / 2, ra: 60 }];
+      pt.khung = [{ ten: 'X', tuong: 0, cach: 500, rong: bb.x1 - bb.x0, cao: bb.z1 - bb.z0, sau: bb.y1 - bb.y0 }];
+      const Ht = P.hinhHoc(pt); return P.dienNuocChoTu(M, Ht, P.datKhung(Ht, 0)); };
+    const a = kq('de_van'), b = kq('hoi_san');
+    ok(!a.luu_y.length && a.ghi_chu.length === 1 && /Khoét chữ U mép dưới đế sau Ø90/.test(a.ghi_chu[0]) && /Khoét đáy( khoang 1)? Ø90: tâm cách mép trái tấm/.test(a.ghi_chu[0]) && !/Kéo vách/.test(a.ghi_chu[0]), `${ma} khung đế ván: ống chờ sàn sát tường — ghi khoét đế sau + đáy, không "TRÚNG … kéo vách"`, a);
+    ok(!b.luu_y.length && /^Ống chờ sàn 1: dưới đáy tủ, khoang 1 — .*Khoét đáy khoang 1 Ø90/.test(b.ghi_chu[0]), `${ma} hồi xuống sàn: như 1.38.0`, b);
+  }
+});
+
+T('Điện – nước sau lưng tủ bếp dưới: thanh sau / đế sau / tủ không hậu (vòng soát 2 — 1.39.0)', () => {
+  // thanh sau 160 (khung đế ván) / giằng sau (hồi xuống sàn) / đế sau chạy suốt bề ngang sát lưng, lọt giữa hai tấm đứng: không có vách nào để "kéo tránh ra"
+  // → ghi chú khoét tấm đó (chữ U khi ô lấn qua mép); điểm sau đế sau (dưới đáy) là LƯU Ý tủ che kín + khoét đế sau / đáy. Tủ chậu (không hậu): điểm trong lòng
+  // khoang với tới từ trong tủ — không phải "không nằm trong lòng khoang nào"
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C2 = require(k); require.cache[k] = cu;
+  const kq = (ma, kc, loai, cao) => { const s = C2.normalize(C2.apMau(C2.DEFAULT_SPEC, ma)); s.bep.ket_cau_chan = kc; const M = C2.build(s), bb = M.info.hop;
+    const pt = P.macDinh(); pt.dn = [{ tuong: 0, loai, cach: 500 + s.rong / 2, cao }];
+    pt.khung = [{ ten: 'X', tuong: 0, cach: 500, rong: bb.x1 - bb.x0, cao: bb.z1 - bb.z0, sau: bb.y1 - bb.y0 }];
+    const Ht = P.hinhHoc(pt); return P.dienNuocChoTu(M, Ht, P.datKhung(Ht, 0)); };
+  const keo = r => [].concat(r.luu_y, r.ghi_chu).some(x => /Kéo vách/.test(x));
+  { const a = kq('BD-CANH-600', 'de_van', 'o_dien', 650);
+    ok(!a.luu_y.length && a.ghi_chu.length === 1 && /Khoét hậu khoang 1 120 × 80/.test(a.ghi_chu[0]) && /khoét chữ U mép dưới thanh sau 120 × 10/.test(a.ghi_chu[0]) && !keo(a), 'ổ cao 650 lấn 10 vào thanh sau: khoét hậu + chữ U mép dưới thanh sau, không "kéo vách"', a); }
+  { const a = kq('BD-CANH-600', 'de_van', 'o_dien', 760);
+    ok(!a.luu_y.length && /^Ổ điện 1: sau lưng tủ, khoang 1.*Khoét thanh sau 120 × 80: tâm cách mép trái tấm 282,5, cách mép dưới tấm 80/.test(a.ghi_chu[0]) && !/hậu/.test(a.ghi_chu[0]) && !keo(a), 'ổ cao 760 sau thanh sau (hậu 600 không tới): khoét thanh sau', a); }
+  { const a = kq('BD-NK3-600', 'de_van', 'o_dien', 650);
+    ok(a.luu_y.length === 1 && /nằm sau hộc ngăn kéo/.test(a.luu_y[0]) && !keo(a), 'tủ ngăn kéo, ổ 650: vẫn "nằm sau hộc ngăn kéo" như trước', a); }
+  { const a = kq('BD-CHAU-900', 'de_van', 'cap_nuoc', 700);
+    ok(!a.luu_y.length && /Khoét chữ U mép dưới thanh sau Ø60 × 50 \(tâm cách mép trái tấm 432,5\)/.test(a.ghi_chu[0]) && !keo(a), "tủ chậu, cấp nước 700 (670 … 730) lấn 50 vào thanh sau: chữ U", a);
+    const b = kq('BD-CHAU-900', 'de_van', 'cap_nuoc', 50);
+    ok(b.luu_y.length === 1 && /nằm sau khung đế \(dưới đáy\)/.test(b.luu_y[0]) && /khoét chữ U mép dưới đế sau|khoét đế sau/.test(b.luu_y[0]) && !keo(b), 'cấp nước 50 sau đế sau: tủ che kín, khoét đế sau + đáy — không "kéo vách"', b); }
+  for (const kc of ['de_van', 'hoi_san']) { const a = kq('BD-CHAU-900', kc, 'cap_nuoc', 550);
+    ok(!a.luu_y.length && /^Cấp nước 1: sau lưng tủ, khoang 1.*Không phải khoét hậu: tủ không hậu — điểm lộ trong lòng khoang\./.test(a.ghi_chu[0]), `tủ chậu (${kc}) cấp nước 550 giữa lưng: trong lòng khoang, không "không nằm trong lòng khoang nào"`, a); }
+  { const a = kq('BD-CANH-600', 'hoi_san', 'o_dien', 760);
+    ok(!a.luu_y.length && /Khoét hậu khoang 1 120 × 80/.test(a.ghi_chu[0]) && /khoét chữ U mép dưới giằng sau 120 × 60/.test(a.ghi_chu[0]) && !keo(a), 'hồi xuống sàn, ổ 760 lấn vào giằng sau: khoét hậu + chữ U giằng sau', a); }
+  { const a = kq('BD-CANH-600', 'de_van', 'o_dien', 300); ok(!a.luu_y.length && /^Ổ điện 1: sau lưng tủ, khoang 1, ô .*Khoét hậu khoang 1 120 × 80: tâm cách mép trái tấm 299, cách mép dưới tấm 199/.test(a.ghi_chu[0]), 'ổ thấp sau hậu: như cũ', a); }
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);

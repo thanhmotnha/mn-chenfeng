@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.38\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.39\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -503,6 +503,46 @@ async function testTreoCu(browser) {
   r = await g(); ok(r.rong === 800 && r.treo === 'thanh', 'gõ Rộng: giữ thanh treo', r);
   await H.locator('[data-act="bep-kieu"][data-v="bat"]').click(); await page.waitForTimeout(300);
   r = await g(); ok(r.cn === 'bat' && r.treo === 'thanh', 'chip Giá bát: giữ thanh treo (như gõ Rộng)', r);
+  ok(errs.length === 0, 'không lỗi JS', errs);
+  await ctx.close();
+}
+// (bản 1.39.0) tủ dưới khung đế ván: thông số bảng lưu ở 1.38.0 (tủ dưới luôn 'hoi_san') → mở lại theo khung đế ván + một dòng báo; ô Thân tủ ghi chuẩn bếp;
+// gõ Rộng / chip chức năng giữ kết cấu của tủ đang mở; chữ ô Nóc theo kết cấu
+async function testDVCu(browser) {
+  console.log('— Tủ dưới lưu ở 1.38.0: mở lại theo khung đế ván, ô Thân tủ, chip giữ kết cấu');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  const C = require('../src/mncf-core.js'), sp0 = C.normalize(C.apMau(C.DEFAULT_SPEC, 'BD-CANH-600')); sp0.bep.ket_cau_chan = 'hoi_san';
+  await page.addInitScript(v => { try { if (!sessionStorage.getItem('mncf.thu.dv')) { sessionStorage.setItem('mncf.thu.dv', '1'); localStorage.setItem('mncf.spec.v2', v); localStorage.setItem('mncf.spec.ban', '1.38.0'); } } catch (e) { /* bỏ qua */ } }, JSON.stringify(sp0));
+  await ctx.route('http://mncf.test/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: fs.readFileSync(path.join(DIST, 'mn-chenfeng.html'), 'utf8') }));
+  await page.goto('http://mncf.test/');
+  await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCF.app.getModel());
+  const H = page.locator('#mncf-host'), g = () => page.evaluate(() => { const s = window.MNCF.app.getSpec(), M = window.MNCF.app.getModel(); let c = null; try { c = JSON.parse(localStorage.getItem('mncf.bep.v1') || 'null'); } catch (e) { c = null; }
+    return { rong: s.rong, cn: s.bep.chuc_nang, kc: s.bep.ket_cau_chan, lien: M.parts.some(p => p.loai === 'DAY' && p.lien_hoi), chap: M.parts.filter(p => p.chap_doi).length, giang: M.parts.some(p => p.ten === 'Giằng trước'), chuan: c && c.ket_cau_chan, loi: M.errors.length }; });
+  const nocChu = () => H.locator('[data-bep="noc"] option[value="giang"]').textContent();
+  let r = await g(), st = await page.evaluate(inPage.status);
+  ok(r.kc === 'de_van' && r.lien && r.chap === 2 && !r.giang && /Tủ dưới nay kết cấu khung đế ván/.test(st), 'bản lưu 1.38.0: tủ dưới theo khung đế ván (đáy liền, thanh trước 2 lớp), có báo', [r, st]);
+  ok(await H.locator('[data-bep="ket_cau_chan"]').isVisible() && (await H.locator('[data-bep="ket_cau_chan"]').inputValue()) === 'de_van' && /Thanh trước \+ sau/.test(await nocChu()), 'ô Thân tủ = Khung đế ván; ô Nóc: "Thanh trước + sau"', await nocChu());
+  await H.locator('[data-bep="ket_cau_chan"]').selectOption('hoi_san'); await page.waitForTimeout(400);
+  r = await g();
+  ok(r.kc === 'hoi_san' && !r.lien && r.chap === 0 && r.giang && r.chuan === 'hoi_san' && r.loi === 0 && /2 thanh giằng/.test(await nocChu()), 'chọn Hồi xuống sàn: dựng kiểu cũ (giằng), ghi chuẩn bếp của máy, ô Nóc "2 thanh giằng"', r);
+  await H.locator('[data-k="rong"]').fill('800'); await page.waitForTimeout(400);
+  r = await g(); ok(r.rong === 800 && r.kc === 'hoi_san', 'gõ Rộng: giữ hồi xuống sàn', r);
+  await H.locator('[data-act="bep-kieu"][data-v="nk"]').click(); await page.waitForTimeout(300);
+  r = await g(); ok(r.cn === 'nk' && r.kc === 'hoi_san' && !r.lien, 'chip Ngăn kéo: giữ hồi xuống sàn (như gõ Rộng)', r);
+  await H.locator('[data-bep="ket_cau_chan"]').selectOption('de_van'); await page.waitForTimeout(400);
+  r = await g(); ok(r.kc === 'de_van' && r.lien && r.chap === 2 && r.chuan === 'de_van' && r.loi === 0, 'chọn lại Khung đế ván: đáy liền + thanh chập đôi, chuẩn máy theo', r);
+  // (vòng soát 1.39.0) title ô Nóc theo kết cấu: khung đế ván không còn "Chenfeng vẽ bằng lệnh gốc"
+  { const tt = await H.locator('[data-bep="noc"]').evaluate(e => (e.closest('label') || e).getAttribute('title') || e.getAttribute('title') || '');
+    ok(/thanh trước 70 chập đôi/.test(tt) && !/lệnh gốc\)/.test(tt) && /nhập tấm/.test(tt), 'ô Nóc (khung đế ván): title nói thanh trước chập đôi + nhập tấm', tt); }
+  // (vòng soát 2 — 1.39.0) ↶ Lùi bước chọn Thân tủ: chuẩn máy lùi theo (không thì tủ / bộ vẽ sau ra kết cấu khác cái đang thấy)
+  await H.locator('[data-bep="ket_cau_chan"]').selectOption('hoi_san'); await page.waitForTimeout(400);
+  r = await g(); ok(r.kc === 'hoi_san' && r.chuan === 'hoi_san', 'chọn Hồi xuống sàn lần nữa: chuẩn hoi_san', r);
+  await H.locator('[data-act="lui"]').click(); await page.waitForTimeout(400);
+  r = await g(); ok(r.kc === 'de_van' && r.lien && r.chuan === 'de_van', '↶ Lùi: tủ về khung đế ván VÀ chuẩn máy về khung đế ván', r);
+  await H.locator('[data-act="lui"]').click(); await page.waitForTimeout(400);
+  r = await g(); ok(r.kc === 'hoi_san' && r.chuan === 'hoi_san', '↶ Lùi thêm (qua lần chọn Khung đế ván): chuẩn máy về hồi xuống sàn như lúc đó', r);
   ok(errs.length === 0, 'không lỗi JS', errs);
   await ctx.close();
 }
@@ -1778,6 +1818,8 @@ async function testBoBep(browser) {
     { const p = (await kq()).pa[0], ds0 = JSON.stringify(p.ds);
       await S(page, '.bov svg[data-bo="md"] [data-bo-vt="A4"]').click();
       ok(/Thân liền A3 \+ A4 \+ A5/.test(await S(page, '[data-ui="bok-doan"]').innerText()), 'ô chọn khoang A4: "Thân liền A3 + A4 + A5"', await S(page, '.bokpop').innerText());
+      { const tx = await S(page, '[data-ui="bok-doan"]').innerText(), kc = await page.evaluate(() => { try { return (JSON.parse(localStorage.getItem('mncf.bep.v1') || '{}').ket_cau_chan) || window.MNCFCore.DEFAULT_BEP.ket_cau_chan; } catch (e) { return ''; } });
+        ok(kc === 'de_van' ? /vách đơn, đáy, thanh trước chập đôi, khung đế liền/.test(tx) && !/giằng/.test(tx) : /đáy, xà, giằng liền/.test(tx), '(vòng soát 2 — 1.39.0) ô chọn khoang: tả đúng phần liền theo kết cấu tủ dưới', [kc, tx]); }
       await S(page, '[data-act="kpop-bo-dong"]').click();
       await S(page, '.bov svg[data-bo="md"] [data-bo-vt="A6"]').click();
       ok(!(await S(page, '[data-ui="bok-doan"]').count()), 'tủ chậu đứng riêng: ô chọn không nói thân liền');
@@ -1842,7 +1884,7 @@ async function testBoBep(browser) {
 
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testTreoCu(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBanLe(browser); await testBoBep(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testTreoCu(browser); await testDVCu(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBanLe(browser); await testBoBep(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);

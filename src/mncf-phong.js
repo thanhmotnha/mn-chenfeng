@@ -315,35 +315,55 @@
       if (c.mat === 'lung') {
         it.khoang = khoangCua(x);
         const o2 = cells.find(q => x >= q.x0 - 0.5 && x <= q.x1 + 0.5 && z >= q.z0 - 0.5 && z <= q.z1 + 0.5);
-        let hau = null; const cho2 = [];
+        let hau = null; const cho2 = [], thanh = [];
+        // (vòng soát 2 — 1.39.0) THANH NGANG sát lưng chạy suốt bề ngang khoang giữa hai tấm đứng (tủ bếp dưới: thanh sau 160 / giằng sau / đế sau của khung đế,
+        // type 2 GIANG / DE — không phải đế hông): không có vách nào để "kéo tránh ra" → khoét chính tấm đó (chữ U khi ô lấn qua mép), như mặt 'day' ở vòng trước
+        const laThanh = q => q.type === 2 && (q.loai === 'GIANG' || (q.loai === 'DE' && !q.de_hong));
         for (const q of M.parts) {
           if (q.loai === 'CANH' || !chong(q.x0, q.x1, x - r, x + r) || !chong(q.z0, q.z1, z - h, z + h)) continue;
           if (q.loai === 'HAU' && (!q.van_thung || q.ad)) { if (!hau || (x >= q.x0 && x <= q.x1 && z >= q.z0 && z <= q.z1)) hau = q; continue; }
           if (q.y1 < bb.y1 - 40) continue;      // tấm không ra tới lưng tủ (chân trước, phào, xà / nẹp hộc kéo…)
+          if (laThanh(q)) { thanh.push(q); continue; }
           it.trung.push(tenTam(q)); cho2.push(choTam(q));
         }
         const cho = it.khoang >= 0 ? `khoang ${it.khoang + 1}${o2 ? `, ô +${g(o2.z0)} → +${g(o2.z1)}` : ''}` : '', vt = `tâm cách mép trái tủ ${g(c.x)}, ${caoTxt}`;
         if (hau) it.hau = `khoét ${tenTam(hau)} ${co}: tâm cách mép trái tấm ${g(x - hau.x0)}, cách mép dưới tấm ${g(z - hau.z0)} (nhìn từ trong tủ)`;
+        // ô nằm gọn trong thanh: khoét lỗ (tâm cách mép trái / mép dưới); lấn qua mép dưới / trên: khoét chữ U từ mép đó, sâu = phần lấn
+        const khoetThanh = q => { const a0 = z - h, a1 = z + h, rongU = d.tron ? `Ø${g(d.rong)}` : g(d.rong);
+          if (a0 >= q.z0 - 0.5 && a1 <= q.z1 + 0.5) return `khoét ${tenTam(q)} ${co}: tâm cách mép trái tấm ${g(x - q.x0)}, cách mép dưới tấm ${g(z - q.z0)}`;
+          return a0 < q.z0 ? `khoét chữ U mép dưới ${tenTam(q)} ${rongU} × ${g(Math.min(a1, q.z1) - q.z0)} (tâm cách mép trái tấm ${g(x - q.x0)})` : `khoét chữ U mép trên ${tenTam(q)} ${rongU} × ${g(q.z1 - Math.max(a0, q.z0))} (tâm cách mép trái tấm ${g(x - q.x0)})`; };
+        const thTxt = thanh.map(khoetThanh).join('; ');
+        // tủ không hậu (tủ chậu / hút mùi) ở khoang này: điểm nằm trong lòng một ô thì với tới từ trong tủ, không phải khoét
+        const khongHau = !hau && it.khoang >= 0 && !M.parts.some(q => q.loai === 'HAU' && (!q.van_thung || q.ad) && chong(q.x0, q.x1, xk[it.khoang], xk[it.khoang] + wk[it.khoang])) && !!o2;
+        const viet = t0 => t0.charAt(0).toUpperCase() + t0.slice(1);
         const che = d.loai === 'cong_tac' ? ' Tủ che công tắc — không bấm được nữa: dời tủ hoặc chuyển công tắc.' : '';
-        if (it.trung.length) kq.luu_y.push(`${T} sau lưng tủ (${vt}) TRÚNG ${cho2.join(', ')}: ô ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, cao ${g(c.z - h)} → ${g(c.z + h)}. Kéo vách / đợt tránh ra, hoặc khoét tấm đó.${che}`);
-        else if (o2 && (o2.kieu === 'nk_am' || o2.kieu === 'nk_trum')) kq.luu_y.push(`${T} nằm sau hộc ngăn kéo (${cho}; ${vt}) — ngăn kéo che mất, hộp kéo có thể vướng phích cắm / đầu ống. Đổi ô đó thành ô trống hoặc dời ngăn kéo.${che}`);
-        else if (!hau) kq.luu_y.push(`${T} sau lưng tủ (${vt}) không nằm trong lòng khoang nào (sau chân tủ / phào) — tủ che kín, không với tới từ trong tủ.${che}`);
-        else (che ? kq.luu_y : kq.ghi_chu).push(`${T}: sau lưng tủ, ${cho || 'ngoài các khoang'} — ${vt}. ${it.hau.charAt(0).toUpperCase() + it.hau.slice(1)}.${che}`);
+        if (it.trung.length) kq.luu_y.push(`${T} sau lưng tủ (${vt}) TRÚNG ${cho2.join(', ')}: ô ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, cao ${g(c.z - h)} → ${g(c.z + h)}. Kéo vách / đợt tránh ra, hoặc khoét tấm đó.${thTxt ? ` (Cũng phải ${thTxt}.)` : ''}${che}`);
+        else if (o2 && (o2.kieu === 'nk_am' || o2.kieu === 'nk_trum')) kq.luu_y.push(`${T} nằm sau hộc ngăn kéo (${cho}; ${vt}) — ngăn kéo che mất, hộp kéo có thể vướng phích cắm / đầu ống. Đổi ô đó thành ô trống hoặc dời ngăn kéo.${thTxt ? ` (Cũng phải ${thTxt}.)` : ''}${che}`);
+        else if (!hau && !thanh.length && !khongHau) kq.luu_y.push(`${T} sau lưng tủ (${vt}) không nằm trong lòng khoang nào (sau chân tủ / phào) — tủ che kín, không với tới từ trong tủ.${che}`);
+        else if (!hau && !khongHau && thanh.every(q => q.loai === 'DE')) kq.luu_y.push(`${T} sau lưng tủ (${vt}) nằm sau khung đế (dưới đáy) — tủ che kín, không với tới từ trong tủ: ${thTxt}, rồi khoét đáy cho dây / ống lên khoang.${che}`);
+        else {
+          it.hau = [it.hau, thTxt].filter(Boolean).join('; ');
+          (che ? kq.luu_y : kq.ghi_chu).push(`${T}: sau lưng tủ, ${cho || 'ngoài các khoang'} — ${vt}. ${it.hau ? viet(it.hau) + '.' : ''}${khongHau ? `${it.hau ? ' ' : ''}Không phải khoét hậu: tủ không hậu — điểm lộ trong lòng khoang.` : ''}${che}`);
+        }
       } else if (c.mat === 'day') {
         it.khoang = khoangCua(x);
-        let day = null, dayThap = null; const cho2 = [];
+        let day = null, dayThap = null; const cho2 = [], de = [];
         for (const q of M.parts) {
           if (q.loai === 'CANH' || !chong(q.x0, q.x1, x - r, x + r) || !chong(q.y0, q.y1, y - r, y + r)) continue;
           if (q.loai === 'DAY' && (!dayThap || q.z0 < dayThap.z0)) dayThap = q;      // đáy thấp nhất kể cả đáy nằm sát sàn (phủ hồi không chân)
           if (q.z0 > bb.z0 + 0.5) { if (q.loai === 'DAY' && (!day || q.z0 < day.z0)) day = q; continue; }      // tấm không chạm sàn; đáy thấp nhất = tấm phải khoét
+          // (vòng soát 1.39.0) thanh của KHUNG ĐẾ chạy dọc bề ngang tủ (đế sau sát lưng, xà chân) dưới một đáy: ống đi qua thì khoét chữ U từ mép dưới thanh đó
+          // (không có vách nào để "kéo tránh ra") — đế hông / đế dọc đứng dưới hồi / vách thì vẫn là TRÚNG như hồi / vách
+          if (q.type === 2 && (q.loai === 'DE' || q.loai === 'CHAN') && M.parts.some(d0 => d0.loai === 'DAY' && d0.z0 >= q.z1 - 0.5 && chong(d0.x0, d0.x1, x - r, x + r))) { de.push(q); continue; }
           it.trung.push(tenTam(q)); cho2.push(/^(HOI|VACH|DEM)$/.test(q.loai) ? choTam(q) : tenTam(q));
         }
+        const deTxt = de.map(q => `Khoét chữ U mép dưới ${tenTam(q)} ${co} (tâm cách mép trái tấm ${g(x - q.x0)}, cao ${g(q.z1 - q.z0)}) cho ống đi qua khung đế`).join('; ');
         // (1.31.1) phủ hồi: hồi / vách đứng TRÊN đáy (không chạm sàn) — ống đi lên xuyên đáy vẫn đâm vào chân tấm đó
         if (dayThap) for (const q of M.parts) if (/^(HOI|VACH)$/.test(q.loai) && q.z0 > bb.z0 + 0.5 && Math.abs(q.z0 - dayThap.z1) < 0.6 && chong(q.x0, q.x1, x - r, x + r) && chong(q.y0, q.y1, y - r, y + r)) { it.trung.push(tenTam(q)); cho2.push(choTam(q)); }
         const vt = `tâm cách mép trái tủ ${g(c.x)}, cách lưng tủ ${g(k.sau - c.y)}`;
         if (d.loai === 'thoat_san') kq.luu_y.push(`${T} nằm dưới tủ (${it.khoang >= 0 ? `khoang ${it.khoang + 1}; ` : ''}${vt}) — tủ che mất thoát sàn: nước không thoát, không thông ống được. Dời tủ hoặc để hở chân tủ chỗ đó.`);
-        else if (it.trung.length) kq.luu_y.push(`${T} dưới tủ (${vt}) TRÚNG ${cho2.join(', ')} — ống ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, đâm vào tấm chạm sàn. Kéo vách tránh ra hoặc dời tủ.`);
-        else { if (day) it.hau = `khoét ${tenTam(day)} ${co}: tâm cách mép trái tấm ${g(x - day.x0)}, cách mép sau tấm ${g(day.y1 - y)}`; kq.ghi_chu.push(`${T}: dưới đáy tủ${it.khoang >= 0 ? `, khoang ${it.khoang + 1}` : ''} — ${vt}. ${it.hau ? it.hau.charAt(0).toUpperCase() + it.hau.slice(1) : `Khoét đáy ${co}`}.`); }
+        else if (it.trung.length) kq.luu_y.push(`${T} dưới tủ (${vt}) TRÚNG ${cho2.join(', ')} — ống ${co} chiếm ${g(c.x - r)} → ${g(c.x + r)} tính từ mép trái tủ, đâm vào tấm chạm sàn. Kéo vách tránh ra hoặc dời tủ.${deTxt ? ` (Cũng đi qua khung đế: ${deTxt.charAt(0).toLowerCase() + deTxt.slice(1)}.)` : ''}`);
+        else { if (day) it.hau = `khoét ${tenTam(day)} ${co}: tâm cách mép trái tấm ${g(x - day.x0)}, cách mép sau tấm ${g(day.y1 - y)}`; kq.ghi_chu.push(`${T}: dưới đáy tủ${it.khoang >= 0 ? `, khoang ${it.khoang + 1}` : ''} — ${vt}. ${deTxt ? deTxt + '. ' : ''}${it.hau ? it.hau.charAt(0).toUpperCase() + it.hau.slice(1) : `Khoét đáy ${co}`}.`); }
       } else {
         const ben = c.mat === 'trai' ? 'trái' : 'phải';
         kq.luu_y.push(`${T} (tường ${d.w.ten}) nằm sau hồi ${ben} của tủ — cách lưng tủ ${g(k.sau - c.y)}, ${caoTxt}: bị tủ che kín${d.loai === 'cong_tac' ? ', công tắc không bấm được nữa' : ''}. Dời tủ ra, dời điểm này, hoặc khoét hồi ${co}.`);
