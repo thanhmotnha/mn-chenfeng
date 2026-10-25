@@ -639,6 +639,8 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
     let tapCu = null;
     // (vòng soát 1.37.3) cũng vậy với tủ trên vẽ trước 1.37.3 (thanh treo + vít nở): Sửa giữ 'thanh' để Cập nhật đúng tủ; Thôi sửa / vẽ MỚI → treo theo chuẩn bếp
     let treoCuNho = false;
+    // (bản 1.39.0) cũng vậy với tủ dưới vẽ trước 1.39.0 (hồi xuống sàn): Sửa giữ 'hoi_san'; Thôi sửa / vẽ MỚI → kết cấu theo chuẩn bếp (mặc định khung đế ván)
+    let dvCuNho = false;
     let noi = null;            // tủ trên bản vẽ mà bảng đang nối tới: { id, spec (thông số LÚC VẼ), ten } — nút "Cập nhật tủ này" sửa đúng tủ đó
     let sel = null;            // đang chọn: null | {loai:'o', khoang, tu} | {loai:'dot', khoang, idx}
     let drag = null, dragEnd = 0, dotSnap = null, barHTML = null;
@@ -949,12 +951,20 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
     function doiMaLui(cu, moi) {
       hist = hist.map(h => { if (h.indexOf('"__bo"') < 0) return h; try { const o = JSON.parse(h); if (o.__bo && o.__bo.bo && o.__bo.bo.ma === cu) { o.__bo.bo.ma = moi; return JSON.stringify(o); } } catch (e) { /* giữ nguyên */ } return h; });
     }
+    // (vòng soát 2 — 1.39.0) khoá chuẩn bếp KẾT CẤU (ô Thân tủ / Treo tủ): chọn ô là ghi chuẩn của máy; ↶ Lùi bước đó phải trả cả chuẩn (không thì tủ / bộ vẽ sau
+    // ra kết cấu khác cái đang thấy, lặng lẽ). luiCb = [{ h (bước ↶ Lùi đã chụp trước lần chọn), k, cu, moi }]
+    const LUI_CB = ['ket_cau_chan', 'treo'];
+    let luiCb = [];
     function nho(s) { s = s || chup(); if (hist[hist.length - 1] !== s) hist.push(s); if (hist.length > 80) hist.shift(); nhich = null; capNut(); }
     function lui() {
       const nay = chup(); let s = null;
       while (hist.length && (s = hist.pop()) === nay) s = null;
       capNut(); if (!s) return;
       const o = JSON.parse(s);
+      // trả chuẩn kết cấu mà các lần chọn của bước này đã ghi (chỉ khi chuẩn vẫn là giá trị lần chọn đó ghi — nút "Giữ…" ghi sau thì thôi)
+      { let tra = null; while (luiCb.length && luiCb[luiCb.length - 1].h === s) tra = luiCb.pop();
+        luiCb = luiCb.filter(x => hist.indexOf(x.h) >= 0);
+        if (tra) { const c = Object.assign({}, docChuanBep()); if (c[tra.k] === tra.moi) { if (tra.cu === null) delete c[tra.k]; else c[tra.k] = tra.cu; c.ban = Core.VERSION; ghiChuanBep(c); } } }
       if (o && o.__bo) {
         // chỗ đặt chỉ trả lại khi bước lùi đổi góc chữ L / kiểu dãy (chỗ đặt gắn với góc trong / đầu trái); bước khác giữ chỗ đang có
         const gocKhac = (x, y) => !x || !y || x.kieu !== y.kieu || (x.kieu === 'L' && Core.chuanBo(x).canh[1].re !== Core.chuanBo(y).canh[1].re);
@@ -2020,7 +2030,10 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const tr = treoCuNho; treoCuNho = false;
       const ct = tr && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'tren' && spec.bep.treo === 'thanh' ? (docChuanBep().treo || Core.DEFAULT_BEP.treo) : '';
       const vcTreo = ct && ct !== 'thanh' ? (spec.bep.treo = ct, ` Tủ trên về chuẩn: treo âm dương (hậu lùi ${hien(spec.van.t)} + xà âm dương).`) : '';
-      return vcTreo + veChuanTap0(k);
+      const dv = dvCuNho; dvCuNho = false;
+      const cd = dv && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'hoi_san' ? (docChuanBep().ket_cau_chan || Core.DEFAULT_BEP.ket_cau_chan) : '';
+      const vcDV = cd && cd !== 'hoi_san' ? (spec.bep.ket_cau_chan = cd, ' Tủ dưới về chuẩn: khung đế ván (hồi ngồi trên đáy, thanh trước chập đôi, thanh sau, hậu 600).') : '';
+      return vcTreo + vcDV + veChuanTap0(k);
     }
     function veChuanTap0(k) {
       const doi0 = k && spec.tap ? Core.tapVeChuan(spec, k) : [];
@@ -2068,6 +2081,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         else for (const b of (Core.tapBienTheCu ? Core.tapBienTheCu(spec) : [])) if (khop(b.spec)) { specCu = b.spec; nguon = 'bang'; khoaBang = b.khoa; break; }
         // (vòng soát 1.37.3) file tủ trên lưu ở ≤ 1.37.2 mở qua nangCap → âm dương, còn tấm trên bản vẽ dựng thanh treo → thử bản sao 'thanh'
         if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'tren' && spec.bep.treo === 'am_duong') { const b = clone(spec); b.bep.treo = 'thanh'; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+        // (bản 1.39.0) file tủ dưới lưu ở ≤ 1.38.0 mở qua nangCap → khung đế ván, còn tấm trên bản vẽ dựng hồi xuống sàn → thử bản sao 'hoi_san'
+        if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'de_van') { const b = clone(spec); b.bep.ket_cau_chan = 'hoi_san'; if (khop(b)) { specCu = b; nguon = 'bang'; } }
       }
       if (!specCu) { setStatus('Tủ này được vẽ ở máy / trình duyệt khác nên máy này không có thông số của nó. Bấm “Mở mẫu” mở file mẫu của tủ (nếu đã lưu) rồi bấm lại “Sửa tủ đang chọn”.'); return; }
       if (specCu.loai_sp === 'bep' && specCu.bep && specCu.bep.doan) return moDoanTu(id, specCu);      // (bản 1.38.0) đoạn thân liền: sửa trong bộ, không như tủ lẻ
@@ -2087,8 +2102,13 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       spec = clone(specCu); noi = { id, spec: clone(specCu), ten: specCu.ma || specCu.ten || '', pick: tam };
       // (vòng soát 1.37.3) tủ trên vẽ kiểu thanh treo cũ trong khi chuẩn đang âm dương: giữ như lúc vẽ (Cập nhật đúng tủ), nói ra + lối đổi
       const treoGiu = specCu.loai_sp === 'bep' && !!specCu.bep && specCu.bep.tang === 'tren' && specCu.bep.treo === 'thanh' && (docChuanBep().treo || Core.DEFAULT_BEP.treo) !== 'thanh';
-      sel = null; renderAll(); switchTab('tu'); tapCu = khoaCu.length ? khoaCu : null; treoCuNho = treoGiu;
-      if (treoGiu) ghiTap += ' Tủ trên này treo bằng thanh treo + vít nở (vẽ trước bản 1.37.3) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Treo tủ → Âm dương; bấm “Thôi sửa” thì tủ vẽ mới theo âm dương.';
+      // (bản 1.39.0) tủ dưới vẽ kiểu hồi xuống sàn trong khi chuẩn đang khung đế ván: giữ như lúc vẽ, nói ra + lối đổi
+      const dvGiu = specCu.loai_sp === 'bep' && !!specCu.bep && specCu.bep.tang === 'duoi' && specCu.bep.ket_cau_chan === 'hoi_san' && (docChuanBep().ket_cau_chan || Core.DEFAULT_BEP.ket_cau_chan) !== 'hoi_san';
+      sel = null; renderAll(); switchTab('tu'); tapCu = khoaCu.length ? khoaCu : null; treoCuNho = treoGiu; dvCuNho = dvGiu;
+      // (vòng soát 1.39.0) "vẽ trước bản …" chỉ khi bản lưu nói vậy — tủ vẽ ở bản mới mà người dùng đã chọn kiểu cũ thì nói là kiểu cũ đã chọn lúc vẽ
+      const banTruoc = m => { if (nguon !== 'luu') return nguon === 'bang'; const a = String(luu.ban || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; return false; };
+      if (dvGiu) ghiTap += ` Tủ dưới này hồi xuống sàn (${banTruoc('1.39.0') ? 'vẽ trước bản 1.39.0' : 'kết cấu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Thân tủ → Khung đế ván; bấm “Thôi sửa” thì tủ vẽ mới theo khung đế ván.`;
+      if (treoGiu) ghiTap += ` Tủ trên này treo bằng thanh treo + vít nở (${banTruoc('1.37.3') ? 'vẽ trước bản 1.37.3' : 'kiểu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Treo tủ → Âm dương; bấm “Thôi sửa” thì tủ vẽ mới theo âm dương.`;
       setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}${boCho.replace(/; thôi nối với[^;]*/, '')}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.${ghiKM}${ghiTap}`);
     }
 
@@ -3536,9 +3556,11 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       }
       else if (t.dataset.bep) {      // (bản 1.33) ô Tủ bếp
         if (goPK !== t) { nho(); goPK = t; }
-        const chon = t.tagName === 'SELECT';
-        if (datBepO(t.dataset.bep, t.value, chon)) { napO(); if (chon) { capLoai(); renderBays(); rebuild(); } else later();
-          if (t.dataset.bep === 'treo') { renderSP(); const el = $('[data-bep="treo"]'); if (el) el.focus(); } }      // (1.37.3) ô Thanh treo chỉ có ở kiểu cũ
+        const chon = t.tagName === 'SELECT', kb = t.dataset.bep, cb0 = LUI_CB.indexOf(kb) >= 0 ? docChuanBep()[kb] : undefined;
+        if (datBepO(t.dataset.bep, t.value, chon)) {
+          // (vòng soát 2 — 1.39.0) ô kết cấu (Thân tủ / Treo tủ) ghi CHUẨN BẾP của máy: nhớ giá trị cũ theo bước ↶ Lùi vừa chụp — lùi bước đó trả cả chuẩn
+          if (LUI_CB.indexOf(kb) >= 0 && hist.length) luiCb.push({ h: hist[hist.length - 1], k: kb, cu: cb0 === undefined ? null : cb0, moi: docChuanBep()[kb] }); napO(); if (chon) { capLoai(); renderBays(); rebuild(); } else later();
+          if (t.dataset.bep === 'treo' || t.dataset.bep === 'ket_cau_chan') { const k = t.dataset.bep; renderSP(); const el = $(`[data-bep="${k}"]`); if (el) el.focus(); } }      // (1.37.3) ô Thanh treo chỉ có ở kiểu cũ; (1.39.0) chữ ô Nóc / Chân theo kết cấu
       }
       else if (t.dataset.bepNk) {      // tủ ngăn kéo bếp: số ngăn, cao mặt ngăn trên cùng (mặt nông đựng thìa đũa — chuẩn nk_nong)
         const c = spec.khoang[0] && (spec.khoang[0].o || []).find(x => x.kieu === 'nk_trum'), v = parseFloat(String(t.value).replace(',', '.'));
@@ -4199,14 +4221,18 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (B.chuc_nang === 'goc') f.push(chonBep('goc_pk', 'Phụ kiện góc', Object.keys(Core.GOC_BEP || {}).map(k => [k, Core.GOC_BEP[k].ten])), (() => { const kh = spec.khoang.find(k => k && k.mu), ben = kh && kh.mu.ben === 'phai' ? 'phai' : 'trai'; return `<label>Phía mù<select id="${fid('bep.goc_ben')}" data-bep="goc_ben"><option value="trai"${ben === 'trai' ? ' selected' : ''}>Mù trái</option><option value="phai"${ben === 'phai' ? ' selected' : ''}>Mù phải</option></select></label>`; })());
       if (B.chuc_nang === 'tl') f.push(chonBep('tb.tl.ma', 'Tủ lạnh', (Core.LOAI_TB_BEP.tl || []).map(x => [x.ma, `${x.ten} — ${x.rong} × ${x.cao}`]), 'title="Khoang rộng theo máy: máy + 2 hở hông + 2 hồi"'));
       const caoMat = oBep('cao_mat', 'Cao mặt đá', 'title="Sàn tới mặt đá hoàn thiện (mm). Tủ dưới cao = mặt đá − đá − ván lót; tủ trên treo ở mặt đá + khoảng cách"');
-      if (tang === 'duoi') f.push(caoMat, oBep('day_da', 'Đá dày'), oBep('van_lot', 'Ván lót đá', 'title="Ván lót dưới đá (mm), 0 = không lót"'), oBep('dua_da', 'Đá đua', 'title="Đá nhô trước mặt cánh (mm)"'), oBep('chan', 'Chân', 'title="Hồi xuống sàn, đáy ở cao độ này (mm)"'), oBep('len_lui', 'Lùi xà chân', 'title="Xà chân lùi vào trong so với mặt thùng (mm) — chỗ để mũi chân"'));
+      if (tang === 'duoi') f.push(caoMat, oBep('day_da', 'Đá dày'), oBep('van_lot', 'Ván lót đá', 'title="Ván lót dưới đá (mm), 0 = không lót"'), oBep('dua_da', 'Đá đua', 'title="Đá nhô trước mặt cánh (mm)"'), oBep('chan', 'Chân', B.ket_cau_chan === 'de_van' ? 'title="Khung đế ván cao bằng số này, đáy liền đặt trên khung (mm)"' : 'title="Hồi xuống sàn, đáy ở cao độ này (mm)"'), oBep('len_lui', 'Lùi xà chân', 'title="Xà chân lùi vào trong so với mặt thùng (mm) — chỗ để mũi chân"'),
+        // (bản 1.39.0) kết cấu thân tủ dưới: khung đế ván + đáy liền, hồi ngồi trên đáy, thanh trước 70 chập đôi, thanh sau 160, hậu 600 (mặc định) / hồi xuống sàn (≤ 1.38.0) — chọn là ghi chuẩn bếp
+        chonBep('ket_cau_chan', 'Thân tủ', [['de_van', 'Khung đế ván'], ['hoi_san', 'Hồi xuống sàn (cũ)']], `title="Khung đế ván: đáy liền, hai hồi ngồi trên đáy, khung đế ván cao bằng chân (xà chân lùi, đế sau, đế hông, đế dọc dưới vách), thanh trước ${hien((Core.DV_BEP || {}).truoc || 70)} chập đôi, thanh sau ${hien((Core.DV_BEP || {}).sau || 160)} sát lưng, hậu cao ${hien((Core.DV_BEP || {}).hau || 600)}. Hồi xuống sàn (kết cấu trước 1.39.0): hồi chạy xuống sàn, đáy lọt, 2 thanh giằng nằm, hậu suốt cao"`));
       // (bản 1.37.3) treo tủ trên: âm dương (hậu lùi một dày ván + xà âm dương sau hậu, mặc định) / thanh treo + vít nở (kết cấu trước 1.37.3) — chọn là ghi chuẩn bếp của máy
       else if (tang === 'tren') f.push(oBep('cach_tren', 'Cách mặt đá', 'title="Đáy tủ trên tới mặt đá (mm) — bảng treo tủ ở cao độ mặt đá + khoảng này"'), caoMat,
         chonBep('treo', 'Treo tủ', [['am_duong', 'Âm dương (hậu lùi + xà)'], ['thanh', 'Thanh treo + vít nở (cũ)']], `title="Âm dương: hậu ${hien(spec.van.t)} lọt lòng lùi ${hien(spec.van.t)}, xà âm dương cao ${hien(Core.XA_AD || 100)} sau hậu sát nóc, nóc / đáy kịch tường, thanh treo kim loại bắt vào xà + tường. Thanh treo (cũ): thanh áp trước hậu, vít nở xuyên vào tường"`),
         ...(B.treo === 'thanh' ? [oBep('thanh_treo', 'Thanh treo', 'title="Bản thanh treo áp trước hậu, sát nóc (mm) — vít nở xuyên qua thanh này vào tường"')] : []));
       else f.push(oBep('chan', 'Chân'), oBep('len_lui', 'Lùi xà chân'), caoMat, oBep('cach_tren', 'Cách mặt đá'), oBep('cao_tren', 'Cao tủ trên', 'title="Tủ cao lên tới đỉnh tủ trên: cao = mặt đá + cách mặt đá + cao tủ trên"'));
       // (1.33.1) nóc tủ dưới: 2 thanh giằng (mặc định — vẽ bằng nhập tấm) / nóc liền (lệnh gốc vẽ được); tủ chậu / bếp nấu luôn giằng, tủ trên / tủ cao luôn nóc liền → không có ô
-      if (tang === 'duoi' && B.chuc_nang !== 'chau' && B.chuc_nang !== 'bep') f.push(chonBep('noc', 'Nóc', [['giang', '2 thanh giằng'], ['lien', 'Nóc liền']], 'title="Giằng: 2 thanh trước / sau thay nóc (vẽ bằng nhập tấm). Nóc liền: một tấm nóc (Chenfeng vẽ bằng lệnh gốc)"'));
+      if (tang === 'duoi' && B.chuc_nang !== 'chau' && B.chuc_nang !== 'bep') f.push(chonBep('noc', 'Nóc', [['giang', B.ket_cau_chan === 'de_van' ? 'Thanh trước + sau' : '2 thanh giằng'], ['lien', 'Nóc liền']], B.ket_cau_chan === 'de_van'
+        ? `title="Thanh trước + sau: thanh trước ${hien((Core.DV_BEP || {}).truoc || 70)} chập đôi + thanh sau ${hien((Core.DV_BEP || {}).sau || 160)} thay nóc. Nóc liền: một tấm nóc, thanh sau dưới nóc. Khung đế ván vẽ bằng nhập tấm (cả hai kiểu)"`      // (vòng soát 1.39.0)
+        : 'title="Giằng: 2 thanh trước / sau thay nóc (vẽ bằng nhập tấm). Nóc liền: một tấm nóc (Chenfeng vẽ bằng lệnh gốc)"'));
       f.push(chonBep('tay_nam', 'Tay nắm', [['vat', 'Vát cạnh'], ['an_mo', 'Ấn mở'], ['noi', 'Tay nắm nổi'], ['gola', 'Gola'], ['j', 'Nẹp J']], 'title="Vát cạnh: mép cánh vát 45° làm chỗ cầm. Ấn mở: bộ nhấn mở + bản lề không giảm chấn, ngăn kéo ray nhấn mở. Nổi: khách chọn mẫu (bảng không kê)"'));
       const tuChon = loai => tb[loai] && tb[loai].ma === 'tu_chon';
       if (tb.chau) {
@@ -4399,7 +4425,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const kh = spec.khoang.find(x => x && x.mu), o = Object.assign({ tang: B.tang, rong: spec.rong }, B.chuc_nang === 'goc' ? { goc_pk: B.goc_pk, ben: kh && kh.mu.ben === 'phai' ? 'phai' : 'trai' } : {}, B.chuc_nang === 'tl' && B.tb && B.tb.tl ? { may: B.tb.tl.ma } : {}, opt || {});
       if (kieu === 'tl' && B.chuc_nang !== 'tl' && !(opt && opt.may)) delete o.rong;      // khoang tủ lạnh: máy mặc định (rộng của tủ khác không phải cỡ máy)
       // (vòng soát 1.36.5) mang theo kiểu mở cánh (bep.lat) — bepTheoKieu giữ khi tủ mới vẫn lật được
-      const moi = Core.bepTheoKieu(Object.assign(clone(spec), { bep: Object.assign(docChuanBep(), { tang: B.tang }, B.lat ? { lat: 1 } : {}, B.tang === 'tren' && B.treo ? { treo: B.treo } : {}) }), kieu, o);      // (vòng soát 1.37.3) mang theo kiểu treo của tủ đang mở (gõ Rộng cũng giữ) — đổi chức năng không đổi kết cấu treo lặng lẽ
+      const moi = Core.bepTheoKieu(Object.assign(clone(spec), { bep: Object.assign(docChuanBep(), { tang: B.tang }, B.lat ? { lat: 1 } : {}, B.tang === 'tren' && B.treo ? { treo: B.treo } : {}, B.tang === 'duoi' && B.ket_cau_chan ? { ket_cau_chan: B.ket_cau_chan } : {}) }), kieu, o);      // (1.39.0) cũng vậy với kết cấu thân tủ dưới      // (vòng soát 1.37.3) mang theo kiểu treo của tủ đang mở (gõ Rộng cũng giữ) — đổi chức năng không đổi kết cấu treo lặng lẽ
       if (!moi) return false;
       spec = moi; return true;
     }
@@ -4707,6 +4733,11 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (baoChuanBep && baoDoi.indexOf('sau_cao') >= 0) h.push(`<div class="msg warn" data-ui="bao-chuan-bep">${esc(baoChuanBep)}</div>`);
       // (bản 1.37.3) tủ trên của bộ đã vẽ kết cấu thanh treo cũ, chuẩn đang âm dương → Cập nhật sẽ vẽ lại chúng; lối giữ: ghi chuẩn treo 'thanh' cho máy này
       { const cu = treoCuBo(); if (cu.length) h.push(`<div class="msg warn" data-ui="bo-treo-cu">Tủ trên đã vẽ ${esc(cu.join(', '))} treo bằng thanh treo + vít nở — chuẩn nay hậu lùi ${hien(spec.van.t)} + xà âm dương (bản 1.37.3): Cập nhật sẽ vẽ lại ${cu.length > 1 ? 'chúng' : 'tủ đó'} theo kết cấu mới. <button class="sec mini" data-act="bo-giu-treo" title="Ghi Treo tủ: Thanh treo vào chuẩn bếp của máy này — bộ khớp lại tủ đã vẽ">Giữ thanh treo</button></div>`); }
+      // (bản 1.39.0) tủ dưới của bộ đã vẽ hồi xuống sàn, chuẩn đang khung đế ván → Cập nhật sẽ vẽ lại chúng; lối giữ: ghi chuẩn 'hoi_san' cho máy này
+      { const { ds: cu, kc } = dvCuBo(), ds = esc(cu.slice(0, 8).join(', ')) + (cu.length > 8 ? '…' : ''), chung = cu.length > 1 ? 'chúng' : 'tủ đó';
+        // (vòng soát 2 — 1.39.0) hai chiều: bộ vẽ khung đế ván mà chuẩn máy nay hồi xuống sàn (chọn ở tủ lẻ / "Giữ kết cấu cũ" của bộ khác) cũng báo trước + nút giữ
+        if (cu.length && kc === 'hoi_san') h.push(`<div class="msg warn" data-ui="bo-dv-cu">Tủ dưới đã vẽ ${ds} hồi xuống sàn — chuẩn nay khung đế ván, hồi ngồi trên đáy, thanh trước chập đôi (bản 1.39.0): Cập nhật sẽ vẽ lại ${chung} theo kết cấu mới. <button class="sec mini" data-act="bo-giu-dv" data-v="hoi_san" title="Ghi Thân tủ: Hồi xuống sàn vào chuẩn bếp của máy này — bộ khớp lại tủ đã vẽ">Giữ kết cấu cũ</button></div>`);
+        else if (cu.length) h.push(`<div class="msg warn" data-ui="bo-dv-cu">Tủ dưới đã vẽ ${ds} khung đế ván — chuẩn bếp của máy này đang hồi xuống sàn: Cập nhật sẽ vẽ lại ${chung} hồi xuống sàn. <button class="sec mini" data-act="bo-giu-dv" data-v="de_van" title="Ghi Thân tủ: Khung đế ván vào chuẩn bếp của máy này — bộ khớp lại tủ đã vẽ">Giữ khung đế ván</button></div>`); }
       // (bản 1.38.0) bộ đã vẽ từng tủ (≤ 1.37.4, hoặc Thân dãy: Từng tủ) mà bộ nay thân liền → Cập nhật vẽ lại TỪNG ĐOẠN; lối giữ: "Giữ kiểu từng tủ"
       // (vòng soát 1.38.0) Cập nhật dừng giữa chừng: bản ghi đã có đoạn thân liền mà vẫn còn tủ cũ — nói đúng là bộ đang dở hai kiểu; "Giữ kiểu từng tủ" lúc đó vẽ ngược đoạn đã vẽ về từng tủ
       { const tc = thanCuBo(pa), n = tc.n, dd = n ? boVe.da_ve.filter(y => y.khoang && y.khoang.length > 1).length : 0, rg = tuRiengCu(tc);
@@ -4769,7 +4800,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       const latH = Core.latNhanBo && Core.latNhanBo(m) ? (on => { const ll = on ? [] : Core.latLoi(b, pa, m);
         return `<button class="sec" data-act="kpop-bo-lat" aria-pressed="${on}"${ll.length ? ' disabled' : ''} title="${esc(on ? 'Bỏ cánh lật: cánh mở ngang như các tủ khác' : ll.length ? 'Không làm cánh lật được: ' + ll.join(' ') : 'Cánh lật lên cho tủ này: một cánh mỗi khoang, bản lề cạnh trên, 2 tay nâng / cánh')}">${on ? 'Bỏ cánh lật' : 'Cánh lật'}</button>`; })(Core.latO(b.lat, m)) : '';
       return `<div class="kph"><b>${esc(m.vt)} · ${esc(TEN_CHUC_BO[m.chuc] || m.ma)}</b><span>${esc(m.ma)} · ${tang} · rộng ${hien(m.rong)}${m.nep ? ` + nẹp ${hien((m.nep.trai || 0) + (m.nep.phai || 0))}` : ''}${m.op ? ' + ốp' : ''}${m.ghim ? ' · đã ghim' : ''}</span><button class="x" data-act="kpop-bo-dong" title="Đóng (Esc)" aria-label="Đóng ô chọn của tủ ${esc(m.vt)}">✕</button></div>
-${(dk => (dk ? `<p class="hint tt" data-ui="bok-doan">Thân liền ${esc(dk.vt.join(' + '))} — vách đơn, ${m.tang === 'duoi' ? 'đáy, xà, giằng' : 'đáy, nóc, xà âm dương'} liền: vẽ / Cập nhật cả đoạn.${(w => (w.length ? ` <span class="bodcb" data-ui="bok-doan-cb">${esc(w.join(' '))}</span>` : ''))(kiemDoanPa(pa).canh_bao.concat(kiemDoanPa(pa).loi).filter(t => t.indexOf(`-${dk.ma}: ${m.vt}:`) >= 0).map(t => t.slice(t.indexOf(`${m.vt}:`) + m.vt.length + 2)))}</p>` : ''))(doanCuaVt(pa, m.vt))}${tlH}${loH}${doi.length ? `<div class="bochip" role="group" aria-label="Đổi thành"><span class="bonhan">Đổi thành</span>${doi.map(x => `<button class="segb" data-act="kpop-bo-doi" data-v="${esc(x.ma)}" title="${esc(x.tip)} — ghim tại chỗ này">${esc(x.ten)}</button>`).join('')}</div>` : ''}
+${(dk => (dk ? `<p class="hint tt" data-ui="bok-doan">Thân liền ${esc(dk.vt.join(' + '))} — vách đơn, ${m.tang === 'duoi' ? ((boChuan().ket_cau_chan || Core.DEFAULT_BEP.ket_cau_chan) === 'de_van' ? 'đáy, thanh trước chập đôi, khung đế' : 'đáy, xà, giằng') : 'đáy, nóc, xà âm dương'} liền: vẽ / Cập nhật cả đoạn.${(w => (w.length ? ` <span class="bodcb" data-ui="bok-doan-cb">${esc(w.join(' '))}</span>` : ''))(kiemDoanPa(pa).canh_bao.concat(kiemDoanPa(pa).loi).filter(t => t.indexOf(`-${dk.ma}: ${m.vt}:`) >= 0).map(t => t.slice(t.indexOf(`${m.vt}:`) + m.vt.length + 2)))}</p>` : ''))(doanCuaVt(pa, m.vt))}${tlH}${loH}${doi.length ? `<div class="bochip" role="group" aria-label="Đổi thành"><span class="bonhan">Đổi thành</span>${doi.map(x => `<button class="segb" data-act="kpop-bo-doi" data-v="${esc(x.ma)}" title="${esc(x.tip)} — ghim tại chỗ này">${esc(x.ten)}</button>`).join('')}</div>` : ''}
 <div class="frow">${kinhH}${latH}${chuan ? `<button class="sec" data-act="kpop-bo-ghim" aria-pressed="${m.ghim ? 'true' : 'false'}" title="${m.ghim ? 'Bỏ ghim: bảng tự chia lại chỗ này' : 'Ghim tủ này đúng mẫu, đúng chỗ — chia lại không đổi nó'}">${m.ghim ? 'Bỏ ghim' : '📌 Ghim'}</button>` : ''}<button class="sec" data-act="kpop-bo-mo" title="Mở tủ này thành tủ bếp lẻ ở thẻ Tủ (đúng thông số trong bộ) — để xem kỹ, vẽ từng tủ. ↶ Lùi về bộ.">Mở thành tủ</button></div>`;
     }
     /* ---- (bản 1.37.0) DÃY BẾP TỪNG KHOANG — giao diện (thiết kế chon-khoang §3; anh chốt C1 … C6) ----
@@ -5143,6 +5174,13 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
         veBoView();
         return setStatus('Chuẩn bếp của máy này: tủ trên treo bằng thanh treo + vít nở (như bản trước). Muốn lại âm dương: mở một tủ trên lẻ, chọn Treo tủ: Âm dương.');
       }
+      if (act === 'bo-giu-dv') {      // (bản 1.39.0) giữ kết cấu hồi xuống sàn cho tủ dưới (chuẩn bếp của máy) — bộ đã vẽ khớp lại; đổi lại ở ô Thân tủ của một tủ dưới lẻ
+        if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng đổi chuẩn.');
+        const v = b.dataset.v === 'de_van' ? 'de_van' : 'hoi_san';
+        ghiChuanBep(Object.assign({}, docChuanBep(), { ket_cau_chan: v, ban: Core.VERSION }));
+        veBoView();
+        return setStatus(v === 'de_van' ? 'Chuẩn bếp của máy này: tủ dưới khung đế ván (như bộ đã vẽ). Muốn hồi xuống sàn: mở một tủ dưới lẻ, chọn Thân tủ: Hồi xuống sàn (cũ).' : 'Chuẩn bếp của máy này: tủ dưới hồi xuống sàn (như bản trước). Muốn lại khung đế ván: mở một tủ dưới lẻ, chọn Thân tủ: Khung đế ván.');
+      }
       if (act === 'bo-giu-cao') {      // (vòng soát 1.37.2) giữ thùng tủ cao 560 cũ cho máy này (chuẩn bếp) — bộ đã vẽ khớp lại; đặt lại Sâu thùng ở tủ cao lẻ để đổi
         if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng đổi chuẩn.');
         const c = Object.assign({}, docChuanBep(), { sau_cao: Core.MAC_DINH_BEP_CU2.sau_cao, ban: Core.VERSION }); ghiChuanBep(c); datBao(baoDoi.filter(k => k !== 'sau_cao'));
@@ -5281,6 +5319,13 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!boVeCo()) return [];
       const c = boChuan(); if ((c.treo || Core.DEFAULT_BEP.treo) === 'thanh') return [];
       return boVe.da_ve.filter(y => { const l = khoTu.get(y.id), sp = l && l.spec; return sp && sp.bep && sp.bep.tang === 'tren' && sp.bep.treo !== 'am_duong'; }).map(y => y.vt);
+    }
+    /** (bản 1.39.0) tủ dưới / đoạn tủ dưới của bộ đã vẽ (bản vẽ đang mở) dựng hồi xuống sàn trong khi chuẩn bếp đang khung đế ván → mã vị trí của chúng. */
+    // (vòng soát 2 — 1.39.0) cả chiều ngược: chuẩn đang hồi xuống sàn mà tủ dưới đã vẽ khung đế ván → { ds, kc: 'de_van' } (kc = kết cấu của các tủ đã vẽ đó)
+    function dvCuBo() {
+      if (!boVeCo()) return { ds: [], kc: '' };
+      const c = boChuan(), cd = c.ket_cau_chan || Core.DEFAULT_BEP.ket_cau_chan, kc = cd === 'hoi_san' ? 'de_van' : 'hoi_san';
+      return { kc, ds: boVe.da_ve.filter(y => { const l = khoTu.get(y.id), sp = l && l.spec; return sp && sp.bep && sp.bep.tang === 'duoi' && (kc === 'de_van' ? sp.bep.ket_cau_chan === 'de_van' : sp.bep.ket_cau_chan !== 'de_van'); }).map(y => y.vt) };
     }
     /** (bản 1.38.0) bộ đã vẽ (bản vẽ đang mở) KHÔNG theo thân liền (bản ghi thiếu khoá than = vẽ ở ≤ 1.37.4) mà bộ nay thân liền → số đoạn Cập nhật sẽ vẽ lại (0 = không báo). */
     function thanCuBo(pa) {
@@ -5505,7 +5550,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       return { ok: !!kq.ok, xoa: kq.xoa.length, con: dv.da_ve.length };
     }
     function renderAll(giuBo) {
-      if (!giuBo) { boBep = null; boChon = null; boCho = null; boVe = null; tapCu = null; treoCuNho = false; }      // (1.34) thông số mới thay cả món (mẫu, file, Sửa tủ, khung phòng) = thôi bộ bếp
+      if (!giuBo) { boBep = null; boChon = null; boCho = null; boVe = null; tapCu = null; treoCuNho = false; dvCuNho = false; }      // (1.34) thông số mới thay cả món (mẫu, file, Sửa tủ, khung phòng) = thôi bộ bếp
       sel = null; hist = []; nhich = null; capNut();
       capLoai();
       $$('[data-k]').forEach(i => { if (i.closest('.settings')) return; i.value = fmt(getP(spec, i.dataset.k)); });

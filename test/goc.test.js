@@ -32,7 +32,7 @@ const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, { c
     await page.goto('https://cfcad.cn/');
     await page.waitForFunction(() => window.MNCF && window.MNCF.app && window.MNCFDriver && window.MNCFCore, null, { timeout: 15000 });
     // (bản 1.31) chuẩn xưởng mới: nóc, đáy phủ hồi + khung mặt hộc kéo — lệnh gốc chỉ vẽ kết cấu cũ (hồi phủ nóc đáy) và số đo của bộ này là hộc kéo khe + xà ẩn → ghim cả hai
-    await page.evaluate(() => { window.MNCFCore.DEFAULT_SPEC.thung.noc_day = 'lot'; window.MNCFCore.DEFAULT_SPEC.ngan_keo.khung_mat = 0; const B = window.MNCFCore.DEFAULT_BEP; if (B) { B.cao_mat = 850; B.noc = 'lien'; } });      // (1.33.1) số đo tủ bếp cũ: mặt đá 850, nóc liền (mặc định mới 860 + 2 giằng → nhập tấm)
+    await page.evaluate(() => { window.MNCFCore.DEFAULT_SPEC.thung.noc_day = 'lot'; window.MNCFCore.DEFAULT_SPEC.ngan_keo.khung_mat = 0; const B = window.MNCFCore.DEFAULT_BEP; if (B) { B.cao_mat = 850; B.noc = 'lien'; B.ket_cau_chan = 'hoi_san'; } });      // (1.39.0) lệnh gốc chỉ vẽ tủ dưới hồi xuống sàn (khung đế ván: keHoachGoc trả loi → nhập tấm). (1.33.1) số đo tủ bếp cũ: mặt đá 850, nóc liền (mặc định mới 860 + 2 giằng → nhập tấm)
     await page.evaluate(() => {
       const D = window.MNCFDriver, E = () => window.app.Database.ModelSpace.Entitys, song = () => E().filter(e => e && !e.IsErase);
       const lc = () => JSON.stringify(Object.keys(window.__MOCK__.gocSt).map(k => { const st = window.__MOCK__.gocSt[k]; return [k, st.m_Option, st.m_UiOption, st.topBoardOption, st.bottomBoardOption, st.m_BoardProcessOption, st.rectDrillOption, st.autoCutOption]; }));
