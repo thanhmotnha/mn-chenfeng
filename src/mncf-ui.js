@@ -2083,6 +2083,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'tren' && spec.bep.treo === 'am_duong') { const b = clone(spec); b.bep.treo = 'thanh'; if (khop(b)) { specCu = b; nguon = 'bang'; } }
         // (bản 1.39.0) file tủ dưới lưu ở ≤ 1.38.0 mở qua nangCap → khung đế ván, còn tấm trên bản vẽ dựng hồi xuống sàn → thử bản sao 'hoi_san'
         if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'de_van') { const b = clone(spec); b.bep.ket_cau_chan = 'hoi_san'; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+        // (bản 1.39.1) tủ dưới khung đế ván vẽ ở 1.39.0 (hồi chưa khấu, thanh trước lớp ngoài lọt giữa hai hồi) → thử bản sao khau_hoi 0
+        if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'de_van' && spec.bep.khau_hoi !== 0) { const b = clone(spec); b.bep.khau_hoi = 0; if (khop(b)) { specCu = b; nguon = 'bang'; } }
       }
       if (!specCu) { setStatus('Tủ này được vẽ ở máy / trình duyệt khác nên máy này không có thông số của nó. Bấm “Mở mẫu” mở file mẫu của tủ (nếu đã lưu) rồi bấm lại “Sửa tủ đang chọn”.'); return; }
       if (specCu.loai_sp === 'bep' && specCu.bep && specCu.bep.doan) return moDoanTu(id, specCu);      // (bản 1.38.0) đoạn thân liền: sửa trong bộ, không như tủ lẻ
@@ -2100,6 +2102,10 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       let ghiTap = khoaBao.length ? ` Táp này vẽ trước bản ${khoaBao.some(k => k !== 'xa_dung') ? '1.36.2' : '1.36.3'} (${khoaBao.map(k => k === 'hau_ranh' ? 'hậu theo Chuẩn xưởng' : k === 'xa_dung' ? 'thanh nằm sau khe tay nắm' : 'thanh khe tay nắm phẳng').join(', ')}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; bấm “Thôi sửa” thì táp vẽ mới về chuẩn mới (${[khoaBao.indexOf('hau_ranh') >= 0 ? 'hậu soi rãnh lọt lòng' : '', khoaBao.indexOf('lui_thanh') >= 0 ? 'rãnh móc tay' : '', khoaBao.indexOf('xa_dung') >= 0 ? 'xà đứng sau khe tay nắm' : ''].filter(Boolean).join(', ')}).` : '';
       const boCho = doiLoaiBoCho(specCu);      // (1.32) món vừa chọn khác loại / khác sâu với chỗ đặt đang giữ → bỏ chỗ đặt
       spec = clone(specCu); noi = { id, spec: clone(specCu), ten: specCu.ma || specCu.ten || '', pick: tam };
+      // (bản 1.39.1) tủ dưới vẽ ở 1.39.0 (hồi chưa khấu): noi.spec giữ như lúc vẽ (dò / gỡ đúng tấm cũ), bảng theo kết cấu mới → Cập nhật đưa tủ về hồi khấu + lớp ngoài
+      // thanh trước chạy liền (như bộ bếp vẽ ở 1.39.0 bấm Cập nhật) — không có ô chọn giữ kiểu cũ (anh chốt: vẽ lại theo kiểu mới là được)
+      const khHoi = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.khau_hoi === 0;
+      if (khHoi) delete spec.bep.khau_hoi;
       // (vòng soát 1.37.3) tủ trên vẽ kiểu thanh treo cũ trong khi chuẩn đang âm dương: giữ như lúc vẽ (Cập nhật đúng tủ), nói ra + lối đổi
       const treoGiu = specCu.loai_sp === 'bep' && !!specCu.bep && specCu.bep.tang === 'tren' && specCu.bep.treo === 'thanh' && (docChuanBep().treo || Core.DEFAULT_BEP.treo) !== 'thanh';
       // (bản 1.39.0) tủ dưới vẽ kiểu hồi xuống sàn trong khi chuẩn đang khung đế ván: giữ như lúc vẽ, nói ra + lối đổi
@@ -2107,6 +2113,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       sel = null; renderAll(); switchTab('tu'); tapCu = khoaCu.length ? khoaCu : null; treoCuNho = treoGiu; dvCuNho = dvGiu;
       // (vòng soát 1.39.0) "vẽ trước bản …" chỉ khi bản lưu nói vậy — tủ vẽ ở bản mới mà người dùng đã chọn kiểu cũ thì nói là kiểu cũ đã chọn lúc vẽ
       const banTruoc = m => { if (nguon !== 'luu') return nguon === 'bang'; const a = String(luu.ban || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; return false; };
+      if (khHoi) ghiTap += ` Tủ dưới này vẽ ở bản 1.39.0 (thanh trước lớp ngoài lọt giữa hai hồi) — bấm Cập nhật thì hai hồi ngoài khoét khấu, lớp ngoài thanh trước chạy liền hết bề tủ.`;
       if (dvGiu) ghiTap += ` Tủ dưới này hồi xuống sàn (${banTruoc('1.39.0') ? 'vẽ trước bản 1.39.0' : 'kết cấu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Thân tủ → Khung đế ván; bấm “Thôi sửa” thì tủ vẽ mới theo khung đế ván.`;
       if (treoGiu) ghiTap += ` Tủ trên này treo bằng thanh treo + vít nở (${banTruoc('1.37.3') ? 'vẽ trước bản 1.37.3' : 'kiểu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Treo tủ → Âm dương; bấm “Thôi sửa” thì tủ vẽ mới theo âm dương.`;
       setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}${boCho.replace(/; thôi nối với[^;]*/, '')}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.${ghiKM}${ghiTap}`);

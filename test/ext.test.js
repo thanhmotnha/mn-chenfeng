@@ -1643,13 +1643,17 @@ async function chonBepExt(page, H, ma) {
         let r = await page.evaluate(() => window.MNCF.app.veBo({}));
         let R = await page.evaluate(() => window.MNCF.app.getBoVe()), v = await soViTri();
         ok(r && r.ok && r.tong === 12 && R.da_ve.length === 12 && v.tu.every(t => t.n === t.can) && v.lech.length === 0 && v.chong.length === 0 && v.tu.reduce((a, t) => a + t.n, 0) === 166, 'khung đế ván E1 thân liền: 12 module đủ tấm, đúng chỗ, không chồng; cả bộ 166 tấm (1.38.0: 150)', [r, v.tu.map(t => [t.vt, t.n, t.can]), v.lech, v.chong]);
-        { const k = await page.evaluate(ids => { const D = window.MNCFDriver, o = { vach: [], hoi: [], chap: 0, lien: 0, de: 0, hau: [] };
+        { const k = await page.evaluate(ids => { const D = window.MNCFDriver, o = { vach: [], hoi: [], hoiLD: [], ngoai: [], chap: 0, lien: 0, de: 0, hau: [] };
             for (const id of ids) for (const e of D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase)) { const b = D.boxOf(e);
-              if (e.Name === 'Vách' && b[5] < 1000) o.vach.push(e.ContourCurve.LineData.length); if (/^Hồi/.test(e.Name) && b[5] < 1000) o.hoi.push(Math.round(b[4] * 10) / 10);
+              if (e.Name === 'Vách' && b[5] < 1000) o.vach.push(e.ContourCurve.LineData.length); if (/^Hồi/.test(e.Name) && b[5] < 1000) { o.hoi.push(Math.round(b[4] * 10) / 10); o.hoiLD.push(e.ContourCurve.LineData.length); }
+              if (e.Name === 'Thanh trước ngoài') o.ngoai.push(Math.round(b[1] - b[0]));      // bộ đặt xoay 0: bề ngang theo trục x
               if (/^Thanh trước (ngoài|trong)$/.test(e.Name)) o.chap++; if (e.Name === 'Đáy') o.lien++; if (/^Đế/.test(e.Name)) o.de++; if (e.Name === 'Hậu' && b[5] < 1000) o.hau.push(Math.round(b[5] - b[4])); }
             return o; }, R.da_ve.filter(y => y.tang === 'duoi').map(y => y.id));
           ok(k.vach.length > 0 && k.vach.every(n => n === 6) && k.hoi.every(z => Math.abs(z - 117.5) < 0.2) && k.chap > 0 && k.chap % 2 === 0 && k.de > 0 && k.hau.every(h => h === 600),
-            'khung đế ván vào Chenfeng: vách tủ dưới đường bao 6 đỉnh (khấu thanh trước chập đôi, không khấu sau), hồi ngồi trên đáy (z 117,5), thanh trước 2 lớp, có khung đế, hậu cao 600', k); }
+            'khung đế ván vào Chenfeng: vách tủ dưới đường bao 6 đỉnh (khấu thanh trước chập đôi, không khấu sau), hồi ngồi trên đáy (z 117,5), thanh trước 2 lớp, có khung đế, hậu cao 600', k);
+          // (bản 1.39.1) hồi ngoài khoét khấu t × 70 → đường bao 6 đỉnh; lớp ngoài thanh trước chạy liền hết bề đơn vị (dài = bề đáy liền)
+          const dai = await page.evaluate(ids => { const D = window.MNCFDriver; return ids.map(id => D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase && b.Name === 'Đáy').map(e => { const b = D.boxOf(e); return Math.round(b[1] - b[0]); })).flat(); }, R.da_ve.filter(y => y.tang === 'duoi').map(y => y.id));
+          ok(k.hoiLD.length > 0 && k.hoiLD.every(n => n === 6) && k.ngoai.length === dai.length && k.ngoai.slice().sort().join() === dai.slice().sort().join(), '(1.39.1) hồi ngoài tủ dưới đường bao 6 đỉnh (khấu lớp ngoài), lớp ngoài thanh trước dài = bề đáy liền (mặt ngoài hồi … mặt ngoài hồi)', [k.hoiLD, k.ngoai, dai]); }
         ok((await dem()).doLoi === 1 && !/lỗi —/.test(await st()), 'dò lỗi sản xuất một lần cả bộ, không mục lỗi (2 lớp thanh trước áp mặt, khung đế không bị coi là đè / lơ lửng)', [await st()]);
         await hoanTacB();
         ok((await vungX(X5 - 5000)) === 0, 'Hoàn tác bộ B39: sạch');
@@ -1711,8 +1715,9 @@ async function chonBepExt(page, H, ma) {
         await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1; }, X5, { timeout: 30000 });
         await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
         const bc = await H.locator('.report').innerText(), idL = await page.evaluate(() => window.MNCFDriver.last.id);
-        const kL = await page.evaluate(id => { const D = window.MNCFDriver, es = D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase); return { n: es.length, can: window.MNCF.app.getModel().parts.length, vach: es.filter(e => e.Name === 'Vách').map(e => e.ContourCurve.LineData.length) }; }, idL);
+        const kL = await page.evaluate(id => { const D = window.MNCFDriver, es = D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase); return { n: es.length, can: window.MNCF.app.getModel().parts.length, vach: es.filter(e => e.Name === 'Vách').map(e => e.ContourCurve.LineData.length), hoi: es.filter(e => /^Hồi/.test(e.Name)).map(e => e.ContourCurve.LineData.length) }; }, idL);
         ok(/Đã vẽ xong/.test(bc) && (await H.locator('.report .msg.err').count()) === 0 && kL.n === kL.can && kL.vach.length === 1 && kL.vach[0] === 6, 'tủ dưới lẻ khung đế ván: vẽ xong đủ tấm, vách đường bao 6 đỉnh (khấu tủ lẻ), không dòng lỗi', [kL, bc.slice(0, 500)]);
+        ok(kL.hoi.length === 2 && kL.hoi.every(n => n === 6) && !/Hồi[^\n]*chưa có khấu/.test(bc), '(1.39.1) tủ lẻ: hai hồi ngoài đường bao 6 đỉnh (khấu lớp ngoài thanh trước), D.verify nhận khấu', kL.hoi);
         ok(!/(Thanh trước|Thanh sau|Đế|Xà chân|Đáy|Hậu|Vách)[^\n]*(chưa có lỗ|lơ lửng|đè lên|va chạm|chưa có khấu)/.test(bc), 'dò lỗi sau vẽ không báo oan thanh chập đôi / khung đế / đáy liền / hậu 600', bc);
         await H.locator('[data-act="undo"]').click();
         await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
@@ -1750,6 +1755,54 @@ async function chonBepExt(page, H, ma) {
         s2 = await H.locator('.status').innerText();
         ok(/Đã mở thông số của tủ/.test(s2) && /hồi xuống sàn \(kết cấu cũ đã chọn lúc vẽ\)/.test(s2) && !/trước bản 1\.39\.0/.test(s2), 'Sửa tủ dưới hồi xuống sàn vẽ ở 1.39.0: câu báo nói kiểu cũ đã chọn, không "vẽ trước bản 1.39.0"', s2);
         await H.locator('footer [data-act="unlink"]').click();
+        // (f) (bản 1.39.1) Sửa tủ dưới khung đế ván vẽ ở 1.39.0 (hồi chưa khấu, lớp ngoài lọt giữa hai hồi): dò lại đủ tấm (không báo oan "thiếu"), báo một dòng;
+        // Cập nhật đưa tủ về hồi khấu + lớp ngoài liền; dò lỗi sau Cập nhật sạch
+        { await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'BD-CANH-600'); s.bep.khau_hoi = 0; window.MNCF.app.setSpec(s); });      // dựng đúng tủ 1.39.0 (khoá chỉ specDaVe ghi)
+          ok(!(await page.evaluate(() => window.MNCF.app.getModel().parts.some(p => p.khau_dung))), 'tủ kiểu 1.39.0: hồi không khấu');
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          await H.locator('#mncf-ui-ax').fill(String(X5 + 40000));
+          await H.locator('footer [data-act="draw"]').click();
+          await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1; }, X5 + 40000, { timeout: 30000 });
+          await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+          const idK = await page.evaluate(() => window.MNCFDriver.last.id);
+          await page.evaluate(id => { const k = 'mncf.tu.' + id, o = JSON.parse(localStorage.getItem(k)); o.ban = '1.39.0'; delete o.spec.bep.khau_hoi; localStorage.setItem(k, JSON.stringify(o)); }, idK);      // bản lưu đúng như 1.39.0 ghi
+          await H.locator('.tab[data-tab="tu"]').click();      // vẽ xong bảng sang thẻ Kết quả
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+          await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+          await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idK);
+          if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          await H.locator('[data-act="pick"]').click();
+          const s3 = await H.locator('.status').innerText(), sp3 = await page.evaluate(() => window.MNCF.app.getSpec());
+          ok(/Đã mở thông số của tủ/.test(s3) && !/thiếu/.test(s3) && /vẽ ở bản 1\.39\.0 \(thanh trước lớp ngoài lọt giữa hai hồi\)/.test(s3) && sp3.bep.khau_hoi === undefined, 'Sửa tủ dưới vẽ ở 1.39.0: dò lại đủ tấm, báo một dòng, bảng theo kết cấu mới', [s3, sp3.bep.khau_hoi]);
+          await H.locator('.tab[data-tab="tu"]').click();
+          await H.locator('footer [data-act="redraw"]').click();
+          await page.waitForFunction(() => /Đã cập nhật tủ tại chỗ|Chưa cập nhật|cần xem/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
+          const bc3 = await H.locator('.report').innerText();
+          const k3 = await page.evaluate(id => { const D = window.MNCFDriver, es = D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase); return { n: es.length, can: window.MNCF.app.getModel().parts.length, hoi: es.filter(e => /^Hồi/.test(e.Name)).map(e => e.ContourCurve.LineData.length), ngoai: es.filter(e => e.Name === 'Thanh trước ngoài').map(e => { const b = D.boxOf(e); return Math.round(b[1] - b[0]); }) }; }, idK);
+          ok(/Đã cập nhật tủ tại chỗ/.test(await st()) && (await H.locator('.report .msg.err').count()) === 0 && k3.n === k3.can && k3.hoi.length === 2 && k3.hoi.every(n => n === 6) && JSON.stringify(k3.ngoai) === '[600]', 'Cập nhật tủ vẽ ở 1.39.0: hai hồi khấu, lớp ngoài 600 = bề tủ, đủ tấm, không dòng lỗi', [await st(), k3, bc3.slice(0, 400)]);
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click(); }
+        // (g) (vòng soát 1.39.1) Sửa tủ dưới NÓC LIỀN vẽ ở 1.39.0: tủ không có thanh trước chập đôi → không có khấu nào — không được báo "hai hồi ngoài khoét khấu"
+        { await page.evaluate(() => { const C = window.MNCFCore; window.MNCF.app.setSpec(C.datBep(C.apMau(C.DEFAULT_SPEC, 'BD-CANH-600'), { noc: 'lien' })); });
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          await H.locator('#mncf-ui-ax').fill(String(X5 + 50000));
+          await H.locator('footer [data-act="draw"]').click();
+          await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1; }, X5 + 50000, { timeout: 30000 });
+          await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+          const idL = await page.evaluate(() => window.MNCFDriver.last.id);
+          await page.evaluate(id => { const k = 'mncf.tu.' + id, o = JSON.parse(localStorage.getItem(k)); o.ban = '1.39.0'; delete o.spec.bep.khau_hoi; localStorage.setItem(k, JSON.stringify(o)); }, idL);
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+          await page.evaluate(s => window.MNCF.app.setSpec(s), TU_2000);
+          await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idL);
+          if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          await H.locator('[data-act="pick"]').click();
+          const s4 = await H.locator('.status').innerText();
+          ok(/Đã mở thông số của tủ/.test(s4) && !/thiếu/.test(s4) && !/khoét khấu/.test(s4), 'Sửa tủ dưới nóc liền vẽ ở 1.39.0: dò lại đủ tấm, không hứa khấu hồi', s4);
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click(); }
         await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x - 5000 && e.box[0] < x + 90000)); }, X5);
         ok((await vungX(X5 - 5000)) === 0, 'khung đế ván: dọn sạch');
         await page.evaluate(() => { window.MNCFCore.DEFAULT_BEP.ket_cau_chan = 'hoi_san'; });      // trả ghim cho các ca sau
