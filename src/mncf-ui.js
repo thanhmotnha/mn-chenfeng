@@ -479,9 +479,10 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
 .bov .bo-tuong{stroke:var(--ink);stroke-width:5;vector-effect:non-scaling-stroke}
 .bov .bo-san{stroke:var(--muted);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .bov .bo-k{cursor:pointer}.bov [data-bo-keo]{cursor:grab}
+.bov svg[data-bo] .bo-k[data-bo-vt]{cursor:grab}.bov svg.keo-dang,.bov svg.keo-dang .bo-k{cursor:grabbing}.bov svg.keo-khong,.bov svg.keo-khong .bo-k{cursor:not-allowed}.bov .bo-k.keo{opacity:.55;pointer-events:none}.bov .bo-tha{stroke:var(--accent);stroke-width:4;stroke-dasharray:10 6;vector-effect:non-scaling-stroke;pointer-events:none}
 .bov .bo-r{fill:var(--field);stroke:var(--ink);stroke-width:1;vector-effect:non-scaling-stroke}
 .bov .bo-k text,.bov .bo-dau text{fill:var(--ink);text-anchor:middle;pointer-events:none;font-family:var(--font)}
-.bov .k-chau .bo-r{fill:rgba(40,120,220,.22)}.bov .k-bep .bo-r{fill:rgba(220,80,40,.22)}.bov .k-hm .bo-r{fill:rgba(220,80,40,.12)}
+.bov .k-chau .bo-r{fill:rgba(40,120,220,.22)}.bov .k-mrb .bo-r{fill:rgba(40,160,170,.22)}.bov .k-bep .bo-r{fill:rgba(220,80,40,.22)}.bov .k-hm .bo-r{fill:rgba(220,80,40,.12)}
 .bov .k-tl .bo-r,.bov .k-lo .bo-r,.bov .k-kho .bo-r{fill:rgba(120,130,145,.28)}.bov .k-nk .bo-r,.bov .k-gv .bo-r,.bov .k-xn .bo-r,.bov .k-rac .bo-r,.bov .k-gao .bo-r{fill:rgba(210,160,40,.20)}
 .bov .k-goc .bo-r{fill:rgba(140,90,200,.20)}.bov .k-ke .bo-r{fill:transparent;stroke-dasharray:6 4}.bov .k-bat .bo-r{fill:rgba(40,120,220,.10)}
 .bov .bo-k.on .bo-r{stroke:var(--accent);stroke-width:3}.bov .bo-k.ghim .bo-r{stroke-width:2.2}
@@ -2084,7 +2085,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         // (bản 1.39.0) file tủ dưới lưu ở ≤ 1.38.0 mở qua nangCap → khung đế ván, còn tấm trên bản vẽ dựng hồi xuống sàn → thử bản sao 'hoi_san'
         if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'de_van') { const b = clone(spec); b.bep.ket_cau_chan = 'hoi_san'; if (khop(b)) { specCu = b; nguon = 'bang'; } }
         // (bản 1.39.1) tủ dưới khung đế ván vẽ ở 1.39.0 (hồi chưa khấu, thanh trước lớp ngoài lọt giữa hai hồi) → thử bản sao khau_hoi 0
-        if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'de_van' && spec.bep.khau_hoi !== 0) { const b = clone(spec); b.bep.khau_hoi = 0; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+        if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'de_van' && spec.bep.khau_hoi !== 0) { const b = clone(spec); b.bep.khau_hoi = 0; b.bep.xa_lien = 0; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+        // (bản 1.40.0) tủ dưới khung đế ván vẽ ở 1.39.1 (xà chân kẹp giữa hai đế hông) → thử bản sao xa_lien 0
+        if (!specCu && spec.loai_sp === 'bep' && spec.bep && spec.bep.tang === 'duoi' && spec.bep.ket_cau_chan === 'de_van' && spec.bep.xa_lien !== 0) { const b = clone(spec); b.bep.xa_lien = 0; if (khop(b)) { specCu = b; nguon = 'bang'; } }
       }
       if (!specCu) { setStatus('Tủ này được vẽ ở máy / trình duyệt khác nên máy này không có thông số của nó. Bấm “Mở mẫu” mở file mẫu của tủ (nếu đã lưu) rồi bấm lại “Sửa tủ đang chọn”.'); return; }
       if (specCu.loai_sp === 'bep' && specCu.bep && specCu.bep.doan) return moDoanTu(id, specCu);      // (bản 1.38.0) đoạn thân liền: sửa trong bộ, không như tủ lẻ
@@ -2106,6 +2109,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // thanh trước chạy liền (như bộ bếp vẽ ở 1.39.0 bấm Cập nhật) — không có ô chọn giữ kiểu cũ (anh chốt: vẽ lại theo kiểu mới là được)
       const khHoi = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.khau_hoi === 0;
       if (khHoi) delete spec.bep.khau_hoi;
+      // (bản 1.40.0) tủ dưới vẽ ở 1.39.x (xà chân kẹp giữa hai đế hông): như khấu hồi — noi.spec giữ như lúc vẽ, bảng theo xà chân liền → Cập nhật đưa tủ về kiểu mới
+      const xaLien = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.xa_lien === 0;
+      if (xaLien) delete spec.bep.xa_lien;
       // (vòng soát 1.37.3) tủ trên vẽ kiểu thanh treo cũ trong khi chuẩn đang âm dương: giữ như lúc vẽ (Cập nhật đúng tủ), nói ra + lối đổi
       const treoGiu = specCu.loai_sp === 'bep' && !!specCu.bep && specCu.bep.tang === 'tren' && specCu.bep.treo === 'thanh' && (docChuanBep().treo || Core.DEFAULT_BEP.treo) !== 'thanh';
       // (bản 1.39.0) tủ dưới vẽ kiểu hồi xuống sàn trong khi chuẩn đang khung đế ván: giữ như lúc vẽ, nói ra + lối đổi
@@ -2114,6 +2120,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // (vòng soát 1.39.0) "vẽ trước bản …" chỉ khi bản lưu nói vậy — tủ vẽ ở bản mới mà người dùng đã chọn kiểu cũ thì nói là kiểu cũ đã chọn lúc vẽ
       const banTruoc = m => { if (nguon !== 'luu') return nguon === 'bang'; const a = String(luu.ban || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; return false; };
       if (khHoi) ghiTap += ` Tủ dưới này vẽ ở bản 1.39.0 (thanh trước lớp ngoài lọt giữa hai hồi) — bấm Cập nhật thì hai hồi ngoài khoét khấu, lớp ngoài thanh trước chạy liền hết bề tủ.`;
+      if (xaLien) ghiTap += ` Tủ dưới này vẽ trước bản 1.40.0 (xà chân kẹp giữa hai đế hông) — bấm Cập nhật thì xà chân chạy liền hết bề tủ, đế hông dừng sau lưng xà (dải chân thẳng với tủ kề).`;
       if (dvGiu) ghiTap += ` Tủ dưới này hồi xuống sàn (${banTruoc('1.39.0') ? 'vẽ trước bản 1.39.0' : 'kết cấu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Thân tủ → Khung đế ván; bấm “Thôi sửa” thì tủ vẽ mới theo khung đế ván.`;
       if (treoGiu) ghiTap += ` Tủ trên này treo bằng thanh treo + vít nở (${banTruoc('1.37.3') ? 'vẽ trước bản 1.37.3' : 'kiểu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Treo tủ → Âm dương; bấm “Thôi sửa” thì tủ vẽ mới theo âm dương.`;
       setStatus(`Đã mở thông số của tủ “${noi.ten}” (${loc.boards.length} tấm trên bản vẽ${loc.thieu ? `, thiếu ${loc.thieu} tấm so với lúc vẽ` : ''})${nguon === 'bang' ? ' — lấy theo thông số đang mở vì khớp với tủ' : ''}${boCho.replace(/; thôi nối với[^;]*/, '')}.${doiKT} Sửa số rồi bấm “Cập nhật tủ này trên bản vẽ”.${ghiKM}${ghiTap}`);
@@ -4473,7 +4480,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
      * mncf.bobep.v1 (KHÔNG nhớ chuẩn bếp — chuẩn một nguồn ở mncf.bep.v1); đọc / ghi hỏng thì vẫn chạy (chỉ không nhớ).
      * Vẽ cả bộ vào Chenfeng (D.veDay, Vẽ tiếp, Hoàn tác bộ, Cập nhật bộ) là bước driver — chưa có ở đây. */
     const LS_BOBEP = 'mncf.bobep.v1';
-    const TEN_CHUC_BO = { canh: 'Cánh', nk: 'Ngăn kéo', xn: 'Xoong nồi', gv: 'Gia vị', gao: 'Gạo', rac: 'Rác', chau: 'Chậu', bep: 'Bếp', ke: 'Kệ hở', goc: 'Góc', bat: 'Giá bát', hm: 'Hút mùi', tl: 'Tủ lạnh', lo: 'Lò', kho: 'Kho' };
+    const TEN_CHUC_BO = { canh: 'Cánh', nk: 'Ngăn kéo', xn: 'Xoong nồi', gv: 'Gia vị', gao: 'Gạo', rac: 'Rác', chau: 'Chậu', bep: 'Bếp', ke: 'Kệ hở', goc: 'Góc', bat: 'Giá bát', hm: 'Hút mùi', tl: 'Tủ lạnh', lo: 'Lò', kho: 'Kho', mrb: 'MRB' };      // (1.40.0) khoang máy rửa bát
     const gonBo = b => { const o = clone(b); delete o.chuan; delete o.tay_sua; delete o.tay_bo; return o; };      // tay_sua / tay_bo: lời báo của một lần chuẩn hoá, không phải dữ liệu bộ
     function docBoLuu() { try { const o = JSON.parse(root.localStorage.getItem(LS_BOBEP) || 'null'); return o && typeof o === 'object' && !Array.isArray(o) ? o : null; } catch (e) { return null; } }
     function luuBo() { if (!boBep) return; try { root.localStorage.setItem(LS_BOBEP, JSON.stringify(gonBo(boBep))); } catch (e) { /* trình duyệt chặn lưu: chỉ không nhớ */ } }
@@ -4584,7 +4591,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       f.push(`<div class="bochip" role="group" aria-label="Cỡ chậu và bếp"><span class="bonhan">Chậu = bếp</span>${nut('bo-co', '', b.co === null && coThat ? `tự · ${coThat}` : 'tự', b.co === null, 'Cỡ chung tủ chậu và tủ bếp theo dài dãy (dài 900, vừa 800, ngắn 700)')}${[700, 800, 900].map(c => nut('bo-co', String(c), String(c), b.co === c, `Tủ chậu và tủ bếp cùng rộng ${c} (chậu, bếp nấu phải lọt cỡ này)`)).join('')}</div>`);
       const kinhOn = b.kinh === 'bat' || (Array.isArray(b.kinh) && b.kinh.length > 0);
       f.push(`<div class="bochip" role="group" aria-label="Tủ trên"><span class="bonhan">Tủ trên</span>${nut('bo-t2', null, '2 tầng', b.tran > 0, 'Tầng trên chồng kịch trần, mối nối thẳng tầng dưới (gõ cao trần ở ô Trần)')}${nut('bo-kinh', null, 'Kính', kinhOn, 'Cánh khung kính cho tủ giá bát (bấm một tủ trên ở mặt đứng để chọn khoang kính khác)')}${nut('bo-led', null, 'LED', !!b.led, 'Dải LED âm dưới đáy tủ trên (rãnh đáy + LED + nguồn cho cả dãy)')}</div>`);
-      f.push(`<div class="bochip" role="group" aria-label="Thêm tủ cao, kệ">${nut('bo-cao', 'lo', '+ Lò', coCao('lo'), 'Tủ cao lò nướng + vi sóng 600 (lò thấp), liền khoang tủ lạnh — bấm tủ lò trên hình để đổi kiểu lò / vi sóng / đặt đầu kia')}${nut('bo-cao', 'kho', '+ Kho', coCao('kho'), 'Tủ kho cao (đồ khô), xếp liền khối cao')}${nut('bo-ke', null, '+ Kệ', !tay && !!b.ke, tay ? 'Thêm một khoang kệ hở 300 ở đầu dãy HỞ (không có đầu hở: cuối cạnh đang xem)' : 'Kệ hở 300 sát đầu dãy HỞ (không chạm tường)')}<button class="sec mini" data-act="bo-them" aria-expanded="${boThem}" title="Ô phụ: tâm chậu / bếp, ống thoát, tủ lạnh, hốc vi sóng">⋯</button></div>`);
+      f.push(`<div class="bochip" role="group" aria-label="Thêm tủ cao, kệ">${nut('bo-cao', 'lo', '+ Lò', coCao('lo'), 'Tủ cao lò nướng + vi sóng 600 (lò thấp), liền khoang tủ lạnh — bấm tủ lò trên hình để đổi kiểu lò / vi sóng / đặt đầu kia')}${nut('bo-cao', 'kho', '+ Kho', coCao('kho'), 'Tủ kho cao (đồ khô), xếp liền khối cao')}${nut('bo-ke', null, '+ Kệ', !tay && !!b.ke, tay ? 'Thêm một khoang kệ hở 300 ở đầu dãy HỞ (không có đầu hở: cuối cạnh đang xem)' : 'Kệ hở 300 sát đầu dãy HỞ (không chạm tường)')}${nut('bo-mrb', null, '+ MRB', tay ? coMrbTay(b) : !!b.mrb, tay ? 'Khoang máy rửa bát 60 (hốc 600) kề tủ chậu phía xa bếp — bấm lần nữa bỏ' : 'Khoang máy rửa bát âm toàn phần 60 (hốc 600) kề tủ chậu, phía xa bếp')}<button class="sec mini" data-act="bo-them" aria-expanded="${boThem}" title="Ô phụ: tâm chậu / bếp, ống thoát, tủ lạnh, hốc vi sóng">⋯</button></div>`);
       const g = [];
       // (1.37.0) Từng khoang: chậu / bếp đứng đúng chỗ trong danh sách — tâm gõ tay không dùng (ẩn); ống thoát chỉ còn là phép kiểm
       if (!tay) g.push(ip('bo-chau-s', 'Tâm chậu', b.chau.s, 'placeholder="tự" title="Tâm chậu tính dọc tường từ đầu trái khi nhìn vào tường (mm); rỗng = bảng tự đặt"'), ip('bo-bep-s', 'Tâm bếp', b.bep.s, 'placeholder="tự" title="Tâm bếp nấu (mm); rỗng = bảng tự đặt"'));
@@ -4602,7 +4609,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (coCao('lo')) g.push(sl('bo-vs', 'Hốc vi sóng', [[380, '380'], [460, '460'], [0, 'không']], b.vs));
       if (kho) g.push(sl('bo-kho-rong', 'Tủ kho', [[400, '400 kéo'], [450, '450 cánh'], [600, '600 cánh']], kho.rong));
       f.push(`<div class="bothem"${boThem ? '' : ' hidden'}><div class="g g3">${g.join('')}</div></div>`);
-      f.push(tay ? `<p class="hint">Từng khoang: sửa danh sách dưới hình (ô rộng trống = tự chia) · bấm tủ trên hình để chọn thẻ của nó · bấm đầu dãy để đổi tường / hở.</p>` : `<p class="hint">Bấm tủ trên hình để đổi / ghim · kéo chậu, bếp, tủ lạnh trên mặt bằng để dời · bấm đầu dãy để đổi tường / hở.</p>`);
+      f.push(tay ? `<p class="hint">Từng khoang: sửa danh sách dưới hình (ô rộng trống = tự chia) · bấm tủ trên hình để chọn thẻ của nó · kéo khoang trên hình để đổi chỗ · bấm đầu dãy để đổi tường / hở.</p>` : `<p class="hint">Bấm tủ trên hình để đổi / ghim · kéo chậu, bếp, tủ lạnh trên mặt bằng để dời · kéo khoang khác (hay mọi khoang trên mặt đứng) để đổi chỗ — tự chuyển Từng khoang · bấm đầu dãy để đổi tường / hở.</p>`);
       if (!inCF) f.push(`<p class="hint tt">Vẽ cả bộ vào Chenfeng: mở bảng trong Chenfeng (tiện ích) — ở đây bấm một tủ → “Mở thành tủ” để xem / tải từng tủ.</p>`);
       else f.push(`<p class="hint">Bấm <b>Chỗ</b> rồi bấm điểm trên bản vẽ (${L ? 'góc trong, một điểm trên tường cạnh A, một điểm trên tường cạnh B' : 'đầu trái dãy ở chân tường, rồi một điểm dọc tường'}) → <b>Vẽ bộ bếp</b>: mỗi tủ một module.</p><p class="hint tt" data-ui="bo-cho-tt"></p>`);
       return f.join('');
@@ -4668,7 +4675,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         o.push(`<g data-bo-dau="${i}:${ben}" class="bo-dau${ho ? ' ho' : ''}" role="button" tabindex="0" aria-label="Đầu dãy ${ho ? 'hở' : 'chạm tường'} — bấm để đổi"><title>${ho ? 'Đầu hở (ốp hông) — bấm: chạm tường' : 'Chạm tường (nẹp) — bấm: đầu hở'}</title>${rect(h, 'bo-dr')}<text x="${r0(h[0] + h[2] / 2)}" y="${r0(h[1] + h[3] / 2 + fs * 0.35)}" font-size="${r0(fs * 0.6)}">${ho ? 'hở' : 'tường'}</text></g>`);
       }
       const W = L ? WA : b.canh[0].dai;
-      return `<svg data-bo="mb" viewBox="${-m} ${-m} ${r0(W + 2 * m)} ${r0(H + 2 * m)}" role="group" aria-label="Mặt bằng bộ bếp — bấm tủ để chọn, kéo chậu / bếp / tủ lạnh để dời">${o.join('')}</svg>`;
+      return `<svg data-bo="mb" viewBox="${-m} ${-m} ${r0(W + 2 * m)} ${r0(H + 2 * m)}" role="group" aria-label="Mặt bằng bộ bếp — bấm tủ để chọn, kéo khoang để đổi chỗ">${o.join('')}</svg>`;
     }
     function svgMD(b, pa, Q, canh) {
       const e = pa.canh[canh], dai = e ? e.dai : b.canh[canh].dai, mx = 120, fs = Math.max(55, Math.min(85, dai / 45)), o = [];
@@ -4702,7 +4709,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         o.push(`<rect data-bo-doan="${esc(d.ma)}" x="${r0(xa + 8)}" y="${r0(Y(zB) + 8)}" width="${r0(Math.max(0, xb - xa - 16))}" height="${r0(Math.max(0, zB - zA - 16))}" class="bo-doan"/>`);
         for (let j = 1; j < ks.length; j++) o.push(`<line data-bo-vach="${esc(d.ma)}" x1="${r0(ks[j].s0)}" y1="${Y(zB)}" x2="${r0(ks[j].s0)}" y2="${Y(zA)}" class="bo-vach"/>`);
       }
-      return `<svg data-bo="md" viewBox="${-mx} -80 ${r0(dai + 2 * mx)} ${r0(Top + 160)}" role="group" aria-label="Mặt đứng cạnh ${'AB'[canh]} — bấm tủ để chọn">${o.join('')}</svg>`;
+      return `<svg data-bo="md" viewBox="${-mx} -80 ${r0(dai + 2 * mx)} ${r0(Top + 160)}" role="group" aria-label="Mặt đứng cạnh ${'AB'[canh]} — bấm tủ để chọn, kéo khoang để đổi chỗ">${o.join('')}</svg>`;
     }
     // nút sửa nhanh (thiết kế §7): thử từng cách, chỉ hiện cách làm bớt LỖI / CẢNH BÁO; bấm = một bước ↶ Lùi
     const diemBo = r => (r.pa.length ? r.pa[0].canh_bao.length : 1000);
@@ -4713,6 +4720,7 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (act === 'bo-sua-goc') { if (o.kieu !== 'L' || !v || v === (o.goc && o.goc.pk)) return false; o.goc = Object.assign({}, o.goc, { pk: v }); return true; }
       // (bản 1.37.0) Từng khoang: nút của Core.suaTay — bộ đã sửa sẵn (tính sau một nhịp ở tinhSua)
       if (act === 'bo-sua-tay') { const x = boNho && boNho.sua && boNho.sua[+v]; if (!x || !x.bo) return false; thayBo(o, gonBo(x.bo)); return true; }
+      if (act === 'bo-sua-mrb45') { if (o.mrb === 450) return false; o.mrb = 450; return true; }
       if (act === 'bo-sua-chau') { const m = pa && pa.ds.find(q => q.chuc === 'chau'); if (o.co === 800 || (o.chau && o.chau.co === 800)) return false; if (m && !/900/.test(m.ma)) return false; o.co = 800; o.chau = Object.assign({}, o.chau, { co: 800 }); o.bep = Object.assign({}, o.bep, { co: 800 }); return true; }
       return false;
     }
@@ -4729,6 +4737,10 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
           const g = Object.keys(Core.GOC_BEP || {}).filter(k => k !== b.goc.pk).map(k => thu('bo-sua-goc', k, `Góc: ${Core.GOC_BEP[k].ten}`)).filter(Boolean).sort((p, q) => p.d - q.d)[0]; if (g) x.push(g); }
         x.push(thu('bo-sua-chau', '', 'Chậu, bếp 900 → 800'));
         for (const q of x) if (q) out.push(q);
+        // (vòng soát 1.40.0) "+ MRB" không xếp được ở Tự chia (dãy chia như không MRB + cảnh báo): lối ra có thật — máy 45 vừa / Từng khoang có cách xếp sạch
+        const mb = r.mrb_bo;
+        if (mb && mb.vua_45) out.push({ act: 'bo-sua-mrb45', v: '', ten: 'Máy rửa bát 45' });
+        if (mb && mb.tay) out.push({ act: 'bo-sua-tay', v: String(out.length), ten: 'Từng khoang + MRB', bo: mb.tay });
       }
       N.sua = out;
     }
@@ -4848,10 +4860,10 @@ ${(dk => (dk ? `<p class="hint tt" data-ui="bok-doan">Thân liền ${esc(dk.vt.j
       return `<p class="hint tt botong${xau ? ' err' : ''}" data-ui="bo-tay-tong" data-canh="${i}">${esc(t.join(' · '))}${nut}</p>`;
     }
     function theTayHTML(b, pa, c, q, tang, j, n, lechCo) {
-      const m = mTay(pa, q.id), co = Core.coBo(q.kieu, tang), ten = TEN_TAY[tang][q.kieu] || q.kieu, chon = boTayId === q.id;      // tủ trên theo mối nối đang chọn: thẻ khoang bên dưới sáng (hàng "Trên" là của nó)
+      const m = mTay(pa, q.id), co = Core.coBo(q.kieu, tang, spec.van.t), ten = TEN_TAY[tang][q.kieu] || q.kieu, chon = boTayId === q.id;      // tủ trên theo mối nối đang chọn: thẻ khoang bên dưới sáng (hàng "Trên" là của nó)
       const loi = !!(m && pa && neuVt(pa.loi, m.vt)), vang = lechCo && tang === 'duoi' && (q.kieu === 'chau' || q.kieu === 'bep');
       const tip = `${ten} — rộng bề thùng (mm), không gồm nẹp / ốp`;
-      const rong = co ? `<select data-ui="bo-tay-co" data-id="${esc(q.id)}" aria-label="Cỡ ${esc(ten)}" title="${esc(tip + ' — chỉ có các cỡ có mẫu; “tự” = ' + (q.kieu === 'chau' || q.kieu === 'bep' ? 'cỡ chung chậu = bếp' : 'cỡ nhỏ nhất'))}">${[['', 'tự']].concat(co.map(w => [String(w), hien(w)])).map(([v, t]) => `<option value="${v}"${(q.rong === 'auto' ? '' : String(q.rong)) === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`
+      const rong = co ? `<select data-ui="bo-tay-co" data-id="${esc(q.id)}" aria-label="Cỡ ${esc(ten)}" title="${esc(tip + ' — chỉ có các cỡ có mẫu; “tự” = ' + (q.kieu === 'chau' || q.kieu === 'bep' ? 'cỡ chung chậu = bếp' : q.kieu === 'mrb' ? 'máy 60 (hốc 600)' : 'cỡ nhỏ nhất'))}">${[['', 'tự']].concat(co.map(w => [String(w), hien(w)])).map(([v, t]) => `<option value="${v}"${(q.rong === 'auto' ? '' : String(q.rong)) === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`
         : `<input type="text" inputmode="decimal" data-ui="bo-tay-rong" data-id="${esc(q.id)}" value="${q.rong === 'auto' ? '' : esc(fmt(q.rong))}" placeholder="tự" aria-label="Rộng ${esc(ten)} (mm, trống = tự chia)" title="${esc(tip + ' — để trống: tự chia phần còn lại của cạnh')}">`;
       const ds = tang === 'tren' ? Core.TAY_TREN : Core.TAY_DUOI, nut = (act, v, chu, on) => `<button class="segb${on ? ' on' : ''}" data-act="${act}" data-id="${esc(q.id)}" data-v="${v}" aria-pressed="${on}">${esc(chu)}</button>`;
       let chip = '';
@@ -4920,6 +4932,20 @@ ${(dk => (dk ? `<p class="hint tt" data-ui="bok-doan">Thân liền ${esc(dk.vt.j
     // "+ Kệ" ở Từng khoang: một khoang kệ hở 300 ở đầu HỞ (tủ có ốp hông) — không có đầu hở thì cuối cạnh đang xem
     // (vòng soát 1.37.0) danh sách chỉ là phần chạy giữa khối cao: đầu hở là tủ lạnh / tủ cao thì kệ không ra ngoài được (tự chia cũng không đặt kệ ở đó) — kệ đứng
     // sát tủ cao, lời báo nói thật. Cạnh không còn khoang tự chia (C1: mọi rộng là số) thì khoang tự do gần kệ nhất nhường 300 (không thì LỖI "thừa 300" khoá nút vẽ)
+    /** (bản 1.40.0) danh sách Từng khoang đang có khoang máy rửa bát? (chip "+ MRB" sáng) */
+    function coMrbTay(b) { return !!(b && b.tay && (b.tay.canh || []).some(c => c && (c.duoi || []).some(q => q && q.kieu === 'mrb'))); }
+    /** (bản 1.40.0) "+ MRB" ở Từng khoang: chưa có thì chèn một khoang MRB (tự = 60) kề tủ chậu phía xa bếp (không có chậu: cuối cạnh đang xem) — cạnh không còn
+     *  khoang tự chia thì khoang cánh / ngăn kéo / kệ rộng nhất thành tự chia (nhường chỗ); có rồi thì bỏ mọi khoang MRB. Một bước ↶ Lùi. */
+    function mrbTay(b, pa) {      // b = nút vừa bấm (như keTay) — (vòng soát 1.40.0) lõi Core.tayMRB (cùng hàm với gợi ý "Từng khoang + MRB" của Tự chia)
+      let x = null; try { x = Core.tayMRB(boKem(), pa, { canh: boCanh || 0, nen: nenBo() }); } catch (e) { x = null; }
+      if (!x) return setStatus('Chưa có danh sách khoang.');
+      doiTay(o => thayBo(o, gonBo(x.bo)), b);
+      if (!x.them) return setStatus('Đã bỏ khoang máy rửa bát. ↶ Lùi để lấy lại.');
+      boTayId = x.id; boTayTren = false; if (boBep.kieu === 'L') boCanh = x.canh; veBoView({ tay: true });
+      const n = x.nhuong, m = n && pa && pa.ds.find(q => q.id_tay === n.id), ten = m ? m.vt : n ? n.id : '';
+      const nhuong = n ? (n.moi === 'bo' ? ` (bỏ ${ten} ${hien(n.cu)} nhường chỗ)` : ` (${ten} ${hien(n.cu)} → ${hien(n.moi)} nhường chỗ)`) : '';
+      setStatus(`Đã thêm khoang máy rửa bát ${(boBep.mrb || 600) / 10} kề tủ chậu${nhuong}. Cỡ hốc / cao máy [CĐ] — đối chiếu máy khách mua. ↶ Lùi để bỏ.`);
+    }
     function keTay(b, pa) {
       const op = pa ? pa.ds.filter(m => m.tang !== 'tren' && m.op).sort((p, q) => (p.canh === boCanh ? 0 : 1) - (q.canh === boCanh ? 0 : 1))[0] : null;
       const i = op ? op.canh : boBep.kieu === 'L' ? boCanh : 0, dau = !!(op && op.op === 'trai'), cao = !!(op && !op.id_tay);
@@ -4949,7 +4975,7 @@ ${(dk => (dk ? `<p class="hint tt" data-ui="bok-doan">Thân liền ${esc(dk.vt.j
       const x = id ? timTay(boBep.tay, id) : null, m = mTay(pa, id);
       if (act === 'bo-tay-kieu') {
         if (!x || x.q.kieu === v) return;
-        const co = Core.coBo(v, x.tang), cu = Core.coBo(x.q.kieu, x.tang), w = m ? m.rong : (x.q.rong === 'auto' ? null : x.q.rong);
+        const co = Core.coBo(v, x.tang, spec.van.t), cu = Core.coBo(x.q.kieu, x.tang, spec.van.t), w = m ? m.rong : (x.q.rong === 'auto' ? null : x.q.rong);
         doiTay(o => { const y = timTay(o.tay, id); if (!y) return;
           // giữ chỗ các khoang khác: kiểu tự do giữ rộng đang có (cỡ cố định → số); cỡ cố định lấy cỡ gần rộng đang có (chậu / bếp: cỡ chung)
           if (co) y.q.rong = v === 'chau' || v === 'bep' ? 'auto' : w ? co.reduce((p, k) => (Math.abs(k - w) < Math.abs(p - w) ? k : p), co[0]) : 'auto';
@@ -4970,7 +4996,8 @@ ${(dk => (dk ? `<p class="hint tt" data-ui="bok-doan">Thân liền ${esc(dk.vt.j
       }
       if (act === 'bo-tay-dich') {
         if (!x) return; const k = x.j + (+v === 1 ? 1 : -1); if (k < 0 || k >= x.ds.length) return;
-        doiTay(o => { const y = timTay(o.tay, id); if (!y) return; const t = y.ds[y.j]; y.ds[y.j] = y.ds[k]; y.ds[k] = t; }, b);
+        // (vòng soát 1.40.0) qua Core.keoTay (chèn ở k sau khi nhấc ra = đổi chỗ hai khoang kề) — cánh kính / cánh lật theo CHỖ đi theo tủ trên (theoTuTren)
+        doiTay(o => { const y = timTay(o.tay, id); if (!y) return; const nb = Core.keoTay(Object.assign({}, o, { chuan: boChuan() }), { tu: id, toi: { canh: y.i, tang: y.tang, chi_so: k }, nen: nenBo() }); if (nb) thayBo(o, gonBo(nb)); }, b);
         const n = $(`.botay [data-act="bo-tay-dich"][data-id="${id}"]:not([disabled])`); if (n && sh.activeElement !== n && (!sh.activeElement || sh.activeElement.dataset.id !== id)) n.focus({ preventScroll: true });
         return setStatus(`${m ? m.vt : 'Khoang'} sang ${+v === 1 ? 'phải' : 'trái'}. ↶ Lùi để bỏ.`);
       }
@@ -5170,6 +5197,9 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
  o.cao.sort((p, q) => (p.loai === 'lo' ? 0 : 1) - (q.loai === 'lo' ? 0 : 1)); });
       if (act === 'bo-ke' && laTay()) { if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng sửa khoang.'); return keTay(b, pa); }
       if (act === 'bo-ke') return doiBo(o => { if (o.ke) delete o.ke; else o.ke = true; });
+      // (bản 1.40.0) "+ MRB": khoang máy rửa bát kề tủ chậu phía xa bếp — Tự chia: khoá bo.mrb (bấm lần nữa bỏ); Từng khoang: thêm / bỏ một khoang MRB trong danh sách
+      if (act === 'bo-mrb' && laTay()) { if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng sửa khoang.'); return mrbTay(b, pa); }
+      if (act === 'bo-mrb') { const bat = !b.mrb; doiBo(o => { if (o.mrb) delete o.mrb; else o.mrb = 600; }); return setStatus(bat ? 'Đã thêm khoang máy rửa bát 60 (hốc 600) kề tủ chậu, phía xa bếp — phía đó hết chỗ thì đứng giữa chậu và bếp. Cỡ hốc / cao máy [CĐ] — đối chiếu máy khách mua. ↶ Lùi để bỏ.' : 'Đã bỏ khoang máy rửa bát. ↶ Lùi để lấy lại.'); }
       if (act === 'bo-giu-tu') {      // (bản 1.38.0) bộ đã vẽ từng tủ: giữ kiểu đó (Cập nhật chỉ sửa tủ đổi, không vẽ lại thành đoạn)
         if (busy) return setStatus('Đang vẽ bộ — chờ xong rồi hẵng đổi thân dãy.');
         doiBo(o => { o.than = 'tung_tu'; }, { giuPa: true });
@@ -5276,6 +5306,111 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
           setStatus(`Đã dời ${k.vat === 'chau' ? 'chậu' : k.vat === 'bep' ? 'bếp' : 'tủ lạnh'}${k.vat === 'tl' ? '' : ` — tâm ${hien(Math.round(q.s / 50) * 50)}`}. ↶ Lùi để bỏ.`);
         });
         bv.addEventListener('pointerup', tha); bv.addEventListener('pointercancel', tha);
+      }
+    }
+    /* ---- (bản 1.40.0) KÉO THẢ KHOANG trên mặt đứng + mặt bằng (anh Thanh 28/10/2026: "bổ sung thêm chức năng kéo thả khoang bếp nữa nhé") ----
+     * Kéo một khoang thả vào chỗ khác → Core.keoTay (chèn, khoang khác dồn); đang Tự chia thì tự chuyển Từng khoang (phương án đang xem) — MỘT bước ↶ Lùi cho cả hai.
+     * Chỉ bắt con trỏ khi đã kéo ≥ 4 px (bấm thường vẫn là chọn khoang); lúc kéo: khoang thành bóng đi theo con trỏ + vạch chỗ thả (svg [data-bo-tha]); thả mới ghi;
+     * Esc / pointercancel = huỷ. Khối cao / tủ góc / tủ trên góc: không kéo (con trỏ "không được", báo lời của Core.tayKeoDuoc). Mặt bằng: kéo sang cạnh kia (chữ L);
+     * chậu / bếp / tủ lạnh trên mặt bằng ở Tự chia vẫn là Core.keoBo (dời tâm) — khối trên. Ngón tay: pointer events (svg touch-action:none như kéo chậu / bếp — không chặn touchstart: chặn là mất lần chạm để chọn). */
+    {
+      const bv = $('.bov');
+      const svgPt = (g, e) => { const M = g.getScreenCTM(); if (!M) return null; const p = g.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const q = p.matrixTransform(M.inverse()); return [q.x, q.y]; };
+      let kk = null;
+      const NS = 'http://www.w3.org/2000/svg';
+      // danh sách đích (khoang của phương án Từng khoang trên cạnh + tầng đó, trừ khoang đang kéo) theo trục tủ → chỗ chèn theo s (tâm khoang < s)
+      const choTha = (k, e) => {
+        const p = svgPt(k.g, e); if (!p) return null;
+        let canh = 0, s = p[0];
+        if (k.mb) {
+          let q = uMB(k.b2, k.p2, p[0], p[1]);
+          // (vòng soát 1.40.0) chữ L: ô vuông ở góc nằm chung với hình tủ góc cạnh A — uMB chọn cạnh theo khoảng cách tới tường, thả lên phần ngoài tủ góc A thành
+          // "đầu cạnh B" (khoang nhảy cạnh, 3 khoang thành tự chia). Con trỏ nằm trên hình một tủ tầng dưới / cao nào thì theo CẠNH của tủ đó.
+          if (k.b2.kieu === 'L') {
+            const tr = k.p2.ds.find(m => { if (m.tang === 'tren') return false; const h = hopMB(k.b2, m.canh, m.u0, m.u1, 0, m.tang === 'cao' ? k.Q.Pc : k.Q.F); return p[0] >= h[0] && p[0] <= h[0] + h[2] && p[1] >= h[1] && p[1] <= h[1] + h[3]; });
+            if (tr && tr.canh !== q.canh) { const WA = k.b2.canh[0].dai, phai = k.b2.canh[1].re !== 'trai', u = tr.canh === 0 ? (phai ? WA - p[0] : p[0]) : p[1], e = k.p2.canh[tr.canh]; q = { canh: tr.canh, u, s: e && e.lat ? k.b2.canh[tr.canh].dai - u : u }; }
+          }
+          canh = k.b2.kieu === 'L' ? q.canh : 0; s = q.s;
+        }
+        else canh = k.b2.kieu === 'L' ? boCanh : 0;
+        if (k.d.tang === 'tren' && !Array.isArray((k.b2.tay.canh[canh] || {}).tren)) canh = k.d.canh;      // tủ trên riêng: chỉ hàng trên có danh sách riêng
+        const ds = k.p2.ds.filter(m => m.canh === canh && m.id_tay && m.id_tay !== k.d.id && (k.d.tang === 'tren' ? m.tang === 'tren' : m.tang === 'duoi')).sort((a, b) => a.s0 - b.s0);
+        const chi_so = ds.filter(m => m.s0 + m.dai / 2 < s).length;
+        const sb = ds.length ? (chi_so < ds.length ? ds[chi_so].s0 : ds[ds.length - 1].s0 + ds[ds.length - 1].dai) : s;
+        return { canh, tang: k.d.tang, chi_so, sb };
+      };
+      const veVach = (k, t) => {
+        let ln = k.g.querySelector('[data-bo-tha]');
+        if (!ln) { ln = document.createElementNS(NS, 'line'); ln.setAttribute('data-bo-tha', '1'); ln.setAttribute('class', 'bo-tha'); k.g.appendChild(ln); }
+        let a, b;
+        if (k.mb) { const e = k.p2.canh[t.canh], dai = k.b2.canh[t.canh].dai, u = e && e.lat ? dai - t.sb : t.sb, h = hopMB(k.b2, t.canh, u, u, -60, k.Q.F + 60); a = [h[0], h[1]]; b = [h[0] + h[2], h[1] + h[3]]; }
+        else { const vb = k.g.viewBox.baseVal; a = [t.sb, vb.y + 20]; b = [t.sb, vb.y + vb.height - 20]; }
+        ln.setAttribute('x1', r0(a[0])); ln.setAttribute('y1', r0(a[1])); ln.setAttribute('x2', r0(b[0])); ln.setAttribute('y2', r0(b[1]));
+        if (!k.mb && k.b2.kieu === 'L' && t.canh !== boCanh) ln.setAttribute('hidden', ''); else ln.removeAttribute('hidden');
+      };
+      const thoi = (k, huy) => {
+        window.removeEventListener('keydown', k.esc, true);
+        try { if (k.bat) k.g.releasePointerCapture(k.id); } catch (err) { /* bỏ qua */ }
+        k.g.classList.remove('keo-dang', 'keo-khong');
+        if (k.dang) boKeoXong = Date.now();      // lần click sau khi nhả không thành "chọn khoang"
+        if (huy && k.bat) { veBoView(); setStatus('Đã thôi kéo khoang.'); }
+      };
+      if (bv) {
+        bv.addEventListener('pointerdown', safe(e => {
+          const t = e.target.closest && e.target.closest('svg[data-bo] [data-bo-vt]'); if (!t || e.button || !boBep) return;
+          const g = t.ownerSVGElement, mb = g.dataset.bo === 'mb';
+          if (mb && t.hasAttribute('data-bo-keo')) return;      // chậu / bếp (Tự chia) / tủ lạnh: dời bằng Core.keoBo
+          kk = { t, g, mb, vt: t.dataset.boVt, x: e.clientX, y: e.clientY, id: e.pointerId, dang: false };
+        }));
+        bv.addEventListener('pointermove', safe(e => {
+          const k = kk; if (!k || e.pointerId !== k.id) return;
+          // (vòng soát 1.40.0) nút đã nhả mà không thấy pointerup (nhả ngoài bảng trước khi kịp kéo 4 px — chưa bắt con trỏ): thôi kéo, đừng để bóng chạy theo chuột
+          if (e.pointerType === 'mouse' && e.buttons === 0) { kk = null; thoi(k, true); return; }
+          if (!k.dang) {
+            if (Math.hypot(e.clientX - k.x, e.clientY - k.y) < 4) return;
+            k.dang = true;
+            const r = tinhBo(), pa = paBo(r), bk = boKem();
+            k.d = pa ? Core.tayKeoDuoc(bk, pa, k.vt, { nen: nenBo() }) : { ly_do: 'Chưa có phương án — sửa dòng đỏ trước.' };
+            if (busy) k.d = { ly_do: 'Đang vẽ bộ — chờ xong rồi hẵng kéo khoang.' };
+            if (k.d.ly_do) { k.g.classList.add('keo-khong'); setStatus(k.d.ly_do); return; }
+            k.pa = pa; k.bk = bk; k.Q = soHinhBo();
+            k.b2 = k.d.chuyen ? Core.chuanBo(Object.assign({}, bk, { chia: 'tay', tay: Core.tayTuPA(bk, pa) })) : r.bo;
+            k.p2 = k.d.chuyen ? (Core.xepBep(Object.assign({}, k.b2, { chuan: boChuan() }), { nen: nenBo() }).pa[0] || pa) : pa;
+            // khoang kéo = bóng: tủ đó (tủ trên theo mối nối: kéo cả tủ dưới) — mặt đứng: mọi g của khoang + tủ trên theo nó
+            const vts = new Set(k.p2.ds.filter(m => m.id_tay === k.d.id || m.id_duoi === k.d.id).map(m => m.vt)); vts.add(k.vt);
+            k.bong = [...k.g.querySelectorAll('[data-bo-vt]')].filter(x => vts.has(x.dataset.boVt));
+            for (const x of k.bong) x.classList.add('keo');
+            k.p0 = svgPt(k.g, { clientX: k.x, clientY: k.y });
+            k.esc = ev => { if (ev.key !== 'Escape' || kk !== k) return; ev.preventDefault(); ev.stopPropagation(); kk = null; thoi(k, true); };
+            window.addEventListener('keydown', k.esc, true);
+            try { k.g.setPointerCapture(e.pointerId); k.bat = true; } catch (err) { k.bat = true; }
+            k.g.classList.add('keo-dang');
+          }
+          if (!k.d || k.d.ly_do || !k.p0) return;
+          const p = svgPt(k.g, e); if (!p) return;
+          for (const x of k.bong) x.setAttribute('transform', `translate(${r0(p[0] - k.p0[0])} ${k.mb ? r0(p[1] - k.p0[1]) : 0})`);
+          const tt = choTha(k, e); if (tt) { k.toi = tt; veVach(k, tt); }
+        }));
+        const tha = safe(e => {
+          const k = kk; if (!k || e.pointerId !== k.id) return; kk = null;
+          if (!k.dang) return;
+          const huy = e.type !== 'pointerup' || !k.d || k.d.ly_do;
+          thoi(k, false);
+          if (huy) { if (k.bat) veBoView(); if (k.bat && e.type !== 'pointerup') setStatus('Đã thôi kéo khoang.'); return; }
+          const toi = choTha(k, e) || k.toi;
+          const ghi = {}, x = toi && Core.keoTay(k.bk, { tu: k.d.id, toi: { canh: toi.canh, tang: toi.tang, chi_so: toi.chi_so }, pa: k.pa, ghi, nen: nenBo() });
+          if (!x) { veBoView(); return setStatus(toi && k.p2.canh.length > 1 && toi.canh !== k.d.canh && k.d.tang === 'duoi' ? 'Cạnh chỉ còn một khoang — không kéo sang cạnh kia được.' : 'Thả đúng chỗ cũ — dãy không đổi.'); }
+          const cu = mTay(k.p2, k.d.id), ten = cu ? `${cu.vt} ${TEN_TAY[k.d.tang][((timTay(k.b2.tay, k.d.id) || {}).q || {}).kieu] || ''}`.trim() : 'Khoang';
+          doiBo(o => { Object.keys(o).forEach(q => delete o[q]); Object.assign(o, x); });
+          boTayId = k.d.id; boTayTren = false; if (x.kieu === 'L') boCanh = toi.canh;
+          veBoView({ tay: true });
+          const moi = mTay(paBo(tinhBo()), k.d.id), nh = (ghi.tu_chia || []).map(id => { const m = mTay(paBo(tinhBo()), id); return m ? m.vt : id; });
+          setStatus(`${ghi.chuyen ? 'Đã chuyển sang Từng khoang (từ phương án đang xem) — ' : ''}${ten} → ${moi ? moi.vt : 'chỗ mới'}${toi.canh !== k.d.canh ? ` (cạnh ${'AB'[toi.canh]})` : ''}${nh.length ? `; ${nh.join(', ')} nay tự chia (nhận phần dư)` : ''}. ↶ Lùi để bỏ.`);
+        });
+        bv.addEventListener('pointerup', tha); bv.addEventListener('pointercancel', tha);
+        // (vòng soát 1.40.0) nhả / huỷ ở NGOÀI .bov (chưa bắt con trỏ): window vẫn nghe — tha() bỏ lần thứ hai (kk đã null)
+        const thaNgoai = e => { if (kk && e.pointerId === kk.id && !bv.contains(e.target)) tha(e); };
+        window.addEventListener('pointerup', thaNgoai, true); window.addEventListener('pointercancel', thaNgoai, true);
       }
     }
     /* ---- (bản 1.34, bước 4 — thiết kế §9) VẼ CẢ BỘ VÀO CHENFENG ----
