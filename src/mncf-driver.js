@@ -374,7 +374,7 @@
         let ok = false;
         try {
           const pts = hit.GetStretchPoints().map(q => [r2(q.y - offset[1]), r2(q.z - offset[2])]);
-          ok = p.khau_dung.every(k => { const cy = Math.abs(k.y0 - p.y0) < TOL ? k.y1 : k.y0; return pts.some(q => Math.abs(q[0] - cy) < TOL && Math.abs(q[1] - k.z0) < TOL); });
+          ok = p.khau_dung.every(k => { const cy = Math.abs(k.y0 - p.y0) < TOL ? k.y1 : k.y0, cz = Math.abs(k.z0 - p.z0) < TOL && k.z1 < p.z1 - TOL ? k.z1 : k.z0; return pts.some(q => Math.abs(q[0] - cy) < TOL && Math.abs(q[1] - cz) < TOL); });      // (1.40.0) khấu góc dưới: góc lõm ở mép trên khấu
         } catch (e) { ok = false; }
         if (!ok) wrong.push(`${p.ten}: chưa có khấu góc trên cho xà / giằng chạy suốt (Chenfeng dựng tấm chữ nhật — trục đường bao tấm đứng chưa đo)`);
       }

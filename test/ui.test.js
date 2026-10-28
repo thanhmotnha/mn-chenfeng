@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.39\.1/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.40\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -899,7 +899,14 @@ async function testBep(browser) {
   { await chonMau(page, '@BEP-duoi');
     await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
     const c = await chip(), s0 = await spec();
-    ok(c.length === 10 && JSON.stringify(c.filter(x => x[1] === 'true').map(x => x[0])) === '["canh"]' && s0.rong === 600 && (await S(page, '[data-bep="chuc_nang"]').count()) === 0, 'Tủ bếp dưới: 10 chip chức năng, Cánh đang bấm, tủ 600, không còn ô chọn Chức năng', [c, s0.rong]);
+    ok(c.length === 11 && JSON.stringify(c.filter(x => x[1] === 'true').map(x => x[0])) === '["canh"]' && s0.rong === 600 && (await S(page, '[data-bep="chuc_nang"]').count()) === 0, 'Tủ bếp dưới: 11 chip chức năng (1.40.0: + MRB), Cánh đang bấm, tủ 600, không còn ô chọn Chức năng', [c, s0.rong]);
+    // (bản 1.40.0) chip MRB: khoang máy rửa bát 60 (635), hình đứng chữ MRB
+    { await S(page, '[data-act="bep-kieu"][data-v="mrb"]').click(); await page.waitForFunction(() => window.MNCFCore.kieuBep(window.MNCF.app.getSpec()) === 'mrb');
+      const sm = await page.evaluate(() => window.MNCF.app.getSpec()), mm = await page.evaluate(() => window.MNCF.app.getModel());
+      ok(sm.rong === 600 && mm.parts.some(p => p.op_mrb), 'chip MRB giữ rộng đang gõ (600) — cánh ốp máy', [sm.rong]);
+      const e = mm.errors.find(x => /Đặt tủ rộng 635/.test(x)); ok(!!e && await S(page, '[data-act="bep-co"][data-v="635"]').isVisible(), 'hốc 565 < 600: LỖI + nút Chuyển tủ 635', mm.errors);
+      await S(page, '[data-act="bep-co"][data-v="635"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 635);
+      ok(!(await page.evaluate(() => window.MNCF.app.getModel().errors.length)), 'Chuyển tủ 635: hết lỗi'); }
     // gõ Rộng 550 → chip Ngăn kéo: giữ 550
     await S(page, '[data-k="rong"]').fill('550'); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 550);
     await S(page, '[data-act="bep-kieu"][data-v="nk"]').click();
@@ -1638,7 +1645,7 @@ async function testBoBep(browser) {
     // chọn thẻ → chip chức năng; đổi chip → hình đổi, tủ khác đứng yên, tiêu điểm ở chip vừa bấm
     { const ds = await tay(), c = ds.find(q => q.kieu === 'canh'), pa1 = await p0();
       await S(page, `.botay [data-act="bo-tay-chon"][data-id="${c.id}"]`).click();
-      ok((await S(page, `.botay .bobay.on[data-id="${c.id}"] [data-act="bo-tay-kieu"]`).count()) === 9 && (await S(page, `.botay .bobay.on[data-id="${c.id}"] [data-act="bo-tay-tren-kieu"]`).count()) === 5, 'chọn thẻ: hàng chip chức năng (9) + hàng "Trên" (5) của khoang đó');
+      ok((await S(page, `.botay .bobay.on[data-id="${c.id}"] [data-act="bo-tay-kieu"]`).count()) === 10 && (await S(page, `.botay .bobay.on[data-id="${c.id}"] [data-act="bo-tay-tren-kieu"]`).count()) === 5, 'chọn thẻ: hàng chip chức năng (10 — 1.40.0: + MRB) + hàng "Trên" (5) của khoang đó');
       const m = pa1.ds.find(x => x.id_tay === c.id);
       ok((await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"].on`).count()) === 1 && await S(page, '.bokpop').isVisible() && (await S(page, '.bokpop [data-act="kpop-bo-ghim"], .bokpop [data-act="kpop-bo-doi"]').count()) === 0, 'thẻ chọn → tủ đó sáng trên hình, ô chọn hiện (không Đổi thành / Ghim)');
       await S(page, `.botay [data-act="bo-tay-kieu"][data-id="${c.id}"][data-v="nk"]`).click();
@@ -1855,6 +1862,130 @@ async function testBoBep(browser) {
     await S(page, '[data-ui="bo-than"]').selectOption('tung_tu');
     ok(!(await S(page, '.bomsgs [data-ui="bo-doan-cb"]').count()), 'Từng tủ: không cảnh báo thân liền');
     await page.evaluate(o => window.MNCF.app.setBo(o), b0); }
+  // (bản 1.40.0) "+ MRB": Tự chia → bo.mrb 600, khoang máy rửa bát kề tủ chậu trên mặt đứng, ↶ Lùi bỏ; Từng khoang → chèn / bỏ khoang MRB cạnh chậu
+  { const b0 = await bo();
+    await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B3', kieu: 'I', canh: [{ dai: 4800 }] }); await cho();
+    ok((await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'false', '"+ MRB" mặc định tắt');
+    await S(page, '[data-act="bo-mrb"]').click();
+    const b1 = await bo(), p = (await kq()).pa[0], m = p.ds.find(x => x.chuc === 'mrb'), d = p.ds.filter(x => x.tang === 'duoi' && x.canh === 0).sort((a, c) => a.u0 - c.u0), j = d.indexOf(m);
+    ok(b1.mrb === 600 && m && m.ma === 'BD-MRB-635' && (await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'true' && [d[j - 1], d[j + 1]].some(x => x && x.chuc === 'chau'), '"+ MRB": bo.mrb 600, khoang BD-MRB-635 kề tủ chậu', [b1.mrb, d.map(x => x.chuc)]);
+    const g = S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`);
+    ok((await g.getAttribute('class')).indexOf('k-mrb') >= 0 && /MRB/.test(await g.textContent()), 'mặt đứng: khoang MRB (lớp k-mrb, chữ MRB)');
+    await S(page, '[data-act="lui"]').click(); await cho();
+    ok(!('mrb' in await bo()), '↶ Lùi: bỏ MRB');
+    await S(page, '[data-act="bo-chia"][data-v="tay"]').click();
+    await S(page, '[data-act="bo-mrb"]').click();
+    const c = (await bo()).tay.canh[0].duoi, jm = c.findIndex(q => q.kieu === 'mrb'), jc = c.findIndex(q => q.kieu === 'chau'), p2 = (await kq()).pa[0];
+    ok(jm >= 0 && Math.abs(jm - jc) === 1 && p2.ds.some(x => x.ma === 'BD-MRB-635') && !p2.loi.length && (await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'true', 'Từng khoang "+ MRB": khoang MRB kề chậu, không LỖI', [c.map(q => q.kieu + ':' + q.rong), p2.loi]);
+    await S(page, '[data-act="bo-mrb"]').click();
+    ok(!(await bo()).tay.canh[0].duoi.some(q => q.kieu === 'mrb'), 'Từng khoang: bấm "+ MRB" lần nữa — bỏ');
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); await cho(); }
+  // (bản 1.40.0) KÉO THẢ KHOANG bằng chuột thật (page.mouse): mặt đứng + mặt bằng, Tự chia → tự chuyển Từng khoang, một bước ↶ Lùi, Esc huỷ, < 4 px là bấm chọn,
+  // khối cao không kéo, chữ L sang cạnh kia
+  { const b0 = await bo();
+    const E1 = { ma: 'B4', kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 } };
+    await page.evaluate(o => window.MNCF.app.setBo(o), E1); await cho();
+    const tam = async sel => { const r = await S(page, sel).first().boundingBox(); return [r.x + r.width / 2, r.y + r.height / 2, r]; };
+    const keo = async (a, b, opt) => { await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move(a[0] + 2, a[1]); await page.mouse.move(b[0], b[1], { steps: 8 }); if (opt && opt.giua) await opt.giua(); if (opt && opt.esc) await page.keyboard.press('Escape'); await page.mouse.up(); await page.waitForTimeout(80); };
+    const eq = (a, b, n) => ok(JSON.stringify(a) === JSON.stringify(b), n, [a, b]);
+    const p0 = (await kq()).pa[0], duoi = p0.ds.filter(x => x.tang === 'duoi' && x.canh === 0).sort((a, c) => a.s0 - c.s0);
+    const dau = duoi.find(x => x.chuc !== 'goc'), m = duoi.slice().reverse().find(x => (x.chuc === 'canh' || x.chuc === 'nk') && x !== dau);
+    // bấm thường (chuột nhích 2 px): vẫn là chọn khoang, bộ không đổi
+    { const t0 = JSON.stringify(await bo()), a = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"] .bo-r`); await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move(a[0] + 2, a[1] + 1); await page.mouse.up();
+      ok(JSON.stringify(await bo()) === t0 && !('chia' in await bo()) && (await S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`).getAttribute('class')).indexOf(' on') >= 0, 'nhích < 4 px: bấm chọn khoang, không kéo'); }
+    // mặt đứng: kéo khoang về trước khoang đầu dãy → Tự chia tự chuyển Từng khoang
+    const truoc = await bo(), muon = await page.evaluate(([b, vt]) => { const C = window.MNCFCore, p = C.xepBep(b).pa[0]; return C.keoTay(b, { tu: { vt }, toi: { canh: 0, tang: 'duoi', chi_so: 0 }, pa: p }).tay.canh[0].duoi.map(q => q.kieu + ':' + q.rong); }, [truoc, m.vt]);
+    { const a = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"] .bo-r`), d = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${dau.vt}"] .bo-r`);
+      let giua = null;
+      await keo(a, [d[2].x + 3, d[1]], { giua: async () => { giua = await page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, sv = r.querySelector('.bov svg[data-bo="md"]'); return [!!sv.querySelector('[data-bo-tha]'), sv.querySelectorAll('.bo-k.keo').length, sv.classList.contains('keo-dang')]; }); giua.push(!('chia' in await bo())); } });
+      ok(giua && giua[0] && giua[1] >= 1 && giua[2] && giua[3], 'đang kéo: vạch chỗ thả + bóng khoang, chưa ghi gì vào bộ', giua);
+      const b1 = await bo();
+      eq(b1.chia, 'tay', 'thả: bộ chuyển Từng khoang');
+      eq(b1.tay.canh[0].duoi.map(q => q.kieu + ':' + q.rong), muon, 'thả: khoang về đầu danh sách = Core.keoTay');
+      ok(/Đã chuyển sang Từng khoang/.test(await S(page, '.status').textContent()), 'báo: đã chuyển Từng khoang', await S(page, '.status').textContent());
+      ok(!(await page.evaluate(() => !!document.getElementById('mncf-host').shadowRoot.querySelector('[data-bo-tha]'))), 'thả xong: không còn vạch chỗ thả');
+      await S(page, '[data-act="lui"]').click(); await cho();
+      ok(JSON.stringify(await bo()) === JSON.stringify(truoc), 'MỘT bước ↶ Lùi: về Tự chia như trước kéo'); }
+    // Esc giữa lúc kéo: huỷ, bộ không đổi
+    { const a = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"] .bo-r`), d = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${dau.vt}"] .bo-r`);
+      await keo(a, [d[2].x + 3, d[1]], { esc: true });
+      ok(JSON.stringify(await bo()) === JSON.stringify(truoc) && !(await page.evaluate(() => !!document.getElementById('mncf-host').shadowRoot.querySelector('[data-bo-tha], .bo-k.keo'))), 'Esc: huỷ kéo, bộ không đổi, hết bóng / vạch'); }
+    // khối cao (tủ lạnh) không kéo được: con trỏ "không được", báo, bộ không đổi
+    { const tl = p0.ds.find(x => x.tang === 'cao'), a = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${tl.vt}"] .bo-r`), d = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"] .bo-r`);
+      let kh = null; await keo(a, [d[0], d[1]], { giua: async () => { kh = await page.evaluate(() => document.getElementById('mncf-host').shadowRoot.querySelector('.bov svg[data-bo="md"]').classList.contains('keo-khong')); } });
+      ok(kh && JSON.stringify(await bo()) === JSON.stringify(truoc) && /khối cao/.test(await S(page, '.status').textContent()), 'khối cao: con trỏ không được + lời báo, bộ không đổi', kh); }
+    // mặt bằng: kéo khoang ra cuối dãy
+    { const a = await tam(`.bov svg[data-bo="mb"] [data-bo-vt="${m.vt}"] .bo-r`), cuoi = duoi[duoi.length - 1], d = await tam(`.bov svg[data-bo="mb"] [data-bo-vt="${cuoi.vt}"] .bo-r`);
+      const muon2 = await page.evaluate(([b, vt]) => { const C = window.MNCFCore, p = C.xepBep(b).pa[0]; return C.keoTay(b, { tu: { vt }, toi: { canh: 0, tang: 'duoi', chi_so: 99 }, pa: p }).tay.canh[0].duoi.map(q => q.kieu + ':' + q.rong); }, [truoc, m.vt]);
+      await keo(a, [d[2].x + d[2].width - 3, d[1]]);
+      const b2 = await bo(); ok(b2.chia === 'tay' && JSON.stringify(b2.tay.canh[0].duoi.map(q => q.kieu + ':' + q.rong)) === JSON.stringify(muon2), 'mặt bằng: kéo khoang ra cuối dãy', [b2.tay && b2.tay.canh[0].duoi.map(q => q.kieu + ':' + q.rong), muon2]);
+      // Từng khoang: kéo tiếp (không chuyển nữa), khoang MRB kéo như khoang khác
+      await S(page, '[data-act="bo-mrb"]').click(); await cho();
+      const pm = (await kq()).pa[0], mr = pm.ds.find(x => x.chuc === 'mrb'), d0 = pm.ds.filter(x => x.tang === 'duoi' && x.canh === 0 && x.id_tay).sort((a2, c) => a2.s0 - c.s0)[0];
+      const am = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${mr.vt}"] .bo-r`), ad = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${d0.vt}"] .bo-r`);
+      await keo(am, [ad[2].x + 3, ad[1]]);
+      const b3 = await bo(); ok(b3.tay.canh[0].duoi[0].kieu === 'mrb' && !/Đã chuyển sang Từng khoang/.test(await S(page, '.status').textContent()), 'Từng khoang: kéo MRB về đầu danh sách', b3.tay.canh[0].duoi.map(q => q.kieu)); }
+    // chữ L: kéo khoang cạnh A sang cạnh B trên mặt bằng
+    { await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B5', kieu: 'L', canh: [{ dai: 3050, dau: 'tuong' }, { dai: 2450, cuoi: 'ho' }], tl: null, chia: 'tay', tay: { canh: [{ duoi: [{ id: 'k1', kieu: 'canh', rong: 300 }, { id: 'k2', kieu: 'canh', rong: 'auto' }, { id: 'k7', kieu: 'nk', rong: 'auto' }, { id: 'k3', kieu: 'chau', rong: 'auto' }] }, { duoi: [{ id: 'k4', kieu: 'nk', rong: 'auto' }, { id: 'k5', kieu: 'bep', rong: 'auto' }, { id: 'k6', kieu: 'canh', rong: 'auto' }] }] } }); await cho();
+      const pl = (await kq()).pa[0], k1 = pl.ds.find(x => x.id_tay === 'k1'), k5 = pl.ds.find(x => x.id_tay === 'k5');
+      const a = await tam(`.bov svg[data-bo="mb"] [data-bo-vt="${k1.vt}"] .bo-r`), d = await tam(`.bov svg[data-bo="mb"] [data-bo-vt="${k5.vt}"] .bo-r`);
+      await keo(a, [d[0], d[1]]);
+      const bl = await bo(); ok(bl.tay.canh[0].duoi.every(q => q.id !== 'k1') && bl.tay.canh[1].duoi.some(q => q.id === 'k1'), 'chữ L: mặt bằng kéo khoang cạnh A sang cạnh B', bl.tay.canh.map(c => c.duoi.map(q => q.id)));
+      ok((await kq()).pa[0].canh.every(e => Math.abs(e.tay.lech) < 0.5), 'chữ L: hai cạnh không lệch dài'); }
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); await cho(); }
+  // (vòng soát 1.40.0) kéo thả khoang + MRB — mỗi lỗi của lần soát một phép thử
+  { const b0 = await bo(), eq = (a, b, n) => ok(JSON.stringify(a) === JSON.stringify(b), n, [a, b]);
+    const tam = async sel => { const r = await S(page, sel).first().boundingBox(); return [r.x + r.width / 2, r.y + r.height / 2, r]; };
+    const hr = () => page.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, sv = r.querySelector('.bov svg[data-bo="md"]'); return [sv.classList.contains('keo-dang'), !!r.querySelector('[data-bo-tha]'), r.querySelectorAll('.bo-k.keo').length]; });
+    const E1 = { ma: 'B4', kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 } };
+    // (a) nhấn trên khoang, vụt ra ngoài bảng (chưa kịp 4 px trong .bov) rồi nhả: không còn trạng thái kéo — rê chuột lại hình không có bóng / vạch chạy theo
+    { await page.evaluate(o => window.MNCF.app.setBo(o), E1); await cho();
+      const t0 = JSON.stringify(await bo()), p0 = (await kq()).pa[0], m = p0.ds.find(x => x.tang === 'duoi' && x.chuc === 'canh'), a = await tam(`.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"] .bo-r`);
+      await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move(5, 5, { steps: 1 }); await page.mouse.up();
+      await page.mouse.move(a[0] + 40, a[1], { steps: 4 }); await page.mouse.move(a[0] + 120, a[1], { steps: 4 });
+      eq(await hr(), [false, false, 0], 'nhả ngoài bảng trước khi kéo: hết trạng thái kéo (không bóng, không vạch thả)');
+      eq(JSON.stringify(await bo()), t0, 'bộ không đổi');
+      // nhả ngoài bảng SAU khi đã kéo (đã bắt con trỏ): thả như thường hoặc huỷ — không treo
+      await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move(a[0] + 30, a[1], { steps: 3 }); await page.mouse.move(5, 5, { steps: 2 }); await page.mouse.up(); await page.waitForTimeout(80);
+      await page.mouse.move(a[0] + 60, a[1], { steps: 4 });
+      eq(await hr(), [false, false, 0], 'kéo rồi nhả ngoài bảng: không treo');
+      await page.evaluate(o => window.MNCF.app.setBo(o), E1); await cho(); }
+    // (b) chữ L, mặt bằng: thả lên phần ngoài hình tủ góc cạnh A (90 % bề ngang) — khoang ở lại cạnh A (trước: sang đầu cạnh B, 3 khoang thành tự chia)
+    { await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B7', kieu: 'L', canh: [{ dai: 3200, dau: 'tuong' }, { dai: 2800, cuoi: 'ho' }], tl: null }); await cho();
+      const p0 = (await kq()).pa[0], gA = p0.ds.find(x => x.chuc === 'goc' && x.tang === 'duoi' && x.canh === 0), a1 = p0.ds.find(x => x.vt === 'A1');
+      const id = await page.evaluate(([b, p]) => window.MNCFCore.tayKeoDuoc(b, p, 'A1').id, [await bo(), p0]);
+      const a = await tam(`.bov svg[data-bo="mb"] [data-bo-vt="A1"] .bo-r`), g = await tam(`.bov svg[data-bo="mb"] [data-bo-vt="${gA.vt}"] .bo-r`);
+      const x = g[2].x + g[2].width * 0.9, y = g[1];
+      await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move(a[0] + 2, a[1]); await page.mouse.move(x, y, { steps: 10 }); await page.mouse.up(); await page.waitForTimeout(80);
+      const bl = await bo(); ok(a1 && bl.chia === 'tay' && bl.tay.canh[0].duoi.some(q => q.id === id) && !bl.tay.canh[1].duoi.some(q => q.id === id), 'thả lên tủ góc cạnh A: khoang ở lại cạnh A', bl.tay && bl.tay.canh.map(c => c.duoi.map(q => q.id)));
+      ok(!/cạnh B/.test(await S(page, '.status').textContent()), 'lời báo không nói sang cạnh B', await S(page, '.status').textContent()); }
+    // (c) "+ MRB" ở Tự chia mà dãy không đủ chỗ: vẫn có dãy + cảnh báo nói do MRB + nút sửa nhanh "Từng khoang + MRB" (một bước ↶ Lùi) → Từng khoang có MRB, không LỖI
+    { await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B6', kieu: 'I', canh: [{ dai: 3000, dau: 'ho', cuoi: 'tuong' }], tl: { may: 'am_560', canh: 0, dau: 'cuoi' }, ke: true, mrb: 600 }); await cho(); await page.waitForTimeout(120);
+      const k = await kq(); ok(k.pa.length > 0 && !k.pa[0].ds.some(x => x.chuc === 'mrb'), 'MRB không vừa: vẫn có dãy (không MRB)', k.loi_chung);
+      ok(/Không đủ chỗ đặt khoang máy rửa bát 60/.test(await S(page, '.bomsgs').textContent()), 'cảnh báo nói do máy rửa bát');
+      const nut = S(page, '.bomsgs button[data-act="bo-sua-tay"]'); ok((await nut.count()) === 1 && (await nut.textContent()) === 'Từng khoang + MRB', 'nút sửa nhanh "Từng khoang + MRB"');
+      const truoc = JSON.stringify(await bo());
+      await nut.click(); await cho();
+      const b1 = await bo(), p1 = (await kq()).pa[0]; ok(b1.chia === 'tay' && b1.mrb === 600 && p1.ds.filter(x => x.chuc === 'mrb').length === 1 && !p1.loi.length, 'bấm: Từng khoang + một MRB, không LỖI', [b1.chia, b1.mrb, p1.loi]);
+      // (5) ô chọn cỡ khoang MRB: "tự" = máy 60
+      const mq = b1.tay.canh[0].duoi.find(q => q.kieu === 'mrb'), sel = S(page, `.botay [data-ui="bo-tay-co"][data-id="${mq.id}"]`);
+      ok((await sel.count()) === 1 && /“tự” = máy 60/.test(await sel.getAttribute('title')), 'ô cỡ MRB: "tự" = máy 60 (không phải cỡ nhỏ nhất)', (await sel.count()) && await sel.getAttribute('title'));
+      // (4) Từng khoang: "+ MRB" lần nữa bỏ khoang → bo.mrb mất → về Tự chia không MRB ma
+      await S(page, '[data-act="bo-mrb"]').click(); await cho();
+      ok(!('mrb' in await bo()), 'Từng khoang bỏ MRB: bo.mrb mất');
+      await S(page, '[data-act="bo-chia"][data-v="tu"]').click(); await cho();
+      ok(!(await kq()).pa[0].ds.some(x => x.chuc === 'mrb') && (await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'false', 'về Tự chia: không MRB, chip tắt');
+      await S(page, '[data-act="lui"]').click(); await cho(); await S(page, '[data-act="lui"]').click(); await cho(); await S(page, '[data-act="lui"]').click(); await cho();
+      eq(JSON.stringify(await bo()), truoc, '↶ Lùi ba bước: về Tự chia + mrb như trước'); }
+    // (3) ‹ › đổi chỗ khoang: cánh kính theo tủ trên (chỗ ghi theo s)
+    { await page.evaluate(o => window.MNCF.app.setBo(o), E1); await cho();
+      const r = await kq(), tr = r.pa[0].ds.filter(x => x.tang === 'tren' && !x.t2 && x.chuc === 'canh').sort((a, c) => a.s0 - c.s0)[0];
+      await page.evaluate(o => window.MNCF.app.setBo(o), Object.assign({}, r.bo, { kinh: [{ canh: 0, s: tr.s0 + tr.dai / 2 }], chia: 'tay', tay: await page.evaluate(([b, p]) => window.MNCFCore.tayTuPA(b, p), [r.bo, r.pa[0]]) })); await cho();
+      const p1 = (await kq()).pa[0], idd = p1.ds.find(x => x.vt === tr.vt).id_duoi;
+      await S(page, `.botay [data-act="bo-tay-dich"][data-id="${idd}"][data-v="1"]`).click(); await cho();
+      const b2 = await bo(), p2 = (await kq()).pa[0], co = await page.evaluate(([b, p]) => p.ds.filter(q => q.tang === 'tren' && !q.t2 && window.MNCFCore.kinhO(b.kinh, q)).map(q => q.id_duoi), [b2, p2]);
+      eq(co, [idd], '› : cánh kính đi theo tủ trên của khoang vừa dời'); }
+    await page.evaluate(o => window.MNCF.app.setBo(o), b0); await cho(); }
   // rời bộ: chọn một tủ lẻ ở Thư viện
   await vao('@BEP-duoi');
   ok((await S(page, '.panel').getAttribute('data-loai')) === 'bep-duoi' && await page.evaluate(() => window.MNCF.app.getBo() === null), 'chọn tủ lẻ: thôi bộ bếp');
@@ -1878,7 +2009,7 @@ async function testBoBep(browser) {
     await S(p2, '[data-act="bo-chia"][data-v="tay"]').click();
     { const id = await S(p2, '.botay .bobay').first().getAttribute('data-id'); await S(p2, `.botay [data-act="bo-tay-chon"][data-id="${id}"]`).click(); }
     const tb = await p2.evaluate(() => { const r = document.getElementById('mncf-host').shadowRoot, t = r.querySelector('.botay'); return [...t.querySelectorAll('.bobay')].every(e => e.scrollWidth <= e.clientWidth + 1) && t.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5; });
-    ok((await S(p2, '.botay .bobay.on [data-act="bo-tay-kieu"]').count()) === 9 && tb && (await p2.evaluate(inPage.overflow)) <= 0, 'màn 390, Từng khoang: thẻ khoang + chip không tràn ngang', [tb, await p2.evaluate(inPage.overflow)]);
+    ok((await S(p2, '.botay .bobay.on [data-act="bo-tay-kieu"]').count()) === 10 && tb && (await p2.evaluate(inPage.overflow)) <= 0, 'màn 390, Từng khoang: thẻ khoang + chip không tràn ngang', [tb, await p2.evaluate(inPage.overflow)]);
     ok(e2.length === 0, 'không lỗi JS (localStorage hỏng)', e2); await c2.close(); }
 }
 
