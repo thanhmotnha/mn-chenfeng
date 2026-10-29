@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.40\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.40\.1/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -900,13 +900,13 @@ async function testBep(browser) {
     await page.waitForFunction(() => window.MNCF.app.getSpec().loai_sp === 'bep');
     const c = await chip(), s0 = await spec();
     ok(c.length === 11 && JSON.stringify(c.filter(x => x[1] === 'true').map(x => x[0])) === '["canh"]' && s0.rong === 600 && (await S(page, '[data-bep="chuc_nang"]').count()) === 0, 'Tủ bếp dưới: 11 chip chức năng (1.40.0: + MRB), Cánh đang bấm, tủ 600, không còn ô chọn Chức năng', [c, s0.rong]);
-    // (bản 1.40.0) chip MRB: khoang máy rửa bát 60 (635), hình đứng chữ MRB
+    // (bản 1.40.0) chip MRB: khoang máy rửa bát 60, hình đứng chữ MRB — (bản 1.40.1) hốc không thùng 610: rộng 600 thiếu hốc → Chuyển tủ 610
     { await S(page, '[data-act="bep-kieu"][data-v="mrb"]').click(); await page.waitForFunction(() => window.MNCFCore.kieuBep(window.MNCF.app.getSpec()) === 'mrb');
       const sm = await page.evaluate(() => window.MNCF.app.getSpec()), mm = await page.evaluate(() => window.MNCF.app.getModel());
-      ok(sm.rong === 600 && mm.parts.some(p => p.op_mrb), 'chip MRB giữ rộng đang gõ (600) — cánh ốp máy', [sm.rong]);
-      const e = mm.errors.find(x => /Đặt tủ rộng 635/.test(x)); ok(!!e && await S(page, '[data-act="bep-co"][data-v="635"]').isVisible(), 'hốc 565 < 600: LỖI + nút Chuyển tủ 635', mm.errors);
-      await S(page, '[data-act="bep-co"][data-v="635"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 635);
-      ok(!(await page.evaluate(() => window.MNCF.app.getModel().errors.length)), 'Chuyển tủ 635: hết lỗi'); }
+      ok(sm.rong === 600 && mm.parts.some(p => p.op_mrb) && mm.parts.every(p => p.loai === 'CANH' || p.loai === 'CHAN'), 'chip MRB giữ rộng đang gõ (600) — cánh ốp máy, không thùng', [sm.rong, mm.parts.map(p => p.loai)]);
+      const e = mm.errors.find(x => /Đặt tủ rộng 610/.test(x)); ok(!!e && await S(page, '[data-act="bep-co"][data-v="610"]').isVisible(), 'hốc 600 < 610: LỖI + nút Chuyển tủ 610', mm.errors);
+      await S(page, '[data-act="bep-co"][data-v="610"]').click(); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 610);
+      ok(!(await page.evaluate(() => window.MNCF.app.getModel().errors.length)), 'Chuyển tủ 610: hết lỗi'); }
     // gõ Rộng 550 → chip Ngăn kéo: giữ 550
     await S(page, '[data-k="rong"]').fill('550'); await page.waitForFunction(() => window.MNCF.app.getSpec().rong === 550);
     await S(page, '[data-act="bep-kieu"][data-v="nk"]').click();
@@ -1868,7 +1868,7 @@ async function testBoBep(browser) {
     ok((await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'false', '"+ MRB" mặc định tắt');
     await S(page, '[data-act="bo-mrb"]').click();
     const b1 = await bo(), p = (await kq()).pa[0], m = p.ds.find(x => x.chuc === 'mrb'), d = p.ds.filter(x => x.tang === 'duoi' && x.canh === 0).sort((a, c) => a.u0 - c.u0), j = d.indexOf(m);
-    ok(b1.mrb === 600 && m && m.ma === 'BD-MRB-635' && (await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'true' && [d[j - 1], d[j + 1]].some(x => x && x.chuc === 'chau'), '"+ MRB": bo.mrb 600, khoang BD-MRB-635 kề tủ chậu', [b1.mrb, d.map(x => x.chuc)]);
+    ok(b1.mrb === 600 && m && m.ma === 'BD-MRB-610' && (await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'true' && [d[j - 1], d[j + 1]].some(x => x && x.chuc === 'chau'), '"+ MRB": bo.mrb 600, khoang BD-MRB-610 (hốc không thùng) kề tủ chậu', [b1.mrb, d.map(x => x.chuc)]);
     const g = S(page, `.bov svg[data-bo="md"] [data-bo-vt="${m.vt}"]`);
     ok((await g.getAttribute('class')).indexOf('k-mrb') >= 0 && /MRB/.test(await g.textContent()), 'mặt đứng: khoang MRB (lớp k-mrb, chữ MRB)');
     await S(page, '[data-act="lui"]').click(); await cho();
@@ -1876,7 +1876,7 @@ async function testBoBep(browser) {
     await S(page, '[data-act="bo-chia"][data-v="tay"]').click();
     await S(page, '[data-act="bo-mrb"]').click();
     const c = (await bo()).tay.canh[0].duoi, jm = c.findIndex(q => q.kieu === 'mrb'), jc = c.findIndex(q => q.kieu === 'chau'), p2 = (await kq()).pa[0];
-    ok(jm >= 0 && Math.abs(jm - jc) === 1 && p2.ds.some(x => x.ma === 'BD-MRB-635') && !p2.loi.length && (await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'true', 'Từng khoang "+ MRB": khoang MRB kề chậu, không LỖI', [c.map(q => q.kieu + ':' + q.rong), p2.loi]);
+    ok(jm >= 0 && Math.abs(jm - jc) === 1 && p2.ds.some(x => x.ma === 'BD-MRB-610') && !p2.loi.length && (await S(page, '[data-act="bo-mrb"]').getAttribute('aria-pressed')) === 'true', 'Từng khoang "+ MRB": khoang MRB kề chậu, không LỖI', [c.map(q => q.kieu + ':' + q.rong), p2.loi]);
     await S(page, '[data-act="bo-mrb"]').click();
     ok(!(await bo()).tay.canh[0].duoi.some(q => q.kieu === 'mrb'), 'Từng khoang: bấm "+ MRB" lần nữa — bỏ');
     await page.evaluate(o => window.MNCF.app.setBo(o), b0); await cho(); }
@@ -1960,7 +1960,7 @@ async function testBoBep(browser) {
       const bl = await bo(); ok(a1 && bl.chia === 'tay' && bl.tay.canh[0].duoi.some(q => q.id === id) && !bl.tay.canh[1].duoi.some(q => q.id === id), 'thả lên tủ góc cạnh A: khoang ở lại cạnh A', bl.tay && bl.tay.canh.map(c => c.duoi.map(q => q.id)));
       ok(!/cạnh B/.test(await S(page, '.status').textContent()), 'lời báo không nói sang cạnh B', await S(page, '.status').textContent()); }
     // (c) "+ MRB" ở Tự chia mà dãy không đủ chỗ: vẫn có dãy + cảnh báo nói do MRB + nút sửa nhanh "Từng khoang + MRB" (một bước ↶ Lùi) → Từng khoang có MRB, không LỖI
-    { await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B6', kieu: 'I', canh: [{ dai: 3000, dau: 'ho', cuoi: 'tuong' }], tl: { may: 'am_560', canh: 0, dau: 'cuoi' }, ke: true, mrb: 600 }); await cho(); await page.waitForTimeout(120);
+    { await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B6', kieu: 'I', canh: [{ dai: 2975 /* (1.40.1) hốc 610 nay vừa dãy 3000 */, dau: 'ho', cuoi: 'tuong' }], tl: { may: 'am_560', canh: 0, dau: 'cuoi' }, ke: true, mrb: 600 }); await cho(); await page.waitForTimeout(120);
       const k = await kq(); ok(k.pa.length > 0 && !k.pa[0].ds.some(x => x.chuc === 'mrb'), 'MRB không vừa: vẫn có dãy (không MRB)', k.loi_chung);
       ok(/Không đủ chỗ đặt khoang máy rửa bát 60/.test(await S(page, '.bomsgs').textContent()), 'cảnh báo nói do máy rửa bát');
       const nut = S(page, '.bomsgs button[data-act="bo-sua-tay"]'); ok((await nut.count()) === 1 && (await nut.textContent()) === 'Từng khoang + MRB', 'nút sửa nhanh "Từng khoang + MRB"');

@@ -1805,7 +1805,8 @@ async function chonBepExt(page, H, ma) {
           await H.locator('.tab[data-tab="tu"]').click();
           if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click(); }
         // (h) (bản 1.40.0) khoang máy rửa bát lẻ: hồi xuống sàn khoét khấu góc DƯỚI trước (đường bao 6 đỉnh), xà chân ốp liền, D.verify nhận khấu; tủ dưới lẻ: xà chân liền
-        { await page.evaluate(() => { const C = window.MNCFCore; window.MNCF.app.setSpec(C.apMau(C.DEFAULT_SPEC, 'BD-MRB-635')); });
+        // (bản 1.40.1) khoang mặc định nay là hốc không thùng — ca này dựng kiểu thùng riêng của tủ vẽ ở 1.40.0 (mrb_thung 1, specDaVe ghi) để giữ phép thử khấu chân
+        { await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'BD-MRB-610'); s.rong = 635; s.bep.mrb_thung = 1; window.MNCF.app.setSpec(s); });
           await H.locator('.tab[data-tab="tu"]').click();
           if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
           if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
@@ -1819,9 +1820,59 @@ async function chonBepExt(page, H, ma) {
             return { n: es.length, can: window.MNCF.app.getModel().parts.length, hoi: es.filter(e => /^Hồi/.test(e.Name)).map(e => e.ContourCurve.LineData.length) }; }, await page.evaluate(() => window.MNCFDriver.last.id));
           ok(/Đã vẽ xong/.test(bc) && (await H.locator('.report .msg.err').count()) === 0 && kM.n === kM.can && kM.hoi.length === 2 && kM.hoi.every(n => n === 6) && !/chưa có khấu/.test(bc), 'khoang máy rửa bát: vẽ xong đủ tấm, hai hồi đường bao 6 đỉnh (khấu chân), D.verify nhận khấu', [kM, bc]);
           ok(!/(Xà chân|Hồi|Giằng|Cánh)[^\n]*(chưa có lỗ|lơ lửng|đè lên|va chạm)/.test(bc), 'khoang máy rửa bát: dò lỗi sau vẽ không báo oan (xà chân ốp không khoan, giằng nằm)', bc);
+          // (bản 1.40.1) Sửa khoang MRB thùng riêng (vẽ ở 1.40.0): dò lại đủ tấm theo thùng, bảng về hốc không thùng 610 + một dòng báo
+          { const idH = await page.evaluate(() => window.MNCFDriver.last.id);
+            await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idH);
+            await H.locator('.tab[data-tab="tu"]').click();      // vẽ xong bảng đang ở thẻ Kết quả — nút Sửa nằm ở chân thẻ Tủ
+            if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();
+            await H.locator('[data-act="pick"]').click();
+            const sP = await H.locator('.status').innerText(), spP = await page.evaluate(() => window.MNCF.app.getSpec());
+            ok(/Đã mở thông số của tủ/.test(sP) && !/thiếu/.test(sP) && /vẽ ở bản 1\.40\.0 \(thùng riêng/.test(sP) && /rộng 610 \(trước 635\)/.test(sP) && spP.rong === 610 && !('mrb_thung' in spP.bep), 'Sửa khoang MRB thùng riêng: dò đủ tấm, bảng về hốc 610 + báo', [sP, spP.rong]);
+            await H.locator('.tab[data-tab="tu"]').click();
+            if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+            await H.locator('.tab[data-tab="kq"]').click(); }
           await H.locator('[data-act="undo"]').click();
           await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 });
           ok((await vungX(X5 + 65000)) === 0, 'hoàn tác khoang máy rửa bát: sạch');
+          await H.locator('.tab[data-tab="tu"]').click(); }
+        // (h2) (bản 1.40.1) khoang máy rửa bát HỐC KHÔNG THÙNG (mặc định): module chỉ cánh ốp + xà chân ốp — vẽ xong đủ 2 tấm, gom module, dò lỗi không báo oan
+        // (cánh / xà chân gá vào máy, không tì tấm nào), hoàn tác sạch
+        { await page.evaluate(() => { const C = window.MNCFCore; window.MNCF.app.setSpec(C.apMau(C.DEFAULT_SPEC, 'BD-MRB-610')); });
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+          if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+          await H.locator('#mncf-ui-ax').fill(String(X5 + 72000)); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0');
+          await H.locator('footer [data-act="draw"]').click();
+          await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1; }, X5 + 72000, { timeout: 30000 });
+          await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+          const bc = await H.locator('.report').innerText();
+          const kM = await page.evaluate(id => { const D = window.MNCFDriver, es = D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase);
+            return { n: es.length, ten: es.map(e => e.Name).sort(), can: window.MNCF.app.getModel().parts.length }; }, await page.evaluate(() => window.MNCFDriver.last.id));
+          ok(/Đã vẽ xong/.test(bc) && (await H.locator('.report .msg.err').count()) === 0 && kM.n === 2 && kM.can === 2, 'hốc máy rửa bát: vẽ xong 2 tấm (cánh ốp + xà chân ốp), không dòng đỏ', [kM, bc]);
+          ok(!/(lơ lửng|chưa có lỗ|đè lên|va chạm|không áp vào)/.test(bc), 'hốc máy rửa bát: dò lỗi không báo oan', bc);
+          // (vòng soát 1.40.1) module chỉ 2 tấm: D.locate đòi khớp ≥ 3 tấm → Cập nhật tủ này / Sửa tủ đang chọn luôn "Chỉ khớp được 2/2 tấm". Nay tủ < 3 tấm phải khớp đủ mọi tấm
+          { const idH = await page.evaluate(() => window.MNCFDriver.last.id);
+            const lc = await page.evaluate(id => { const L = window.MNCFDriver.locate(id, window.MNCF.app.getModel()); return { ok: L.ok, n: L.boards ? L.boards.length : 0, r: L.reason || '' }; }, idH);
+            ok(lc.ok && lc.n === 2, 'hốc máy rửa bát: D.locate khớp 2/2 tấm', lc);
+            await H.locator('.tab[data-tab="tu"]').click();
+            await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.cao = 850; window.MNCF.app.setSpec(s); });
+            await H.locator('[data-act="redraw"]').click();
+            await page.waitForFunction(() => /Đã cập nhật|Chưa cập nhật/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
+            const su = await H.locator('.status').innerText();
+            ok(/Đã cập nhật tủ tại chỗ/.test(su), 'hốc máy rửa bát: Cập nhật tủ này (Cao 850) được', su);
+            await H.locator('.tab[data-tab="tu"]').click();      // Cập nhật xong bảng sang thẻ Kết quả — Thôi sửa / Sửa nằm ở chân thẻ Tủ
+            if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+            await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idH);
+            if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();
+            await H.locator('[data-act="pick"]').click();
+            const sp2 = await H.locator('.status').innerText();
+            ok(/Đã mở thông số của tủ/.test(sp2) && !/thiếu/.test(sp2) && (await page.evaluate(() => window.MNCF.app.getSpec().cao)) === 850, 'hốc máy rửa bát: Sửa tủ đang chọn mở lại đúng (Cao 850)', sp2);
+            await H.locator('.tab[data-tab="tu"]').click();
+            if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+            // hoàn tác lần Cập nhật chỉ trả về tủ trước đó → xoá thẳng mọi thứ trong vùng thử
+            await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x && e.box[0] < x + 90000)); }, X5 + 71000);
+            ok((await vungX(X5 + 71000)) === 0, 'hốc máy rửa bát: dọn sạch'); }
           await H.locator('.tab[data-tab="tu"]').click(); }
         // (i) (vòng soát 1.40.0) BỘ thân liền (mặc định) có "+ MRB": trước — kiemDoan coi khoang MRB như tủ thường, LỖI "tủ chậu lệch cao độ" (mặt dưới thanh trước
         // 770 / giằng nằm 822,5) ở mọi bộ có MRB → khoá Vẽ. Nay vẽ được: không dòng đỏ, đủ tấm, đúng chỗ, không chồng, dò lỗi một lần không mục lỗi, hoàn tác sạch
@@ -1837,6 +1888,10 @@ async function chonBepExt(page, H, ma) {
           const coM = await page.evaluate(() => window.MNCF.app.getBoKq().pa[0].ds.some(x => x.chuc === 'mrb'));
           ok(coM && rM && rM.ok && RM.da_ve.length > 0 && vM.tu.every(t => t.n === t.can) && vM.lech.length === 0 && vM.chong.length === 0, 'bộ thân liền + MRB: vẽ xong, đủ tấm, đúng chỗ, không chồng', [rM, await st(), vM.lech, vM.chong]);
           ok((await dem()).doLoi === 1 && !/lỗi —/.test(await st()), 'bộ thân liền + MRB: dò lỗi một lần, không mục lỗi', await st());
+          // (bản 1.40.1) khoang MRB là hốc không thùng: trên bản vẽ chỉ có cánh ốp + xà chân ốp mang mã của nó; hai bên là hồi của tủ kề
+          { const kq = await page.evaluate(() => { const D = window.MNCFDriver, R = window.MNCF.app.getBoVe(), m = window.MNCF.app.getBoKq().pa[0].ds.find(x => x.chuc === 'mrb'), r = R.da_ve.find(x => x.vt === m.vt || (x.khoang || []).indexOf(m.vt) >= 0);
+              return r ? D.all().filter(b => D.isBoard(b) && D.tagOf(b) === r.id && !b.IsErase).map(e => e.Name).sort() : null; });
+            ok(kq && kq.length === 2 && kq.some(x => /Cánh/.test(x)) && kq.some(x => /Xà chân/.test(x)), 'bộ + MRB: khoang MRB trên bản vẽ = cánh ốp + xà chân ốp (không hồi / giằng)', kq); }
           await hoanTacB();
           ok((await vungX(X5 - 5000)) === n0, 'Hoàn tác bộ B40M: sạch (vùng về như trước khi vẽ)', [await vungX(X5 - 5000), n0]); }
         await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x - 5000 && e.box[0] < x + 90000)); }, X5);

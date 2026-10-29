@@ -814,7 +814,9 @@
       const coPick = !pick || hit.includes(pick);
       if (!best || (coPick && !best.coPick) || (coPick === best.coPick && hit.length > best.boards.length)) best = { offset: off, boards: hit, coPick };
     }
-    if (!best || best.boards.length < Math.max(3, Math.ceil(parts.length * 0.5)))
+    // (vòng soát 1.40.1) tủ ít hơn 3 tấm (hốc máy rửa bát: cánh ốp + xà chân ốp) phải khớp ĐỦ mọi tấm — trước đòi ≥ 3 tấm nên tủ 2 tấm không bao giờ dò lại được
+    const can = parts.length < 3 ? parts.length : Math.max(3, Math.ceil(parts.length * 0.5));
+    if (!best || !best.boards.length || best.boards.length < can)
       return { ok: false, reason: `Chỉ khớp được ${best ? best.boards.length : 0}/${parts.length} tấm với thông số lúc vẽ — tủ đã bị xoay hoặc sửa tay nhiều, không cập nhật tại chỗ được. Hãy xoá tủ cũ rồi vẽ lại.`, khop: best ? best.boards.length : 0, tong: parts.length };
     return { ok: true, offset: best.offset.map(r2), boards: best.boards, thieu: parts.length - best.boards.length, tong: parts.length, khung: kh };
   };
