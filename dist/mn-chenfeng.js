@@ -3312,7 +3312,7 @@
       const t = num(spec.van && spec.van.t, DEFAULT_SPEC.van.t), ph = spec.phao && typeof spec.phao === 'object' ? spec.phao : {}, R = num(spec.rong, NaN);
       const w = R - Math.max(0, num(ph.trai, 0)) - Math.max(0, num(ph.phai, 0)), m = MRB_BEP_CU.may.find(q => isFinite(w) && Math.abs(w - (q.hoc + 2 * t)) < 0.5);
       const moi = m ? MRB_BEP.may[0].hoc : null, rMoi = moi ? Math.round((R - w + moi) * 100) / 100 : null;
-      if (moi) { spec.rong = rMoi; if (spec.bep.nep && typeof spec.bep.nep === 'object' && num(spec.bep.nep.thung, 0) > 0) spec.bep.nep = Object.assign({}, spec.bep.nep, { thung: moi }); }      // nep.thung = bề thùng ghi lần đầu — giữ nó là normBep co nẹp thay hốc
+      if (moi) { spec.rong = rMoi; if (spec.bep.nep && typeof spec.bep.nep === 'object' && num(spec.bep.nep.thung, 0) > 0) spec.bep.nep = Object.assign({}, spec.bep.nep, { thung: moi }); tenMrb(spec); }      // nep.thung = bề thùng ghi lần đầu — giữ nó là normBep co nẹp thay hốc
       doi.push(`Khoang máy rửa bát nay là HỐC KHÔNG THÙNG (bản 1.40.1 — hai thành hốc là hồi tủ kề, module chỉ còn cánh ốp, chân hốc để hở — bản 1.40.2)${moi ? (rMoi === moi ? `: rộng ${g(R)} → hốc ${g(moi)}` : `: rộng ${g(R)} → ${g(rMoi)} (hốc ${g(moi)})`) : ''}${m && m.co !== MRB_BEP.may[0].co ? ' — máy rửa bát chỉ còn một cỡ hốc 610 (bản 1.40.2)' : ''} — đặt khoang giữa hai tủ có hồi.`);
     }
     if (isFinite(v) && v >= soBan('1.40.1') && v < soBan('1.40.2') && spec.loai_sp === 'bep' && spec.bep && typeof spec.bep === 'object' && (spec.bep.tang || DEFAULT_BEP.tang) === 'duoi' && spec.bep.chuc_nang === 'mrb' && spec.bep.mrb_thung !== 1) {
@@ -3323,6 +3323,7 @@
       if (isFinite(w) && mrbMay(w, { mrb_45: 1 }).co === 450) {
         const moi = MRB_BEP.may[0].hoc, rMoi = Math.round((R - w + moi) * 100) / 100; spec.rong = rMoi;
         if (spec.bep.nep && typeof spec.bep.nep === 'object' && num(spec.bep.nep.thung, 0) > 0) spec.bep.nep = Object.assign({}, spec.bep.nep, { thung: moi });
+        tenMrb(spec);
         doiCo = ` Máy 45 / hốc ${g(w)} không còn — chỉ một cỡ hốc 610: rộng ${g(R)} → ${rMoi === moi ? `hốc ${g(moi)}` : `${g(rMoi)} (hốc ${g(moi)})`}.`;
       }
       doi.push(`Khoang máy rửa bát (bản 1.40.2): bỏ xà chân ốp — chân dưới cánh ốp để hở (lộ chân máy / tấm che chân đi kèm máy).${doiCo}`);
@@ -4023,6 +4024,14 @@
   const bangMrb = B => (B && B.mrb_thung === 1 ? MRB_BEP_CU : B && B.mrb_45 === 1 ? MRB_BEP_141 : MRB_BEP);
   // phần GIỮA hai phào (rộng − nẹp / ốp hông) của khoang máy rửa bát — nangCap / specDaVe đổi hốc theo nó (vòng soát 1.40.1)
   const mrbGiua = sp => { const ph = sp.phao && typeof sp.phao === 'object' ? sp.phao : {}; return num(sp.rong, NaN) - Math.max(0, num(ph.trai, 0)) - Math.max(0, num(ph.phai, 0)); };
+  // (vòng soát 1.40.2) tên MẪU khoang MRB theo hốc 610 — file / tủ cũ mang tên mẫu "Khoang máy rửa bát 45 (hốc 460)" (1.40.1), "… 45 (hốc 450)" / "… 60 (hốc 600)"
+  // (1.40.0): rộng đã về hốc 610 mà tên còn nói máy 45 (tóm tắt, hình 3D, khoTu). Chỉ đổi tên đúng dạng tên mẫu; tên người dùng gõ thì giữ. Trả true khi đổi.
+  const tenMrb = sp => {
+    if (!sp || typeof sp !== 'object' || !sp.bep || typeof sp.bep !== 'object' || sp.bep.chuc_nang !== 'mrb' || sp.bep.mrb_thung === 1) return false;
+    const m = MRB_BEP.may[0], moi = `Khoang máy rửa bát ${m.co / 10} (hốc ${m.hoc})`;
+    if (typeof sp.ten !== 'string' || sp.ten === moi || !/^Khoang máy rửa bát \d+ \(hốc [\d.,]+\)$/.test(sp.ten)) return false;
+    sp.ten = moi; return true;
+  };
   const mrbMay = (lot, B) => bangMrb(B).may.reduce((a, m) => (Math.abs(m.hoc - lot) < Math.abs(a.hoc - lot) - TOL ? m : a));
   /** (bản 1.40.1) tủ / thông số là khoang máy rửa bát KHÔNG THÙNG (hốc giữa hai tủ kề) — tủ vẽ ở 1.40.0 mang mrb_thung = 1 (thùng riêng). */
   const laMrbHoc = s => !!(s && s.loai_sp === 'bep' && s.bep && s.bep.tang === 'duoi' && s.bep.chuc_nang === 'mrb' && s.bep.mrb_thung !== 1);
@@ -7141,7 +7150,7 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { MRB_BEP, coKhauHoi, coXaLien, sigSpec, DV_BEP, MAC_DINH_BEP_CU4, DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, keoTay, tayKeoDuoc, tayMRB, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, hopDonVi, chongDonVi, phaCapNhat, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { MRB_BEP, tenMrb, coKhauHoi, coXaLien, sigSpec, DV_BEP, MAC_DINH_BEP_CU4, DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, keoTay, tayKeoDuoc, tayMRB, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, hopDonVi, chongDonVi, phaCapNhat, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });
 
 /*!
@@ -13586,6 +13595,8 @@
       } catch (e) { /* không lưu được thì thôi */ }
     },
   };
+  // (vòng soát 1.40.2) thông số LÚC VẼ của tủ đã lưu (null = máy này không có): specDaVe theo bản đã vẽ — dò / gỡ tủ cũ phải dựng đúng hình lúc vẽ
+  const specTuDaVe = id => { const l = khoTu.get(id); if (!l || !l.spec) return null; try { return Core.normalize(Core.specDaVe(l.spec, l.ban)); } catch (e) { return l.spec; } };
   // (1.33) đổ màu cần biết tấm thuộc tủ chậu nào (giữ ván chống ẩm của thùng) — kể cả tủ vẽ từ phiên trước: đọc thông số đã lưu của tủ theo mã trên tấm
   if (Drv) { try { Drv.specTuLuu = id => { const l = khoTu.get(id); return l && l.spec ? Core.normalize(l.spec) : null; }; } catch (e) { /* bỏ qua */ } }
 
@@ -15615,7 +15626,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const xaMrb = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.xa_mrb === 1;
       if (xaMrb) delete spec.bep.xa_mrb;
       if (mrb45) { delete spec.bep.mrb_45; const w = spec.rong - spec.phao.trai - spec.phao.phai; spec.rong = Math.round((spec.rong - w + 610) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = 610; }
-      if (mrbThung) { delete spec.bep.mrb_thung; const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, moi = Math.abs(w - (600 + 2 * t)) < 0.5 || Math.abs(w - (450 + 2 * t)) < 0.5 ? 610 : null; if (moi) { spec.rong = Math.round((spec.rong - w + moi) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = moi; } }      // (vòng soát 1.40.1) nep.thung theo hốc mới — không thì normBep co nẹp, hốc giữ 635
+      if (mrbThung) { delete spec.bep.mrb_thung; const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, moi = Math.abs(w - (600 + 2 * t)) < 0.5 || Math.abs(w - (450 + 2 * t)) < 0.5 ? 610 : null; if (moi) { spec.rong = Math.round((spec.rong - w + moi) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = moi; } }
+      if (mrb45 || mrbThung) Core.tenMrb(spec);      // (vòng soát 1.40.2) tên mẫu cũ "… 45 (hốc 460)" theo hốc 610 — noi.spec giữ tên lúc vẽ
+      // (vòng soát 1.40.1) nep.thung theo hốc mới — không thì normBep co nẹp, hốc giữ 635
       // (vòng soát 1.37.3) tủ trên vẽ kiểu thanh treo cũ trong khi chuẩn đang âm dương: giữ như lúc vẽ (Cập nhật đúng tủ), nói ra + lối đổi
       const treoGiu = specCu.loai_sp === 'bep' && !!specCu.bep && specCu.bep.tang === 'tren' && specCu.bep.treo === 'thanh' && (docChuanBep().treo || Core.DEFAULT_BEP.treo) !== 'thanh';
       // (bản 1.39.0) tủ dưới vẽ kiểu hồi xuống sàn trong khi chuẩn đang khung đế ván: giữ như lúc vẽ, nói ra + lối đổi
@@ -19142,7 +19155,9 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       const pa = paBo(tinhBo()); if (!pa || loiBo(pa).length) { setStatus('Bộ còn LỖI (dòng đỏ) — sửa xong mới cập nhật được.'); return null; }
       let ds = null; try { ds = Core.datDay(boKem(), pa, boVe.cho, { nen: nenBo() }); } catch (e) { ds = null; }
       if (!ds) { setStatus('Chưa tính được chỗ đặt các tủ của bộ.'); return null; }
-      const specCu = id => { const l = khoTu.get(id); return l && l.spec ? l.spec : null; };
+      // (vòng soát 1.40.2) thông số LÚC VẼ = specDaVe(bản lưu, bản đã vẽ) như Sửa tủ đang chọn — bản lưu thô qua lõi mới dựng hình khác lúc vẽ (hốc 1.40.1 mất xà chân
+      // ốp, thùng riêng 1.40.0 thành hốc): driver dò / gỡ tủ cũ theo hộp bao đó → tấm cũ nằm ngoài hộp còn sót trên bản vẽ, mang mã tủ
+      const specCu = specTuDaVe;
       // (bản 1.38.0) ĐOẠN thân liền mới / dời chỗ: gom các tủ cũ nằm trong đoạn → driver bỏ chúng rồi vẽ đoạn, TỪNG ĐOẠN một (dừng giữa chừng chỉ dở một đoạn).
       // (vòng soát 2 — 1.38.0) kế hoạch là hàm thuần Core.phaCapNhat: tủ cũ CHỒNG HỘP THẬT với đơn vị vẽ ở pha sớm hơn thì bỏ ngay trước pha đó (mã vị trí đánh lại
       // khi chèn / bỏ khoang — gom theo tên để chậu cũ "A6" vào đoạn của kệ "A6" mới trong khi chậu mới A7 đã vẽ ở pha trước: dừng giữa chừng là hai chậu chồng khít)
@@ -19188,7 +19203,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!Drv || busy || !boBep || typeof Drv.xoaDay !== 'function') return null;
       locBoVe();
       if (!boVeCo()) { setStatus('Bộ này không còn tủ nào trên bản vẽ.'); boVe = null; capBoNut(); return null; }
-      const dv = boVe, ds = dv.da_ve.map(y => { const l = khoTu.get(y.id); return { vt: y.vt, id: y.id, spec: l && l.spec ? l.spec : null }; });
+      const dv = boVe, ds = dv.da_ve.map(y => ({ vt: y.vt, id: y.id, spec: specTuDaVe(y.id) }));      // (vòng soát 1.40.2) thông số lúc vẽ
       busy = true; capBoNut(); lastRep = null; capKQ();
       let kq; try { kq = await Drv.xoaDay(ds, { onStatus: t => setStatus(`Bộ ${dv.ma}: ${t}`) }); } catch (e) { kq = { ok: false, xoa: [], mat: [], con: ds.map(x => x.vt), loi: String(e && e.message || e) }; }
       busy = false;

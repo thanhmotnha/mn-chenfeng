@@ -103,6 +103,8 @@
       } catch (e) { /* không lưu được thì thôi */ }
     },
   };
+  // (vòng soát 1.40.2) thông số LÚC VẼ của tủ đã lưu (null = máy này không có): specDaVe theo bản đã vẽ — dò / gỡ tủ cũ phải dựng đúng hình lúc vẽ
+  const specTuDaVe = id => { const l = khoTu.get(id); if (!l || !l.spec) return null; try { return Core.normalize(Core.specDaVe(l.spec, l.ban)); } catch (e) { return l.spec; } };
   // (1.33) đổ màu cần biết tấm thuộc tủ chậu nào (giữ ván chống ẩm của thùng) — kể cả tủ vẽ từ phiên trước: đọc thông số đã lưu của tủ theo mã trên tấm
   if (Drv) { try { Drv.specTuLuu = id => { const l = khoTu.get(id); return l && l.spec ? Core.normalize(l.spec) : null; }; } catch (e) { /* bỏ qua */ } }
 
@@ -2132,7 +2134,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const xaMrb = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.xa_mrb === 1;
       if (xaMrb) delete spec.bep.xa_mrb;
       if (mrb45) { delete spec.bep.mrb_45; const w = spec.rong - spec.phao.trai - spec.phao.phai; spec.rong = Math.round((spec.rong - w + 610) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = 610; }
-      if (mrbThung) { delete spec.bep.mrb_thung; const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, moi = Math.abs(w - (600 + 2 * t)) < 0.5 || Math.abs(w - (450 + 2 * t)) < 0.5 ? 610 : null; if (moi) { spec.rong = Math.round((spec.rong - w + moi) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = moi; } }      // (vòng soát 1.40.1) nep.thung theo hốc mới — không thì normBep co nẹp, hốc giữ 635
+      if (mrbThung) { delete spec.bep.mrb_thung; const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, moi = Math.abs(w - (600 + 2 * t)) < 0.5 || Math.abs(w - (450 + 2 * t)) < 0.5 ? 610 : null; if (moi) { spec.rong = Math.round((spec.rong - w + moi) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = moi; } }
+      if (mrb45 || mrbThung) Core.tenMrb(spec);      // (vòng soát 1.40.2) tên mẫu cũ "… 45 (hốc 460)" theo hốc 610 — noi.spec giữ tên lúc vẽ
+      // (vòng soát 1.40.1) nep.thung theo hốc mới — không thì normBep co nẹp, hốc giữ 635
       // (vòng soát 1.37.3) tủ trên vẽ kiểu thanh treo cũ trong khi chuẩn đang âm dương: giữ như lúc vẽ (Cập nhật đúng tủ), nói ra + lối đổi
       const treoGiu = specCu.loai_sp === 'bep' && !!specCu.bep && specCu.bep.tang === 'tren' && specCu.bep.treo === 'thanh' && (docChuanBep().treo || Core.DEFAULT_BEP.treo) !== 'thanh';
       // (bản 1.39.0) tủ dưới vẽ kiểu hồi xuống sàn trong khi chuẩn đang khung đế ván: giữ như lúc vẽ, nói ra + lối đổi
@@ -5659,7 +5663,9 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       const pa = paBo(tinhBo()); if (!pa || loiBo(pa).length) { setStatus('Bộ còn LỖI (dòng đỏ) — sửa xong mới cập nhật được.'); return null; }
       let ds = null; try { ds = Core.datDay(boKem(), pa, boVe.cho, { nen: nenBo() }); } catch (e) { ds = null; }
       if (!ds) { setStatus('Chưa tính được chỗ đặt các tủ của bộ.'); return null; }
-      const specCu = id => { const l = khoTu.get(id); return l && l.spec ? l.spec : null; };
+      // (vòng soát 1.40.2) thông số LÚC VẼ = specDaVe(bản lưu, bản đã vẽ) như Sửa tủ đang chọn — bản lưu thô qua lõi mới dựng hình khác lúc vẽ (hốc 1.40.1 mất xà chân
+      // ốp, thùng riêng 1.40.0 thành hốc): driver dò / gỡ tủ cũ theo hộp bao đó → tấm cũ nằm ngoài hộp còn sót trên bản vẽ, mang mã tủ
+      const specCu = specTuDaVe;
       // (bản 1.38.0) ĐOẠN thân liền mới / dời chỗ: gom các tủ cũ nằm trong đoạn → driver bỏ chúng rồi vẽ đoạn, TỪNG ĐOẠN một (dừng giữa chừng chỉ dở một đoạn).
       // (vòng soát 2 — 1.38.0) kế hoạch là hàm thuần Core.phaCapNhat: tủ cũ CHỒNG HỘP THẬT với đơn vị vẽ ở pha sớm hơn thì bỏ ngay trước pha đó (mã vị trí đánh lại
       // khi chèn / bỏ khoang — gom theo tên để chậu cũ "A6" vào đoạn của kệ "A6" mới trong khi chậu mới A7 đã vẽ ở pha trước: dừng giữa chừng là hai chậu chồng khít)
@@ -5705,7 +5711,7 @@ ${svgMB(b, pa, Q)}${L && pa ? `<div class="bochip botab" role="group" aria-label
       if (!Drv || busy || !boBep || typeof Drv.xoaDay !== 'function') return null;
       locBoVe();
       if (!boVeCo()) { setStatus('Bộ này không còn tủ nào trên bản vẽ.'); boVe = null; capBoNut(); return null; }
-      const dv = boVe, ds = dv.da_ve.map(y => { const l = khoTu.get(y.id); return { vt: y.vt, id: y.id, spec: l && l.spec ? l.spec : null }; });
+      const dv = boVe, ds = dv.da_ve.map(y => ({ vt: y.vt, id: y.id, spec: specTuDaVe(y.id) }));      // (vòng soát 1.40.2) thông số lúc vẽ
       busy = true; capBoNut(); lastRep = null; capKQ();
       let kq; try { kq = await Drv.xoaDay(ds, { onStatus: t => setStatus(`Bộ ${dv.ma}: ${t}`) }); } catch (e) { kq = { ok: false, xoa: [], mat: [], con: ds.map(x => x.vt), loi: String(e && e.message || e) }; }
       busy = false;

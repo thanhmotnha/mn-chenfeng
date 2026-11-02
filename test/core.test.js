@@ -5621,5 +5621,23 @@ T('Chỉ hốc máy rửa bát 610 (bản 1.40.2)', () => {
     ok(M.notes.some(x => /đá tự đỡ/.test(x) && /không thanh đỡ/.test(x)), 'ghi chú hốc: đá tự đỡ, không thanh đỡ (anh chốt)', M.notes); }
 });
 
+T('Chỉ hốc máy rửa bát 610 — vòng soát (bản 1.40.2)', () => {
+  const k = require.resolve('../src/mncf-core.js'), cu = require.cache[k]; delete require.cache[k]; const C = require(k); require.cache[k] = cu;
+  const ap = m => C.apMau(C.DEFAULT_SPEC, m);
+  // (vòng soát 1.40.2) tên mẫu cũ "Khoang máy rửa bát 45 (hốc 460)" / "(hốc 450)" / "60 (hốc 600)" ở lại sau khi rộng đã về hốc 610 → tóm tắt, hình 3D, khoTu
+  // vẫn nói máy 45. tenMrb đổi tên MẪU (đúng mẫu cũ) sang tên mẫu 610; tên người dùng gõ thì giữ.
+  const MOI = 'Khoang máy rửa bát 60 (hốc 610)';
+  eq(ap('BD-MRB-610').ten, MOI, 'tên mẫu 610');
+  const s460 = () => { const s = ap('BD-MRB-610'); s.rong = 460; s.ten = 'Khoang máy rửa bát 45 (hốc 460)'; return s; };
+  { const r = C.nangCap(s460(), '1.40.1'); eq([r.spec.rong, r.spec.ten], [610, MOI], 'nangCap file 1.40.1 hốc 460: tên theo hốc 610'); ok(!/hốc 460|máy rửa bát 45/.test(C.summary(C.build(r.spec)).join(' ')), 'tóm tắt không còn máy 45'); }
+  { const s = ap('BD-MRB-610'); s.rong = 485; s.ten = 'Khoang máy rửa bát 45 (hốc 450)'; eq(C.nangCap(s, '1.40.0').spec.ten, MOI, 'nangCap file 1.40.0 thùng 485: tên theo hốc 610'); }
+  { const s = ap('BD-MRB-610'); s.rong = 635; s.ten = 'Khoang máy rửa bát 60 (hốc 600)'; eq(C.nangCap(s, '1.40.0').spec.ten, MOI, 'nangCap file 1.40.0 thùng 635: tên theo hốc 610'); }
+  { const s = s460(); s.ten = 'MRB nhà chị Lan'; eq(C.nangCap(s, '1.40.1').spec.ten, 'MRB nhà chị Lan', 'tên người dùng gõ: giữ'); }
+  { const s = ap('BD-CANH-600'), t = s.ten; ok(!C.tenMrb(s) && s.ten === t, 'tủ không phải MRB: tenMrb không đổi'); }
+  { const s = s460(); ok(C.tenMrb(s) && s.ten === MOI, 'tenMrb trả true khi đổi'); ok(!C.tenMrb(s), 'lần hai: không đổi'); }
+  // specDaVe KHÔNG đổi tên (tủ đã vẽ: dò theo hình, tên như lúc vẽ cho tới khi bảng chuyển)
+  eq(C.specDaVe(s460(), '1.40.1').ten, 'Khoang máy rửa bát 45 (hốc 460)', 'specDaVe giữ tên lúc vẽ');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);
