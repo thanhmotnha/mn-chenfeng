@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.40\.1/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.40\.2/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -1959,6 +1959,16 @@ async function testBoBep(browser) {
       await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move(a[0] + 2, a[1]); await page.mouse.move(x, y, { steps: 10 }); await page.mouse.up(); await page.waitForTimeout(80);
       const bl = await bo(); ok(a1 && bl.chia === 'tay' && bl.tay.canh[0].duoi.some(q => q.id === id) && !bl.tay.canh[1].duoi.some(q => q.id === id), 'thả lên tủ góc cạnh A: khoang ở lại cạnh A', bl.tay && bl.tay.canh.map(c => c.duoi.map(q => q.id)));
       ok(!/cạnh B/.test(await S(page, '.status').textContent()), 'lời báo không nói sang cạnh B', await S(page, '.status').textContent()); }
+    // (c0) (bản 1.40.2 — anh Thanh 02/11/2026: "chỉ 610 thôi") bộ lưu mang máy rửa bát 45 (mrb 450) → 600 + một dòng báo; bước sửa kế tiếp thì thôi báo (bộ đã lưu 600);
+    // Tự chia không đủ chỗ: không còn nút "Máy rửa bát 45"
+    { await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B6', kieu: 'I', canh: [{ dai: 4800 }], tl: null, mrb: 450 }); await cho(); await page.waitForTimeout(120);
+      const b0 = await bo(), d = S(page, '.bomsgs [data-ui="bo-mrb-sua"]');
+      ok(b0.mrb === 600 && !('mrb_sua' in b0) && (await d.count()) === 1 && /chỉ một cỡ hốc 610/.test(await d.textContent()), 'bộ mrb 450 → 600 + một dòng báo', [b0.mrb, await d.count()]);
+      ok((await kq()).pa[0].ds.filter(x => x.chuc === 'mrb').map(x => x.ma).join() === 'BD-MRB-610', 'khoang MRB 610');
+      await S(page, '[data-act="bo-led"]').click(); await cho(); await S(page, '[data-act="bo-led"]').click(); await cho();
+      ok((await S(page, '.bomsgs [data-ui="bo-mrb-sua"]').count()) === 0, 'bước sửa kế tiếp: thôi báo');
+      await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B6', kieu: 'I', canh: [{ dai: 2975, dau: 'ho', cuoi: 'tuong' }], tl: { may: 'am_560', canh: 0, dau: 'cuoi' }, ke: true, mrb: 600 }); await cho(); await page.waitForTimeout(120);
+      ok((await S(page, '[data-act="bo-sua-mrb45"]').count()) === 0 && !/máy 45|hốc 460/.test(await S(page, '.bov').textContent()), 'không nút / chữ máy 45'); }
     // (c) "+ MRB" ở Tự chia mà dãy không đủ chỗ: vẫn có dãy + cảnh báo nói do MRB + nút sửa nhanh "Từng khoang + MRB" (một bước ↶ Lùi) → Từng khoang có MRB, không LỖI
     { await page.evaluate(o => window.MNCF.app.setBo(o), { ma: 'B6', kieu: 'I', canh: [{ dai: 2975 /* (1.40.1) hốc 610 nay vừa dãy 3000 */, dau: 'ho', cuoi: 'tuong' }], tl: { may: 'am_560', canh: 0, dau: 'cuoi' }, ke: true, mrb: 600 }); await cho(); await page.waitForTimeout(120);
       const k = await kq(); ok(k.pa.length > 0 && !k.pa[0].ds.some(x => x.chuc === 'mrb'), 'MRB không vừa: vẫn có dãy (không MRB)', k.loi_chung);

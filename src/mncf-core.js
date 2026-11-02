@@ -12,7 +12,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '1.40.1';
+  const VERSION = '1.40.2';
   const TOL = 0.011;
   const rn = (v, d = 3) => { const k = Math.pow(10, d); return Math.round((v + Number.EPSILON) * k) / k; };
   const g = v => String(rn(v, 2)).replace('.', ',');
@@ -532,7 +532,7 @@
     let DV = !!B && B.tang === 'duoi' && B.ket_cau_chan === 'de_van';
     if (DV && sanK.some(Boolean)) { DV = false; if (!MRB) note('Tủ có khoang hốc xuống sàn (không đáy): dựng kiểu hồi xuống sàn — khung đế ván + đáy liền không áp được.', 'bep'); }
     const KMRB = MRB && !HOC_MRB && B.ket_cau_chan === 'de_van' && chan > 0, luiMRB = B ? Math.max(B.len_lui, tc) : 0;      // (1.40.0) chân hồi MRB khoét khấu cho xà chân liền
-    if (HOC_MRB) note(`Khoang máy rửa bát (bản 1.40.1): HỐC KHÔNG THÙNG rộng ${g(rn(W - pL - pR))} giữa hai hồi tủ kề${B.op ? ' (phía đầu dãy hở: tấm ốp hông làm thành hốc)' : ''} — máy đứng sàn, ống ra tường; đá nhịp hốc tự đỡ trên hai hồi đó (ván lót / thanh trước không chạy qua hốc), máy bắt bát vào hông hai hồi; module chỉ gồm cánh ốp gắn cửa máy + xà chân ốp tháo rời [CĐ cỡ hốc 610 × 815 × 550 anh chốt; máy 45: hốc 460 chưa chốt; bộ gá cánh ốp].`, 'bep');
+    if (HOC_MRB) note(`Khoang máy rửa bát (bản 1.40.1): HỐC KHÔNG THÙNG rộng ${g(rn(W - pL - pR))} giữa hai hồi tủ kề${B.op ? ' (phía đầu dãy hở: tấm ốp hông làm thành hốc)' : ''} — máy đứng sàn, ống ra tường; đá nhịp hốc tự đỡ trên hai hồi đó (ván lót / thanh trước không chạy qua hốc), máy bắt bát vào hông hai hồi; module chỉ gồm cánh ốp gắn cửa máy + xà chân ốp tháo rời. Hốc 610 × 815 × 550 (anh Thanh chốt 29/10/2026, chỉ một cỡ — 02/11/2026); đá tự đỡ, không thanh đỡ (anh chốt 02/11/2026) [CĐ bộ gá cánh ốp].`, 'bep');
     else if (MRB) note(`Khoang máy rửa bát: hồi xuống sàn, không đáy / hậu / đợt (máy đứng sàn, ống ra tường), 2 giằng nằm trên đỉnh đỡ đá, cánh ốp gắn vào cửa máy${KMRB ? `; chân hai hồi khoét khấu ${g(luiMRB)} × ${g(chan)} cho xà chân liền (thẳng hàng xà chân các tủ khung đế ván)` : ''} [CĐ cỡ hốc, cao máy, bộ gá cánh ốp].`, 'bep');
     const catHau = i => hocO(i).filter(c => !c.hau).map(c => { const zT = (s.khoang[i].dot || []).find(z => z > c.tu + TOL); return [c.tu > 0 ? c.tu : null, zT === undefined ? null : zT]; });
     const doanZ = (a, b2, cuts) => {      // [a, b2] trừ các khoảng cắt → các đoạn còn lại (bỏ đoạn vụn < 50)
@@ -1117,7 +1117,7 @@
       const xa = trai ? 0 : W - p, xb = trai ? p : W, ben = trai ? 'trai' : 'phai';
       // (bản 1.34, tủ bếp) đầu dãy hở: TẤM ỐP HÔNG dày cánh thay phào — phẳng mặt cánh, xuống sàn (che chỗ lùi xà chân), chạy suốt chiều sâu
       if (B && B.op === ben) { P({ loai: 'OP', ten: 'Tấm ốp hông', than: lower.code, tu: lower.tu, type: 1, x0: xa, x1: xb, y0: -tc, y1: D, z0: 0, z1: H, khoan: KHONG_KHOAN, big: 0,
-        ghi_bep: HOC_MRB ? 'ốp hông đầu dãy hở làm THÀNH HỐC máy rửa bát (dày + màu như cánh) — bắt ke L xuống sàn + ke dưới đá, máy bắt bát vào mặt trong [CĐ]' : 'ốp hông đầu dãy hở (dày + màu như cánh) — keo + vít từ trong hồi, không khoan cam' }); return; }
+        ghi_bep: HOC_MRB ? 'ốp hông đầu dãy hở làm THÀNH HỐC máy rửa bát (dày + màu như cánh) — bắt ke L xuống sàn + ke dưới đá, máy bắt bát vào mặt trong [CĐ cách bắt]' : 'ốp hông đầu dãy hở (dày + màu như cánh) — keo + vít từ trong hồi, không khoan cam' }); return; }
       // (bản 1.40.1) hốc máy rửa bát không thùng sát tường (nẹp bù, không phải nẹp góc): không có hồi nào cho nẹp bắt và cho máy làm thành hốc → TẤM ỐP THÀNH HỐC dày
       // cánh đứng ở mép trong nẹp (y 0 … sâu, sàn … mặt dưới đá; chân khoét khấu cho xà chân dưới nẹp chạy liền qua), nẹp bắt vào mép trước nó — thay thanh phụ trợ.
       const thanhHoc = HOC_MRB && !(B.nep && B.nep.goc === ben) && p >= tc + 10 - TOL;
@@ -1131,7 +1131,7 @@
         if (thanhHoc && sg.b === lower) {
           const lui = Math.max(B.len_lui, tc);
           P(Object.assign({ loai: 'OP', ten: 'Tấm ốp thành hốc', than: lower.code, tu: lower.tu, type: 1, x0: trai ? p - tc : W - p, x1: trai ? p : W - p + tc, y0: 0, y1: D, z0: 0, z1: H, khoan: KHONG_KHOAN, big: 0, thanh_hoc: true,
-            ghi_bep: `tấm ốp làm THÀNH HỐC máy rửa bát phía tường (dày + màu như cánh)${chan > 0 ? ` — chân khoét khấu ${g(lui)} × ${g(chan)} cho xà chân dưới nẹp chạy qua` : ''}; nẹp bù keo + vít vào mép trước, bắt ke L xuống sàn + ke dưới đá, máy bắt bát vào mặt trong [CĐ]` },
+            ghi_bep: `tấm ốp làm THÀNH HỐC máy rửa bát phía tường — dày + màu như cánh (anh Thanh chốt 02/11/2026)${chan > 0 ? ` — chân khoét khấu ${g(lui)} × ${g(chan)} cho xà chân dưới nẹp chạy qua` : ''}; nẹp bù keo + vít vào mép trước, bắt ke L xuống sàn + ke dưới đá, máy bắt bát vào mặt trong [CĐ cách bắt]` },
             chan > 0 ? { khau_dung: [{ y0: 0, y1: rn(lui), z0: 0, z1: rn(chan), ten: 'Xà chân' }] } : {}));
           continue;
         }
@@ -2697,7 +2697,7 @@
     // (bản 1.35) cánh khung kính: lòng kính trong khung 4 thanh
     // (bản 1.40.0) khoang máy rửa bát: hình máy (nét đứt, sau cánh ốp) + chữ "MRB" giữa cánh ốp
     for (const p of M.parts) if (p.loai === 'CANH' && p.op_mrb) {
-      const h = ((M.info.bep && M.info.bep.hoc) || []).find(x => x.tb === 'mrb'), may = h ? mrbMay(h.lot, M.spec.bep && M.spec.bep.mrb_thung === 1) : null;
+      const h = ((M.info.bep && M.info.bep.hoc) || []).find(x => x.tb === 'mrb'), may = h ? mrbMay(h.lot, M.spec.bep) : null;
       if (h && may) { const x0 = rn((p.x0 + p.x1) / 2 - may.rong / 2), z1 = Math.min(h.z1, h.z0 + MRB_BEP.cao_min); o += `<rect data-mrb-may="1" x="${f(x0)}" y="${f(Y(z1))}" width="${f(may.rong)}" height="${f(z1 - h.z0)}" fill="none" stroke="#39424a" stroke-dasharray="${f(fs / 2)} ${f(fs / 3)}" stroke-opacity=".6"/>`; }
       o += `<text data-mrb="1" x="${f((p.x0 + p.x1) / 2)}" y="${f(Y((p.z0 + p.z1) / 2) + fs * 0.35)}" font-size="${f(fs * 1.1)}" text-anchor="middle" fill="#1f4d29" font-weight="700">MRB</text>`;
     }
@@ -3305,9 +3305,18 @@
       // (vòng soát 1.40.1) rộng module gồm cả nẹp bù / ốp hông (khoang "Mở thành tủ" từ bộ mang bep.nep / bep.op) — so phần GIỮA hai phào với hốc cũ + 2 hồi, như pick() của bảng
       const t = num(spec.van && spec.van.t, DEFAULT_SPEC.van.t), ph = spec.phao && typeof spec.phao === 'object' ? spec.phao : {}, R = num(spec.rong, NaN);
       const w = R - Math.max(0, num(ph.trai, 0)) - Math.max(0, num(ph.phai, 0)), m = MRB_BEP_CU.may.find(q => isFinite(w) && Math.abs(w - (q.hoc + 2 * t)) < 0.5);
-      const moi = m ? MRB_BEP.may.find(q => q.co === m.co).hoc : null, rMoi = moi ? Math.round((R - w + moi) * 100) / 100 : null;
+      const moi = m ? MRB_BEP.may[0].hoc : null, rMoi = moi ? Math.round((R - w + moi) * 100) / 100 : null;
       if (moi) { spec.rong = rMoi; if (spec.bep.nep && typeof spec.bep.nep === 'object' && num(spec.bep.nep.thung, 0) > 0) spec.bep.nep = Object.assign({}, spec.bep.nep, { thung: moi }); }      // nep.thung = bề thùng ghi lần đầu — giữ nó là normBep co nẹp thay hốc
-      doi.push(`Khoang máy rửa bát nay là HỐC KHÔNG THÙNG (bản 1.40.1 — hai thành hốc là hồi tủ kề, module chỉ còn cánh ốp + xà chân ốp)${moi ? (rMoi === moi ? `: rộng ${g(R)} → hốc ${g(moi)}` : `: rộng ${g(R)} → ${g(rMoi)} (hốc ${g(moi)})`) : ''} — đặt khoang giữa hai tủ có hồi.`);
+      doi.push(`Khoang máy rửa bát nay là HỐC KHÔNG THÙNG (bản 1.40.1 — hai thành hốc là hồi tủ kề, module chỉ còn cánh ốp + xà chân ốp)${moi ? (rMoi === moi ? `: rộng ${g(R)} → hốc ${g(moi)}` : `: rộng ${g(R)} → ${g(rMoi)} (hốc ${g(moi)})`) : ''}${m && m.co !== MRB_BEP.may[0].co ? ' — máy rửa bát chỉ còn một cỡ hốc 610 (bản 1.40.2)' : ''} — đặt khoang giữa hai tủ có hồi.`);
+    }
+    if (isFinite(v) && v >= soBan('1.40.1') && v < soBan('1.40.2') && spec.loai_sp === 'bep' && spec.bep && typeof spec.bep === 'object' && (spec.bep.tang || DEFAULT_BEP.tang) === 'duoi' && spec.bep.chuc_nang === 'mrb' && spec.bep.mrb_thung !== 1) {
+      // (bản 1.40.2 — anh Thanh 02/11/2026: "chỉ 610 thôi") file / mẫu lưu ở 1.40.1 với hốc 460 (máy 45, nay bỏ) → hốc 610, giữ nẹp / ốp hông; tủ ĐÃ VẼ: specDaVe giữ 460
+      const R = num(spec.rong, NaN), w = mrbGiua(spec);
+      if (isFinite(w) && mrbMay(w, { mrb_45: 1 }).co === 450) {
+        const moi = MRB_BEP.may[0].hoc, rMoi = Math.round((R - w + moi) * 100) / 100; spec.rong = rMoi;
+        if (spec.bep.nep && typeof spec.bep.nep === 'object' && num(spec.bep.nep.thung, 0) > 0) spec.bep.nep = Object.assign({}, spec.bep.nep, { thung: moi });
+        doi.push(`Khoang máy rửa bát: máy 45 / hốc ${g(w)} không còn — chỉ một cỡ hốc 610 (bản 1.40.2): rộng ${g(R)} → ${rMoi === moi ? `hốc ${g(moi)}` : `${g(rMoi)} (hốc ${g(moi)})`}.`);
+      }
     }
     if (isFinite(v) && v >= soBan('1.36.2') && v < soBan('1.36.3')) {
       // Bản 1.36.3 (anh Thanh 16/10/2026): thanh nằm sau khe tay nắm của táp → xà đứng cao TAP_XA. File / mẫu 1.36.2 theo chuẩn mới, báo một dòng (tủ ĐÃ VẼ: specDaVe giữ 0)
@@ -3376,6 +3385,11 @@
     }
     // (1.40.1) khoang máy rửa bát vẽ ở 1.40.0: thùng riêng (2 hồi + 2 giằng) — ghi mrb_thung 1 để dựng lại đúng như lúc vẽ (khoang MRB không bao giờ vào đoạn thân liền)
     if (!(isFinite(v) && v >= soBan('1.40.1')) && o.loai_sp === 'bep' && o.bep && typeof o.bep === 'object' && (o.bep.tang || DEFAULT_BEP.tang) === 'duoi' && o.bep.chuc_nang === 'mrb') o.bep.mrb_thung = 1;
+    // (1.40.2) hốc máy rửa bát vẽ ở 1.40.1 với máy 45 (hốc 460 — nay bỏ): ghi mrb_45 1 → kiemBep / bảng kê theo bảng máy 1.40.1 (không LỖI oan "Đặt tủ rộng 610",
+    // tên máy như lúc vẽ). Hình học không phụ thuộc máy — rộng giữ như lúc vẽ là Sửa dò ra; bảng đưa về 610 + báo (pick)
+    if (!(isFinite(v) && v >= soBan('1.40.2')) && o.loai_sp === 'bep' && o.bep && typeof o.bep === 'object' && (o.bep.tang || DEFAULT_BEP.tang) === 'duoi' && o.bep.chuc_nang === 'mrb' && o.bep.mrb_thung !== 1) {
+      const w = mrbGiua(o); if (isFinite(w) && mrbMay(w, { mrb_45: 1 }).co === 450) o.bep.mrb_45 = 1;
+    }
     return o;
   }
 
@@ -3985,14 +3999,21 @@
    * 1.40.0: module = hốc + 2 hồi (BD-MRB-635 / BD-MRB-485 với ván 17,5) — nay chỉ còn cho tủ vẽ ở 1.40.0 (`bep.mrb_thung = 1`, MRB_BEP_CU).
    * (bản 1.40.1 — anh Thanh 29/10/2026: "MRB k đóng thùng riêng, hốc máy rửa bát để 610x815x550, theo tiêu chuẩn này đi") KHÔNG THÙNG: khoang máy rửa bát là HỐC
    * TRỐNG giữa hai tủ kề (hồi của chúng là hai thành hốc). Hốc chuẩn rộng 610 (lọt giữa hai mặt hồi), cao ≥ 815 (sàn → mặt dưới đá), sâu ≥ 550 (tường → mặt sau
-   * cánh ốp). Máy 45: hốc 460 [CĐ — chưa chốt, theo cùng luật máy + 10]. Bề rộng khoang trong dãy = hốc, không cộng hồi, không theo dày ván. Module (BD-MRB-610 /
-   * BD-MRB-460) chỉ gồm cánh ốp gắn cửa máy + xà chân ốp tháo rời (+ tấm ốp hông ở đầu dãy hở) — tấm vẫn ra bảng kê / bảng cắt của bộ.
+   * cánh ốp). Bề rộng khoang trong dãy = hốc, không cộng hồi, không theo dày ván. Module (BD-MRB-610) chỉ gồm cánh ốp gắn cửa máy + xà chân ốp tháo rời
+   * (+ tấm ốp hông ở đầu dãy hở) — tấm vẫn ra bảng kê / bảng cắt của bộ.
+   * (bản 1.40.2 — anh Thanh 02/11/2026: "chỉ 610 thôi sao có hốc 460 là ntn") CHỈ MỘT CỠ: hốc 610 (máy 60). Máy 45 / hốc 460 của 1.40.1 bỏ hẳn — chỉ còn trong
+   * MRB_BEP_141 cho tủ ĐÃ VẼ ở 1.40.1 với hốc 460 (`bep.mrb_45 = 1`, specDaVe ghi) để Sửa dò lại đúng như lúc vẽ (tên máy ở bảng kê, không LỖI oan).
    */
-  const MRB_BEP = { may: [{ co: 600, ten: 'Máy rửa bát âm toàn phần 60', rong: 598, hoc: 610 }, { co: 450, ten: 'Máy rửa bát âm toàn phần 45', rong: 448, hoc: 460 }], ho_max: 10, cao_min: 815, cao_max: 875, sau_min: 550 };
+  const MRB_BEP = { may: [{ co: 600, ten: 'Máy rửa bát âm toàn phần 60', rong: 598, hoc: 610 }], ho_max: 10, cao_min: 815, cao_max: 875, sau_min: 550 };
+  const MRB_BEP_141 = { may: [MRB_BEP.may[0], { co: 450, ten: 'Máy rửa bát âm toàn phần 45', rong: 448, hoc: 460 }], ho_max: 10, cao_min: 815, cao_max: 875, sau_min: 550 };      // (1.40.1) hốc 460 — tủ vẽ ở 1.40.1
   const MRB_BEP_CU = { may: [{ co: 600, ten: 'Máy rửa bát âm toàn phần 60', rong: 598, hoc: 600 }, { co: 450, ten: 'Máy rửa bát âm toàn phần 45', rong: 448, hoc: 450 }], ho_max: 10, cao_min: 815, cao_max: 875, sau_min: 550 };      // (1.40.0) thùng riêng — tủ vẽ ở 1.40.0
   /** (1.40.0) máy rửa bát của hốc rộng `lot`: máy có hốc GẦN nhất (hốc 565 là khoang 60 hẹp — báo "máy không vào", không phải khoang 45 rộng). cu = thùng riêng 1.40.0 */
   const MRB_THIEU = 'Không đủ chỗ đặt khoang máy rửa bát';      // (vòng soát 1.40.0) đầu câu cảnh báo của kiemDay — xepBep nối gợi ý vào sau
-  const mrbMay = (lot, cu) => (cu ? MRB_BEP_CU : MRB_BEP).may.reduce((a, m) => (Math.abs(m.hoc - lot) < Math.abs(a.hoc - lot) - TOL ? m : a));
+  // (1.40.2) bảng máy theo thông số: thùng riêng 1.40.0 (mrb_thung 1), hốc 460 vẽ ở 1.40.1 (mrb_45 1), còn lại một cỡ 610
+  const bangMrb = B => (B && B.mrb_thung === 1 ? MRB_BEP_CU : B && B.mrb_45 === 1 ? MRB_BEP_141 : MRB_BEP);
+  // phần GIỮA hai phào (rộng − nẹp / ốp hông) của khoang máy rửa bát — nangCap / specDaVe đổi hốc theo nó (vòng soát 1.40.1)
+  const mrbGiua = sp => { const ph = sp.phao && typeof sp.phao === 'object' ? sp.phao : {}; return num(sp.rong, NaN) - Math.max(0, num(ph.trai, 0)) - Math.max(0, num(ph.phai, 0)); };
+  const mrbMay = (lot, B) => bangMrb(B).may.reduce((a, m) => (Math.abs(m.hoc - lot) < Math.abs(a.hoc - lot) - TOL ? m : a));
   /** (bản 1.40.1) tủ / thông số là khoang máy rửa bát KHÔNG THÙNG (hốc giữa hai tủ kề) — tủ vẽ ở 1.40.0 mang mrb_thung = 1 (thùng riêng). */
   const laMrbHoc = s => !!(s && s.loai_sp === 'bep' && s.bep && s.bep.tang === 'duoi' && s.bep.chuc_nang === 'mrb' && s.bep.mrb_thung !== 1);
   const VS_MAC_DINH = 380, HOC_LO = 590, TL_KE = 250;      // (bản 1.34) hốc vi sóng 380 (anh chốt; 460 = lò compact, 0 = không hốc); hốc lò 590 (hãng 585 – 595); ô trên tủ lạnh < 250 thì làm kệ hở [CĐ]
@@ -4034,6 +4055,8 @@
     if (B.tang === 'duoi' && B.ket_cau_chan === 'de_van' && (B.xa_lien === 0 || B.xa_lien === '0')) B.xa_lien = 0; else delete B.xa_lien;
     // (bản 1.40.1) mrb_thung = 1: khoang máy rửa bát vẽ ở 1.40.0 (thùng riêng: 2 hồi + 2 giằng) — chỉ specDaVe ghi; mặc định khoang máy rửa bát là hốc không thùng
     if (B.tang === 'duoi' && B.chuc_nang === 'mrb' && (B.mrb_thung === 1 || B.mrb_thung === '1')) B.mrb_thung = 1; else delete B.mrb_thung;
+    // (bản 1.40.2) mrb_45 = 1: hốc 460 vẽ ở 1.40.1 (máy 45 nay bỏ) — chỉ specDaVe ghi, chỉ giữ ở hốc không thùng
+    if (B.tang === 'duoi' && B.chuc_nang === 'mrb' && B.mrb_thung !== 1 && (B.mrb_45 === 1 || B.mrb_45 === '1')) B.mrb_45 = 1; else delete B.mrb_45;
     for (const k of Object.keys(SO_BEP)) { const v = num(B[k], DEFAULT_BEP[k]); B[k] = Math.max(SO_BEP[k][0], Math.min(SO_BEP[k][1], v)); }
     B.vien_da = num(B.vien_da, 0) ? 1 : 0;
     // (bản 1.37.3) tủ trên: 'am_duong' (hậu lùi + xà âm dương, mặc định) | 'thanh' (thanh treo áp trước hậu + vít nở — tủ lưu / vẽ trước 1.37.3, chuẩn "Giữ thanh treo").
@@ -4367,10 +4390,10 @@
     // (bản 1.40.0) khoang máy rửa bát: hốc lọt lòng theo máy (60 / 45), cao hốc từ sàn tới mặt dưới giằng / nóc ≥ chân máy thấp nhất, sâu ≥ máy [CĐ catalogue]
     if (B.chuc_nang === 'mrb' && B.tang === 'duoi') {
       const h = (I.hoc || []).find(x => x.tb === 'mrb');
-      // (bản 1.40.1) hốc không thùng: lọt = giữa hai mặt hồi tủ kề (= rộng module trừ ốp / nẹp), chuẩn 610 / 460; "Đặt tủ rộng N" = hốc (+ ốp hông đầu hở)
-      const cu = B.mrb_thung === 1, MB = cu ? MRB_BEP_CU : MRB_BEP, them = cu ? 2 * t : rn(s.phao.trai + s.phao.phai);
+      // (bản 1.40.1) hốc không thùng: lọt = giữa hai mặt hồi tủ kề (= rộng module trừ ốp / nẹp), chuẩn 610 (1.40.2: một cỡ); "Đặt tủ rộng N" = hốc (+ ốp hông đầu hở)
+      const cu = B.mrb_thung === 1, MB = bangMrb(B), them = cu ? 2 * t : rn(s.phao.trai + s.phao.phai);
       if (h) {
-        const may = mrbMay(h.lot, cu), cao = rn(h.z1 - h.z0);
+        const may = mrbMay(h.lot, B), cao = rn(h.z1 - h.z0);
         if (h.lot < may.hoc - TOL) err(`Khoang máy rửa bát lọt ${g(h.lot)} < hốc ${g(may.hoc)} của ${may.ten.toLowerCase()} — máy không vào. Đặt tủ rộng ${g(rn(may.hoc + them))}${cu ? ' (hốc + 2 hồi)' : ''}.`);      // "Đặt tủ rộng N" → nút Chuyển tủ N của bảng (bepCo)
         else if (h.lot > may.hoc + MB.ho_max + TOL) warn(`Khoang máy rửa bát lọt ${g(h.lot)} rộng hơn hốc ${g(may.hoc)} của ${may.ten.toLowerCase()} quá ${g(MB.ho_max)} — cánh ốp không che kín hông máy; đặt rộng ${g(rn(may.hoc + them))}.`);
         if (cao < MB.cao_min - TOL) err(`Hốc máy rửa bát cao ${g(cao)} < ${g(MB.cao_min)} (máy âm toàn phần hạ thấp nhất) — tăng Cao mặt đá hoặc chọn máy thấp (catalogue).`);
@@ -4515,7 +4538,7 @@
       them('Vít nở bắt khoang tủ lạnh vào tường (xuyên thanh treo ô trên)', 2, 'giữ hai hồi cao khỏi đổ — [CĐ] cỡ vít'); }
     // (bản 1.40.0) khoang máy rửa bát: máy (khách mua), bộ gá cánh ốp, kẹp xà chân ốp [CĐ]
     for (const x of I.hoc || []) if (x.tb === 'mrb') {
-      const may = mrbMay(x.lot, B.mrb_thung === 1), nc = M.parts.filter(p => p.loai === 'CANH' && p.op_mrb).length;
+      const may = mrbMay(x.lot, B), nc = M.parts.filter(p => p.loai === 'CANH' && p.op_mrb).length;
       them(`${may.ten} (khách mua)`, 1, `hốc ${g(x.lot)} × cao ${g(rn(x.z1 - x.z0))} × sâu ${g(x.sau)} — đối chiếu catalogue máy`);
       if (nc) them('Bộ gá cánh ốp máy rửa bát (theo máy) [CĐ]', nc, 'cánh ốp bắt vào cửa máy bằng bộ gá kèm máy / mua theo máy — không bản lề tủ');
       if (M.parts.some(p => p.loai === 'CHAN' && p.mrb)) them('Kẹp xà chân tháo rời (xà chân ốp máy rửa bát) [CĐ]', 2, 'xà chân trước máy phải tháo được để kéo máy ra bảo trì');
@@ -4611,7 +4634,8 @@
     ...[150, 200, 300].map(w => [`BD-KE-${w}`, `Kệ hở dưới ${w}`, 'ke', w, 0, RUOT_BEP.dot]),
     // (bản 1.40.0) khoang máy rửa bát âm toàn phần: rộng module = hốc 600 / 450 + 2 hồi (mã theo rộng module như mọi tủ dưới — Từng khoang / ghim đọc cỡ từ mã);
     // ruột do normBep dựng (ruotBep — hốc xuống sàn, cánh ốp)
-    // (bản 1.40.1) không thùng: rộng module = HỐC 610 / 460 (hai hồi là của tủ kề) — BD-MRB-635 / 485 của 1.40.0 không còn ở thư viện (mauGocBo đổi theo rộng)
+    // (bản 1.40.1) không thùng: rộng module = HỐC (hai hồi là của tủ kề) — BD-MRB-635 / 485 của 1.40.0 không còn ở thư viện (mauGocBo đổi theo rộng);
+    // (bản 1.40.2) chỉ BD-MRB-610 (BD-MRB-460 của 1.40.1 bỏ — mauGocBo / ghim đưa về 610)
     ...MRB_BEP.may.map(m => [`BD-MRB-${m.hoc}`, `Khoang máy rửa bát ${m.co / 10} (hốc ${m.hoc})`, 'mrb', m.hoc, 1, RUOT_BEP.trong]),
     ...Object.keys(MA_GOC).flatMap(pk => [['trai', 'T'], ['phai', 'P']].map(([ben, b]) => [`${MA_GOC[pk]}-${b}`, `Tủ góc mù ${g(GOC_BEP[pk].Wg)}, mù ${ben === 'trai' ? 'trái' : 'phải'} (${GOC_BEP[pk].ten.replace(/ —.*$/, '')})`, 'goc', GOC_BEP[pk].Wg, 1, RUOT_BEP.goc_duoi(ben), { goc_pk: pk }])),
   ].map(mauBep('duoi'));
@@ -4769,7 +4793,7 @@
   // kiểu có cỡ cố định: chỉ nhận cỡ CÓ MẪU (mauGocBo trả null thì tuBo bỏ tủ đó lặng lẽ) — đọc thẳng từ thư viện, không chép số
   const TAY_TIEN_TO = { duoi: { chau: 'BD-CHAU', bep: 'BD-BEP', xn: 'BD-XN', gv: 'BD-GV', rac: 'BD-RAC', gao: 'BD-GAO', mrb: 'BD-MRB' }, tren: { bat: 'BT-BAT', hm: 'BT-HM', hmk: 'BT-HMK' } };
   /** (1.37.0) Các cỡ có mẫu của một kiểu khoang ('duoi' | 'tren'); null = kiểu chia tự do 150 … 900 (cánh / ngăn kéo / kệ). */
-  //   (vòng soát 1.40.0: MRB = hốc + 2 hồi theo dày ván thật) — (bản 1.40.1) MRB là HỐC KHÔNG THÙNG: rộng = hốc 460 / 610, không theo dày ván (t bỏ qua)
+  //   (vòng soát 1.40.0: MRB = hốc + 2 hồi theo dày ván thật) — (bản 1.40.1) MRB là HỐC KHÔNG THÙNG: rộng = hốc 610 (1.40.2: một cỡ), không theo dày ván (t bỏ qua)
   function coBo(kieu, tang, t) {
     const tg = tang === 'tren' ? 'tren' : 'duoi', p = TAY_TIEN_TO[tg][kieu]; if (!p) return null;
     const re = new RegExp('^' + p + '-(\\d+(?:\\.\\d+)?)$'), out = [];
@@ -4813,7 +4837,8 @@
       if (q.rong !== 'auto' && q.rong !== undefined && q.rong !== null && q.rong !== '') {
         const co = coBo(kieu, tang), x = num(q.rong, NaN);
         if (isFinite(x)) {
-          // (bản 1.40.1) MRB hốc không thùng: cỡ cố định 460 / 610 như mọi kiểu có mẫu (danh sách lưu ở 1.40.0 mang 635 / 636 / 485 → về hốc gần nhất, báo một lần)
+          // (bản 1.40.1) MRB hốc không thùng: cỡ cố định như mọi kiểu có mẫu (danh sách lưu ở 1.40.0 mang 635 / 636 / 485 → về hốc gần nhất, báo một lần);
+          // (bản 1.40.2) chỉ 610 — danh sách lưu ở 1.40.1 mang 460 cũng về 610 (báo một lần)
           if (co) { rong = coGan(co, x); if (Math.abs(rong - x) > TOL) sua.push({ id, cu: x, moi: rong }); }
           // trần = e_max + 5: bộ chia (tự chia lẫn khoang 'auto') dồn dư +5 tới 905 — kẹp 900 thì Sửa riêng / khứ hồi tayTuPA của phương án đó hụt 5 (vòng soát 1.37.0)
           else { rong = so(x, BO.e_min, BO.e_max + 5); if (Math.abs(rong - x) > TOL) sua.push({ id, cu: x, moi: rong }); }
@@ -4856,14 +4881,15 @@
    * (bản 1.37.2) khoá tủ lò của bộ — chỉ có khi bộ có tủ lò (bộ khác không đổi một byte): lo_z 'thap' | 'mat_da' (thiếu = 'mat_da': bộ lưu trước 1.37.2 dựng lại y cũ;
    * bảng ghi 'thap' khi bấm "+ Lò"), lo_dau 'kia' = tủ lò đứng ở ĐẦU KIA dãy (tách rời tủ lạnh) — thiếu = liền khối cao của tủ lạnh như 1.34 / 1.35.
    */
-  /** (bản 1.40.0) khoá "+ MRB" của bộ: mrb = cỡ máy rửa bát (600 | 450; true = 600) — chỉ có khoá khi bật (bộ cũ không đổi một byte). */
+  /** (bản 1.40.0) khoá "+ MRB" của bộ: mrb = cỡ máy rửa bát — chỉ có khoá khi bật (bộ cũ không đổi một byte). (bản 1.40.2) chỉ 600 (true = 600); bộ lưu mang
+   *  450 (máy 45, bỏ) → 600 + mrb_sua: 450 (lời báo một lần — bảng bỏ khoá như tay_sua). */
   // (vòng soát 1.40.0) Từng khoang: bo.mrb đi theo DANH SÁCH (khoang 'mrb' đầu tiên: 'auto' = máy 60, số = máy có hốc gần rộng − 2 hồi) — "+ MRB", chip, ✕ ở
   // Từng khoang đổi danh sách là đổi luôn khoá; về Tự chia (C3 giữ danh sách) không còn MRB "ma" / MRB biến mất. Không có khoang MRB = không có khoá (bộ cũ y cũ).
   const mrbTayCua = tay => {
     for (const c of (tay && tay.canh) || []) for (const q of (c && c.duoi) || []) if (q && q.kieu === 'mrb') return { mrb: q.rong === 'auto' ? MRB_BEP.may[0].co : mrbMay(num(q.rong, 0)).co };      // (1.40.1) rộng = hốc
     return {};
   };
-  const mrbCua = o => { const v = o.mrb === true ? 600 : num(o.mrb, 0); return MRB_BEP.may.some(m => m.co === v) ? { mrb: v } : {}; };
+  const mrbCua = o => { const v = o.mrb === true ? 600 : num(o.mrb, 0); return MRB_BEP.may.some(m => m.co === v) ? { mrb: v } : v === 450 ? { mrb: MRB_BEP.may[0].co, mrb_sua: 450 } : {}; };
   const loCua = (o, cao) => (cao.some(c => c.loai === 'lo') ? Object.assign({ lo_z: o.lo_z === 'thap' ? 'thap' : 'mat_da' }, o.lo_dau === 'kia' ? { lo_dau: 'kia' } : {}) : {});
   function chuanBo(o) {
     o = o && typeof o === 'object' && !Array.isArray(o) ? clone(o) : {};
@@ -4912,7 +4938,7 @@
     const khoa = {};
     if (o.khoa && typeof o.khoa === 'object') for (const vt of Object.keys(o.khoa)) {
       let q = o.khoa[vt];
-      // (bản 1.40.1) ghim khoang máy rửa bát lưu ở 1.40.0 (BD-MRB-635 / 485 — thùng riêng) → hốc không thùng 610 / 460 cùng chỗ (không thì ghim mất lặng lẽ)
+      // (bản 1.40.1) ghim khoang máy rửa bát lưu ở 1.40.0 (BD-MRB-635 / 485 — thùng riêng) → hốc không thùng cùng chỗ (không thì ghim mất lặng lẽ); (1.40.2) mọi mã cũ → BD-MRB-610
       if (q && typeof q === 'object' && /^BD-MRB-/.test(String(q.ma)) && !MAU_BEP_DUOI.some(x => x.ma === q.ma)) q = Object.assign({}, q, { ma: mauGocBo({ ma: q.ma, rong: num(/-(\d+(?:\.\d+)?)$/.exec(q.ma) ? /-(\d+(?:\.\d+)?)$/.exec(q.ma)[1] : 0, 0) }) });
       const mq = q && typeof q === 'object' ? mauDuoiBo(q.ma) : null; if (!mq || mq.chuc_nang === 'goc' || soN(q.s0, 0, 20000) === null) continue;
       if (kieu === 'I' && num(q.canh, 0) === 1) continue;      // (vòng soát 2 — 1.34) chữ L → chữ I: tủ ghim ở cạnh B không còn chỗ — bỏ
@@ -4997,8 +5023,9 @@
    */
   function xepBep(boIn, opt) {
     // (vòng soát 1.40.0) "+ MRB" ở Tự chia mà KHÔNG phương án nào đặt được máy kề chậu (dãy ngắn, kệ / khối cao chiếm chỗ): trước — pa rỗng, mất cả dãy, lời báo nói
-    // chậu + bếp. Nay: chia như không có MRB (dãy giữ nguyên), mỗi phương án một CẢNH BÁO (kiemDay) + r.mrb_bo = { co, vua_45 (máy 45 xếp được — Tự chia), tay
+    // chậu + bếp. Nay: chia như không có MRB (dãy giữ nguyên), mỗi phương án một CẢNH BÁO (kiemDay) + r.mrb_bo = { co, tay
     // (bộ Từng khoang + MRB chèn kề chậu từ phương án đầu — khoang kề nhường chỗ — khi nó KHÔNG LỖI: Tự chia không thấy vì kệ / khoang chia đều theo lưới cố định) }.
+    // (bản 1.40.2) bỏ gợi ý "máy 45" (vua_45, nút Máy rửa bát 45) — chỉ còn hốc 610.
     const b = chuanBo(boIn);
     if (b.chia === 'tay' || !b.mrb) return xepBepK(boIn, opt);
     const r = xepBepK(boIn, opt);
@@ -5007,12 +5034,11 @@
     const r0 = xepBepK(kh, opt); if (!r0.pa.length) return r;
     const nen = opt && opt.nen;
     for (const p of r0.pa) { const k = kiemDay(b, p, { nen }); p.loi = k.loi; p.canh_bao = k.canh_bao; p.luu_y = k.luu_y; }
-    const vua_45 = b.mrb !== 450 && xepBepK(Object.assign({}, boIn, { mrb: 450 }), opt).pa.length > 0;
     let tay = null;
     try { const x = tayMRB(b, r0.pa[0], { nen }); const p = x && (xepTay(x.bo, { nen }).pa || [])[0]; if (p && !p.loi.length) tay = x.bo; } catch (e) { tay = null; }
-    const goi = [vua_45 ? 'máy 45 (hốc 460) thì xếp được — nút “Máy rửa bát 45”' : '', tay ? `chia từng khoang thì xếp được máy ${b.mrb / 10} kề chậu (khoang bên cạnh nhường chỗ) — nút “Từng khoang + MRB”` : ''].filter(Boolean);
+    const goi = [tay ? `chia từng khoang thì xếp được máy ${b.mrb / 10} kề chậu (khoang bên cạnh nhường chỗ) — nút “Từng khoang + MRB”` : ''].filter(Boolean);
     if (goi.length) for (const p of r0.pa) p.canh_bao = p.canh_bao.map(x => (x.indexOf(MRB_THIEU) === 0 ? `${x} Gợi ý: ${goi.join('; ')}.` : x));
-    r0.bo = b; r0.mrb_bo = Object.assign({ co: b.mrb, vua_45 }, tay ? { tay } : {});
+    r0.bo = b; r0.mrb_bo = Object.assign({ co: b.mrb }, tay ? { tay } : {});
     return r0;
   }
   function xepBepK(boIn, opt) {
@@ -5235,7 +5261,7 @@
     const muonRo = k => bo.ro.indexOf(k) >= 0 && roGhim.indexOf(k) < 0 && roBo.indexOf(k) < 0;
     const tokRo = k => ({ k: 'ro', loai: BO_RO[k][0], w: BO_RO[k][1] });
     // (bản 1.40.0) khoang máy rửa bát của "+ MRB": rộng = hốc của máy + 2 hồi; đã ghim / "Đổi thành" một khoang MRB thì không sinh thêm
-    const mMRB = bo.mrb ? MRB_BEP.may.find(m => m.co === bo.mrb) : null, wMRB = mMRB ? mMRB.hoc : 0;      // (1.40.1) hốc không thùng: rộng = hốc 610 / 460
+    const mMRB = bo.mrb ? MRB_BEP.may.find(m => m.co === bo.mrb) : null, wMRB = mMRB ? mMRB.hoc : 0;      // (1.40.1) hốc không thùng: rộng = hốc 610
     const tokMRB = mMRB && !pins.some(p => p.chuc === 'mrb') ? { k: 'mrb', ma: `BD-MRB-${g(wMRB).replace(',', '.')}`, w: wMRB } : null;
     // mép của các thứ cố định không phải chậu / bếp (tường / hở / khối cao / mặt tủ cạnh kia) — bếp phải cách ≥ 300
     const bien = (e, r) => ({ a: e.cao.dau.length ? r.r0 : e.dau === 'goc' ? (e.i === 0 ? -Infinity : F) : 0, b: e.cao.cuoi.length ? r.r1 : rn(e.dai - (r.v.du || 0), 2) });
@@ -5764,7 +5790,7 @@
    * (vòng soát 1.40.0) "+ MRB" của Từng khoang — HÀM THUẦN (trước nằm trong bảng; nay xepBep cũng dùng để biết Từng khoang có xếp được MRB khi Tự chia không xếp được).
    * Danh sách đã có khoang MRB → bỏ mọi khoang MRB (bo.mrb theo danh sách: chuanBo xoá khoá). Chưa có → chèn một khoang MRB kề tủ chậu (không có chậu: cuối cạnh
    * opt.canh), các khoang cánh / ngăn kéo / kệ nhường chỗ theo cách ít LỖI nhất (xem trong hàm). Bộ Tự chia: chuyển Từng khoang từ `pa` (tayTuPA) trước.
-   * opt = { co (600 | 450, mặc định bo.mrb || 600), canh, nen }.
+   * opt = { co (600 — 1.40.2 một cỡ; số khác về 600), canh, nen }.
    * @returns { bo, them: bool, id?, canh?, nhuong?: { id, cu, moi ('bo' = bỏ khoang) } } | null (Tự chia mà không có pa).
    */
   function tayMRB(boIn, pa, opt) {
@@ -5875,7 +5901,7 @@
     const tat = [MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO];
     if (tat.some(ds => ds.some(x => x.ma === m.ma))) return m.ma;
     if (/^BC-TLA?-/.test(m.ma)) return /^BC-TLA-/.test(m.ma) ? 'BC-TLA-560' : 'BC-TL-700';
-    if (/^BD-MRB-/.test(m.ma)) return m.rong >= (MRB_BEP.may[0].hoc + MRB_BEP.may[1].hoc) / 2 ? MAU_BEP_DUOI.find(x => x.kieu === 'mrb').ma : MAU_BEP_DUOI.filter(x => x.kieu === 'mrb').pop().ma;      // (1.40.0) rộng lệch mã — (1.40.1) mã cũ BD-MRB-635 / 485 (bộ, ghim lưu ở 1.40.0) cũng về hốc 610 / 460
+    if (/^BD-MRB-/.test(m.ma)) return MAU_BEP_DUOI.find(x => x.kieu === 'mrb').ma;      // (1.40.0) rộng lệch mã — (1.40.1) mã cũ BD-MRB-635 / 485 (bộ, ghim lưu ở 1.40.0) cũng về hốc 610 / 460
     if (/^BD-CANH-/.test(m.ma)) return m.rong <= B.canh_1_duoi + TOL ? 'BD-CANH-600' : 'BD-CANH-900';
     // (bản 1.35) khoang chia đều: ngăn kéo / kệ ở mọi bề rộng (ruột như mẫu chuẩn)
     if (/^BD-NK3-/.test(m.ma)) return m.rong <= 600 + TOL ? 'BD-NK3-600' : 'BD-NK3-900';
@@ -7102,5 +7128,5 @@
   /** Các hộp bao mong đợi trong Chenfeng (để đối chiếu sau khi vẽ). */
   function expectedBoxes(M) { return M.parts.map(p => ({ ten: p.ten, tu: p.tu, loai: p.loai, khoan: p.khoan, box: [p.x0, p.x1, p.y0, p.y1, p.z0, p.z1] })); }
 
-  return { coKhauHoi, coXaLien, sigSpec, DV_BEP, MAC_DINH_BEP_CU4, DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, keoTay, tayKeoDuoc, tayMRB, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, hopDonVi, chongDonVi, phaCapNhat, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
+  return { MRB_BEP, coKhauHoi, coXaLien, sigSpec, DV_BEP, MAC_DINH_BEP_CU4, DOAN_MAX, SO_LE, doanBo, tuDoan, kiemDoan, duongBaoKhauDung, XA_AD, MAC_DINH_BEP_CU3, laTuAD, KE_BO_CAO, xepTay, tayTuPA, keoTay, tayKeoDuoc, tayMRB, tayDoiKieu, suaTay, chuanTay, tayMacDinh, coBo, khoaBo, TAY_DUOI, TAY_TREN, datLat, laTuLat, latO, latNhanBo, latLoi, tayNangCanh, LOAI_TAY_NANG, KL_VAN, LAT_CAO, LAT_RONG, chuanBo, tlBo, xepBep, kinhO, tuBo, daDay, keDaDay, daDayCSV, roiDay, kiemDay, keoBo, choDiem, datDay, doiDay, hopDonVi, chongDonVi, phaCapNhat, GOC_BEP, GOC_MAC_DINH, gocBep, leDuocBep, DEFAULT_BEP, MAC_DINH_BEP_CU, MAC_DINH_BEP_CU2, LO_THAP, LO_CANH_MIN, hocLo, LO_Z, LO_MAU, TAY_NAM_BEP, nangChuanBep, baoChuanBepMoi, SO_BEP, KHOA_CHUAN_BEP, LOAI_PK_BEP, LOAI_TB_BEP, MAU_BEP_DUOI, MAU_BEP_TREN, MAU_BEP_CAO, KIEU_BEP, MAU_BEP_TV, kieuBep, bepTheoKieu, canhBepTheoRong, MUC_KIEM_BEP, coTuChoTB, kiemBep, normBep, datBep, khoKhongHau, veTuAo, vachTuDong, LOAI_SP, TEN_SP, KIEU_GIUONG, DEFAULT_GIUONG, DEFAULT_VACH, DEFAULT_TAP, LUI_THANH_MAX, TAP_XA, TAP_XA_CHONG, hauCua, tapKhoaCu, tapKhoaAnh, tapVeChuan, tapBienTheCu, TAY_NAM_TAP, KIEU_TAP, TAP_RUOT, tapTheoKieu, doiKieuTap, tapTuDong, MAU_TAP, MAU_TAP_TV, MAU_TAP_CU, MAU_GIUONG, MAU_VACH, THU_VIEN, loaiSP, phuBiGiuong, MUC_KIEM_GIUONG, MUC_KIEM_VACH, VERSION, DEFAULT_SPEC, LOAI_BAN_LE, banLeCanh, vuaKhoVan, KHONG_KHOAN, KHOA_TU, nhanTu, maTuCuaGhiChu, NHOM, MAU_CHU_GIAI, MAU_TU, apMau, heSo, specDaVe, normalize, build, toChenfeng, mauCF, cutList, cutListCSV, elevationSVG, summary, expectedBoxes, bbox, cutSize, overlap, parseDot, parseTS, tsText, merge, nangCap, KIEU_HAU, vachTheoCot, dinhKhoet, keHoachGoc, lcNganKeo, tempNganKeo, laDayDayNK, dayDayNK, dayDayTS, dayCoCua, bieuThucTT, khoangMong, MUC_KIEM, phieu, kiemLienKet, kiemVaCham, kiemLoGiao, kiemLoLech, kiemMoiNoi, MUC_VE, doLoiThat, nhomMau, locMau, danhGiaMang, tomTatGoi, nhomThuMuc, hinh3D, benPhao };
 });

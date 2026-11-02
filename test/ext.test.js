@@ -1874,6 +1874,35 @@ async function chonBepExt(page, H, ma) {
             await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x && e.box[0] < x + 90000)); }, X5 + 71000);
             ok((await vungX(X5 + 71000)) === 0, 'hốc máy rửa bát: dọn sạch'); }
           await H.locator('.tab[data-tab="tu"]').click(); }
+        // (h3) (bản 1.40.2 — anh Thanh 02/11/2026: "chỉ 610 thôi") hốc 460 (máy 45) vẽ ở 1.40.1: Sửa dò ra đủ tấm (noi.spec giữ 460, mrb_45 1), bảng về hốc 610 + một
+        // dòng báo, Cập nhật vẽ lại hốc 610 tại chỗ. Tủ dựng thẳng với mrb_45 1 (khoá specDaVe ghi cho tủ vẽ ở 1.40.1) — như ca (h) với mrb_thung
+        { await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'BD-MRB-610'); s.rong = 460; s.bep.mrb_45 = 1; window.MNCF.app.setSpec(s); });
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+          if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+          await H.locator('#mncf-ui-ax').fill(String(X5 + 76000)); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0');
+          await H.locator('footer [data-act="draw"]').click();
+          await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1; }, X5 + 76000, { timeout: 30000 });
+          await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+          const idH = await page.evaluate(() => window.MNCFDriver.last.id);
+          const canhW = () => page.evaluate(id => { const D = window.MNCFDriver, es = D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase), c = es.find(e => /^Cánh/.test(e.Name)); return { n: es.length, w: c ? Math.round(c.box[1] - c.box[0]) : null }; }, idH);
+          const k0 = await canhW(); ok(k0.n === 2 && k0.w === 458 && (await H.locator('.report .msg.err').count()) === 0, 'hốc 460 (vẽ ở 1.40.1): 2 tấm, cánh 458, không dòng đỏ', k0);
+          await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idH);
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          await H.locator('[data-act="pick"]').click();
+          const sP = await H.locator('.status').innerText(), spP = await page.evaluate(() => window.MNCF.app.getSpec());
+          ok(/Đã mở thông số của tủ/.test(sP) && !/thiếu/.test(sP) && /vẽ ở bản 1\.40\.1 với hốc 460/.test(sP) && /chỉ một cỡ hốc 610/.test(sP) && spP.rong === 610 && !('mrb_45' in spP.bep), 'Sửa hốc 460: dò đủ tấm, bảng về hốc 610 + báo', [sP, spP.rong]);
+          await H.locator('.tab[data-tab="tu"]').click();
+          await H.locator('[data-act="redraw"]').click();
+          await page.waitForFunction(() => /Đã cập nhật|Chưa cập nhật/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
+          const su = await H.locator('.status').innerText(), k1 = await canhW();
+          ok(/Đã cập nhật tủ tại chỗ/.test(su) && k1.n === 2 && k1.w === 608, 'Cập nhật: vẽ lại hốc 610 tại chỗ (cánh 608)', [su, k1]);
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+          await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x && e.box[0] < x + 14000)); }, X5 + 75000);
+          ok((await vungX(X5 + 75000)) === 0, 'hốc 460 → 610: dọn sạch'); }
         // (i) (vòng soát 1.40.0) BỘ thân liền (mặc định) có "+ MRB": trước — kiemDoan coi khoang MRB như tủ thường, LỖI "tủ chậu lệch cao độ" (mặt dưới thanh trước
         // 770 / giằng nằm 822,5) ở mọi bộ có MRB → khoá Vẽ. Nay vẽ được: không dòng đỏ, đủ tấm, đúng chỗ, không chồng, dò lỗi một lần không mục lỗi, hoàn tác sạch
         { const EM = { ma: 'B40M', kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 }, than: 'lien', mrb: 600 };
