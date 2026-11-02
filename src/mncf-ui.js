@@ -2096,7 +2096,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
           const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, hs = Math.abs(w - 610) < 0.5 ? [600 + 2 * t, 450 + 2 * t] : [];
           for (const [w2, h] of [[spec.rong, 0]].concat(hs.map(h => [Math.round((spec.rong - w + h) * 100) / 100, h]))) { const b = clone(spec); b.bep.mrb_thung = 1; b.rong = w2; if (h && b.bep.nep && b.bep.nep.thung > 0) b.bep.nep.thung = h; if (khop(b)) { specCu = b; nguon = 'bang'; break; } }
           // (bản 1.40.2) hốc 460 vẽ ở 1.40.1 (máy 45, nay bỏ) mà file mở qua nangCap → hốc 610: thử bản sao hốc 460 (mrb_45 1, cùng nẹp / ốp)
-          if (!specCu && hs.length) { const b = clone(spec); b.bep.mrb_45 = 1; b.rong = Math.round((spec.rong - w + 460) * 100) / 100; if (b.bep.nep && b.bep.nep.thung > 0) b.bep.nep.thung = 460; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+          // (bản 1.40.2) hốc vẽ ở 1.40.1 có xà chân ốp (nay chân hốc để hở) → thử bản sao xa_mrb 1, cả rộng hiện tại lẫn hốc 460 (máy 45)
+          if (!specCu) { const b = clone(spec); b.bep.xa_mrb = 1; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+          if (!specCu && hs.length) { const b = clone(spec); b.bep.mrb_45 = 1; b.bep.xa_mrb = 1; b.rong = Math.round((spec.rong - w + 460) * 100) / 100; if (b.bep.nep && b.bep.nep.thung > 0) b.bep.nep.thung = 460; if (khop(b)) { specCu = b; nguon = 'bang'; } }
         }
       }
       if (!specCu) { setStatus('Tủ này được vẽ ở máy / trình duyệt khác nên máy này không có thông số của nó. Bấm “Mở mẫu” mở file mẫu của tủ (nếu đã lưu) rồi bấm lại “Sửa tủ đang chọn”.'); return; }
@@ -2126,6 +2128,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const mrbThung = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.mrb_thung === 1, mrbRong = spec.rong;
       // (bản 1.40.2) hốc 460 vẽ ở 1.40.1 (mrb_45 1 — máy 45 nay bỏ): như thùng riêng — noi.spec giữ 460, bảng về hốc 610 (giữ nẹp / ốp hông)
       const mrb45 = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.mrb_45 === 1;
+      // (bản 1.40.2) hốc vẽ ở 1.40.1 có xà chân ốp (xa_mrb 1): noi.spec giữ, bảng bỏ khoá → Cập nhật vẽ lại hốc chỉ còn cánh ốp (chân để hở)
+      const xaMrb = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.xa_mrb === 1;
+      if (xaMrb) delete spec.bep.xa_mrb;
       if (mrb45) { delete spec.bep.mrb_45; const w = spec.rong - spec.phao.trai - spec.phao.phai; spec.rong = Math.round((spec.rong - w + 610) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = 610; }
       if (mrbThung) { delete spec.bep.mrb_thung; const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, moi = Math.abs(w - (600 + 2 * t)) < 0.5 || Math.abs(w - (450 + 2 * t)) < 0.5 ? 610 : null; if (moi) { spec.rong = Math.round((spec.rong - w + moi) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = moi; } }      // (vòng soát 1.40.1) nep.thung theo hốc mới — không thì normBep co nẹp, hốc giữ 635
       // (vòng soát 1.37.3) tủ trên vẽ kiểu thanh treo cũ trong khi chuẩn đang âm dương: giữ như lúc vẽ (Cập nhật đúng tủ), nói ra + lối đổi
@@ -2136,7 +2141,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // (vòng soát 1.39.0) "vẽ trước bản …" chỉ khi bản lưu nói vậy — tủ vẽ ở bản mới mà người dùng đã chọn kiểu cũ thì nói là kiểu cũ đã chọn lúc vẽ
       const banTruoc = m => { if (nguon !== 'luu') return nguon === 'bang'; const a = String(luu.ban || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; return false; };
       if (khHoi) ghiTap += ` Tủ dưới này vẽ ở bản 1.39.0 (thanh trước lớp ngoài lọt giữa hai hồi) — bấm Cập nhật thì hai hồi ngoài khoét khấu, lớp ngoài thanh trước chạy liền hết bề tủ.`;
-      if (mrbThung) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.0 (thùng riêng: 2 hồi + 2 giằng) — bấm Cập nhật thì thành HỐC KHÔNG THÙNG${spec.rong !== mrbRong ? ` rộng ${hien(spec.rong)} (trước ${hien(mrbRong)})` : ''}: hai thành hốc là hồi của tủ kề, khoang chỉ còn cánh ốp + xà chân ốp — tủ kề phải sát hốc (dãy bếp: Cập nhật bộ).`;
+      if (mrbThung) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.0 (thùng riêng: 2 hồi + 2 giằng) — bấm Cập nhật thì thành HỐC KHÔNG THÙNG${spec.rong !== mrbRong ? ` rộng ${hien(spec.rong)} (trước ${hien(mrbRong)})` : ''}: hai thành hốc là hồi của tủ kề, khoang chỉ còn cánh ốp, chân để hở — tủ kề phải sát hốc (dãy bếp: Cập nhật bộ).`;
+      if (xaMrb) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.1 (có xà chân ốp) — bấm Cập nhật thì bỏ xà chân ốp: chân dưới cánh ốp để hở, lộ chân máy / tấm che chân đi kèm máy (bản 1.40.2).`;
       if (mrb45) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.1 với hốc ${hien(mrbRong - spec.rong + 610)} (máy 45) — máy rửa bát nay chỉ một cỡ hốc 610 (bản 1.40.2): bảng đã đổi rộng ${hien(mrbRong)} → ${hien(spec.rong)}; bấm Cập nhật thì vẽ lại khoang hốc 610 — tủ kề phải sát hốc (dãy bếp: Cập nhật bộ).`;
       if (xaLien) ghiTap += ` Tủ dưới này vẽ trước bản 1.40.0 (xà chân kẹp giữa hai đế hông) — bấm Cập nhật thì xà chân chạy liền hết bề tủ, đế hông dừng sau lưng xà (dải chân thẳng với tủ kề).`;
       if (dvGiu) ghiTap += ` Tủ dưới này hồi xuống sàn (${banTruoc('1.39.0') ? 'vẽ trước bản 1.39.0' : 'kết cấu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Thân tủ → Khung đế ván; bấm “Thôi sửa” thì tủ vẽ mới theo khung đế ván.`;

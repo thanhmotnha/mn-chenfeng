@@ -743,7 +743,7 @@
     if (v.tam_mau_khong_lo) warnings.push(`${v.tam_mau_khong_lo} tấm của mẫu (hộp ngăn kéo…) chưa có lỗ khoan.`);
     if (v.mat_ngan_keo_lech.length) warnings.push(`Mẫu ngăn kéo đặt mặt khác thiết kế: ${v.mat_ngan_keo_lech.join(', ')} — xem lại mã mẫu / thông số ngăn kéo.`);
     if (fix.reason) warnings.push(fix.reason);
-    if (mod && !mod.ok) warnings.push(`Chưa gom được tủ thành module tham số của Chenfeng: ${mod.reason} Tủ vẫn vẽ đủ; sửa kích thước thì dùng nút "Cập nhật tủ này" của bảng.`);
+    if (mod && !mod.ok && !mod.khong_can) warnings.push(`Chưa gom được tủ thành module tham số của Chenfeng: ${mod.reason} Tủ vẫn vẽ đủ; sửa kích thước thì dùng nút "Cập nhật tủ này" của bảng.`);
     if (mod && mod.ok) for (const g of mod.ghi_chu) warnings.push(g);
     const want = Mco.templates.filter(tp => tp.id).length;
     const gotHW = Object.values(v.phu_kien).reduce((a, b) => a + b, 0);
@@ -814,7 +814,7 @@
       const coPick = !pick || hit.includes(pick);
       if (!best || (coPick && !best.coPick) || (coPick === best.coPick && hit.length > best.boards.length)) best = { offset: off, boards: hit, coPick };
     }
-    // (vòng soát 1.40.1) tủ ít hơn 3 tấm (hốc máy rửa bát: cánh ốp + xà chân ốp) phải khớp ĐỦ mọi tấm — trước đòi ≥ 3 tấm nên tủ 2 tấm không bao giờ dò lại được
+    // (vòng soát 1.40.1) tủ ít hơn 3 tấm (hốc máy rửa bát: cánh ốp + xà chân ốp; 1.40.2: chỉ cánh ốp — 1 tấm) phải khớp ĐỦ mọi tấm — trước đòi ≥ 3 tấm nên tủ 2 tấm không bao giờ dò lại được
     const can = parts.length < 3 ? parts.length : Math.max(3, Math.ceil(parts.length * 0.5));
     if (!best || !best.boards.length || best.boards.length < can)
       return { ok: false, reason: `Chỉ khớp được ${best ? best.boards.length : 0}/${parts.length} tấm với thông số lúc vẽ — tủ đã bị xoay hoặc sửa tay nhiều, không cập nhật tại chỗ được. Hãy xoá tủ cũ rồi vẽ lại.`, khop: best ? best.boards.length : 0, tong: parts.length };
@@ -1051,6 +1051,9 @@
     opt.onStatus = guard(opt.onStatus);
     const hs = Core.heSo(spec), M = hs.M;
     const boards = added.filter(e => D.isBoard(e) && !e.IsErase && D.tagOf(e));
+    // (bản 1.40.2) tủ thiết kế chỉ MỘT tấm (hốc máy rửa bát không xà chân ốp: chỉ cánh ốp) — không có gì để gom (lệnh MODELING với một tấm chưa đo; trang giả lập coi là
+    // hỏng): không phải lỗi, tủ vẫn "trọn" (vanDeVe bỏ qua khong_can); đổi kích thước bằng Sửa / Cập nhật của bảng
+    if (M.parts.length < 2) return { ok: false, khong_can: true, reason: 'Tủ chỉ có một tấm — không gom thành module; đổi kích thước bằng “Sửa tủ đang chọn” / “Cập nhật tủ này” của bảng.' };
     if (boards.length < 2) return { ok: false, reason: 'Không đủ tấm để gom thành module.' };
     opt.onStatus('Gom tủ thành module tham số của Chenfeng…');
     if (D.busy()) await D.cancel();

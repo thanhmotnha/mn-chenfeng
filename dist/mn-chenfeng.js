@@ -513,6 +513,9 @@
     // ốp hông đúng chỗ (cánh x X0 + khe biên … X1 − khe biên = khít cánh tủ kề, cao như cánh tủ kề), rồi BỎ mọi tấm thân (hồi, giằng, ván lót) — hai thành hốc là hồi
     // của tủ kề, đá nhịp 610 tự đỡ giữa hai hồi đó. mrb_thung = 1 (tủ vẽ ở 1.40.0) dựng y 1.40.0.
     const HOC_MRB = MRB && B.mrb_thung !== 1;
+    // (bản 1.40.2 — anh Thanh 02/11/2026: "Khoang mrb k có xà chân đâu", chốt "Để hở, lộ chân máy") hốc KHÔNG có xà chân ốp: chân dưới cánh ốp để hở (chân máy /
+    // tấm che chân đi kèm máy), xà chân liền hai tủ kề dừng ở mặt ngoài hồi của chúng. xa_mrb = 1 (chỉ specDaVe ghi, hốc vẽ ở 1.40.1) dựng lại xà chân ốp như lúc vẽ.
+    const XA_MRB = MRB && (!HOC_MRB || B.xa_mrb === 1);
     const khongHau = !!B && (B.chuc_nang === 'chau' || B.chuc_nang === 'hm' || MRB);      // tủ chậu (ống nước, ẩm) và tủ hút mùi (ống khói ra tường) không hậu
     if (B) M.muc_kiem = MUC_KIEM_BEP;
     // (bản 1.34.1) táp kiểu mới (s.tap): gờ chắn, nóc / đáy phủ hồi, nóc chồm, ngăn kéo lọt lòng phẳng mặt hồi + thanh ngang, xà đế lùi, chân gỗ, tay nắm. null = như cũ
@@ -534,7 +537,7 @@
     let DV = !!B && B.tang === 'duoi' && B.ket_cau_chan === 'de_van';
     if (DV && sanK.some(Boolean)) { DV = false; if (!MRB) note('Tủ có khoang hốc xuống sàn (không đáy): dựng kiểu hồi xuống sàn — khung đế ván + đáy liền không áp được.', 'bep'); }
     const KMRB = MRB && !HOC_MRB && B.ket_cau_chan === 'de_van' && chan > 0, luiMRB = B ? Math.max(B.len_lui, tc) : 0;      // (1.40.0) chân hồi MRB khoét khấu cho xà chân liền
-    if (HOC_MRB) note(`Khoang máy rửa bát (bản 1.40.1): HỐC KHÔNG THÙNG rộng ${g(rn(W - pL - pR))} giữa hai hồi tủ kề${B.op ? ' (phía đầu dãy hở: tấm ốp hông làm thành hốc)' : ''} — máy đứng sàn, ống ra tường; đá nhịp hốc tự đỡ trên hai hồi đó (ván lót / thanh trước không chạy qua hốc), máy bắt bát vào hông hai hồi; module chỉ gồm cánh ốp gắn cửa máy + xà chân ốp tháo rời. Hốc 610 × 815 × 550 (anh Thanh chốt 29/10/2026, chỉ một cỡ — 02/11/2026); đá tự đỡ, không thanh đỡ (anh chốt 02/11/2026) [CĐ bộ gá cánh ốp].`, 'bep');
+    if (HOC_MRB) note(`Khoang máy rửa bát (bản 1.40.1): HỐC KHÔNG THÙNG rộng ${g(rn(W - pL - pR))} giữa hai hồi tủ kề${B.op ? ' (phía đầu dãy hở: tấm ốp hông làm thành hốc)' : ''} — máy đứng sàn, ống ra tường; đá nhịp hốc tự đỡ trên hai hồi đó (ván lót / thanh trước không chạy qua hốc), máy bắt bát vào hông hai hồi; ${XA_MRB ? 'module chỉ gồm cánh ốp gắn cửa máy + xà chân ốp tháo rời' : 'module chỉ gồm cánh ốp gắn cửa máy (cao như cánh tủ kề); chân dưới cánh để HỞ — lộ chân máy / tấm che chân đi kèm máy, không xà chân ốp (anh Thanh chốt 02/11/2026)'}. Hốc 610 × 815 × 550 (anh Thanh chốt 29/10/2026, chỉ một cỡ — 02/11/2026); đá tự đỡ, không thanh đỡ (anh chốt 02/11/2026) [CĐ bộ gá cánh ốp].`, 'bep');
     else if (MRB) note(`Khoang máy rửa bát: hồi xuống sàn, không đáy / hậu / đợt (máy đứng sàn, ống ra tường), 2 giằng nằm trên đỉnh đỡ đá, cánh ốp gắn vào cửa máy${KMRB ? `; chân hai hồi khoét khấu ${g(luiMRB)} × ${g(chan)} cho xà chân liền (thẳng hàng xà chân các tủ khung đế ván)` : ''} [CĐ cỡ hốc, cao máy, bộ gá cánh ốp].`, 'bep');
     const catHau = i => hocO(i).filter(c => !c.hau).map(c => { const zT = (s.khoang[i].dot || []).find(z => z > c.tu + TOL); return [c.tu > 0 ? c.tu : null, zT === undefined ? null : zT]; });
     const doanZ = (a, b2, cuts) => {      // [a, b2] trừ các khoảng cắt → các đoạn còn lại (bỏ đoạn vụn < 50)
@@ -1097,7 +1100,7 @@
       // (bản 1.40.0) xà chân ốp của khoang máy rửa bát (khoang không đáy): tấm riêng tháo rời — gá vào chân máy / kẹp, không khoan; chuẩn khung đế ván: liền mặt ngoài
       // hồi … mặt ngoài hồi (qua khấu chân hồi), không thì lọt giữa hai hồi như xà chân hồi xuống sàn
       // (1.40.1) hốc không thùng: xà chân ốp hết bề hốc (mặt hồi tủ kề … mặt hồi tủ kề), cùng y với xà chân tủ kề — thẳng hàng
-      if (MRB) P({ loai: 'CHAN', ten: 'Xà chân', than: lower.code, tu: lower.tu, type: 2, x0: KMRB || HOC_MRB ? X0 : bayX(0), x1: KMRB || HOC_MRB ? X1 : rn(bayX(n - 1) + widths[n - 1]), y0: rn(lui - tc), y1: rn(lui), z0: 0, z1: chan, big: 1, lines: 1, khoang: 0, mrb: true,
+      if (XA_MRB) P({ loai: 'CHAN', ten: 'Xà chân', than: lower.code, tu: lower.tu, type: 2, x0: KMRB || HOC_MRB ? X0 : bayX(0), x1: KMRB || HOC_MRB ? X1 : rn(bayX(n - 1) + widths[n - 1]), y0: rn(lui - tc), y1: rn(lui), z0: 0, z1: chan, big: 1, lines: 1, khoang: 0, mrb: true,
         khoan: KHONG_KHOAN, fd: false, bd: false, ghi_bep: HOC_MRB ? `xà chân ốp hốc máy rửa bát — hết bề hốc ${g(rn(X1 - X0))}, thẳng hàng xà chân tủ kề; gá vào chân máy / kẹp xà chân, tháo rời được để kéo máy ra — không khoan [CĐ bộ gá]`
           : `xà chân ốp máy rửa bát${KMRB ? ' — chạy liền qua khấu chân hai hồi, thẳng hàng xà chân tủ kề' : ''}; gá vào chân máy / kẹp xà chân, tháo rời được để kéo máy ra — không khoan [CĐ bộ gá]` });
       for (let i = 0; i < n; i++) if (!sanK[i]) P({ loai: 'CHAN', ten: 'Xà chân', than: lower.code, tu: lower.tu, type: 2, x0: bayX(i), x1: rn(bayX(i) + widths[i]), y0: rn(lui - tc), y1: rn(lui), z0: 0, z1: chan, big: 1, lines: 1, khoang: i, ...GIAU_LO, ghi_bep: lui > tc + TOL ? `xà chân lùi ${g(B.len_lui)} giữa hai hồi (hồi xuống sàn)` : 'xà chân phẳng mặt hồi, kẹp giữa hai hồi (hồi xuống sàn)' });
@@ -1129,7 +1132,7 @@
         // (vòng soát 1.40.1) cạnh tấm ốp thành hốc: nẹp keo + vít vào mép trước tấm ốp (không tấm nào có kiểu khoan để Chenfeng khoan cam vào → dò lỗi báo oan "có kiểu khoan mà không có lỗ")
         P(Object.assign({ loai: 'PHAO', ten: trai ? NM.phao_trai : NM.phao_phai, than: sg.b.code, tu: sg.b.tu, type: 2, x0: xa, x1: xb, y0: -tc, y1: 0, z0: zp, z1: sg.z1, khoan: KP, big: 0 },
           thanhHoc && sg.b === lower ? { khoan: KHONG_KHOAN, ghi_bep: 'nẹp bù — keo + vít vào mép trước tấm ốp thành hốc (không khoan cam)' } : {}));
-        if (B && chan > 0 && sg.b === lower) { const lui = Math.max(B.len_lui, tc); P({ loai: 'CHAN', ten: 'Xà chân', than: lower.code, tu: lower.tu, type: 2, x0: xa, x1: xb, y0: rn(lui - tc), y1: rn(lui), z0: 0, z1: chan, big: 1, lines: 1, khoan: KHONG_KHOAN, ...GIAU_LO, ghi_bep: DV && B.xa_lien !== 0 ? 'xà chân dưới nẹp bù — chạy tới tường, nối thẳng xà chân liền của thùng, ke / vít vào đầu xà (không khoan cam)' : 'xà chân dưới nẹp bù — chạy tới tường, bắt vít vào hồi (không khoan cam)' }); }      // (1.40.0) xà chân liền: đầu xà chân thùng nằm ở mặt ngoài hồi
+        if (B && chan > 0 && sg.b === lower) { const lui = Math.max(B.len_lui, tc); P({ loai: 'CHAN', ten: 'Xà chân', than: lower.code, tu: lower.tu, type: 2, x0: xa, x1: xb, y0: rn(lui - tc), y1: rn(lui), z0: 0, z1: chan, big: 1, lines: 1, khoan: KHONG_KHOAN, ...GIAU_LO, ghi_bep: thanhHoc && !XA_MRB ? 'xà chân dưới nẹp bù — từ tường qua khấu chân tấm ốp thành hốc, dừng ở mặt trong tấm ốp (hốc máy rửa bát để hở chân máy); ke / vít vào tấm ốp (không khoan cam)' : DV && B.xa_lien !== 0 ? 'xà chân dưới nẹp bù — chạy tới tường, nối thẳng xà chân liền của thùng, ke / vít vào đầu xà (không khoan cam)' : 'xà chân dưới nẹp bù — chạy tới tường, bắt vít vào hồi (không khoan cam)' }); }      // (1.40.2) hốc không xà chân ốp: xà dưới nẹp chỉ che chân dưới nẹp      // (1.40.0) xà chân liền: đầu xà chân thùng nằm ở mặt ngoài hồi
         if (thanhHoc && sg.b === lower) {
           const lui = Math.max(B.len_lui, tc);
           P(Object.assign({ loai: 'OP', ten: 'Tấm ốp thành hốc', than: lower.code, tu: lower.tu, type: 1, x0: trai ? p - tc : W - p, x1: trai ? p : W - p + tc, y0: 0, y1: D, z0: 0, z1: H, khoan: KHONG_KHOAN, big: 0, thanh_hoc: true,
@@ -1646,7 +1649,7 @@
     kiemSX(M, bao, nkRongDaBao);
     for (const f of kiemLienKet(M.parts)) {
       const p = M.parts[f.tam], o = `${p.ten} (${p.tu}${p.khoang >= 0 ? ', khoang ' + (p.khoang + 1) : ''})`;
-      if (HOC_MRB && (p.op_mrb || p.mrb)) continue;      // (1.40.1) cánh ốp gá vào cửa máy, xà chân ốp gá vào chân máy — hốc không thùng, không tì vào tấm nào là đúng
+      if (HOC_MRB && (p.op_mrb || p.mrb || p.loai === 'OP')) continue;      // (1.40.1) cánh ốp gá vào cửa máy, xà chân ốp gá vào chân máy — hốc không thùng, không tì vào tấm nào là đúng; (1.40.2) không xà chân ốp: ốp hông / ốp thành hốc bắt ke L xuống sàn + ke dưới đá (trước tì vào xà chân ốp)
       if (f.ma === 'thieu_do') bao.err(`${o} không tì vào tấm đứng nào ở đầu ${f.ben === 'trai' ? 'trái' : 'phải'} — tấm nằm thiếu chỗ đỡ.`, 'lien_ket');
       else if (THUNG.indexOf(p.loai) >= 0) bao.err(`${o} không áp vào tấm nào — tấm lơ lửng.`, 'lien_ket');
       else bao.warn(`${o} không áp vào tấm nào${p.loai === 'PHAO' ? ' (không có thanh phụ trợ đỡ phào)' : ''} — xưởng tự xử lý cách bắt tấm này.`, 'lien_ket');
@@ -1759,7 +1762,8 @@
     // phủ bì (ván lót đá của tủ bếp nằm trên phủ bì thùng, dưới đá — không tính)
     const bb = bbox(parts.filter(p => p.loai !== 'LOT'));
     if (bb) {
-      if (Math.abs(bb.x0) > TOL || Math.abs(bb.x1 - s.rong) > TOL) bao.warn(`Bề ngang thực tế ${g(bb.x0)}…${g(bb.x1)} khác phủ bì ${g(s.rong)}.`, 'kich_thuoc');
+      // (1.40.2) hốc máy rửa bát không xà chân ốp: chỉ cánh ốp (khe biên hai bên) — bề ngang hốc là giữa hai hồi tủ kề, không phải hộp các tấm
+      if ((Math.abs(bb.x0) > TOL || Math.abs(bb.x1 - s.rong) > TOL) && !laMrbHoc(s)) bao.warn(`Bề ngang thực tế ${g(bb.x0)}…${g(bb.x1)} khác phủ bì ${g(s.rong)}.`, 'kich_thuoc');
       if (Math.abs(bb.z1 - s.cao) > TOL && !laMrbHoc(s)) bao.warn(`Chiều cao thực tế ${g(bb.z1)} khác phủ bì ${g(s.cao)}.`, 'kich_thuoc');
     }
   }
@@ -3309,16 +3313,19 @@
       const w = R - Math.max(0, num(ph.trai, 0)) - Math.max(0, num(ph.phai, 0)), m = MRB_BEP_CU.may.find(q => isFinite(w) && Math.abs(w - (q.hoc + 2 * t)) < 0.5);
       const moi = m ? MRB_BEP.may[0].hoc : null, rMoi = moi ? Math.round((R - w + moi) * 100) / 100 : null;
       if (moi) { spec.rong = rMoi; if (spec.bep.nep && typeof spec.bep.nep === 'object' && num(spec.bep.nep.thung, 0) > 0) spec.bep.nep = Object.assign({}, spec.bep.nep, { thung: moi }); }      // nep.thung = bề thùng ghi lần đầu — giữ nó là normBep co nẹp thay hốc
-      doi.push(`Khoang máy rửa bát nay là HỐC KHÔNG THÙNG (bản 1.40.1 — hai thành hốc là hồi tủ kề, module chỉ còn cánh ốp + xà chân ốp)${moi ? (rMoi === moi ? `: rộng ${g(R)} → hốc ${g(moi)}` : `: rộng ${g(R)} → ${g(rMoi)} (hốc ${g(moi)})`) : ''}${m && m.co !== MRB_BEP.may[0].co ? ' — máy rửa bát chỉ còn một cỡ hốc 610 (bản 1.40.2)' : ''} — đặt khoang giữa hai tủ có hồi.`);
+      doi.push(`Khoang máy rửa bát nay là HỐC KHÔNG THÙNG (bản 1.40.1 — hai thành hốc là hồi tủ kề, module chỉ còn cánh ốp, chân hốc để hở — bản 1.40.2)${moi ? (rMoi === moi ? `: rộng ${g(R)} → hốc ${g(moi)}` : `: rộng ${g(R)} → ${g(rMoi)} (hốc ${g(moi)})`) : ''}${m && m.co !== MRB_BEP.may[0].co ? ' — máy rửa bát chỉ còn một cỡ hốc 610 (bản 1.40.2)' : ''} — đặt khoang giữa hai tủ có hồi.`);
     }
     if (isFinite(v) && v >= soBan('1.40.1') && v < soBan('1.40.2') && spec.loai_sp === 'bep' && spec.bep && typeof spec.bep === 'object' && (spec.bep.tang || DEFAULT_BEP.tang) === 'duoi' && spec.bep.chuc_nang === 'mrb' && spec.bep.mrb_thung !== 1) {
       // (bản 1.40.2 — anh Thanh 02/11/2026: "chỉ 610 thôi") file / mẫu lưu ở 1.40.1 với hốc 460 (máy 45, nay bỏ) → hốc 610, giữ nẹp / ốp hông; tủ ĐÃ VẼ: specDaVe giữ 460
       const R = num(spec.rong, NaN), w = mrbGiua(spec);
+      // (1.40.2) hốc của file 1.40.1 có xà chân ốp — nay chân hốc để hở: một dòng nói cả hai việc
+      let doiCo = '';
       if (isFinite(w) && mrbMay(w, { mrb_45: 1 }).co === 450) {
         const moi = MRB_BEP.may[0].hoc, rMoi = Math.round((R - w + moi) * 100) / 100; spec.rong = rMoi;
         if (spec.bep.nep && typeof spec.bep.nep === 'object' && num(spec.bep.nep.thung, 0) > 0) spec.bep.nep = Object.assign({}, spec.bep.nep, { thung: moi });
-        doi.push(`Khoang máy rửa bát: máy 45 / hốc ${g(w)} không còn — chỉ một cỡ hốc 610 (bản 1.40.2): rộng ${g(R)} → ${rMoi === moi ? `hốc ${g(moi)}` : `${g(rMoi)} (hốc ${g(moi)})`}.`);
+        doiCo = ` Máy 45 / hốc ${g(w)} không còn — chỉ một cỡ hốc 610: rộng ${g(R)} → ${rMoi === moi ? `hốc ${g(moi)}` : `${g(rMoi)} (hốc ${g(moi)})`}.`;
       }
+      doi.push(`Khoang máy rửa bát (bản 1.40.2): bỏ xà chân ốp — chân dưới cánh ốp để hở (lộ chân máy / tấm che chân đi kèm máy).${doiCo}`);
     }
     if (isFinite(v) && v >= soBan('1.36.2') && v < soBan('1.36.3')) {
       // Bản 1.36.3 (anh Thanh 16/10/2026): thanh nằm sau khe tay nắm của táp → xà đứng cao TAP_XA. File / mẫu 1.36.2 theo chuẩn mới, báo một dòng (tủ ĐÃ VẼ: specDaVe giữ 0)
@@ -3391,6 +3398,7 @@
     // tên máy như lúc vẽ). Hình học không phụ thuộc máy — rộng giữ như lúc vẽ là Sửa dò ra; bảng đưa về 610 + báo (pick)
     if (!(isFinite(v) && v >= soBan('1.40.2')) && o.loai_sp === 'bep' && o.bep && typeof o.bep === 'object' && (o.bep.tang || DEFAULT_BEP.tang) === 'duoi' && o.bep.chuc_nang === 'mrb' && o.bep.mrb_thung !== 1) {
       const w = mrbGiua(o); if (isFinite(w) && mrbMay(w, { mrb_45: 1 }).co === 450) o.bep.mrb_45 = 1;
+      o.bep.xa_mrb = 1;      // (1.40.2) hốc vẽ ở 1.40.1 có xà chân ốp — dựng lại đúng như lúc vẽ (nay chân hốc để hở)
     }
     return o;
   }
@@ -4059,6 +4067,8 @@
     if (B.tang === 'duoi' && B.chuc_nang === 'mrb' && (B.mrb_thung === 1 || B.mrb_thung === '1')) B.mrb_thung = 1; else delete B.mrb_thung;
     // (bản 1.40.2) mrb_45 = 1: hốc 460 vẽ ở 1.40.1 (máy 45 nay bỏ) — chỉ specDaVe ghi, chỉ giữ ở hốc không thùng
     if (B.tang === 'duoi' && B.chuc_nang === 'mrb' && B.mrb_thung !== 1 && (B.mrb_45 === 1 || B.mrb_45 === '1')) B.mrb_45 = 1; else delete B.mrb_45;
+    // (bản 1.40.2) xa_mrb = 1: hốc vẽ ở 1.40.1 có xà chân ốp (nay chân hốc để hở) — chỉ specDaVe ghi, chỉ giữ ở hốc không thùng
+    if (B.tang === 'duoi' && B.chuc_nang === 'mrb' && B.mrb_thung !== 1 && (B.xa_mrb === 1 || B.xa_mrb === '1')) B.xa_mrb = 1; else delete B.xa_mrb;
     for (const k of Object.keys(SO_BEP)) { const v = num(B[k], DEFAULT_BEP[k]); B[k] = Math.max(SO_BEP[k][0], Math.min(SO_BEP[k][1], v)); }
     B.vien_da = num(B.vien_da, 0) ? 1 : 0;
     // (bản 1.37.3) tủ trên: 'am_duong' (hậu lùi + xà âm dương, mặc định) | 'thanh' (thanh treo áp trước hậu + vít nở — tủ lưu / vẽ trước 1.37.3, chuẩn "Giữ thanh treo").
@@ -6326,6 +6336,7 @@
     if ((x.tang === 'duoi' || B.tang === 'duoi') && B.ket_cau_chan === 'de_van' && B.xa_lien !== 0 && coXaLien(x.spec)) sua.xa_lien = 1;
     // (bản 1.40.1) khoang máy rửa bát hốc không thùng: băm thêm dấu — bộ vẽ ở 1.40.0 (thùng riêng) Cập nhật vẽ lại khoang đó kể cả khi rộng trùng
     if (B.chuc_nang === 'mrb' && (x.tang === 'duoi' || B.tang === 'duoi') && B.mrb_thung !== 1) sua.mrb_hoc = 1;
+    if (B.chuc_nang === 'mrb' && (x.tang === 'duoi' || B.tang === 'duoi') && B.mrb_thung !== 1 && B.xa_mrb !== 1) sua.mrb_ho_chan = 1;      // (1.40.2) hốc không xà chân ốp — bộ vẽ ở 1.40.1 Cập nhật vẽ lại khoang MRB
     // (bản 1.38.0) đoạn thân liền: cùng luật cho spec từng khoang trong doan.ds
     if (B.doan && Array.isArray(B.doan.ds)) sua.doan = Object.assign({}, B.doan, { ds: B.doan.ds.map(s => sigSpec({ tang: x.tang, spec: s })) });
     return Object.keys(sua).length ? Object.assign({}, x.spec, { bep: Object.assign({}, B, sua) }) : x.spec;
@@ -10037,7 +10048,7 @@
     if (v.tam_mau_khong_lo) warnings.push(`${v.tam_mau_khong_lo} tấm của mẫu (hộp ngăn kéo…) chưa có lỗ khoan.`);
     if (v.mat_ngan_keo_lech.length) warnings.push(`Mẫu ngăn kéo đặt mặt khác thiết kế: ${v.mat_ngan_keo_lech.join(', ')} — xem lại mã mẫu / thông số ngăn kéo.`);
     if (fix.reason) warnings.push(fix.reason);
-    if (mod && !mod.ok) warnings.push(`Chưa gom được tủ thành module tham số của Chenfeng: ${mod.reason} Tủ vẫn vẽ đủ; sửa kích thước thì dùng nút "Cập nhật tủ này" của bảng.`);
+    if (mod && !mod.ok && !mod.khong_can) warnings.push(`Chưa gom được tủ thành module tham số của Chenfeng: ${mod.reason} Tủ vẫn vẽ đủ; sửa kích thước thì dùng nút "Cập nhật tủ này" của bảng.`);
     if (mod && mod.ok) for (const g of mod.ghi_chu) warnings.push(g);
     const want = Mco.templates.filter(tp => tp.id).length;
     const gotHW = Object.values(v.phu_kien).reduce((a, b) => a + b, 0);
@@ -10108,7 +10119,7 @@
       const coPick = !pick || hit.includes(pick);
       if (!best || (coPick && !best.coPick) || (coPick === best.coPick && hit.length > best.boards.length)) best = { offset: off, boards: hit, coPick };
     }
-    // (vòng soát 1.40.1) tủ ít hơn 3 tấm (hốc máy rửa bát: cánh ốp + xà chân ốp) phải khớp ĐỦ mọi tấm — trước đòi ≥ 3 tấm nên tủ 2 tấm không bao giờ dò lại được
+    // (vòng soát 1.40.1) tủ ít hơn 3 tấm (hốc máy rửa bát: cánh ốp + xà chân ốp; 1.40.2: chỉ cánh ốp — 1 tấm) phải khớp ĐỦ mọi tấm — trước đòi ≥ 3 tấm nên tủ 2 tấm không bao giờ dò lại được
     const can = parts.length < 3 ? parts.length : Math.max(3, Math.ceil(parts.length * 0.5));
     if (!best || !best.boards.length || best.boards.length < can)
       return { ok: false, reason: `Chỉ khớp được ${best ? best.boards.length : 0}/${parts.length} tấm với thông số lúc vẽ — tủ đã bị xoay hoặc sửa tay nhiều, không cập nhật tại chỗ được. Hãy xoá tủ cũ rồi vẽ lại.`, khop: best ? best.boards.length : 0, tong: parts.length };
@@ -10345,6 +10356,9 @@
     opt.onStatus = guard(opt.onStatus);
     const hs = Core.heSo(spec), M = hs.M;
     const boards = added.filter(e => D.isBoard(e) && !e.IsErase && D.tagOf(e));
+    // (bản 1.40.2) tủ thiết kế chỉ MỘT tấm (hốc máy rửa bát không xà chân ốp: chỉ cánh ốp) — không có gì để gom (lệnh MODELING với một tấm chưa đo; trang giả lập coi là
+    // hỏng): không phải lỗi, tủ vẫn "trọn" (vanDeVe bỏ qua khong_can); đổi kích thước bằng Sửa / Cập nhật của bảng
+    if (M.parts.length < 2) return { ok: false, khong_can: true, reason: 'Tủ chỉ có một tấm — không gom thành module; đổi kích thước bằng “Sửa tủ đang chọn” / “Cập nhật tủ này” của bảng.' };
     if (boards.length < 2) return { ok: false, reason: 'Không đủ tấm để gom thành module.' };
     opt.onStatus('Gom tủ thành module tham số của Chenfeng…');
     if (D.busy()) await D.cancel();
@@ -15565,7 +15579,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
           const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, hs = Math.abs(w - 610) < 0.5 ? [600 + 2 * t, 450 + 2 * t] : [];
           for (const [w2, h] of [[spec.rong, 0]].concat(hs.map(h => [Math.round((spec.rong - w + h) * 100) / 100, h]))) { const b = clone(spec); b.bep.mrb_thung = 1; b.rong = w2; if (h && b.bep.nep && b.bep.nep.thung > 0) b.bep.nep.thung = h; if (khop(b)) { specCu = b; nguon = 'bang'; break; } }
           // (bản 1.40.2) hốc 460 vẽ ở 1.40.1 (máy 45, nay bỏ) mà file mở qua nangCap → hốc 610: thử bản sao hốc 460 (mrb_45 1, cùng nẹp / ốp)
-          if (!specCu && hs.length) { const b = clone(spec); b.bep.mrb_45 = 1; b.rong = Math.round((spec.rong - w + 460) * 100) / 100; if (b.bep.nep && b.bep.nep.thung > 0) b.bep.nep.thung = 460; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+          // (bản 1.40.2) hốc vẽ ở 1.40.1 có xà chân ốp (nay chân hốc để hở) → thử bản sao xa_mrb 1, cả rộng hiện tại lẫn hốc 460 (máy 45)
+          if (!specCu) { const b = clone(spec); b.bep.xa_mrb = 1; if (khop(b)) { specCu = b; nguon = 'bang'; } }
+          if (!specCu && hs.length) { const b = clone(spec); b.bep.mrb_45 = 1; b.bep.xa_mrb = 1; b.rong = Math.round((spec.rong - w + 460) * 100) / 100; if (b.bep.nep && b.bep.nep.thung > 0) b.bep.nep.thung = 460; if (khop(b)) { specCu = b; nguon = 'bang'; } }
         }
       }
       if (!specCu) { setStatus('Tủ này được vẽ ở máy / trình duyệt khác nên máy này không có thông số của nó. Bấm “Mở mẫu” mở file mẫu của tủ (nếu đã lưu) rồi bấm lại “Sửa tủ đang chọn”.'); return; }
@@ -15595,6 +15611,9 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       const mrbThung = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.mrb_thung === 1, mrbRong = spec.rong;
       // (bản 1.40.2) hốc 460 vẽ ở 1.40.1 (mrb_45 1 — máy 45 nay bỏ): như thùng riêng — noi.spec giữ 460, bảng về hốc 610 (giữ nẹp / ốp hông)
       const mrb45 = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.mrb_45 === 1;
+      // (bản 1.40.2) hốc vẽ ở 1.40.1 có xà chân ốp (xa_mrb 1): noi.spec giữ, bảng bỏ khoá → Cập nhật vẽ lại hốc chỉ còn cánh ốp (chân để hở)
+      const xaMrb = spec.loai_sp === 'bep' && !!spec.bep && spec.bep.xa_mrb === 1;
+      if (xaMrb) delete spec.bep.xa_mrb;
       if (mrb45) { delete spec.bep.mrb_45; const w = spec.rong - spec.phao.trai - spec.phao.phai; spec.rong = Math.round((spec.rong - w + 610) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = 610; }
       if (mrbThung) { delete spec.bep.mrb_thung; const t = spec.van.t, w = spec.rong - spec.phao.trai - spec.phao.phai, moi = Math.abs(w - (600 + 2 * t)) < 0.5 || Math.abs(w - (450 + 2 * t)) < 0.5 ? 610 : null; if (moi) { spec.rong = Math.round((spec.rong - w + moi) * 100) / 100; if (spec.bep.nep && spec.bep.nep.thung > 0) spec.bep.nep.thung = moi; } }      // (vòng soát 1.40.1) nep.thung theo hốc mới — không thì normBep co nẹp, hốc giữ 635
       // (vòng soát 1.37.3) tủ trên vẽ kiểu thanh treo cũ trong khi chuẩn đang âm dương: giữ như lúc vẽ (Cập nhật đúng tủ), nói ra + lối đổi
@@ -15605,7 +15624,8 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
       // (vòng soát 1.39.0) "vẽ trước bản …" chỉ khi bản lưu nói vậy — tủ vẽ ở bản mới mà người dùng đã chọn kiểu cũ thì nói là kiểu cũ đã chọn lúc vẽ
       const banTruoc = m => { if (nguon !== 'luu') return nguon === 'bang'; const a = String(luu.ban || '0').split('.').map(Number), b = m.split('.').map(Number); for (let i = 0; i < 3; i++) if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; return false; };
       if (khHoi) ghiTap += ` Tủ dưới này vẽ ở bản 1.39.0 (thanh trước lớp ngoài lọt giữa hai hồi) — bấm Cập nhật thì hai hồi ngoài khoét khấu, lớp ngoài thanh trước chạy liền hết bề tủ.`;
-      if (mrbThung) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.0 (thùng riêng: 2 hồi + 2 giằng) — bấm Cập nhật thì thành HỐC KHÔNG THÙNG${spec.rong !== mrbRong ? ` rộng ${hien(spec.rong)} (trước ${hien(mrbRong)})` : ''}: hai thành hốc là hồi của tủ kề, khoang chỉ còn cánh ốp + xà chân ốp — tủ kề phải sát hốc (dãy bếp: Cập nhật bộ).`;
+      if (mrbThung) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.0 (thùng riêng: 2 hồi + 2 giằng) — bấm Cập nhật thì thành HỐC KHÔNG THÙNG${spec.rong !== mrbRong ? ` rộng ${hien(spec.rong)} (trước ${hien(mrbRong)})` : ''}: hai thành hốc là hồi của tủ kề, khoang chỉ còn cánh ốp, chân để hở — tủ kề phải sát hốc (dãy bếp: Cập nhật bộ).`;
+      if (xaMrb) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.1 (có xà chân ốp) — bấm Cập nhật thì bỏ xà chân ốp: chân dưới cánh ốp để hở, lộ chân máy / tấm che chân đi kèm máy (bản 1.40.2).`;
       if (mrb45) ghiTap += ` Khoang máy rửa bát này vẽ ở bản 1.40.1 với hốc ${hien(mrbRong - spec.rong + 610)} (máy 45) — máy rửa bát nay chỉ một cỡ hốc 610 (bản 1.40.2): bảng đã đổi rộng ${hien(mrbRong)} → ${hien(spec.rong)}; bấm Cập nhật thì vẽ lại khoang hốc 610 — tủ kề phải sát hốc (dãy bếp: Cập nhật bộ).`;
       if (xaLien) ghiTap += ` Tủ dưới này vẽ trước bản 1.40.0 (xà chân kẹp giữa hai đế hông) — bấm Cập nhật thì xà chân chạy liền hết bề tủ, đế hông dừng sau lưng xà (dải chân thẳng với tủ kề).`;
       if (dvGiu) ghiTap += ` Tủ dưới này hồi xuống sàn (${banTruoc('1.39.0') ? 'vẽ trước bản 1.39.0' : 'kết cấu cũ đã chọn lúc vẽ'}) — bảng giữ như lúc vẽ để Cập nhật đúng tủ; muốn đổi: ô Thân tủ → Khung đế ván; bấm “Thôi sửa” thì tủ vẽ mới theo khung đế ván.`;
