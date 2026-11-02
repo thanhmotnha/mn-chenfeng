@@ -1836,6 +1836,7 @@ async function chonBepExt(page, H, ma) {
           ok((await vungX(X5 + 65000)) === 0, 'hoàn tác khoang máy rửa bát: sạch');
           await H.locator('.tab[data-tab="tu"]').click(); }
         // (h2) (bản 1.40.1) khoang máy rửa bát HỐC KHÔNG THÙNG (mặc định): module chỉ cánh ốp + xà chân ốp — vẽ xong đủ 2 tấm, gom module, dò lỗi không báo oan
+        // (bản 1.40.2 — anh Thanh: "Khoang mrb k có xà chân đâu") nay chỉ MỘT tấm (cánh ốp): không gom module (khong_can — không phải lỗi), D.locate khớp 1/1
         // (cánh / xà chân gá vào máy, không tì tấm nào), hoàn tác sạch
         { await page.evaluate(() => { const C = window.MNCFCore; window.MNCF.app.setSpec(C.apMau(C.DEFAULT_SPEC, 'BD-MRB-610')); });
           await H.locator('.tab[data-tab="tu"]').click();
@@ -1844,17 +1845,18 @@ async function chonBepExt(page, H, ma) {
           if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
           await H.locator('#mncf-ui-ax').fill(String(X5 + 72000)); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0');
           await H.locator('footer [data-act="draw"]').click();
-          await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1; }, X5 + 72000, { timeout: 30000 });
+          // (1.40.2) module chỉ còn cánh ốp (x 1 … 609, khe biên): ô toạ độ = góc nhỏ nhất của các tấm → độ dời so với gốc thiết kế lệch đúng khe biên 1
+          await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1.5; }, X5 + 72000, { timeout: 30000 });
           await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
           const bc = await H.locator('.report').innerText();
           const kM = await page.evaluate(id => { const D = window.MNCFDriver, es = D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase);
             return { n: es.length, ten: es.map(e => e.Name).sort(), can: window.MNCF.app.getModel().parts.length }; }, await page.evaluate(() => window.MNCFDriver.last.id));
-          ok(/Đã vẽ xong/.test(bc) && (await H.locator('.report .msg.err').count()) === 0 && kM.n === 2 && kM.can === 2, 'hốc máy rửa bát: vẽ xong 2 tấm (cánh ốp + xà chân ốp), không dòng đỏ', [kM, bc]);
+          ok(/Đã vẽ xong/.test(bc) && (await H.locator('.report .msg.err').count()) === 0 && kM.n === 1 && kM.can === 1 && /^Cánh/.test(kM.ten[0]) && !/Chưa gom được/.test(bc), 'hốc máy rửa bát: vẽ xong 1 tấm (cánh ốp, không xà chân ốp), không dòng đỏ, không báo "chưa gom module"', [kM, bc]);
           ok(!/(lơ lửng|chưa có lỗ|đè lên|va chạm|không áp vào)/.test(bc), 'hốc máy rửa bát: dò lỗi không báo oan', bc);
           // (vòng soát 1.40.1) module chỉ 2 tấm: D.locate đòi khớp ≥ 3 tấm → Cập nhật tủ này / Sửa tủ đang chọn luôn "Chỉ khớp được 2/2 tấm". Nay tủ < 3 tấm phải khớp đủ mọi tấm
           { const idH = await page.evaluate(() => window.MNCFDriver.last.id);
             const lc = await page.evaluate(id => { const L = window.MNCFDriver.locate(id, window.MNCF.app.getModel()); return { ok: L.ok, n: L.boards ? L.boards.length : 0, r: L.reason || '' }; }, idH);
-            ok(lc.ok && lc.n === 2, 'hốc máy rửa bát: D.locate khớp 2/2 tấm', lc);
+            ok(lc.ok && lc.n === 1, 'hốc máy rửa bát: D.locate khớp 1/1 tấm', lc);
             await H.locator('.tab[data-tab="tu"]').click();
             await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.cao = 850; window.MNCF.app.setSpec(s); });
             await H.locator('[data-act="redraw"]').click();
@@ -1874,6 +1876,35 @@ async function chonBepExt(page, H, ma) {
             await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x && e.box[0] < x + 90000)); }, X5 + 71000);
             ok((await vungX(X5 + 71000)) === 0, 'hốc máy rửa bát: dọn sạch'); }
           await H.locator('.tab[data-tab="tu"]').click(); }
+        // (h3) (bản 1.40.2 — anh Thanh 02/11/2026: "chỉ 610 thôi") hốc 460 (máy 45) vẽ ở 1.40.1: Sửa dò ra đủ tấm (noi.spec giữ 460, mrb_45 1), bảng về hốc 610 + một
+        // dòng báo, Cập nhật vẽ lại hốc 610 tại chỗ. Tủ dựng thẳng với mrb_45 1 (khoá specDaVe ghi cho tủ vẽ ở 1.40.1) — như ca (h) với mrb_thung
+        { await page.evaluate(() => { const C = window.MNCFCore, s = C.apMau(C.DEFAULT_SPEC, 'BD-MRB-610'); s.rong = 460; s.ten = 'Khoang máy rửa bát 45 (hốc 460)'; s.bep.mrb_45 = 1; s.bep.xa_mrb = 1; window.MNCF.app.setSpec(s); });      // như tủ vẽ ở 1.40.1 (specDaVe ghi mrb_45 + xa_mrb)
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+          if (!(await H.locator('#mncf-ui-ax').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          if (!(await H.locator('#mncf-ui-useat').isChecked())) await H.locator('#mncf-ui-useat').check();
+          await H.locator('#mncf-ui-ax').fill(String(X5 + 76000)); await H.locator('#mncf-ui-ay').fill('0'); await H.locator('#mncf-ui-az').fill('0');
+          await H.locator('footer [data-act="draw"]').click();
+          await page.waitForFunction(x => { const L = window.MNCFDriver.last; return L && L.offset && Math.abs(L.offset[0] - x) < 1; }, X5 + 76000, { timeout: 30000 });
+          await H.locator('.report .msg').first().waitFor({ timeout: 30000 });
+          const idH = await page.evaluate(() => window.MNCFDriver.last.id);
+          const canhW = () => page.evaluate(id => { const D = window.MNCFDriver, es = D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase), c = es.find(e => /^Cánh/.test(e.Name)); return { n: es.length, w: c ? Math.round(c.box[1] - c.box[0]) : null }; }, idH);
+          const k0 = await canhW(); ok(k0.n === 2 && k0.w === 458 && (await H.locator('.report .msg.err').count()) === 0, 'hốc 460 (vẽ ở 1.40.1): 2 tấm (cánh + xà chân ốp), cánh 458, không dòng đỏ', k0);
+          await page.evaluate(id => { const D = window.MNCFDriver; window.__MOCK__.userSelect([D.all().find(e => D.isBoard(e) && D.tagOf(e) === id && !e.IsErase)]); }, idH);
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (!(await H.locator('[data-act="pick"]').isVisible())) await H.locator('[data-act="nut-them"]').click();
+          await H.locator('[data-act="pick"]').click();
+          const sP = await H.locator('.status').innerText(), spP = await page.evaluate(() => window.MNCF.app.getSpec());
+          ok(/Đã mở thông số của tủ/.test(sP) && !/thiếu/.test(sP) && /vẽ ở bản 1\.40\.1 với hốc 460/.test(sP) && /chỉ một cỡ hốc 610/.test(sP) && spP.rong === 610 && !('mrb_45' in spP.bep) && !('xa_mrb' in spP.bep) && /bỏ xà chân ốp/.test(sP) && spP.ten === 'Khoang máy rửa bát 60 (hốc 610)', 'Sửa hốc 460 (vẽ ở 1.40.1): dò đủ tấm, bảng về hốc 610 không xà chân + báo, tên mẫu theo 610 (vòng soát 1.40.2)', [sP, spP.rong, spP.ten]);
+          await H.locator('.tab[data-tab="tu"]').click();
+          await H.locator('[data-act="redraw"]').click();
+          await page.waitForFunction(() => /Đã cập nhật|Chưa cập nhật/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 60000 });
+          const su = await H.locator('.status').innerText(), k1 = await canhW();
+          ok(/Đã cập nhật tủ tại chỗ/.test(su) && k1.n === 1 && k1.w === 608, 'Cập nhật: vẽ lại hốc 610 tại chỗ (chỉ cánh 608)', [su, k1]);
+          await H.locator('.tab[data-tab="tu"]').click();
+          if (await H.locator('footer [data-act="unlink"]').isVisible()) await H.locator('footer [data-act="unlink"]').click();
+          await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x && e.box[0] < x + 14000)); }, X5 + 75000);
+          ok((await vungX(X5 + 75000)) === 0, 'hốc 460 → 610: dọn sạch'); }
         // (i) (vòng soát 1.40.0) BỘ thân liền (mặc định) có "+ MRB": trước — kiemDoan coi khoang MRB như tủ thường, LỖI "tủ chậu lệch cao độ" (mặt dưới thanh trước
         // 770 / giằng nằm 822,5) ở mọi bộ có MRB → khoá Vẽ. Nay vẽ được: không dòng đỏ, đủ tấm, đúng chỗ, không chồng, dò lỗi một lần không mục lỗi, hoàn tác sạch
         { const EM = { ma: 'B40M', kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 }, than: 'lien', mrb: 600 };
@@ -1889,11 +1920,35 @@ async function chonBepExt(page, H, ma) {
           ok(coM && rM && rM.ok && RM.da_ve.length > 0 && vM.tu.every(t => t.n === t.can) && vM.lech.length === 0 && vM.chong.length === 0, 'bộ thân liền + MRB: vẽ xong, đủ tấm, đúng chỗ, không chồng', [rM, await st(), vM.lech, vM.chong]);
           ok((await dem()).doLoi === 1 && !/lỗi —/.test(await st()), 'bộ thân liền + MRB: dò lỗi một lần, không mục lỗi', await st());
           // (bản 1.40.1) khoang MRB là hốc không thùng: trên bản vẽ chỉ có cánh ốp + xà chân ốp mang mã của nó; hai bên là hồi của tủ kề
+          // (bản 1.40.2) không xà chân ốp: chỉ còn cánh ốp
           { const kq = await page.evaluate(() => { const D = window.MNCFDriver, R = window.MNCF.app.getBoVe(), m = window.MNCF.app.getBoKq().pa[0].ds.find(x => x.chuc === 'mrb'), r = R.da_ve.find(x => x.vt === m.vt || (x.khoang || []).indexOf(m.vt) >= 0);
               return r ? D.all().filter(b => D.isBoard(b) && D.tagOf(b) === r.id && !b.IsErase).map(e => e.Name).sort() : null; });
-            ok(kq && kq.length === 2 && kq.some(x => /Cánh/.test(x)) && kq.some(x => /Xà chân/.test(x)), 'bộ + MRB: khoang MRB trên bản vẽ = cánh ốp + xà chân ốp (không hồi / giằng)', kq); }
+            ok(kq && kq.length === 1 && kq.some(x => /Cánh/.test(x)), 'bộ + MRB: khoang MRB trên bản vẽ chỉ còn cánh ốp (không hồi / giằng / xà chân)', kq); }
           await hoanTacB();
           ok((await vungX(X5 - 5000)) === n0, 'Hoàn tác bộ B40M: sạch (vùng về như trước khi vẽ)', [await vungX(X5 - 5000), n0]); }
+        // (j) (vòng soát 1.40.2) BỘ vẽ ở 1.40.1 có khoang MRB (hốc + xà chân ốp) → Cập nhật: trước — capNhatBo đưa thông số lưu THÔ (không specDaVe) cho driver,
+        // lõi mới dựng hốc 1 tấm → hộp bao chỉ còn cánh, xà chân ốp cũ (ngoài hộp) còn sót trên bản vẽ, mang mã tủ. Giả bộ 1.40.1: datDay ghi xa_mrb 1 cho khoang
+        // MRB (hình lúc vẽ ở 1.40.1) + dấu khác, rồi bản lưu bỏ khoá + ban '1.40.1' (như lưu ở 1.40.1). Vẽ ở vùng trống riêng (vùng X5 … + 90000 còn tấm của ca trước)
+        { const EJ = { ma: 'B40J', kieu: 'I', canh: [{ dai: 4500 }], tl: { may: 'bon_canh_830', dau: 'dau', ban_le: 'tuong' }, ong: { canh: 0, s: 3700 }, than: 'lien', mrb: 600 };
+          await page.evaluate(b => window.MNCF.app.setBo(b), EJ); await page.waitForTimeout(400);
+          await page.evaluate(x => window.MNCF.app.setBoCho({ goc: [x, 5000, 0], xoay: 0 }), X5 + 300000);
+          const n0 = await vungX(X5 + 299000);
+          await page.evaluate(() => { const C = window.MNCFCore, g = C.datDay; window.__datDayGoc = g;
+            C.datDay = function () { const r = g.apply(this, arguments); if (r) for (const x of r) if (x.spec && x.spec.bep && x.spec.bep.chuc_nang === 'mrb') { x.spec = JSON.parse(JSON.stringify(x.spec)); x.spec.bep.xa_mrb = 1; x.sig += '|1401'; } return r; }; });
+          const rJ = await page.evaluate(() => window.MNCF.app.veBo({}));
+          await page.evaluate(() => { window.MNCFCore.datDay = window.__datDayGoc; });
+          const RJ = await page.evaluate(() => window.MNCF.app.getBoVe()), mJ = await page.evaluate(() => window.MNCF.app.getBoKq().pa[0].ds.find(x => x.chuc === 'mrb').vt);
+          const yJ = RJ.da_ve.find(x => x.vt === mJ || (x.khoang || []).indexOf(mJ) >= 0);
+          const tamJ = id => page.evaluate(id => { const D = window.MNCFDriver; return D.all().filter(b => D.isBoard(b) && D.tagOf(b) === id && !b.IsErase).map(e => e.Name).sort(); }, id);
+          ok(rJ && rJ.ok && yJ && (await tamJ(yJ.id)).length === 2, 'bộ "1.40.1": khoang MRB vẽ 2 tấm (cánh ốp + xà chân ốp)', [rJ, yJ, yJ && await tamJ(yJ.id)]);
+          await page.evaluate(ids => { for (const id of ids) { const k = 'mncf.tu.' + id, l = JSON.parse(localStorage.getItem(k)); if (l.spec.bep) delete l.spec.bep.xa_mrb; l.ban = '1.40.1'; localStorage.setItem(k, JSON.stringify(l)); } }, RJ.da_ve.map(y => y.id));
+          await H.locator('[data-act="bo-cap-nhat"]').click();
+          await choSt('Đã cập nhật bộ|Cập nhật bộ .* dừng');
+          const sJ = await st(), R2 = await page.evaluate(() => window.MNCF.app.getBoVe()), y2 = R2.da_ve.find(x => x.vt === mJ || (x.khoang || []).indexOf(mJ) >= 0);
+          const moCoi = await page.evaluate(([x, ids]) => { const D = window.MNCFDriver, s = new Set(ids.map(String)); return D.all().filter(e => !e.IsErase && D.isBoard(e) && e.box && e.box[0] > x && e.box[0] < x + 90000 && !s.has(String(D.tagOf(e)))).map(e => e.Name + '@' + D.tagOf(e)); }, [X5 + 299000, R2.da_ve.map(y => y.id)]);
+          ok(/Đã cập nhật bộ B40J/.test(sJ) && y2 && JSON.stringify(await tamJ(y2.id)) === JSON.stringify((await tamJ(y2.id)).filter(x => /Cánh/.test(x))) && (await tamJ(y2.id)).length === 1 && moCoi.length === 0, 'Cập nhật bộ "1.40.1": khoang MRB còn đúng cánh ốp, không xà chân ốp cũ sót / tấm mồ côi', [sJ, y2 && await tamJ(y2.id), moCoi]);
+          await hoanTacB();
+          ok((await vungX(X5 + 299000)) === n0, 'Hoàn tác bộ B40J: sạch', [await vungX(X5 + 299000), n0]); }
         await page.evaluate(async x => { const D = window.MNCFDriver; await D.erase(D.all().filter(e => !e.IsErase && e.box && e.box[0] > x - 5000 && e.box[0] < x + 90000)); }, X5);
         ok((await vungX(X5 - 5000)) === 0, 'khung đế ván: dọn sạch');
         await page.evaluate(() => { window.MNCFCore.DEFAULT_BEP.ket_cau_chan = 'hoi_san'; });      // trả ghim cho các ca sau
