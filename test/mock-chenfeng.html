@@ -778,6 +778,30 @@
               made.push(w); ents.push(w);
             }
           }
+          // (1.41.0) VÁCH PHÒNG CON = chuỗi HỞ của lệnh này. ĐÃ ĐO (tường phòng): chuỗi hở, bề dày bên trái hướng đi. CHƯA ĐO [CĐ]: đầu chuỗi chạm GIỮA mặt một tường cũ (chữ T).
+          //   Mặc định (GIẢ ĐỊNH a): vách dựng đúng chuỗi, tường cũ không bị cắt, vách không sinh vùng phòng (vòng chỉ nhận khi đầu – cuối RightCurves khớp nhau).
+          //   window.__MOCK_TACH_TUONG__ = true (GIẢ ĐỊNH b): Chenfeng cắt RightCurves của tường cũ thành mảnh ở chỗ đầu vách chạm (bỏ đoạn bị bề dày vách chiếm) — để thử nhánh "nhận tường theo mảnh".
+          //   window.__MOCK_VUNG_CON__ = true (GIẢ ĐỊNH): chuỗi hở chạm tường cũ sinh thêm một RoomRegion cho lòng phòng con, có hộp bao thật; vùng của vòng kín cũng mang hộp bao thật.
+          const tach = [];
+          if (window.__MOCK_TACH_TUONG__) for (const nw of made) for (const [Pt, Qt] of [[nw.RightCurves[0].StartPoint, nw.LeftCurves[0].StartPoint], [nw.RightCurves[0].EndPoint, nw.LeftCurves[0].EndPoint]]) {
+            for (const ow of ents) {
+              if (!(ow instanceof RoomWallLine) || ow.IsErase || made.includes(ow)) continue;
+              const moiC = []; let doi = false;
+              for (const c of ow.RightCurves) {
+                const A = c.StartPoint, B = c.EndPoint, L = Math.hypot(B.x - A.x, B.y - A.y) || 1, u = [(B.x - A.x) / L, (B.y - A.y) / L], doc = p => (p.x - A.x) * u[0] + (p.y - A.y) * u[1], kc = p => Math.abs(-(p.x - A.x) * u[1] + (p.y - A.y) * u[0]);
+                const t = doc(Pt);
+                if (kc(Pt) > 1 || t <= 1 || t >= L - 1) { moiC.push(c); continue; }
+                const t2 = Math.max(0, Math.min(L, doc(Qt))), lo = Math.min(t, t2), hi = Math.max(t, t2), diem = s => new V3(A.x + u[0] * s, A.y + u[1] * s, A.z);
+                if (lo > 1) moiC.push({ StartPoint: A, EndPoint: diem(lo) }); if (L - hi > 1) moiC.push({ StartPoint: diem(hi), EndPoint: B });
+                doi = true;
+              }
+              if (doi) { tach.push([ow, ow.RightCurves]); ow.RightCurves = moiC; }
+            }
+          }
+          if (window.__MOCK_VUNG_CON__ && text === '' && made.length) {
+            const xs = made.flatMap(w => [w.RightCurves[0].StartPoint.x, w.RightCurves[0].EndPoint.x]), ys = made.flatMap(w => [w.RightCurves[0].StartPoint.y, w.RightCurves[0].EndPoint.y]);
+            const rg = new RoomRegion(); rg.box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), made[0].box[4], made[0].box[4]]; rg.vong = made.slice(); made.push(rg); ents.push(rg);
+          }
           // Chenfeng tự sinh vùng phòng (RoomRegion) cho mỗi vòng tường khép kín — kể cả khi vòng khép lại nhờ một tường vẽ thêm sau
           const tuongSong = ents.filter(e => e instanceof RoomWallLine && !e.IsErase), ganD = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) <= 1;
           for (const w0 of tuongSong) {
@@ -786,8 +810,9 @@
             if (!kin || vong.length < 3) continue;
             if (ents.some(e => e instanceof RoomRegion && !e.IsErase && (e.vong || []).length === vong.length && e.vong.every(x => vong.includes(x)))) continue;
             const rg = new RoomRegion(); rg.box = [0, 0, 0, 0, 0, 0]; rg.vong = vong; made.push(rg); ents.push(rg);
+            if (window.__MOCK_VUNG_CON__) { const xs = vong.map(w => w.RightCurves[0].StartPoint.x), ys = vong.map(w => w.RightCurves[0].StartPoint.y); rg.box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys), 0, 0]; }
           }
-          if (made.length) pushHist({ CommandName: 'DRAWWALLINSIDE', created: made });
+          if (made.length) pushHist(tach.length ? { CommandName: 'DRAWWALLINSIDE', created: made, undo() { for (const [w, rc] of tach) w.RightCurves = rc; } } : { CommandName: 'DRAWWALLINSIDE', created: made });
           setTimeout(() => fireEnd('DRAWWALLINSIDE', [], made), 20);
         }
         return;
