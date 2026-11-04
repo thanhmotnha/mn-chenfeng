@@ -75,7 +75,8 @@
       return q;
     });
     o.khung = (Array.isArray(p.khung) ? p.khung : []).map((k, i) => {
-      const q = { ten: String(k.ten || 'K' + (i + 1)).slice(0, 24), tuong: iT(k.tuong), cach: num(k.cach, 0), z: Math.max(0, num(k.z, 0)), rong: Math.max(0, num(k.rong, 1000)), cao: Math.max(0, num(k.cao, o.cao)), sau: Math.max(0, num(k.sau, 600)), mau: String(k.mau || ''), ghi_chu: String(k.ghi_chu || '').slice(0, 200) };
+      // (1.41.0) khung đặt trên MẶT NGOÀI vách phòng con: tuong = chuỗi mã mặt 'PC1.truoc' (không iT); mặt còn hay không thì hinhHoc báo
+      const q = { ten: String(k.ten || 'K' + (i + 1)).slice(0, 24), tuong: RE_MAT.test(String(k.tuong)) ? String(k.tuong) : iT(k.tuong), cach: num(k.cach, 0), z: Math.max(0, num(k.z, 0)), rong: Math.max(0, num(k.rong, 1000)), cao: Math.max(0, num(k.cao, o.cao)), sau: Math.max(0, num(k.sau, 600)), mau: String(k.mau || ''), ghi_chu: String(k.ghi_chu || '').slice(0, 200) };
       if (k.tu_id) q.tu_id = String(k.tu_id);      // mã của tủ đã vẽ vào khung này (để biết khung nào đã vẽ)
       // bản 1.19 — khung đặt MẪU KHO Chenfeng thay cho tủ tự chia khoang: kieu = 'kho', kho = mẫu đã chọn (mã mẫu trong kho của tài khoản, tên, ảnh nhỏ, kích thước mặc định)
       if (k.kieu === 'kho') {
@@ -86,6 +87,26 @@
       }
       return q;
     });
+    // PHÒNG CON (bản 1.41.0): khoá `con` / `dem_con` chỉ ghi khi có — phòng 1.40.2 chuẩn hoá ra đúng từng byte như cũ
+    {
+      const ds = (Array.isArray(p.con) ? p.con : []).filter(c => c && typeof c === 'object').slice(0, 20);
+      let dem = Number.isInteger(p.dem_con) && p.dem_con > 0 && p.dem_con < 1000 ? p.dem_con : 0;
+      for (const c of ds) { const m = /^PC(\d{1,3})$/.exec(typeof c.id === 'string' ? c.id : ''); if (m) dem = Math.max(dem, +m[1]); }
+      const da = new Set();
+      const con = ds.map(c => {
+        let id = typeof c.id === 'string' && /^PC\d{1,3}$/.test(c.id) && !da.has(c.id) ? c.id : '';
+        if (!id) { do dem++; while (da.has('PC' + dem)); id = 'PC' + dem; }
+        da.add(id);
+        const q = { id, ten: String(c.ten || 'WC').slice(0, 24), tuong: iT(c.tuong) };
+        if (c.ap === 'dau' || c.ap === 'cuoi') q.ap = c.ap;
+        q.cach = num(c.cach, 0); q.rong = Math.max(0, num(c.rong, 1500)); q.sau = Math.max(0, num(c.sau, 1800)); q.day = Math.max(10, num(c.day, 100));
+        const ca = num(c.cao, 0); if (ca > 0 && ca !== o.cao) q.cao = ca;      // vách lửng; thiếu = cao tới trần
+        q.cua = (Array.isArray(c.cua) ? c.cua : []).filter(d => d && typeof d === 'object').slice(0, CUA_CON_MAX).map(d => ({ mat: MAT_CON.indexOf(d.mat) >= 0 ? d.mat : 'truoc', cach: num(d.cach, 0), rong: Math.max(0, num(d.rong, 830)), cao: Math.max(0, num(d.cao, 2200)), be: Math.max(0, num(d.be, 0)), mo: d.mo === 'ngoai' ? 'ngoai' : 'trong', ban: d.ban === 'phai' ? 'phai' : 'trai' }));
+        return q;
+      });
+      if (con.length) o.con = con;
+      if (con.length || Number.isInteger(p.dem_con)) o.dem_con = dem;      // xoá hết phòng con vẫn nhớ mã đã cấp (khung cũ còn nhớ mã mặt)
+    }
     if (Array.isArray(p.goc) && p.goc.length === 3) o.goc = p.goc.map(v => num(v, 0));      // điểm đặt đầu tường A trong bản vẽ Chenfeng
     const dv = chuanDaVe(p.da_ve); if (dv) o.da_ve = dv;      // bản ghi lần vẽ phòng này vào Chenfeng gần nhất (bản 1.23) — xem banGhiPhong
     // NHÀ NHIỀU PHÒNG (bản 1.36): các khoá chỉ ghi khi có — phòng 1.35 chuẩn hoá ra đúng từng byte như cũ
@@ -99,6 +120,14 @@
     return o;
   }
   const ID_PH = /^P\d{1,4}$/, ID_CT = /^C\d{1,4}$/;
+  // (1.41.0) phòng con: mã mặt ngoài vách 'PC1.truoc' (khung đặt trên mặt đó mang mã này ở `tuong`); [CĐ] tối đa 6 cửa mỗi phòng con
+  const RE_MAT = /^PC\d{1,3}\.(trai|truoc|phai)$/, MAT_CON = ['trai', 'truoc', 'phai'], TEN_MAT = { trai: 'trái', truoc: 'trước', phai: 'phải' }, CUA_CON_MAX = 6;
+  /** Tường (số) hoặc mặt ngoài vách phòng con (chuỗi mã) của hình H — null khi không có. */
+  function tuongTheoMa(H, k) {
+    if (!H) return null;
+    if (typeof k === 'string' && !/^\d+$/.test(k)) return (H.vach || []).find(f => f.i === k) || null;
+    return (H.tuong && H.tuong[+k]) || null;
+  }
   /** Góc về khoảng (−180, 180]; không phải số → 0. */
   function chuanHuong(v) {
     const x = num(v, NaN); if (!isFinite(x)) return 0;
@@ -109,22 +138,35 @@
   function chuanDaVe(v) {
     if (!v || typeof v !== 'object' || !Array.isArray(v.tuong)) return undefined;
     const dsT = ds => (Array.isArray(ds) ? ds : []).filter(r => Array.isArray(r) && r.length === 7 && r.every(x => typeof x === 'number' && isFinite(x))).map(r => r.slice());
-    const tuong = dsT(v.tuong), muon = dsT(v.muon), giu = dsT(v.giu);
+    const tuong = dsT(v.tuong), muon = dsT(v.muon), giu = dsT(v.giu), vach = dsT(v.vach);
     const muc = ds => (Array.isArray(ds) ? ds : []).filter(r => r && so6(r.m)).map(r => (so6(r.t) ? { m: r.m.slice(), t: r.t.slice() } : { m: r.m.slice() }));
     const o = { tuong, mo: muc(v.mo), cot: muc(v.cot), dam: muc(v.dam) };
-    if (muon.length) o.muon = muon; if (giu.length) o.giu = giu;      // (1.36) tường chung giữ của phòng bên / tường giữ hộ phòng bên — xem banGhiPhong
+    if (muon.length) o.muon = muon; if (giu.length) o.giu = giu; if (vach.length) o.vach = vach; if (v.manh === 1) o.manh = 1;      // (1.41.0) vach = vách ngăn phòng con lần đó dựng · (1.36) tường chung giữ của phòng bên / tường giữ hộ phòng bên — xem banGhiPhong
     if (so6(v.dn)) { o.dn = v.dn.slice(); if (typeof v.dn_ma === 'string' && v.dn_ma) o.dn_ma = v.dn_ma.slice(0, 24); if (Number.isInteger(v.dn_so) && v.dn_so > 0) o.dn_so = v.dn_so; }
-    return tuong.length || muon.length || giu.length || o.mo.length || o.cot.length || o.dam.length || o.dn ? o : undefined;
+    return tuong.length || muon.length || giu.length || vach.length || o.mo.length || o.cot.length || o.dam.length || o.dn ? o : undefined;
   }
 
   /* ---------------- hình học ---------------- */
   // tên lỗ cửa viết thường giữa câu; lỗ bóng giữ nguyên tên phòng ("cửa đi của Phòng ngủ")
-  const thuong = m => (m.chung ? String(m.ten).charAt(0).toLowerCase() + String(m.ten).slice(1) : String(m.ten).toLowerCase());
+  const thuong = m => (m.chung || m.phu ? String(m.ten).charAt(0).toLowerCase() + String(m.ten).slice(1) : String(m.ten).toLowerCase());
   const cong = (a, b) => [a[0] + b[0], a[1] + b[1]];
   const nhan = (a, k) => [a[0] * k, a[1] * k];
   const cham = (a, b) => a[0] * b[0] + a[1] * b[1];
   const sach = v => (Math.abs(v) < 1e-9 ? 0 : v);
 
+  // (1.41.0) điểm trong đa giác (chẵn – lẻ); đoạn [a, b] cắt NGANG một cạnh của đa giác lồi P (chạm / trùng đường không tính); tia o + d·t gặp đoạn [a, b] ở t nào (Infinity = không gặp)
+  function trongDa(q, P) { let c = false; for (let i = 0, k = P.length - 1; i < P.length; k = i++) { const a = P[i], b = P[k]; if ((a[1] > q[1]) !== (b[1] > q[1]) && q[0] < (b[0] - a[0]) * (q[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+  function catNhau(P, ab) {
+    const T = 0.5, ben = (a, b, q) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return ((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) / L; }, [c, d] = ab;
+    for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], u = ben(a, b, c), v = ben(a, b, d), x = ben(c, d, a), y = ben(c, d, b); if (u * v < 0 && Math.abs(u) > T && Math.abs(v) > T && x * y < 0 && Math.abs(x) > T && Math.abs(y) > T) return true; }
+    return false;
+  }
+  function catTia(o, d, a, b) {
+    const ex = b[0] - a[0], ey = b[1] - a[1], de = d[0] * ey - d[1] * ex; if (Math.abs(de) < 1e-9) return Infinity;
+    const t = ((a[0] - o[0]) * ey - (a[1] - o[1]) * ex) / de, u = ((a[0] - o[0]) * d[1] - (a[1] - o[1]) * d[0]) / de;
+    return u >= -1e-6 && u <= 1 + 1e-6 ? t : Infinity;
+  }
+  const p0Ap = (H, j) => !!(H.p.con && H.p.con[j] && H.p.con[j].ap);      // phòng con đang áp góc: "cách đầu" do bảng tính, không sửa trên hình
   /** Hai đa giác lồi có chồng lên nhau không (chạm mép không tính; lấn dưới `eps` mm không tính). */
   function giao(A, B, eps) {
     eps = eps === undefined ? 0.5 : eps;
@@ -187,9 +229,40 @@
     const vung = (w, s0, s1, t) => [cong(cong(w.p0, nhan(w.d, s0)), nhan(w.n, 0)), cong(w.p0, nhan(w.d, s1)), cong(cong(w.p0, nhan(w.d, s1)), nhan(w.n, t)), cong(cong(w.p0, nhan(w.d, s0)), nhan(w.n, t))];
     const zGiao = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0) > 0.5;
     const trong = (ten, w, cach, rong) => { if (cach < -0.05 || cach + rong > w.dai + 0.05) { loi.push(`${ten} vượt ra ngoài tường ${w.ten} (tường dài ${g(w.dai)}, ${ten.toLowerCase().indexOf('khung') === 0 ? 'khung' : 'nó'} chiếm ${g(cach)} → ${g(cach + rong)}).`); return false; } return true; };
+    // PHÒNG CON (bản 1.41.0 — anh Thanh 04/11/2026: "trong các phòng đều có nvs và cửa làm thêm các phòng con và cửa phụ"): ô chữ nhật áp tường chính.
+    // rong × sau = LÒNG phòng con (thông thuỷ); vách dày `day` nằm NGOÀI lòng (phía phòng chính) như tường phòng. Áp góc thì tường kề làm mặt đó.
+    // Mỗi mặt ngoài vách (phía phòng chính) là một "tường" để đặt tủ: cùng dạng với W[i] (p0, d, n, dai, cao, a), mã chuỗi 'PC1.truoc'.
+    const con = [], vach = [];
+    (p.con || []).forEach((c, j) => {
+      const w = W[c.tuong], nW = W.length, L = w.dai, R = c.rong, S = c.sau, v = c.day;
+      const a = c.ap === 'dau' ? 0 : c.ap === 'cuoi' ? rn(L - R, 1) : c.cach;
+      const traiCo = a > 0.05, phaiCo = a + R < L - 0.05, vL = traiCo ? v : 0, vR = phaiCo ? v : 0, caoV = c.cao > 0 ? c.cao : w.cao;
+      const Q = (s, t) => { const q = cong(cong(w.p0, nhan(w.d, s)), nhan(w.n, t)); return [rn(q[0], 3), rn(q[1], 3)]; };
+      const hcn = (s0, s1, t0, t1) => [Q(s0, t0), Q(s1, t0), Q(s1, t1), Q(s0, t1)];
+      const am = q => [sach(-q[0]), sach(-q[1])];
+      const truocW = W[(c.tuong - 1 + nW) % nW], sauW = W[(c.tuong + 1) % nW], ten = c.ten;
+      const md = {};
+      if (traiCo) md.trai = { p0: Q(a - v, 0), d: w.n, n: am(w.d), dai: S + v, a: w.a - 90, ke: [w.ten, `${ten}·${TEN_MAT.truoc}`], lo: 0, hi: S };
+      md.truoc = { p0: Q(a - vL, S + v), d: w.d, n: w.n, dai: R + vL + vR, a: w.a, ke: [traiCo ? `${ten}·${TEN_MAT.trai}` : truocW.ten, phaiCo ? `${ten}·${TEN_MAT.phai}` : sauW.ten], lo: vL, hi: vL + R };
+      if (phaiCo) md.phai = { p0: Q(a + R + v, S + v), d: am(w.n), n: w.d, dai: S + v, a: w.a + 90, ke: [`${ten}·${TEN_MAT.truoc}`, w.ten], lo: v, hi: S + v };
+      const mat = { trai: null, truoc: null, phai: null };
+      for (const k of MAT_CON) {
+        const m = md[k]; if (!m) continue;
+        const f = { i: `${c.id}.${k}`, ten: `${ten}·${TEN_MAT[k]}`, dai: rn(m.dai, 1), cao: caoV, a: m.a, d: m.d, n: m.n, p0: m.p0, p1: [rn(m.p0[0] + m.d[0] * m.dai, 3), rn(m.p0[1] + m.d[1] * m.dai, 3)], day: v, tu_tinh: false, vach: { con: j, id: c.id, mat: k, lo: rn(m.lo, 1), hi: rn(m.hi, 1) }, ke: m.ke };
+        mat[k] = f; vach.push(f);
+      }
+      const bang = { trai: traiCo ? hcn(a - v, a, 0, S + v) : null, truoc: hcn(a, a + R, S, S + v), phai: phaiCo ? hcn(a + R, a + R + v, 0, S + v) : null };
+      // chuỗi mặt TRONG vách (đưa cho lệnh tường): đi quanh lòng phòng con theo chiều kim đồng hồ (lòng bên phải hướng đi) → bề dày bên trái = phía phòng chính
+      const chuoi = [];
+      if (phaiCo) chuoi.push(['phai', Q(a + R, 0), Q(a + R, S)]);
+      chuoi.push(['truoc', Q(a + R, S), Q(a, S)]);
+      if (traiCo) chuoi.push(['trai', Q(a, S), Q(a, 0)]);
+      con.push({ j, id: c.id, ten, tuong: c.tuong, w, a: rn(a, 1), R, S, v, cao: caoV, trai: traiCo, phai: phaiCo, vL, vR, long: hcn(a, a + R, 0, S), ve: hcn(a - vL, a + R + vR, 0, S + v), bang, chuoi, mat, cua: [] });
+    });
+    const wCua = k => (typeof k === 'string' ? vach.find(f => f.i === k) || null : W[k]);
     const mo = p.mo.map((m, j) => { const w = W[m.tuong]; return Object.assign({ j, w, ten: `${LOAI_MO[m.loai]} ${j + 1}`, poly: vung(w, m.cach, m.cach + m.rong, 60), z0: m.be, z1: m.be + m.cao }, m); });
     const can = p.can.map((c, j) => { const w = W[c.tuong]; return Object.assign({ j, w, ten: `${LOAI_CAN[c.loai]} ${j + 1}`, poly: vung(w, c.cach, c.cach + c.rong, c.nho) }, c); });
-    const kh = p.khung.map((q, j) => { const w = W[q.tuong]; return Object.assign({ j, w, poly: vung(w, q.cach, q.cach + q.rong, q.sau), z0: q.z, z1: q.z + q.cao }, q); });
+    const kh = p.khung.map((q, j) => { const w = wCua(q.tuong); return Object.assign({ j, w, poly: w ? vung(w, q.cach, q.cach + q.rong, q.sau) : null, z0: q.z, z1: q.z + q.cao }, q); });
     for (const m of mo) {
       if (!(m.rong > 0) || !(m.cao > 0)) loi.push(`${m.ten} (tường ${m.w.ten}) chưa có rộng / cao.`);
       trong(m.ten, m.w, m.cach, m.rong);
@@ -202,6 +275,18 @@
       const q = { tuong: m.tuong, loai: LOAI_MO[m.loai] ? m.loai : 'cua', cach: num(m.cach, 0), rong: Math.max(0, num(m.rong, 0)), cao: Math.max(0, num(m.cao, 0)), be: Math.max(0, num(m.be, 0)), chung: m.chung };
       mo.push(Object.assign({ j: mo.length, w, ten: `${LOAI_MO[q.loai]} của ${m.chung.ten || m.chung.phong}`, poly: vung(w, q.cach, q.cach + q.rong, 60), z0: q.be, z1: q.be + q.cao }, q));
     }
+    // CỬA PHỤ (1.41.0): cửa của phòng con trên mặt ngoài vách — vào H.mo (chặn chỗ đặt tủ, khung che thì báo, mặt đứng, vẽ lỗ) với `phu` = { con, k }; `cach` đo trên mặt ngoài từ p0
+    const nMoChinh = mo.length;
+    con.forEach((c, j) => p.con[j].cua.forEach((d, k) => {
+      const f = c.mat[d.mat], ten = `Cửa ${c.ten} ${k + 1}`;
+      if (!f) { loi.push(`${ten} nằm trên mặt ${TEN_MAT[d.mat]} của ${c.ten} — mặt đó không có (${c.ten} áp góc ${d.mat === 'trai' ? 'đầu' : 'cuối'} tường ${c.w.ten}). Chọn mặt khác cho cửa.`); return; }
+      const m = { j: mo.length, w: f, tuong: f.i, loai: 'cua', ten, poly: vung(f, d.cach, d.cach + d.rong, 60), z0: d.be, z1: d.be + d.cao, phu: { con: j, k }, cach: d.cach, rong: d.rong, cao: d.cao, be: d.be, mo: d.mo, ban: d.ban };
+      c.cua.push(m); mo.push(m);
+      if (!(d.rong > 0) || !(d.cao > 0)) loi.push(`${ten} chưa có rộng / cao.`);
+      else if (d.cach < f.vach.lo - 0.05 || d.cach + d.rong > f.vach.hi + 0.05) loi.push(`${ten} chạm góc vách (mặt ${TEN_MAT[d.mat]} ${c.ten} chỉ từ ${g(f.vach.lo)} tới ${g(f.vach.hi)}, cửa chiếm ${g(d.cach)} → ${g(d.cach + d.rong)}).`);
+      if (d.be + d.cao > c.cao + 0.05) loi.push(`${ten} cao tới +${g(d.be + d.cao)}, vượt vách ${c.ten} cao ${g(c.cao)}.`);
+    }));
+    for (let i = nMoChinh; i < mo.length; i++) for (let k = i + 1; k < mo.length; k++) if (mo[i].tuong === mo[k].tuong && giao(mo[i].poly, mo[k].poly) && zGiao(mo[i].z0, mo[i].z1, mo[k].z0, mo[k].z1)) luu_y.push(`${mo[i].ten} và ${mo[k].ten} trên mặt ${mo[i].w.ten} chồng lên nhau.`);
     for (const c of can) {
       if (!(c.rong > 0) || !(c.nho > 0)) loi.push(`${c.ten} (tường ${c.w.ten}) chưa có rộng / độ nhô.`);
       trong(c.ten, c.w, c.cach, c.rong);
@@ -209,6 +294,7 @@
     }
     for (const q of kh) {
       const ten = `Khung ${q.ten}`;
+      if (!q.w) { const m = /^(PC\d+)\.(\w+)$/.exec(String(q.tuong)) || [], c = con.find(x => x.id === m[1]); loi.push(`${ten} nằm trên ${c ? `${c.ten}·${TEN_MAT[m[2]] || m[2]}` : `mặt vách ${q.tuong}`} — mặt đó không còn (${c ? `${c.ten} đã áp góc` : 'phòng con đã bỏ'}). Chuyển khung sang tường khác.`); continue; }
       if (!(q.rong > 0) || !(q.cao > 0) || !(q.sau > 0)) { loi.push(`${ten} chưa đủ rộng / cao / sâu.`); continue; }
       trong(ten, q.w, q.cach, q.rong);
       if (q.z1 > q.w.cao + 0.05) loi.push(`${ten} cao tới +${g(q.z1)}, vượt trần ${g(q.w.cao)} của tường ${q.w.ten}.`);
@@ -222,8 +308,53 @@
         luu_y.push(`${ten} vướng ${c.ten.toLowerCase()} ở tường ${c.w.ten} (${g(c.rong)} × nhô ${g(c.nho)}, +${g(c.z0)} → +${g(c.z1)}).${goi}`);
       }
     }
-    for (let i = 0; i < kh.length; i++) for (let j = i + 1; j < kh.length; j++) if (kh[i].rong > 0 && kh[j].rong > 0 && giao(kh[i].poly, kh[j].poly) && zGiao(kh[i].z0, kh[i].z1, kh[j].z0, kh[j].z1))
+    for (let i = 0; i < kh.length; i++) for (let j = i + 1; j < kh.length; j++) if (kh[i].rong > 0 && kh[j].rong > 0 && kh[i].poly && kh[j].poly && giao(kh[i].poly, kh[j].poly) && zGiao(kh[i].z0, kh[i].z1, kh[j].z0, kh[j].z1))
       loi.push(kh[i].tuong === kh[j].tuong ? `Khung ${kh[i].ten} và khung ${kh[j].ten} trên tường ${kh[i].w.ten} chồng lên nhau.` : `Khung ${kh[i].ten} (tường ${kh[i].w.ten}) và khung ${kh[j].ten} (tường ${kh[j].w.ten}) đâm vào nhau ở góc phòng — lùi một khung ra khỏi góc đúng bằng chiều sâu khung kia.`);
+    // PHÒNG CON (1.41.0): kiểm. Ô [CĐ]: dưới 600 là lỗi, dưới 800 × 1000 là lưu ý (anh chỉnh số)
+    const dinhL = W.map(w => w.p0);
+    con.forEach((c, j) => {
+      const L = c.w.dai, ten = c.ten, nW = W.length, iw = c.tuong;
+      const reTruoc = (iw > 0 || khep.kin) ? p.tuong[(iw - 1 + nW) % nW].re : null, reSau = (iw < nW - 1 || khep.kin) ? p.tuong[iw].re : null;
+      const loi0 = loi.length;
+      if (c.a < -0.05 || c.a + c.R > L + 0.05) loi.push(`Phòng con ${ten} ra ngoài tường ${c.w.ten} (tường dài ${g(L)}, ${ten} chiếm ${g(c.a)} → ${g(c.a + c.R)}).`);
+      else {
+        if (c.a > 0.05 && c.a < c.v - 0.05) loi.push(`Vách trái ${ten} cách góc chỉ ${g(c.a)} — đặt áp góc, hoặc cách từ ${g(c.v)} (dày vách).`);
+        const ph = L - c.a - c.R; if (ph > 0.05 && ph < c.v - 0.05) loi.push(`Vách phải ${ten} cách góc chỉ ${g(ph)} — đặt áp góc, hoặc cách từ ${g(c.v)} (dày vách).`);
+        if (!c.trai && reTruoc === null) loi.push(`Đầu tường ${c.w.ten} không có tường kề (phòng chưa khép) — chưa đặt ${ten} áp góc đó được: đặt cách đầu tường.`);
+        else if (!c.trai && Math.abs(reTruoc - 90) > 0.01) loi.push(`Góc ${W[(iw - 1 + nW) % nW].ten}–${c.w.ten} không vuông: chưa đặt phòng con áp góc được — đặt cách đầu tường.`);
+        if (!c.phai && reSau === null) loi.push(`Cuối tường ${c.w.ten} không có tường kề (phòng chưa khép) — chưa đặt ${ten} áp góc đó được: đặt cách đầu tường.`);
+        else if (!c.phai && Math.abs(reSau - 90) > 0.01) loi.push(`Góc ${c.w.ten}–${W[(iw + 1) % nW].ten} không vuông: chưa đặt phòng con áp góc được — đặt cách đầu tường.`);
+      }
+      const hongGoc = loi.length > loi0;
+      if (c.R < 600 || c.S < 600) loi.push(`${ten} ${g(c.R)} × ${g(c.S)} quá nhỏ (mỗi chiều lòng phải từ 600).`);
+      else if (c.R < 800 || c.S < 1000) luu_y.push(`${ten} ${g(c.R)} × ${g(c.S)} nhỏ hơn cỡ thường (≥ 800 × 1000) [CĐ].`);
+      if (p.con[j].cao > p.cao + 0.05) loi.push(`Vách ${ten} cao ${g(p.con[j].cao)}, vượt trần ${g(p.cao)}.`);
+      // dấu chân (cả vách) phải nằm trong lòng phòng: góc lùi vào 1 mm nằm trong đa giác, và không cạnh nào của dấu chân cắt ngang tường khác
+      if (khep.kin && W.length >= 3 && !hongGoc) {      // đã báo ra ngoài tường / vách đâm vào góc thì thôi
+        const tam = [(c.ve[0][0] + c.ve[2][0]) / 2, (c.ve[0][1] + c.ve[2][1]) / 2];
+        const lui = c.ve.map(q => { const dx = tam[0] - q[0], dy = tam[1] - q[1], l = Math.hypot(dx, dy) || 1; return [q[0] + dx / l * 1.5, q[1] + dy / l * 1.5]; });
+        if (!lui.every(q => trongDa(q, dinhL)) || W.some(w => w.dai > 0 && catNhau(c.ve, [w.p0, w.p1]))) {
+          // tường đối diện gần nhất theo hướng vào phòng (đo từ giữa mặt tường chính)
+          const o0 = cong(c.w.p0, nhan(c.w.d, c.a + c.R / 2)); let kc = Infinity, wk = null;
+          for (const w of W) { if (w === c.w || !(w.dai > 0)) continue; const t = catTia(o0, c.w.n, w.p0, w.p1); if (t > 0.5 && t < kc) { kc = t; wk = w; } }
+          loi.push(`${ten} sâu ${g(c.S)} (cả vách ${g(c.S + c.v)}) ra quá lòng phòng${wk ? ` (tường ${wk.ten} chỉ cách tường ${c.w.ten} ${g(kc)})` : ''} — thu sâu / rộng phòng con.`);
+        }
+      }
+      for (let k = j + 1; k < con.length; k++) if (giao(c.ve, con[k].ve)) loi.push(`Phòng con ${ten} và ${con[k].ten} chồng lên nhau.`);
+      const bang = MAT_CON.map(k => c.bang[k]).filter(Boolean);
+      for (const m of mo) {
+        if (m.phu && m.phu.con === j) continue;
+        if (bang.some(b => giao(b, m.poly)) && zGiao(m.z0, m.z1, 0, c.cao)) loi.push(`Vách ${ten} đè lên ${thuong(m)} (${m.phu ? 'mặt' : 'tường'} ${m.w.ten}) — dời / thu phòng con.`);
+      }
+      for (const q of can) {
+        if (q.loai === 'dam' || !(q.rong > 0) || !(q.nho > 0)) continue;
+        if (bang.some(b => giao(b, q.poly))) loi.push(`Vách ${ten} đè lên ${q.ten.toLowerCase()} (tường ${q.w.ten}) — dời / thu phòng con.`);
+        else if (giao(c.long, q.poly)) ghi_chu.push(`${q.ten} nằm trong ${ten}.`);
+      }
+      // bản này chưa đặt tủ trong lòng phòng con (choTrong không cho) → khung chồng dấu chân là lỗi
+      for (const q of kh) if (q.poly && q.rong > 0 && q.sau > 0 && giao(q.poly, c.ve) && zGiao(q.z0, q.z1, 0, c.cao)) loi.push(`Khung ${q.ten} chồng lên phòng con ${ten}.`);
+      if (!p.con[j].cua.length) luu_y.push(`${ten} chưa có cửa — thêm cửa ở thẻ phòng con.`);
+    });
     // ĐIỆN – NƯỚC (bản 1.18): vị trí trên mặt bằng (P) + cao độ (z), tên đánh số theo từng loại ("Ổ điện 2"), cỡ ô phải khoét
     const dem = {};
     const dn = p.dn.map((d, j) => {
@@ -239,11 +370,20 @@
       if (d.z > d.w.cao + 0.05) loi.push(`${d.ten} (tường ${d.w.ten}) cao +${g(d.z)}, vượt trần ${g(d.w.cao)}.`);
       for (const m of mo) if (m.tuong === d.tuong && d.cach > m.cach + 0.5 && d.cach < m.cach + m.rong - 0.5 && d.z > m.z0 + 0.5 && d.z < m.z1 - 0.5) luu_y.push(`${d.ten} đang nằm giữa ${thuong(m)} của tường ${d.w.ten} — kiểm tra lại “cách trái” / “cao”.`);
     }
+    // điện – nước so với phòng con: vách trùm điểm (lưu ý), điểm nằm trong lòng phòng con (ghi chú)
+    for (const c of con) for (const d of dn) {
+      if (d.cach < -0.05 || d.cach > d.w.dai + 0.05) continue;
+      const q = d.san ? d.P : cong(d.P, nhan(d.w.n, 1)), bang = MAT_CON.map(k => c.bang[k]).filter(Boolean);
+      if (bang.some(b => trongDa(q, b)) && (d.san || d.z < c.cao)) luu_y.push(`Vách ${c.ten} đè lên ${d.ten.toLowerCase()} (tường ${d.w.ten}) — dời điểm hoặc phòng con.`);
+      else if (trongDa(q, c.long)) ghi_chu.push(`${d.ten} (tường ${d.w.ten}) thuộc ${c.ten}.`);
+    }
     H.mo = mo; H.can = can; H.khung = kh; H.dn = dn;
+    if (con.length) { H.con = con; H.vach = vach; }
     // khung nào che điểm nào (tính theo hộp của khung; mở khung thành tủ thì `dienNuocChoTu` xét tới từng tấm)
     if (dn.length) kh.forEach((q, j) => {
       if (!(q.rong > 0 && q.cao > 0 && q.sau > 0)) return;
-      const dk = datKhung(H, j), che = diemTrongKhung(H, { goc: dk.goc, xoay: dk.xoay, rong: q.rong, sau: q.sau, cao: q.cao });
+      const dk = datKhung(H, j); if (!dk) return;
+      const che = diemTrongKhung(H, { goc: dk.goc, xoay: dk.xoay, rong: q.rong, sau: q.sau, cao: q.cao });
       if (!che.length) return;
       const ten = `Khung ${q.ten}`, ds = [];
       for (const c of che) {
@@ -403,7 +543,7 @@
 
   /** Vị trí đặt tủ của một khung: góc trái – trước – dưới (mặt cánh) trong toạ độ phòng, và góc xoay quanh trục đứng (độ, ngược chiều kim đồng hồ). */
   function datKhung(H, j) {
-    const q = H.khung && H.khung[j]; if (!q) return null;
+    const q = H.khung && H.khung[j]; if (!q || !q.w) return null;
     const P = cong(cong(q.w.p0, nhan(q.w.d, q.cach)), nhan(q.w.n, q.sau)), o = H.p.goc || [0, 0, 0];
     let a = q.w.a % 360; if (a > 180) a -= 360; if (a <= -180) a += 360;
     return { goc: [rn(P[0] + o[0], 2), rn(P[1] + o[1], 2), rn(q.z + o[2], 2)], xoay: sach(a), tuong: q.w.ten };
@@ -460,7 +600,7 @@
   /* ---- bản 1.25 — KÉO KHUNG trên mặt đứng (anh Thanh 05/10/2026 08:19: "vẽ khung nhưng không move được"; 08:20: "với có bắt điểm") ---- */
   // Mốc của tường i: `bo(k, mep)` = true thì bỏ mép đó của khung k (mep: 'trai' | 'phai' | 'duoi' | 'tren').
   function mocCua(H, i, bo) {
-    const w = H && H.tuong && H.tuong[i]; if (!w || !(w.dai > 0)) return { s: [], z: [] };
+    const w = tuongTheoMa(H, i); if (!w || !(w.dai > 0)) return { s: [], z: [] };
     const L = w.dai, C = w.cao || H.p.cao || 2700, s = [0, L], z = [0, C];
     for (const k of H.khung || []) {
       if (k.tuong !== i || !(k.rong > 0) || !(k.cao > 0)) continue;
@@ -924,7 +1064,9 @@
     const tren = (w, s, t) => P2(cong(cong(w.p0, nhan(w.d, s)), nhan(w.n, t)));
     const W = (H.tuong || []).filter(w => w.dai > 0), dW = w => (w.day > 0 ? w.day : day);      // (1.36) tường khách của tường chung: dày theo phòng chủ (tim trùng → Chenfeng không dựng chồng)
     const out = { kin: !!(H.khep && H.khep.kin) && W.length >= 3, tuong: W.map(w => ({ i: w.i, ten: w.ten, a: P2(w.p0), b: P2(w.p1), z: rn(o[2], 2), cao, day: dW(w) })), mo: [], cot: [], dam: [] };
-    for (const m of H.mo || []) if (!m.chung && m.rong > 0 && m.cao > 0) out.mo.push({ j: m.j, ten: m.ten, tuong: m.w.i, loai: m.loai, hop: hop6([tren(m.w, m.cach, 0), tren(m.w, m.cach + m.rong, -dW(m.w))], o[2] + m.be, o[2] + m.be + m.cao) });      // lỗ bóng: phòng sở hữu cửa khoét, một lần
+    for (const m of H.mo || []) if (!m.chung && m.rong > 0 && m.cao > 0) out.mo.push({ j: m.j, ten: m.ten, tuong: m.w.i, loai: m.loai, hop: hop6([tren(m.w, m.cach, 0), tren(m.w, m.cach + m.rong, -dW(m.w))], o[2] + m.be, o[2] + m.be + m.cao) });      // lỗ bóng: phòng sở hữu cửa khoét, một lần · cửa phụ: hộp mặt ngoài → mặt trong vách (w = mặt ngoài, dày = vách)
+    // (1.41.0) vách ngăn phòng con: a → b = mặt TRONG vách (RightCurves của tường sẽ dựng), theo chuỗi chiều kim đồng hồ quanh lòng phòng con; chỉ có khoá khi phòng có phòng con
+    if ((H.con || []).length) out.vach = H.con.flatMap(c => c.chuoi.map(([mat, A, B]) => ({ con: c.id, ten: `${c.ten}·${TEN_MAT[mat]}`, mat, a: P2(A), b: P2(B), z: rn(o[2], 2), cao: c.cao, day: c.v })));
     for (const c of H.can || []) {
       const dam = c.loai === 'dam';
       if (!(c.rong > 0 && c.nho > 0) || (dam && !(c.z1 > c.z0))) continue;
@@ -942,10 +1084,13 @@
     const muc = (ds, tt) => { const o = []; ds.forEach((x, i) => { const t = tt && tt[i]; if (t === false) return; const r = { m: x.hop.slice() }; if (so6(t) && t.some((v, q) => Math.abs(v - x.hop[q]) > TOL_BV)) r.t = t.map(v => rn(v, 2)); o.push(r); }); return o; };
     const ghiT = w => [w.a[0], w.a[1], w.b[0], w.b[1], w.z, w.cao, w.day];
     const r = { tuong: moi.tuong.map(ghiT), mo: muc(moi.mo, that.mo), cot: muc(moi.cot, that.cot), dam: muc(moi.dam, that.dam) };
+    // (1.41.0) vach = vách ngăn phòng con lần này dựng (đang CÓ trên bản vẽ — tuongGhi lọc) → lần sau nhận ra vách cũ, phòng con dời / bỏ thì bỏ vách cũ
     // (1.36) muon = tường của hình phòng này nằm trên tường phòng bên dựng (tường chung giữ của phòng bên — không đứng tên, nhưng phòng bên vẽ lại không được xoá);
     // giu = tường phòng này dựng trước đây, nay hình không cần mà phòng bên còn dựa vào (doiChieuPhong.giu_ghi) — vẫn đứng tên
     if (Array.isArray(that.muon) && that.muon.length) r.muon = that.muon.map(ghiT);
     if (Array.isArray(that.giu) && that.giu.length) r.giu = that.giu.filter(x => Array.isArray(x) && x.length >= 7).map(x => x.slice(0, 7));
+    if (Array.isArray(that.vach) && that.vach.length) r.vach = that.vach.map(ghiT);
+    if (that.manh === 1 || that.manh === true) r.manh = 1;      // (1.41.0 vòng soát) tường của phòng đã bị Chenfeng cắt mảnh ở chỗ vách chạm [CĐ] — xem doiChieuPhong
     if (so6(that.dn)) { r.dn = that.dn.map(v => rn(v, 2)); if (that.dn_ma) r.dn_ma = String(that.dn_ma).slice(0, 24); if (Number.isInteger(that.dn_so) && that.dn_so > 0) r.dn_so = that.dn_so; }      // dn = hộp bao các dấu điện – nước đã thả vào bản vẽ, dn_ma = mã của nội dung (đổi điểm nào thì mã đổi), dn_so = số nét + chữ Chenfeng đã dựng
     return r;
   }
@@ -953,9 +1098,13 @@
    * (1.36) Tường của lần vẽ vừa xong chia cho bản ghi: k = doiChieuPhong SAU khi vẽ, co_tuong[i] = tường i đã có trên bản vẽ (tuongPhuKin).
    * → { tuong (đứng tên), muon (nằm trên tường phòng bên dựng), giu (k.giu_ghi) } — đưa thẳng vào banGhiPhong(Object.assign({}, moi, { tuong }), { muon, giu, … }).
    */
-  function tuongGhi(moi, k, co_tuong) {
+  function tuongGhi(moi, k, co_tuong, co_vach) {
     const W = (moi && moi.tuong) || [], t = (k && k.tuong) || [], co = i => !co_tuong || !!co_tuong[i];
-    return { tuong: W.filter((w, i) => co(i) && !(t[i] && t[i].nam_tren)), muon: W.filter((w, i) => co(i) && t[i] && t[i].nam_tren), giu: (k && k.giu_ghi) || [] };
+    const r = { tuong: W.filter((w, i) => co(i) && !(t[i] && t[i].nam_tren)), muon: W.filter((w, i) => co(i) && t[i] && t[i].nam_tren), giu: (k && k.giu_ghi) || [] };
+    // (1.41.0) vách ngăn phòng con: chỉ ghi vách đang CÓ trên bản vẽ và do lần này dựng (không nằm trên tường sẵn có khác)
+    if (k && k.manh) r.manh = 1;
+    if (moi && Array.isArray(moi.vach)) { const kv = (k && k.vach) || []; r.vach = moi.vach.filter((v, i) => (!co_vach || !!co_vach[i]) && !(kv[i] && kv[i].nam_tren)); }
+    return r;
   }
   /**
    * ĐỐI CHIẾU phòng sắp vẽ với các đối tượng phòng đang có trên bản vẽ.
@@ -987,30 +1136,53 @@
     // (đặt thêm một phòng giống hệt bên cạnh) thì phòng đã vẽ ở chỗ cũ không phải "phòng cũ phải bỏ".
     if (cu) {
       const bao = ds => ds.reduce((h, q) => [Math.min(h[0], q[0]), Math.max(h[1], q[0]), Math.min(h[2], q[1]), Math.max(h[3], q[1])], [Infinity, -Infinity, Infinity, -Infinity]);
-      const h1 = bao((cu.tuong || []).flatMap(r => [[r[0], r[1]], [r[2], r[3]]])), h2 = bao(moi.tuong.flatMap(w => [w.a, w.b]));
+      // (1.41.0 vòng soát) phòng có phòng con (bản ghi / hình mới có vách): hộp bao tính cả tường `muon` / `giu` + vách — phòng mà mọi tường chính nằm trên tường vẽ tay
+      // (cu.tuong rỗng) không mất bản ghi, vách cũ của chính nó vẫn nhận ra (không thì dời WC là DỪNG hỏi vì "tường lạ trong lòng phòng"). Phòng không phòng con: y như cũ.
+      const lien = Array.isArray(moi.vach) || (Array.isArray(cu.vach) && cu.vach.length > 0) || cu.manh === 1;
+      const dsBao = (cu.tuong || []).concat(lien ? [].concat(cu.muon || [], cu.giu || [], cu.vach || []).filter(r => Array.isArray(r) && r.length >= 4) : []);
+      const h1 = bao(dsBao.flatMap(r => [[r[0], r[1]], [r[2], r[3]]])), h2 = bao(moi.tuong.flatMap(w => [w.a, w.b]));
       if (!(Math.min(h1[1], h2[1]) - Math.max(h1[0], h2[0]) > T && Math.min(h1[3], h2[3]) - Math.max(h1[2], h2[2]) > T)) cu = null;
     }
     const dsT = (r, k) => (r && Array.isArray(r[k]) ? r[k] : []).filter(x => Array.isArray(x) && x.length >= 4);
+    // (1.41.0) phòng con: MV = vách ngăn sắp vẽ (chỉ có khi phòng có phòng con), cuV = vách của lần vẽ trước. Mọi nhánh mới chỉ chạy khi có một trong hai → phòng cũ y hệt.
+    // (vòng soát) cu.manh = lần vẽ trước đã nhận tường theo mảnh: bỏ hết phòng con thì bản ghi không còn vách nhưng mảnh tường do vách cũ cắt vẫn còn trên bản vẽ
+    const MV = Array.isArray(moi.vach) ? moi.vach : null, cuV = dsT(cu, 'vach'), coCon = !!MV || cuV.length > 0 || !!(cu && cu.manh === 1);
+    // [CĐ] Chenfeng có thể CẮT mặt tường cũ thành mảnh ở chỗ vách chạm giữa tường (chữ T): nhận tường theo các mảnh cùng đường phủ kín a → b (≥ 2 mảnh)
+    let dungManh = false;
+    const khopManh = (e, a, b) => { if (!coCon) return false; const ds = (e.mat || []).filter(m => namTren([a, b], m[0], m[1])); return ds.length >= 2 && tuongPhuKin({ a, b, day: e.day }, { tuong: [{ mat: ds, day: e.day }] }); };
     // (1.36) bản ghi `giu` = tường do phòng này dựng ở lần vẽ trước mà nay hình phòng không còn cần, nhưng phòng bên đang DỰA vào (giữ lại cho phòng bên) — vẫn là của phòng này
-    const cuT = dsT(cu, 'tuong').concat(dsT(cu, 'giu'));
-    const laCuT = CT.map(e => cuT.some(r => (e.mat || []).some(m => trung(m, [r[0], r[1]], [r[2], r[3]]))));      // tường này do lần vẽ trước của phòng dựng
+    const cuT = dsT(cu, 'tuong').concat(dsT(cu, 'giu'), cuV);
+    const laCuT = CT.map(e => cuT.some(r => (e.mat || []).some(m => trung(m, [r[0], r[1]], [r[2], r[3]])) || (khopManh(e, [r[0], r[1]], [r[2], r[3]]) && (dungManh = true))));      // tường này do lần vẽ trước của phòng dựng
     // tường của phòng bên: bản ghi của nó trùng / nằm trên một mặt (tường chung do phòng kia dựng ghi mặt trong phía bên đó).
     // (1.36) cả tường phòng bên đang DỰA vào (`muon`: tường chung nó giữ mà phòng khác dựng) và tường nó giữ hộ (`giu`) — không có thì vẽ lại phòng dựng tường xoá mất tường của phòng bên
-    const khacT = khac.flatMap(r => dsT(r, 'tuong').concat(dsT(r, 'muon'), dsT(r, 'giu')));
-    const laKhacT = CT.map(e => khacT.some(r => (e.mat || []).some(m => trung(m, [r[0], r[1]], [r[2], r[3]]) || namTren(m, [r[0], r[1]], [r[2], r[3]]))));
+    // (1.41.0) và vách ngăn phòng con của phòng bên (`vach`)
+    const khacT = khac.flatMap(r => dsT(r, 'tuong').concat(dsT(r, 'muon'), dsT(r, 'giu'), dsT(r, 'vach')));
+    const laKhacT = CT.map(e => khacT.some(r => (e.mat || []).some(m => trung(m, [r[0], r[1]], [r[2], r[3]]) || namTren(m, [r[0], r[1]], [r[2], r[3]])) || khopManh(e, [r[0], r[1]], [r[2], r[3]])));
     // --- tường ---
     const giuT = new Set(), cheT = new Set();
     const tuong = moi.tuong.map(w => {
-      let k = CT.findIndex(e => (e.mat || []).some(m => trung(m, w.a, w.b)) && Math.abs(e.day - w.day) <= T && Math.abs(e.cao - w.cao) <= T && Math.abs((e.z || 0) - w.z) <= T);
+      const cung = e => Math.abs(e.day - w.day) <= T && Math.abs(e.cao - w.cao) <= T && Math.abs((e.z || 0) - w.z) <= T;
+      let k = CT.findIndex(e => (e.mat || []).some(m => trung(m, w.a, w.b)) && cung(e));
+      if (k < 0 && coCon) { k = CT.findIndex(e => khopManh(e, w.a, w.b) && cung(e)); if (k >= 0) dungManh = true; }
       if (k >= 0) { giuT.add(k); return { co: k, nam_tren: false }; }
       k = CT.findIndex((e, q) => (!laCuT[q] || laKhacT[q]) && (e.mat || []).some(m => namTren(m, w.a, w.b)));
       if (k >= 0) { cheT.add(k); return { co: k, nam_tren: true }; }
       return { co: -1, nam_tren: false };
     });
-    const boT = []; CT.forEach((e, q) => { if (laCuT[q] && !giuT.has(q) && !cheT.has(q) && !laKhacT[q]) boT.push(q); });
+    // --- (1.41.0) vách ngăn phòng con: trùng mặt trong + dày / cao / z → giữ; nằm trên một tường sẵn có KHÁC → coi như đã có; không thì phải vẽ ---
+    const giuV = new Set(), cheV = new Set();
+    const vach = MV ? MV.map(v => {
+      let k = CT.findIndex((e, q) => !giuT.has(q) && !giuV.has(q) && (e.mat || []).some(m => trung(m, v.a, v.b)) && Math.abs(e.day - v.day) <= T && Math.abs(e.cao - v.cao) <= T && Math.abs((e.z || 0) - v.z) <= T);
+      if (k >= 0) { giuV.add(k); return { co: k, nam_tren: false }; }
+      k = CT.findIndex((e, q) => (!laCuT[q] || laKhacT[q]) && (e.mat || []).some(m => namTren(m, v.a, v.b)));
+      if (k >= 0) { cheV.add(k); return { co: k, nam_tren: true }; }
+      return { co: -1, nam_tren: false };
+    }) : null;
+    const laVachMinh = q => giuV.has(q) || cheV.has(q);
+    const boT = []; CT.forEach((e, q) => { if (laCuT[q] && !giuT.has(q) && !cheT.has(q) && !laKhacT[q] && !laVachMinh(q)) boT.push(q); });
     // (1.36) tường của phòng này còn ở lại (phòng bên dựa vào / tường mới nằm trên nó) mà không khớp tường nào của hình mới: chuyển bản ghi sang `giu` → vẫn đứng tên, lần sau bỏ được
     const giu_ghi = [];
-    CT.forEach((e, q) => { if (!laCuT[q] || giuT.has(q) || boT.indexOf(q) >= 0) return; for (const r of cuT) if ((e.mat || []).some(m => trung(m, [r[0], r[1]], [r[2], r[3]])) && !giu_ghi.some(x => x.every((v, i) => v === r[i]))) giu_ghi.push(r.slice()); });
+    CT.forEach((e, q) => { if (!laCuT[q] || giuT.has(q) || laVachMinh(q) || boT.indexOf(q) >= 0) return; for (const r of cuT) if ((e.mat || []).some(m => trung(m, [r[0], r[1]], [r[2], r[3]])) && !giu_ghi.some(x => x.every((v, i) => v === r[i]))) giu_ghi.push(r.slice()); });
     // chuỗi điểm cho lệnh vẽ tường: các tường thiếu liền nhau đi chung một lệnh (theo đúng chiều đi quanh phòng → bề dày vẫn nằm ngoài)
     // (1.36) tường khác dày (tường khách dày theo phòng chủ) không đi chung một lệnh: mỗi chuỗi một bề dày, chuỗi mang `day` khi phòng có nhiều bề dày
     const thieu = tuong.map(t => t.co < 0), ve_tuong = [], d3 = (q, z) => [q[0], q[1], z];
@@ -1077,7 +1249,7 @@
       return Math.min(t1, L) - Math.max(t0, 0) > T;
     };
     CT.forEach((e, q) => {
-      if (giuT.has(q) || cheT.has(q) || laCuT[q] || laKhacT[q]) return;
+      if (giuT.has(q) || cheT.has(q) || laVachMinh(q) || laCuT[q] || laKhacT[q]) return;
       const mat = e.mat || [];
       const o = mat.some(m => trongPhong([(m[0][0] + m[1][0]) / 2, (m[0][1] + m[1][1]) / 2]));
       if (o) trong.push(q);
@@ -1086,7 +1258,24 @@
     // cột / dầm đang có mà không khớp mục nào của phòng mới, không phải của lần vẽ trước, lại nằm trong lòng phòng mới (tâm hộp nằm trong đa giác lòng phòng)
     const trongDG = q => { if (!moi.kin) return false; let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const a1 = moi.tuong[i].a, b1 = moi.tuong[j].a; if ((a1[1] > q[1]) !== (b1[1] > q[1]) && q[0] < (b1[0] - a1[0]) * (q[1] - a1[1]) / (b1[1] - a1[1]) + a1[0]) c = !c; } return c; };
     const lac = (ds, R, dsKhac) => { const o = []; (ds || []).forEach((e, q) => { if (!e.hop || R.kq.some(x => x.co === q) || R.bo.indexOf(q) >= 0 || R.trung.indexOf(q) >= 0 || laKhacH(e.hop, dsKhac)) return; if (trongDG([(e.hop[0] + e.hop[1]) / 2, (e.hop[2] + e.hop[3]) / 2])) o.push(q); }); return o; };
-    return { tuong, ve_tuong, mo: M.kq, cot: C.kq, dam: D.kq, bo: { tuong: boT, lo: M.bo, cot: C.bo, dam: D.bo }, trung: { lo: M.trung, cot: C.trung, dam: D.trung }, chong, trong, thua: { cot: lac(co.cot, C, HK.cot), dam: lac(co.dam, D, HK.dam) }, co_ban_ghi: !!cu, giu_ghi };
+    const R = { tuong, ve_tuong, mo: M.kq, cot: C.kq, dam: D.kq, bo: { tuong: boT, lo: M.bo, cot: C.bo, dam: D.bo }, trung: { lo: M.trung, cot: C.trung, dam: D.trung }, chong, trong, thua: { cot: lac(co.cot, C, HK.cot), dam: lac(co.dam, D, HK.dam) }, co_ban_ghi: !!cu, giu_ghi };
+    if (coCon) {
+      // bo_vach = phần của bo.tuong là vách phòng con của lần vẽ trước (driver đếm riêng; bo.tuong vẫn gồm cả — một lệnh ERASE)
+      if (dungManh) R.manh = true;      // tuongGhi ghi `manh: 1` vào bản ghi → lần sau (kể cả khi đã bỏ hết phòng con) vẫn nhận tường theo mảnh
+      R.bo_vach = boT.filter(q => cuV.some(r => (CT[q].mat || []).some(m => trung(m, [r[0], r[1]], [r[2], r[3]]))));
+    }
+    if (MV) {
+      // chuỗi cho lệnh tường: mỗi phòng con một chuỗi HỞ; vách thiếu liền nhau (cùng phòng con, nối đuôi) đi chung một lệnh
+      const ve_vach = [];
+      for (let i = 0; i < MV.length; i++) {
+        if (vach[i].co >= 0) continue;
+        const v = MV[i], c = ve_vach[ve_vach.length - 1], tr = MV[i - 1];
+        if (c && tr && c.vach[c.vach.length - 1] === i - 1 && tr.con === v.con && gan(tr.b, v.a) && Math.abs(tr.day - v.day) <= 0.01 && Math.abs(tr.cao - v.cao) <= 0.01) { c.diem.push([v.b[0], v.b[1], v.z]); c.vach.push(i); continue; }
+        ve_vach.push({ diem: [[v.a[0], v.a[1], v.z], [v.b[0], v.b[1], v.z]], khep: false, vach: [i], day: v.day, cao: v.cao });
+      }
+      R.vach = vach; R.ve_vach = ve_vach;
+    }
+    return R;
   }
   /**
    * VÙNG của lần vẽ trước dựng lại từ bản ghi (cùng dạng với phanPhong, chỉ có `kin` + `tuong`) — cho trongLongPhong, để tìm dấu điện – nước cũ khi phòng đã đổi cỡ / dời chỗ.
@@ -1143,14 +1332,16 @@
    */
   function choTrong(H, i, s, opt) {
     opt = Object.assign({ sau: 600 }, opt || {});
-    const w = H && H.tuong && H.tuong[i];
+    const w = tuongTheoMa(H, i);      // (1.41.0) i = mã mặt ngoài vách phòng con cũng được
     if (!w || !(w.dai > 0) || !(s >= 0 && s <= w.dai)) return { ok: false, chan: '' };
     const L = w.dai, C = w.cao || H.p.cao;
     const chieu = poly => { const ss = [], tt = []; for (const q of poly) { const dx = q[0] - w.p0[0], dy = q[1] - w.p0[1]; ss.push(dx * w.d[0] + dy * w.d[1]); tt.push(dx * w.n[0] + dy * w.n[1]); } return { s0: Math.min(...ss), s1: Math.max(...ss), t0: Math.min(...tt), t1: Math.max(...tt) }; };
     const lan = c => c.t0 < opt.sau - 1 && c.t1 > 1 && c.s1 > 1 && c.s0 < L - 1;      // hình chiếu lấn vào dải sát tường mà tủ sẽ đứng
     const chan = [];
     for (const k of H.khung || []) { if (!(k.rong > 0) || !k.poly) continue; const c = chieu(k.poly); if (lan(c)) chan.push([Math.max(0, c.s0), Math.min(L, c.s1), `khung ${k.ten}`]); }
-    for (const m of H.mo || []) if (m.tuong === i && m.rong > 0) chan.push([m.cach, m.cach + m.rong, thuong(m)]);      // kể cả lỗ bóng (cửa thông của phòng bên)
+    for (const m of H.mo || []) if (m.tuong === i && m.rong > 0) chan.push([m.cach, m.cach + m.rong, thuong(m)]);      // kể cả lỗ bóng (cửa thông của phòng bên) và cửa phụ (mặt vách)
+    // (1.41.0) dấu chân phòng con (cả vách) chặn như khung; mặt ngoài vách của chính nó nằm trước dấu chân (t ≤ 0) nên không bị chặn
+    for (const c of H.con || []) { const q = chieu(c.ve); if (lan(q)) chan.push([Math.max(0, q.s0), Math.min(L, q.s1), `phòng con ${c.ten}`]); }
     const dang = chan.find(c => s > c[0] + 0.5 && s < c[1] - 0.5);
     if (dang) return { ok: false, chan: dang[2] };
     let a = 0, b = L;
@@ -1176,6 +1367,8 @@
       vong(q);
       if (sau) { vong(sau); for (const i of [0, 1]) for (const z of [z0, z1]) them(P3(q[i], z), P3(sau[i], z), lop); }
     };
+    // (1.41.0) vách phòng con: hộp từng dải vách
+    for (const c of H.con || []) for (const k of MAT_CON) { const b = c.bang[k]; if (!b) continue; for (let i = 0; i < 4; i++) { const a = b[i], e = b[(i + 1) % 4]; them(P3(a, 0), P3(e, 0), 'tuong'); them(P3(a, c.cao), P3(e, c.cao), 'tuong'); them(P3(a, 0), P3(a, c.cao), 'tuong'); } }
     for (const m of H.mo || []) hopNet(m.w, m.cach, m.cach + m.rong, 0, m.z0, m.z1, 'mo');
     for (const c of H.can || []) hopNet(c.w, c.cach, c.cach + c.rong, c.nho, c.z0, c.z1, 'can');
     return N;
@@ -1183,10 +1376,12 @@
 
   function tomTat(H) {
     const p = H.p, L = [];
+    const conTxt = () => (H.con || []).map(c => `${c.ten} ${g(c.R)} × ${g(c.S)} (${c.cua.length} cửa)`).join(' · ');
     L.push(`${H.tuong.length} tường · chu vi ${g(H.chu_vi / 1000)} m${H.khep.kin ? ` · diện tích ${String(rn(H.dien_tich / 1e6, 2)).replace('.', ',')} m²` : ''} · trần ${g(p.cao)}`);
     const tu = H.tuong.find(w => w.tu_tinh); if (tu && tu.dai > 0) L.push(`Tường ${tu.ten} tự tính: ${g(tu.dai)}`);
     if (p.mo.length) L.push(`${p.mo.length} cửa / ô trống` + (p.can.length ? ` · ${p.can.length} dầm, cột` : ''));
     else if (p.can.length) L.push(`${p.can.length} dầm, cột`);
+    if ((H.con || []).length) L.push(`${H.con.length} phòng con: ${conTxt()}`);
     if ((p.dn || []).length) { const dem = {}; for (const d of p.dn) dem[d.loai] = (dem[d.loai] || 0) + 1; L.push('Điện – nước: ' + Object.keys(LOAI_DN).filter(k => dem[k]).map(k => `${dem[k]} ${LOAI_DN[k].ten.toLowerCase()}`).join(' · ')); }
     if (p.khung.length) L.push(`${p.khung.length} khung không gian: ` + p.khung.map(k => `${k.ten} ${g(k.rong)}×${g(k.cao)}×${g(k.sau)}${k.kieu === 'kho' ? (k.kho ? ` (mẫu kho: ${k.kho.ten})` : ' (mẫu kho)') : ''}`).join(' · '));
     return L;
@@ -1224,6 +1419,7 @@
     let lopSua = '';      // vẽ SAU CÙNG để không bị vùng bấm của tường che
     // cửa / ô trống: xoá đoạn tường, vẽ 2 má; cửa sổ thêm nét giữa; cửa đi thêm cánh mở
     for (const mm of H.mo || []) {
+      if (mm.phu) continue;      // cửa phụ (1.41.0) vẽ cùng vách phòng con, bên dưới
       const w = mm.w, a = tren(w, mm.cach, 0), b = tren(w, mm.cach + mm.rong, 0), a2 = tren(w, mm.cach, -ngoai), b2 = tren(w, mm.cach + mm.rong, -ngoai);
       o += `<polygon points="${poly([tren(w, mm.cach, ngoai * 0.5), tren(w, mm.cach + mm.rong, ngoai * 0.5), b2, a2])}" fill="${M_NEN}"/>`;
       o += `<line x1="${X(a)}" y1="${Y(a)}" x2="${X(a2)}" y2="${Y(a2)}" stroke="${M_MO}" stroke-width="${f(fs / 7)}"/><line x1="${X(b)}" y1="${Y(b)}" x2="${X(b2)}" y2="${Y(b2)}" stroke="${M_MO}" stroke-width="${f(fs / 7)}"/>`;
@@ -1242,8 +1438,23 @@
       }
     }
     for (const c of H.can || []) o += `<polygon points="${poly(c.poly)}" fill="${M_CAN}" fill-opacity="${c.loai === 'dam' ? '.28' : '.75'}" stroke="${M_TUONG}" stroke-width="${f(fs / 9)}"${c.loai === 'dam' ? ` stroke-dasharray="${f(fs * 0.5)} ${f(fs * 0.4)}"` : ''}><title>${esc(c.ten)}: ${g(c.rong)} × nhô ${g(c.nho)}, +${g(c.z0)} → +${g(c.z1)}</title></polygon>`;
+    // PHÒNG CON (1.41.0): vách = dải đặc màu tường đúng bề dày; cửa phụ = khe + cung mở (mo 'trong' = vào phòng con, 'ngoai' = ra phòng chính; bản lề theo `ban`)
+    for (const c of H.con || []) {
+      for (const k of MAT_CON) if (c.bang[k]) o += `<polygon data-vach="${esc(c.id)}.${k}" points="${poly(c.bang[k])}" fill="${M_TUONG}" pointer-events="none"/>`;
+      for (const mm of c.cua) {
+        const w = mm.w, v = w.day, dlt = fs / 20, s0 = mm.cach, s1 = mm.cach + mm.rong;
+        o += `<polygon points="${poly([tren(w, s0, dlt), tren(w, s1, dlt), tren(w, s1, -v - dlt), tren(w, s0, -v - dlt)])}" fill="${M_NEN}" pointer-events="none"/>`;
+        for (const s of [s0, s1]) { const p1 = tren(w, s, 0), p2 = tren(w, s, -v); o += `<line x1="${X(p1)}" y1="${Y(p1)}" x2="${X(p2)}" y2="${Y(p2)}" stroke="${M_MO}" stroke-width="${f(fs / 9)}" pointer-events="none"/>`; }
+        const vao = mm.mo !== 'ngoai', t0 = vao ? -v : 0, dau = vao ? -1 : 1, sH = mm.ban === 'phai' ? s1 : s0, sE = mm.ban === 'phai' ? s0 : s1;
+        const h = tren(w, sH, t0), e = tren(w, sE, t0), c2 = tren(w, sH, t0 + dau * mm.rong);
+        const v1 = [c2[0] - h[0], -(c2[1] - h[1])], v2 = [e[0] - h[0], -(e[1] - h[1])], quet = v1[0] * v2[1] - v1[1] * v2[0] > 0 ? 1 : 0;
+        o += `<path data-cung="${mm.phu.con}:${mm.phu.k}" d="M ${X(h)} ${Y(h)} L ${X(c2)} ${Y(c2)} A ${f(mm.rong)} ${f(mm.rong)} 0 0 ${quet} ${X(e)} ${Y(e)}" fill="none" stroke="${M_MO}" stroke-width="${f(fs / 9)}" stroke-dasharray="${f(fs * 0.6)} ${f(fs * 0.4)}" pointer-events="none"><title>${esc(mm.ten)}: ${g(mm.rong)} × ${g(mm.cao)}, mở ${vao ? 'vào trong' : 'ra ngoài'}, bản lề ${mm.ban === 'phai' ? 'phải' : 'trái'}</title></path>`;
+        const tm = tren(w, (s0 + s1) / 2, fs * 1.1);
+        if (sua) lopSua += oSua(`con.${mm.phu.con}.cua.${mm.phu.k}.rong`, `cửa ${g(mm.rong)}`, tm, xuoi(w), fs * 0.7, M_MO);
+      }
+    }
     (H.khung || []).forEach((q, j) => {
-      if (!(q.rong > 0) || !(q.sau > 0)) return;
+      if (!(q.rong > 0) || !(q.sau > 0) || !q.w) return;
       const on = opts.chon_khung === j, tam = tren(q.w, q.cach + q.rong / 2, q.sau / 2), kho = q.kieu === 'kho', mau = kho ? M_KHO : M_NHAN;
       // nhiều ô chồng nhau trên cùng một đoạn tường (chia ngang) thì trên mặt bằng trùng nhau: ô đang chọn vẽ đậm, các ô còn lại vẫn bấm được ở mặt đứng
       o += `<polygon data-khung="${j}" points="${poly(q.poly)}" fill="${mau}" fill-opacity="${on ? '.38' : '.16'}" stroke="${mau}" stroke-width="${f(fs / (on ? 4 : 7))}" style="cursor:pointer"><title>Khung ${esc(q.ten)}: rộng ${g(q.rong)} × cao ${g(q.cao)} × sâu ${g(q.sau)}${q.z > 0.5 ? `, đáy +${g(q.z)}` : ''}${kho ? ` — mẫu kho${q.kho ? ': ' + esc(q.kho.ten) : ' (chưa chọn)'}` : ''}</title></polygon>`;
@@ -1263,6 +1474,23 @@
       if (!sua) o += `<text x="${X(td)}" y="${Y(td)}" font-size="${f(fs)}" text-anchor="middle" dominant-baseline="middle" fill="${w.tu_tinh ? M_NHAN : M_TUONG}" transform="rotate(${f(xuoi(w))} ${X(td)} ${Y(td)})" pointer-events="none">${chu}</text>`;
       else lopSua += oSua(`tuong.${w.i}.dai`, chu, td, xuoi(w), fs, w.tu_tinh ? M_NHAN : M_TUONG);
       o += `<line data-tuong="${w.i}" x1="${X(w.p0)}" y1="${Y(w.p0)}" x2="${X(w.p1)}" y2="${Y(w.p1)}" stroke="${M_NHAN}" stroke-opacity="0" stroke-width="${f(Math.max(day * 2.4, fs * 2.5))}" style="cursor:pointer"><title>Tường ${esc(w.ten)}: dài ${g(w.dai)}, cao ${g(w.cao)}</title></line>`;
+    }
+    // (1.41.0) mặt ngoài vách phòng con: vùng bấm chọn như tường (data-tuong = mã mặt) + tên phòng con trong lòng (data-con), số đo bấm sửa
+    for (const c of H.con || []) {
+      for (const k of MAT_CON) {
+        const fw = c.mat[k]; if (!fw) continue;
+        const on = opts.chon_tuong === fw.i;
+        if (on) o += `<line x1="${X(fw.p0)}" y1="${Y(fw.p0)}" x2="${X(fw.p1)}" y2="${Y(fw.p1)}" stroke="${M_NHAN}" stroke-width="${f(fs / 2.2)}" pointer-events="none"/>`;
+        o += `<line data-tuong="${esc(fw.i)}" x1="${X(fw.p0)}" y1="${Y(fw.p0)}" x2="${X(fw.p1)}" y2="${Y(fw.p1)}" stroke="${M_NHAN}" stroke-opacity="0" stroke-width="${f(Math.max(c.v * 2.4, fs * 2))}" style="cursor:pointer"><title>Vách ${esc(c.ten)} — mặt ${TEN_MAT[k]}: dài ${g(fw.dai)}, cao ${g(fw.cao)} (đặt tủ được)</title></line>`;
+      }
+      const tam = tren(c.w, c.a + c.R / 2, c.S / 2), co = Math.max(fs * 0.6, Math.min(fs * 1.1, c.R / (String(c.ten).length * 0.7 + 1)));
+      o += `<text data-con="${c.j}" x="${X(tam)}" y="${f(-tam[1] + co * 0.35)}" font-size="${f(co)}" font-weight="700" text-anchor="middle" fill="${M_TUONG}" style="cursor:pointer" paint-order="stroke" stroke="${M_NEN}" stroke-width="${f(co / 4)}"><title>${esc(c.ten)}: lòng ${g(c.R)} × ${g(c.S)}, vách ${g(c.v)} — bấm để sửa</title>${esc(c.ten)}</text>`;
+      if (sua) {
+        const co2 = fs * 0.66, gw = xuoi(c.w);
+        lopSua += oSua(`con.${c.j}.rong`, g(c.R), tren(c.w, c.a + c.R / 2, c.S - co2 * 1.4), gw, co2, M_TUONG);
+        lopSua += oSua(`con.${c.j}.sau`, g(c.S), tren(c.w, c.a + c.R - co2 * 2.4, c.S / 2 + co * 1.6), gw, co2, M_TUONG);
+        if (!c.trai && !c.phai) { /* rộng cả tường */ } else if (!p0Ap(H, c.j) && c.a > 0.5) lopSua += oSua(`con.${c.j}.cach`, g(c.a), tren(c.w, c.a / 2, co2 * 1.6), gw, co2, M_TUONG);
+      }
     }
     // cột / hộp / dầm: rộng dọc tường × nhô — bấm sửa từng số
     if (sua) for (const c of H.can || []) {
@@ -1302,9 +1530,10 @@
    */
   function matDungSVG(H, i, opts) {
     opts = Object.assign({ rong_px: 420 }, opts || {});
-    const w = H.tuong[i];
+    const w = tuongTheoMa(H, i), fv = w && w.vach ? w : null;      // (1.41.0) fv = mặt ngoài vách phòng con
     if (!w || !(w.dai > 0)) return '';
     const kc = opts.chu > 0 ? opts.chu : 1;
+    const conF = fv ? (H.con || [])[fv.vach.con] : null, tenMD = fv ? `vách ${conF ? conF.ten : ''} — mặt ${TEN_MAT[fv.vach.mat]}` : `tường ${w.ten}`;
     const L = w.dai, C = w.cao || H.p.cao || 2700, lon = Math.max(L, C), m = (lon * 0.1 + 120) * kc, fs = lon / 34 * kc, f = v => rn(v, 1), Y = z => f(C - z);
     // điện – nước (bản 1.18): điểm trên tường này + điểm dưới sàn nằm gần tường này (cách mặt tường ≤ 800) → chừa thêm 1–2 hàng chữ dưới vạch sàn
     const dnT = (H.dn || []).filter(d => !d.san && d.tuong === i && d.cach >= -0.05 && d.cach <= L + 0.05);
@@ -1316,11 +1545,20 @@
     const them = nT + nS ? (nT + nS) * buoc + fs * 0.35 : 0, yd = C + m * 0.45 + them;
     const vb = [-m, -m * 0.8, L + 2 * m, C + m * 1.9 + them];
     const rongPx = rn(opts.cao_px > 0 ? Math.min(opts.rong_px, opts.cao_px * vb[2] / vb[3]) : opts.rong_px, 1);
-    let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.map(f).join(' ')}" width="${rongPx}" style="max-width:100%;height:auto;font-family:inherit" role="img" aria-label="Mặt đứng tường ${esc(w.ten)}">`;
+    let o = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.map(f).join(' ')}" width="${rongPx}" style="max-width:100%;height:auto;font-family:inherit" role="img" aria-label="Mặt đứng ${esc(tenMD)}">`;
     o += `<rect x="${f(vb[0])}" y="${f(vb[1])}" width="${f(vb[2])}" height="${f(vb[3])}" fill="${M_NEN}"/>`;
     o += `<rect x="0" y="0" width="${f(L)}" height="${f(C)}" fill="${M_TRANG}" stroke="${M_TUONG}" stroke-width="${f(fs / 5)}"/>`;
     o += `<line x1="${f(-m * 0.6)}" y1="${f(C)}" x2="${f(L + m * 0.6)}" y2="${f(C)}" stroke="${M_TUONG}" stroke-width="${f(fs / 3)}"/>`;
     const R = (s0, z0, rong, cao, extra) => `<rect x="${f(s0)}" y="${Y(z0 + cao)}" width="${f(rong)}" height="${f(cao)}" ${extra}/>`;
+    // (1.41.0) phần tường chính nằm trong dấu chân phòng con: khối mờ gạch nét — chạm vào đó không lấy được chỗ đặt tủ
+    if (!fv) for (const c of H.con || []) {
+      const ss = c.ve.map(q => cham([q[0] - w.p0[0], q[1] - w.p0[1]], w.d)), ts = c.ve.map(q => cham([q[0] - w.p0[0], q[1] - w.p0[1]], w.n));
+      const s0 = Math.max(0, Math.min(...ss)), s1 = Math.min(L, Math.max(...ss));
+      if (!(Math.min(...ts) < 1 && Math.max(...ts) > 1 && s1 - s0 > 1)) continue;
+      const hC = Math.min(c.cao, C);
+      o += R(s0, 0, s1 - s0, hC, `data-con="${c.j}" fill="${M_CAN}" fill-opacity=".22" stroke="${M_TUONG}" stroke-width="${f(fs / 10)}" stroke-dasharray="${f(fs * 0.4)} ${f(fs * 0.3)}"`);
+      o += `<text x="${f((s0 + s1) / 2)}" y="${f(C - hC / 2)}" font-size="${f(fs * 0.9)}" text-anchor="middle" fill="${M_TUONG}" pointer-events="none">${esc(c.ten)} (phòng con)</text>`;
+    }
     for (const mm of (H.mo || []).filter(x => x.tuong === i)) {
       if (mm.chung) {      // (1.36) cửa thông của phòng bên: nét đứt, ghi của phòng nào
         o += R(mm.cach, mm.be, mm.rong, mm.cao, `fill="${M_NEN}" stroke="${M_MO}" stroke-width="${f(fs / 9)}" stroke-dasharray="${f(fs * 0.5)} ${f(fs * 0.35)}"`);
@@ -1329,7 +1567,7 @@
       }
       o += R(mm.cach, mm.be, mm.rong, mm.cao, `fill="${M_NEN}" stroke="${M_MO}" stroke-width="${f(fs / 7)}"`);
       if (mm.loai === 'cua_so') o += `<line x1="${f(mm.cach + mm.rong / 2)}" y1="${Y(mm.be + mm.cao)}" x2="${f(mm.cach + mm.rong / 2)}" y2="${Y(mm.be)}" stroke="${M_MO}" stroke-width="${f(fs / 10)}"/>`;
-      o += `<text x="${f(mm.cach + mm.rong / 2)}" y="${f(C - mm.be - mm.cao / 2)}" font-size="${f(fs * 0.85)}" text-anchor="middle" fill="${M_MO}"><tspan x="${f(mm.cach + mm.rong / 2)}">${esc(LOAI_MO[mm.loai])}</tspan><tspan x="${f(mm.cach + mm.rong / 2)}" dy="${f(fs * 1.1)}">${g(mm.rong)} × ${g(mm.cao)}${mm.be > 0 ? ` · bệ ${g(mm.be)}` : ''}</tspan></text>`;
+      o += `<text x="${f(mm.cach + mm.rong / 2)}" y="${f(C - mm.be - mm.cao / 2)}" font-size="${f(fs * 0.85)}" text-anchor="middle" fill="${M_MO}"><tspan x="${f(mm.cach + mm.rong / 2)}">${esc(mm.phu ? mm.ten : LOAI_MO[mm.loai])}</tspan><tspan x="${f(mm.cach + mm.rong / 2)}" dy="${f(fs * 1.1)}">${g(mm.rong)} × ${g(mm.cao)}${mm.be > 0 ? ` · bệ ${g(mm.be)}` : ''}</tspan></text>`;
     }
     for (const c of (H.can || []).filter(x => x.tuong === i)) {
       o += R(c.cach, c.z0, c.rong, c.z1 - c.z0, `fill="${M_CAN}" fill-opacity=".55" stroke="${M_TUONG}" stroke-width="${f(fs / 9)}"`);
@@ -1380,9 +1618,14 @@
       o += `<text x="${f(q.s)}" y="${f(yS)}" font-size="${f(fs * 0.8)}" text-anchor="middle" fill="${mau}"><title>${esc(d.ten)}: dưới sàn, cách đầu trái tường ${g(q.s)}, cách mặt tường ${g(q.t)}</title><tspan font-weight="700" pointer-events="none">${esc(d.nhan)} · </tspan><tspan${cua ? suaA(`dn.${d.j}.cach`) : ' pointer-events="none"'}>${g(q.s)}</tspan><tspan pointer-events="none"> · cách tường </tspan><tspan${cua ? suaA(`dn.${d.j}.ra`) : ' pointer-events="none"'}>${g(q.t)}</tspan></text>`;
     }
     const sw = f(fs / 9), tick = fs * 0.45;
-    o += `<line x1="0" y1="${f(yd)}" x2="${f(L)}" y2="${f(yd)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="0" y1="${f(yd - tick)}" x2="0" y2="${f(yd + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(L)}" y1="${f(yd - tick)}" x2="${f(L)}" y2="${f(yd + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><text x="${f(L / 2)}" y="${f(yd + fs * 1.3)}" font-size="${f(fs)}" text-anchor="middle" fill="${M_TUONG}"${opts.sua ? ` data-sua="tuong.${i}.dai" style="cursor:text" text-decoration="underline"` : ''}>${g(L)}${opts.sua ? '<title>Bấm để sửa chiều dài tường</title>' : ''}</text>`;
+    o += `<line x1="0" y1="${f(yd)}" x2="${f(L)}" y2="${f(yd)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="0" y1="${f(yd - tick)}" x2="0" y2="${f(yd + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(L)}" y1="${f(yd - tick)}" x2="${f(L)}" y2="${f(yd + tick)}" stroke="${M_TUONG}" stroke-width="${sw}"/><text x="${f(L / 2)}" y="${f(yd + fs * 1.3)}" font-size="${f(fs)}" text-anchor="middle" fill="${M_TUONG}"${opts.sua && !fv ? ` data-sua="tuong.${i}.dai" style="cursor:text" text-decoration="underline"` : ''}>${g(L)}${opts.sua && !fv ? '<title>Bấm để sửa chiều dài tường</title>' : ''}</text>`;
     const xr = L + m * 0.45;
-    o += `<line x1="${f(xr)}" y1="0" x2="${f(xr)}" y2="${f(C)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(xr - tick)}" y1="0" x2="${f(xr + tick)}" y2="0" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(xr - tick)}" y1="${f(C)}" x2="${f(xr + tick)}" y2="${f(C)}" stroke="${M_TUONG}" stroke-width="${sw}"/><text x="${f(xr + fs * 1.2)}" y="${f(C / 2)}" font-size="${f(fs)}" text-anchor="middle" fill="${M_TUONG}" transform="rotate(-90 ${f(xr + fs * 1.2)} ${f(C / 2)})"${opts.sua ? ` data-sua="${H.p.tuong[i] && H.p.tuong[i].cao > 0 ? `tuong.${i}.cao` : 'cao'}" style="cursor:text" text-decoration="underline"` : ''}>${g(C)}${opts.sua ? '<title>Bấm để sửa chiều cao</title>' : ''}</text>`;
+    o += `<line x1="${f(xr)}" y1="0" x2="${f(xr)}" y2="${f(C)}" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(xr - tick)}" y1="0" x2="${f(xr + tick)}" y2="0" stroke="${M_TUONG}" stroke-width="${sw}"/><line x1="${f(xr - tick)}" y1="${f(C)}" x2="${f(xr + tick)}" y2="${f(C)}" stroke="${M_TUONG}" stroke-width="${sw}"/><text x="${f(xr + fs * 1.2)}" y="${f(C / 2)}" font-size="${f(fs)}" text-anchor="middle" fill="${M_TUONG}" transform="rotate(-90 ${f(xr + fs * 1.2)} ${f(C / 2)})"${opts.sua && !fv ? ` data-sua="${H.p.tuong[i] && H.p.tuong[i].cao > 0 ? `tuong.${i}.cao` : 'cao'}" style="cursor:text" text-decoration="underline"` : ''}>${g(C)}${opts.sua && !fv ? '<title>Bấm để sửa chiều cao</title>' : ''}</text>`;
+    if (fv) {
+      o += `<text x="0" y="${f(-m * 0.3)}" font-size="${f(fs * 1.15)}" font-weight="700" fill="${M_TUONG}">Vách ${esc(conF ? conF.ten : '')} — mặt ${TEN_MAT[fv.vach.mat]}</text>`;
+      o += `<text x="${f(-m * 0.15)}" y="${f(C + m * 0.98 + them)}" font-size="${f(fs * 0.8)}" fill="${M_MO}">◂ ${esc(fv.ke[0])}</text><text x="${f(L + m * 0.15)}" y="${f(C + m * 0.98 + them)}" font-size="${f(fs * 0.8)}" text-anchor="end" fill="${M_MO}">${esc(fv.ke[1])} ▸</text>`;
+      return o + '</svg>';
+    }
     const truoc = H.tuong[(i - 1 + H.tuong.length) % H.tuong.length], sau = H.tuong[(i + 1) % H.tuong.length];
     o += `<text x="0" y="${f(-m * 0.3)}" font-size="${f(fs * 1.15)}" font-weight="700" fill="${M_TUONG}">Tường ${esc(w.ten)}</text>`;
     if (H.tuong.length > 1) o += `<text x="${f(-m * 0.15)}" y="${f(C + m * 0.98 + them)}" font-size="${f(fs * 0.8)}" fill="${M_MO}">◂ tường ${esc(truoc.ten)}</text><text x="${f(L + m * 0.15)}" y="${f(C + m * 0.98 + them)}" font-size="${f(fs * 0.8)}" text-anchor="end" fill="${M_MO}">tường ${esc(sau.ten)} ▸</text>`;
@@ -1613,8 +1856,9 @@
   function lechDaVe(H, p) {
     if (!p || !p.da_ve || !Array.isArray(p.da_ve.tuong)) return false;
     if (H.loi.length) return true;
-    const m = phanPhong(H, p.day), g = (x, y) => Math.abs(x - y) <= 1;
-    return p.da_ve.tuong.concat(Array.isArray(p.da_ve.muon) ? p.da_ve.muon : []).some(r => !m.tuong.some(w => g(w.a[0], r[0]) && g(w.a[1], r[1]) && g(w.b[0], r[2]) && g(w.b[1], r[3]) && g(w.cao, r[5]) && g(w.day, r[6])));
+    const m = phanPhong(H, p.day), g = (x, y) => Math.abs(x - y) <= 1, khop = ds => r => !ds.some(w => g(w.a[0], r[0]) && g(w.a[1], r[1]) && g(w.b[0], r[2]) && g(w.b[1], r[3]) && g(w.cao, r[5]) && g(w.day, r[6]));
+    // (1.41.0) vách phòng con đã vẽ mà nay phòng con dời / đổi cỡ / bỏ → lệch (thêm phòng con sau khi vẽ thì không — như thêm cửa)
+    return p.da_ve.tuong.concat(Array.isArray(p.da_ve.muon) ? p.da_ve.muon : []).some(khop(m.tuong)) || (Array.isArray(p.da_ve.vach) && p.da_ve.vach.some(khop(m.vach || [])));
   }
   /**
    * Bản ghi lần vẽ (da_ve) của các phòng KHÁC trong công trình — opt.khac của doiChieuPhong.
@@ -1670,6 +1914,23 @@
       o += `<g data-phong="${esc(r.p.id)}"${on ? ' class="chon"' : ''} style="cursor:pointer"><title>${esc(r.p.ten)}</title>`;
       o += `<polygon points="${r.P.map(pt).join(' ')}" fill="${on ? M_NHAN : M_TRANG}" fill-opacity="${on ? '.18' : '1'}" stroke="${M_TUONG}" stroke-width="${f(sw)}"${dang ? ` stroke-dasharray="${f(sw * 3)} ${f(sw * 2)}"` : ''} stroke-linejoin="miter"/>`;
       const xs = r.P.map(q => q[0]), ys = r.P.map(q => q[1]), c = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+      // (1.41.0) phòng con: dải vách + tên (không có vùng bấm riêng — bấm vẫn là chọn phòng)
+      for (const pc of r.H.con || []) {
+        for (const k of MAT_CON) if (pc.bang[k]) o += `<polygon data-nha-vach="${esc(r.p.id)}:${esc(pc.id)}" points="${pc.bang[k].map(q => pt([q[0] + r.o[0], q[1] + r.o[1]])).join(' ')}" fill="${M_TUONG}" pointer-events="none"/>`;
+        // (1.41.0 vòng soát) cửa phụ: khe trong vách + cung mở (như mặt bằng một phòng, không chữ) — trước đây vách vẽ kín qua chỗ cửa
+        (pc.cua || []).forEach((mm, k) => {
+          const w = mm.w; if (!w) return;
+          const tr = (s0, t0) => [w.p0[0] + w.d[0] * s0 + w.n[0] * t0 + r.o[0], w.p0[1] + w.d[1] * s0 + w.n[1] * t0 + r.o[1]];
+          const v = w.day, dl = fs / 20, s0 = mm.cach, s1 = mm.cach + mm.rong;
+          o += `<polygon points="${[tr(s0, dl), tr(s1, dl), tr(s1, -v - dl), tr(s0, -v - dl)].map(pt).join(' ')}" fill="${on ? M_NHAN : M_TRANG}" fill-opacity="${on ? '.18' : '1'}" pointer-events="none"/>`;
+          const vao = mm.mo !== 'ngoai', t0 = vao ? -v : 0, dau = vao ? -1 : 1, sH = mm.ban === 'phai' ? s1 : s0, sE = mm.ban === 'phai' ? s0 : s1;
+          const h0 = tr(sH, t0), e = tr(sE, t0), c2 = tr(sH, t0 + dau * mm.rong);
+          const v1 = [c2[0] - h0[0], -(c2[1] - h0[1])], v2 = [e[0] - h0[0], -(e[1] - h0[1])], quet = v1[0] * v2[1] - v1[1] * v2[0] > 0 ? 1 : 0;
+          o += `<path data-nha-cung="${esc(r.p.id)}:${esc(pc.id)}:${k}" d="M ${X(h0)} ${Y(h0)} L ${X(c2)} ${Y(c2)} A ${f(mm.rong)} ${f(mm.rong)} 0 0 ${quet} ${X(e)} ${Y(e)}" fill="none" stroke="${M_MO}" stroke-width="${f(Math.max(sw / 2, fs / 12))}" pointer-events="none"/>`;
+        });
+        const t = [(pc.long[0][0] + pc.long[2][0]) / 2 + r.o[0], (pc.long[0][1] + pc.long[2][1]) / 2 + r.o[1]];
+        o += `<text x="${X(t)}" y="${f(-t[1] + fs * 0.25)}" font-size="${f(fs * 0.7)}" text-anchor="middle" fill="${M_MO}" pointer-events="none">${esc(pc.ten)}</text>`;
+      }
       o += `<text x="${X(c)}" y="${f(-c[1] + fs * 0.35)}" font-size="${f(fs)}" font-weight="${on ? 700 : 400}" text-anchor="middle" fill="${on ? M_NHAN : M_TUONG}" pointer-events="none">${esc(r.p.ten)}</text></g>`;
     }
     // tường chung: nét đậm đúng bề dày trên đoạn chung (mặt ngoài phía phòng chủ)
@@ -1776,6 +2037,6 @@
     return ra.map((r, i) => [r, i]).sort((a, b) => (b[0].sua_luc - a[0].sua_luc) || (a[1] - b[1])).map(v => v[0]);
   }
 
-  return { BAN, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, tuongGhi, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, mocKhung, keoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, docKetNoi, phongDaDo, giao, tenTuong,
+  return { BAN, MAT_CON, TEN_MAT, CUA_CON_MAX, tuongTheoMa, LOAI_MO, LOAI_CAN, LOAI_DN, MAU_DN, macDinh, chuanHoa, hinhHoc, phanPhong, banGhiPhong, tuongGhi, vungBanGhi, doiChieuPhong, trongLongPhong, tuongPhuKin, choTrong, datKhung, chiaKhung, doiCoKhung, mocKhung, keoKhung, tuChoKhung, hinhThanhKhung, haiDiemThanhHinh, viTriCot, khauChoKhung, diemTrongKhung, dienNuocChoTu, dienNuocDXF, duongNet, tomTat, matBangSVG, matDungSVG, docMa, docKetNoi, phongDaDo, giao, tenTuong,
     chuanHuong, chuanNha, docNha, nangNha, idMoi, phongMoi, thuTu, dichGhep, ghepPhong, cachGhep, datNha, xoaPhong, tuongChung, nguCanh, hinhNha, khacDaVe, lechDaVe, kiemNha, matBangNhaSVG };
 });

@@ -1613,6 +1613,222 @@ async function tNha() {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ }
 }
 
+/* ======================= PHÒNG CON + CỬA PHỤ (bản 1.41.0) =======================
+ * Anh Thanh 04/11/2026: "trong các phòng đều có nvs và cửa làm thêm các phòng con và cửa phụ". Thẻ Phòng: + Phòng con (tường đang chọn), thẻ phòng con, mặt vách đặt tủ được,
+ * vẽ vào Chenfeng giả: vách ngăn = lệnh tường (chuỗi hở), lỗ cửa phụ trên vách, vẽ lại không trùng, đổi phòng con thì bỏ vách cũ, Hoàn tác. */
+async function tPhongCon() {
+  console.log('— PHÒNG CON + CỬA PHỤ (bản 1.41.0)');
+  const PhN = require(path.join(__dirname, '..', 'src', 'mncf-phong.js'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mncf-pc-'));
+  const ctx = await chromium.launchPersistentContext(dir, { channel: 'chromium', headless: true, viewport: { width: 1500, height: 950 }, args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`] });
+  try {
+    await ctx.route('https://api.cfcad.cn/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"err_code":1,"err_msg":"no"}' }));
+    await require('./kho-gia.js')(ctx);
+    await ctx.route('https://cfcad.cn/**', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: MOCK }));
+    // 9. phòng của bản 1.40.2 (không phòng con) ở mncf.phong.v1: mở bảng 1.41.0 rồi lưu → y từng byte
+    const CU0 = { ten: 'Phòng cũ', cao: 2700, day: 110, goc: [5000, 0, 0], tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200 }],
+      khung: [{ ten: 'K1', tuong: 0, cach: 500, rong: 2000, cao: 2700, sau: 600, tu_id: 'MNCF-cu-1' }] };
+    const CU = Object.assign({}, CU0, { da_ve: PhN.banGhiPhong(PhN.phanPhong(PhN.hinhHoc(CU0), 110), {}) });
+    await ctx.addInitScript(p => { try { if (location.hostname === 'cfcad.cn' && !localStorage.getItem('mncf.nha.v1') && !sessionStorage.getItem('__nap')) { sessionStorage.setItem('__nap', '1'); localStorage.setItem('mncf.phong.v1', JSON.stringify(p)); } } catch (e) { /* bỏ qua */ } }, PhN.chuanHoa(CU));
+    const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(String(e)));
+    await page.goto('https://cfcad.cn/');
+    await page.waitForFunction(() => window.MNCF && window.MNCF.app, null, { timeout: 15000 });
+    const H = page.locator('#mncf-host'), st = () => H.locator('.status').textContent();
+    const lay = () => page.evaluate(() => window.MNCF.phong.lay());
+    const LS = k => page.evaluate(k => localStorage.getItem(k), k);
+    await H.locator('.launch').click(); await H.locator('.tab[data-tab="phong"]').click();
+    await page.evaluate(() => { window.MNCF.phong.lay(); });
+    const yHet = JSON.stringify(PhN.chuanHoa(Object.assign({}, PhN.chuanHoa(CU), { id: 'P1' })));
+    eq1(await LS('mncf.phong.v1'), JSON.stringify(PhN.chuanHoa(CU)), 'phòng 1.40.2 mở ở bảng 1.41.0: mncf.phong.v1 không bị đụng');
+    eq1(JSON.stringify(JSON.parse(await LS('mncf.nha.ct.C1')).phong[0]), yHet, '… công trình lưu: phòng y từng byte như chuẩn hoá 1.40.2 (không khoá con / dem_con)');
+    await H.locator('[data-act="pc-add"]').click(); await H.locator('[data-act="p-lui"]').click();
+    eq1([await LS('mncf.phong.v1'), JSON.stringify(JSON.parse(await LS('mncf.nha.ct.C1')).phong[0])], [yHet, yHet], '+ Phòng con rồi ↶ Lùi: phòng lưu lại y từng byte (không sót khoá con / dem_con)');
+
+    // 1. + Phòng con ở tường A (ảnh anh: 3600 × 3000, cửa 900 tường C) → WC áp góc đầu A 1500 × 1800, vách 100, cửa 830 × 2200
+    await H.locator('[data-ui="ct"]').selectOption('@moi');
+    const PH = { ten: 'Phòng ngủ', cao: 2700, day: 110, goc: [400000, 0, 0], tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200 }], khung: [] };
+    await page.evaluate(p => window.MNCF.phong.dat(p), PH);
+    await H.locator('.pmb [data-tuong="0"]').click({ force: true });
+    await H.locator('[data-act="pc-add"]').click();
+    let p = await lay();
+    eq1(p.con, [{ id: 'PC1', ten: 'WC', tuong: 0, ap: 'dau', cach: 0, rong: 1500, sau: 1800, day: 100, cua: [{ mat: 'truoc', cach: 335, rong: 830, cao: 2200, be: 0, mo: 'trong', ban: 'trai' }] }], '+ Phòng con ở tường A: WC áp góc đầu, lòng 1500 × 1800, vách 100, một cửa 830 × 2200 giữa mặt trước');
+    ok((await H.locator('.pcard[data-pcj="0"]').count()) === 1 && (await H.locator('.pmb [data-con="0"]').count()) === 1 && (await H.locator('.pmb [data-cung="0:0"]').count()) === 1 && (await H.locator('.pmb [data-vach="PC1.phai"]').count()) === 1,
+      'thẻ phòng con hiện; mặt bằng có tên WC, dải vách, cung cửa phụ');
+    ok(/1 phòng con: WC 1500 × 1800 \(1 cửa\)/.test(await H.locator('.psum').innerText()), 'tóm tắt có dòng phòng con');
+    await H.locator('[data-act="p-lui"]').click();
+    ok(!(await lay()).con, '↶ Lùi một bước: bỏ phòng con vừa thêm');
+    await H.locator('[data-act="pc-add"]').click();
+    await H.locator('[data-p="con.0.sau"]').fill('2000'); await page.waitForTimeout(300);
+    eq1((await lay()).con[0].sau, 2000, 'gõ Sâu 2000');
+    await H.locator('[data-act="p-lui"]').click();
+    p = await lay();
+    ok(p.con && p.con[0].sau === 1800, '↶ Lùi: gõ Sâu là MỘT bước (về 1800, phòng con còn)', p.con);
+
+    // 2. bấm mặt vách trên mặt bằng → mặt đứng của mặt đó; + khung ở tường đang chọn → khung trên mặt vách
+    await H.locator('.pmb [data-tuong="PC1.truoc"]').click({ force: true });
+    eq1(await H.locator('.pmd svg').getAttribute('aria-label'), 'Mặt đứng vách WC — mặt trước', 'bấm mặt trước vách trên mặt bằng → mặt đứng "vách WC — mặt trước"');
+    await H.locator('[data-act="k-add"]').click();
+    p = await lay();
+    eq1(p.khung.map(k => [k.tuong, k.cach, k.rong, k.cao]), [['PC1.truoc', 0, 1600, 2700]], '+ Thêm khung ở tường đang chọn: khung nằm trên WC·trước (tuong = mã mặt)');
+    ok(/Vách WC·trước/.test(await H.locator('.pcard[data-kj="0"] [data-p="khung.0.tuong"]').evaluate(e => e.options[e.selectedIndex].text)), 'ô Tường của thẻ khung hiện mặt vách đang dùng');
+    // 4. xoá phòng con có khung: bấm một lần chỉ báo, hai lần mới xoá; ↶ Lùi trả lại
+    await H.locator('.pcard[data-pcj="0"] [data-act="pc-del"]').click();
+    ok((await lay()).con && /bỏ luôn 1 khung trên mặt vách/.test(await st()) && /Bấm lần nữa/.test(await H.locator('.pcard[data-pcj="0"] [data-act="pc-del"]').innerText()), 'xoá phòng con có khung trên mặt vách: bấm lần đầu chỉ báo', await st());
+    await H.locator('.pcard[data-pcj="0"] [data-act="pc-del"]').click();
+    p = await lay();
+    ok(!p.con && !p.khung.length && p.dem_con === 1, 'bấm lần hai: bỏ phòng con cùng khung trên mặt vách (vẫn nhớ dem_con)', p);
+    await H.locator('[data-act="p-lui"]').click();
+    ok((await lay()).con && (await lay()).khung.length === 1, '↶ Lùi: phòng con + khung trở lại');
+    // khung trên mặt vách đã vẽ tủ (tu_id): xoá phòng con → sổ lùi không bị xoá
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.khung[0].tu_id = 'MNCF-x-1'; window.MNCF.phong.dat(q); });
+    await H.locator('.pcard[data-pcj="0"] [data-act="pc-del"]').click(); await H.locator('.pcard[data-pcj="0"] [data-act="pc-del"]').click();
+    ok(!(await lay()).con && !(await H.locator('[data-act="p-lui"]').isDisabled()), 'khung đã vẽ tủ: xoá phòng con vẫn ↶ Lùi được');
+    await H.locator('[data-act="p-lui"]').click();
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.khung = []; window.MNCF.phong.dat(q); });
+
+    // VÒNG SOÁT 1.41.0
+    // (R3) ✕ phòng con bấm một lần rồi gõ ô khác: hết 3 giây không dựng lại form — ô giữ tiêu điểm, không mất phím
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.khung = [{ ten: 'KV', tuong: 'PC1.truoc', cach: 0, rong: 1000, cao: 2000, sau: 400 }]; window.MNCF.phong.dat(q); });
+    await H.locator('.pcard[data-pcj="0"] [data-act="pc-del"]').click();
+    await H.locator('[data-p="tuong.1.dai"]').click(); await page.keyboard.press('Control+A');
+    await page.keyboard.type('2950', { delay: 1000 }); await page.waitForTimeout(500);
+    const r3 = await page.evaluate(() => { const a = document.getElementById('mncf-host').shadowRoot.activeElement; return [a && a.dataset.p, window.MNCF.phong.lay().tuong[1].dai]; });
+    eq1(r3, ['tuong.1.dai', 2950], '(vòng soát) ✕ phòng con chờ bấm lần hai rồi gõ ô khác: hết 3 giây ô vẫn giữ tiêu điểm, đủ phím (2950)');
+    ok(/^✕$/.test((await H.locator('.pcard[data-pcj="0"] [data-act="pc-del"]').innerText()).trim()), '… nút ✕ trở lại chữ ✕');
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.tuong[1].dai = 3000; window.MNCF.phong.dat(q); });
+    // (R5) ✕ tường A đang mang WC: bấm một lần chỉ báo; lần hai bỏ tường + WC + khung trên mặt vách (không để khung mồ côi); ↶ Lùi trả lại
+    await H.locator('.prow[data-ti="0"] [data-act="t-del"]').click();
+    p = await lay();
+    ok(p.tuong.length === 4 && p.con && /Bỏ tường A là bỏ luôn phòng con WC \(1 cửa phụ\) và 1 khung trên mặt vách/.test(await st()), '(vòng soát) ✕ tường mang WC: lần đầu chỉ báo, nêu WC + cửa phụ + khung', await st());
+    await H.locator('.prow[data-ti="0"] [data-act="t-del"]').click();
+    p = await lay();
+    ok(p.tuong.length === 3 && !p.con && !p.khung.length && /bỏ cả phòng con WC/.test(await st()), '… lần hai: bỏ tường, WC và khung trên mặt vách', [p.khung, await st()]);
+    ok(!/mặt đó không còn/.test(await H.locator('.pmsgs').innerText()), '… không còn lỗi "mặt vách không còn"');
+    await H.locator('[data-act="p-lui"]').click();
+    p = await lay();
+    ok(p.tuong.length === 4 && p.con && p.khung.length === 1, '… ↶ Lùi: tường + WC + khung trở lại');
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.khung = []; window.MNCF.phong.dat(q); });
+    // (R4) dòng cửa phụ: ô Mở đọc được (dòng riêng), ✕ cùng hàng với Mặt; cửa thứ 2 vẫn có nhãn
+    await H.locator('.pcard[data-pcj="0"] [data-act="pc-cua-add"]').click();
+    const r4 = await page.evaluate(() => { const R = document.getElementById('mncf-host').shadowRoot, rows = [...R.querySelectorAll('.pcard[data-pcj="0"] [data-pck]')], bb = e => e.getBoundingClientRect();
+      return rows.map(r => { const mo = r.querySelector('[data-p$=".mo_ban"]'), mat = r.querySelector('[data-p$=".mat"]'), x = r.querySelector('[data-act="pc-cua-del"]'), lab = r.querySelector('label'); return { mo: Math.round(bb(mo).width), cung: Math.abs(bb(x).top - bb(mat).top) < 30 && bb(x).width < 40, nhan: parseFloat(getComputedStyle(lab).fontSize) }; }); });
+    ok(r4.length === 2 && r4.every(x => x.mo >= 150 && x.cung && x.nhan > 8), '(vòng soát) dòng cửa phụ: ô Mở ≥ 150 px, ✕ cùng hàng ô Mặt, cửa thứ 2 vẫn có nhãn', r4);
+    // (R8) phòng con đủ 6 cửa: + Cửa báo trần, không làm gì lặng lẽ
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.con[0].cua = [0, 1, 2, 3, 4, 5].map(k => ({ mat: 'truoc', cach: 10 + k * 20, rong: 10, cao: 2200 })); window.MNCF.phong.dat(q); });
+    await H.locator('.pcard[data-pcj="0"] [data-act="pc-cua-add"]').click();
+    ok((await lay()).con[0].cua.length === 6 && /WC đã có 6 cửa — mỗi phòng con tối đa 6 cửa/.test(await st()), '(vòng soát) + Cửa lần thứ 7: báo trần 6 cửa', await st());
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); q.con[0].cua = [{ mat: 'truoc', cach: 335 }]; window.MNCF.phong.dat(q); });
+
+    // 3. hộp chọn chỗ đặt tủ: có nút mặt vách; chạm tường A trong WC → "đã có phòng con WC"; mặt WC·phải → chỗ đúng → Tiếp → tủ xoay đúng
+    await page.evaluate(() => window.MNCF.app.setSpec({ ma: 'TW', rong: 1800, cao: 2400, sau_thung: 580, khoang: [{ rong: 'auto', canh: 2, dot: [800], o: [] }, { rong: 'auto', canh: 2, dot: [800], o: [] }] }));
+    await H.locator('.tab[data-tab="tu"]').click();
+    await H.locator('[data-act="dat-tuong"]').click();
+    const nutCT = await page.evaluate(() => [...document.getElementById('mncf-host').shadowRoot.querySelectorAll('.chontuong [data-ct]')].map(b => b.dataset.ct + ' ' + b.textContent.trim()));
+    eq1(nutCT, ['0 A · 3600', '1 B · 3000', '2 C · 3600', '3 D · 3000', 'PC1.truoc WC·trước · 1600', 'PC1.phai WC·phải · 1900'], 'hộp chọn chỗ: 4 tường + 2 mặt ngoài vách WC');
+    const diemMD = (s, z) => page.evaluate(([s2, z2]) => { const sv = document.getElementById('mncf-host').shadowRoot.querySelector('.chonmd svg'), m = sv.getScreenCTM(), q = sv.createSVGPoint(); q.x = s2; q.y = 2700 - z2; const t = q.matrixTransform(m); return [t.x, t.y]; }, [s, z]);
+    const msgC = () => H.locator('.chonmsg').innerText();
+    await H.locator('.chontuong [data-ct="0"]').click();
+    let q = await diemMD(800, 1000); await page.mouse.click(q[0], q[1]);
+    ok(/Chỗ đó đã có phòng con WC/.test(await msgC()), 'chạm tường A trong đoạn WC → "Chỗ đó đã có phòng con WC"', await msgC());
+    await H.locator('.chontuong [data-ct="PC1.phai"]').click();
+    ok(/vách WC — mặt phải/.test(await H.locator('.chonmd svg').getAttribute('aria-label')), 'chọn mặt WC·phải: mặt đứng của mặt đó');
+    q = await diemMD(950, 1000); await page.mouse.click(q[0], q[1]);
+    ok(/Tường WC·phải: cả đoạn trống 0 → 1900, sàn → trần/.test(await msgC()), 'chạm mặt WC·phải → cả mặt 0 → 1900', await msgC());
+    await H.locator('[data-act="chon-tiep"]').click();
+    p = await lay();
+    const kj = p.khung.length - 1, dk = await page.evaluate(j => { const P = window.MNCF.phong.core; return P.datKhung(P.hinhHoc(window.MNCF.phong.lay()), j); }, kj);
+    eq1([p.khung[kj].tuong, p.khung[kj].cach, p.khung[kj].rong, dk], ['PC1.phai', 0, 1900, { goc: [402200, -1900, 0], xoay: 90, tuong: 'WC·phải' }], 'Tiếp: khung trên WC·phải, tủ quay lưng vào vách (xoay 90)');
+    ok(/Tường WC·phải/.test(await H.locator('.dlgtieu').innerText()), 'hộp chỉnh tủ ghi chỗ đặt trên mặt vách', await H.locator('.dlgtieu').innerText());
+    await H.locator('[data-act="hop-ve"]').click();
+    await page.waitForFunction(() => /Đã đặt tủ theo tường|Đã vẽ xong/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.report').innerText), null, { timeout: 60000 }).catch(() => {});
+    await page.waitForFunction(() => !window.MNCFDriver.busy(), null, { timeout: 30000 }).catch(() => {});
+    const hopTu = await page.evaluate(() => { const D = window.MNCFDriver, a = D.last.added.filter(e => !e.IsErase && D.isBoard(e)).map(D.boxOf), mn = i => Math.min(...a.map(b => b[i])), mx = i => Math.max(...a.map(b => b[i])); return [mn(0), mx(1), mn(2), mx(3)].map(v => Math.round(v)); });
+    eq1(hopTu, [401600, 402200, -1900, 0], 'tủ vẽ vào mặt WC·phải: lưng sát mặt ngoài vách (x 401600), chạy dọc vách y −1900 … 0');
+    await H.locator('[data-act="undo"]').click();
+    await page.waitForFunction(() => /Đã hoàn tác/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+
+    // 5. VẼ PHÒNG trên Chenfeng giả: 4 tường + 3 vách + cửa chính + cửa phụ (lỗ trên vách)
+    await H.locator('.tab[data-tab="phong"]').click();
+    const PCG = c => Object.assign({}, PH, { con: [{ tuong: 0, cach: c, rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 435 }] }] });
+    await page.evaluate(p0 => window.MNCF.phong.dat(p0), PCG(800));
+    const vung = v => page.evaluate(v => { const M = window.__MOCK__, trong = e => e.box[0] >= v[0] - 300 && e.box[1] <= v[0] + 4000 && e.box[2] >= -3400 && e.box[3] <= 300, ds = c => M.ents.filter(e => e instanceof c && !e.IsErase && trong(e));
+      const tg = ds(M.RoomWallLine); return { tuong: tg.filter(e => e.Thickness !== 100).length, vach: tg.filter(e => e.Thickness === 100).map(e => Math.round(e.RightCurves[0].StartPoint.x - v[0])).sort((a, b) => a - b), lo: ds(M.RoomHolePolyline).map(h => h.tuong.Thickness).sort(), loId: ds(M.RoomHolePolyline).map(h => h.Id.Index).sort((a, b) => a - b) }; }, [v]);
+    const vePh = async nut => { await page.evaluate(() => { document.getElementById('mncf-host').shadowRoot.querySelectorAll('.pkq .msg').forEach(e => e.setAttribute('data-cu', '1')); }); await H.locator(nut || '[data-act="p-ve"]').click(); await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelector('.pkq .msg:not([data-cu])'), null, { timeout: 60000 }); await page.waitForFunction(() => !document.getElementById('mncf-host').shadowRoot.querySelector('[data-act="p-ve"]').disabled, null, { timeout: 60000 }); return H.locator('.pkq').innerText(); };
+    let kq = await vePh(), v = await vung(400000);
+    ok(/Đã vẽ phòng: 4 tường, 3 vách phòng con, 2 cửa/.test(kq), 'vẽ: báo 4 tường, 3 vách phòng con, 2 cửa', kq);
+    eq1([v.tuong, v.vach, v.lo], [4, [800, 2300, 2300], [100, 110]], '… bản vẽ: 4 tường + 3 vách dày 100 (mặt trong bắt đầu ở x 2300, 2300, 800), lỗ cửa chính (tường 110) + cửa phụ (trên vách 100)');
+    p = await lay();
+    eq1([p.da_ve.tuong.length, (p.da_ve.vach || []).length], [4, 3], 'bản ghi lần vẽ: 4 tường + 3 vách');
+    const lo0 = v.loId;
+    kq = await vePh();
+    ok(/đã có đủ/.test(kq) && /3 vách phòng con/.test(kq), 'bấm lại: "đã có đủ" (kể cả vách), không vẽ chồng', kq);
+    eq1((await vung(400000)).loId, lo0, '… không đối tượng nào đổi');
+    // dời WC 300 → bỏ 3 vách cũ, vẽ 3 vách mới, cửa chính giữ nguyên
+    await page.evaluate(p0 => window.MNCF.phong.dat(Object.assign(p0, { da_ve: window.MNCF.phong.lay().da_ve })), PCG(1100));
+    ok(await page.evaluate(() => !!document.getElementById('mncf-host').shadowRoot.querySelector('.nhahang .pchip.on .lech')), 'dời WC: chip phòng chấm "lệch" (đã vẽ, phải vẽ lại)');
+    kq = await vePh(); v = await vung(400000);
+    ok(/Đã cập nhật phòng/.test(kq) && /vẽ thêm 3 vách phòng con/.test(kq) && /bỏ 3 vách phòng con/.test(kq) && /giữ nguyên 4 tường, 1 cửa/.test(kq), 'dời WC 300: cập nhật — bỏ 3 vách cũ, vẽ 3 vách mới', kq);
+    eq1([v.tuong, v.vach, v.lo.length, v.loId[0]], [4, [1100, 2600, 2600], 2, lo0[0]], '… 4 tường giữ, vách ở chỗ mới, cửa chính giữ nguyên (cùng đối tượng), cửa phụ khoét lại trên vách mới');
+    // Hoàn tác phòng: về như trước lần cập nhật
+    await H.locator('[data-act="p-hoantac"]').click();
+    await page.waitForFunction(() => /Đã hoàn tác|Đã bỏ phòng vừa vẽ|về như trước/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+    eq1((await vung(400000)).vach, [800, 2300, 2300], 'Hoàn tác phòng: vách về chỗ cũ', await st());
+    // bỏ WC → vẽ: bỏ vách
+    await page.evaluate(() => { const q = window.MNCF.phong.lay(); delete q.con; window.MNCF.phong.dat(q); });
+    kq = await vePh(); v = await vung(400000);
+    eq1([v.tuong, v.vach, v.lo], [4, [], [110]], 'bỏ WC rồi vẽ: bỏ 3 vách + cửa phụ, tường + cửa chính giữ');
+    ok(/bỏ 3 vách phòng con/.test(kq), '… báo bỏ vách', kq);
+
+    // 6. CHENFENG KHÔNG NHẬN lệnh tường cho vách (tường phòng đã có) → DỪNG: không mở lỗ cửa phụ; tường phòng chưa đủ → không vẽ vách, có cảnh báo
+    await page.evaluate(p0 => { window.MNCFDriver.lastRoom = null; window.MNCF.phong.dat(Object.assign(p0, { da_ve: window.MNCF.phong.lay().da_ve })); window.__MOCK_CAM_LENH__ = 'DRAWWALLINSIDE'; }, PCG(800));
+    kq = await vePh(); await page.evaluate(() => { window.__MOCK_CAM_LENH__ = ''; });
+    v = await vung(400000);
+    ok(/Chenfeng không nhận lệnh vẽ vách phòng con \(DRAWWALLINSIDE\)/.test(kq) && /Chưa vẽ xong phòng/.test(kq), 'lệnh tường cho vách bị từ chối: báo, lần vẽ không xong', kq);
+    eq1([v.tuong, v.vach, v.lo], [4, [], [110]], '… không vách, KHÔNG mở lỗ cửa phụ');
+    // (vòng soát R6) vẽ WC rồi dời WC mà lệnh vách bị từ chối: bước 0 đã bỏ 3 vách cũ — lời báo phải nói, Hoàn tác phòng lấy lại
+    kq = await vePh(); eq1((await vung(400000)).vach, [800, 2300, 2300], '(vòng soát, chuẩn bị) vẽ lại WC: 3 vách');
+    await page.evaluate(p0 => { window.MNCF.phong.dat(Object.assign(p0, { da_ve: window.MNCF.phong.lay().da_ve })); window.__MOCK_CAM_LENH__ = 'DRAWWALLINSIDE'; }, PCG(1100));
+    kq = await vePh(); await page.evaluate(() => { window.__MOCK_CAM_LENH__ = ''; });
+    ok(/Chưa vẽ xong phòng\. Đã bỏ 3 vách phòng con, 1 cửa \/ ô trống của lần vẽ trước mà chưa vẽ lại/.test(kq), '(vòng soát) dời WC + lệnh vách hỏng: lời báo nói đã bỏ 3 vách + cửa phụ cũ', kq);
+    await H.locator('[data-act="p-hoantac"]').click();
+    await page.waitForFunction(() => /Đã hoàn tác|Đã bỏ phòng vừa vẽ|về như trước/.test(document.getElementById('mncf-host').shadowRoot.querySelector('.status').textContent), null, { timeout: 15000 }).catch(() => {});
+    eq1((await vung(400000)).vach, [800, 2300, 2300], '… Hoàn tác phòng: 3 vách cũ trở lại');
+    await page.evaluate(p0 => { window.MNCFDriver.lastRoom = null; window.MNCF.phong.dat(Object.assign(p0, { goc: [430000, 0, 0] })); window.__MOCK_TUONG_HONG__ = true; }, PCG(800));
+    kq = await vePh(); await page.evaluate(() => { window.__MOCK_TUONG_HONG__ = false; });
+    ok(/Chưa vẽ vách phòng con \(WC\): tường phòng chưa đủ/.test(kq), 'tường phòng không dựng được: không vẽ vách, báo "tường phòng chưa đủ"', kq);
+    eq1((await vung(430000)).vach, [], '… không vách nào');
+
+    // 7. [CĐ] giả thuyết (b): Chenfeng cắt mặt tường cũ ở chỗ vách chạm → vẽ lại không vẽ chồng, không dừng hỏi oan
+    await page.evaluate(p0 => { window.MNCFDriver.lastRoom = null; window.MNCF.phong.dat(Object.assign(p0, { goc: [460000, 0, 0] })); window.__MOCK_TACH_TUONG__ = true; }, PCG(800));
+    kq = await vePh();
+    const manh = await page.evaluate(() => { const M = window.__MOCK__; const a = M.ents.find(e => e instanceof M.RoomWallLine && !e.IsErase && Math.abs(e.RightCurves[0].StartPoint.y) < 1 && e.RightCurves[0].StartPoint.x === 460000); return a ? a.RightCurves.length : -1; });
+    ok(/Đã vẽ phòng: 4 tường, 3 vách phòng con/.test(kq) && manh === 3, '(b) vẽ: tường A bị cắt thành 3 mảnh mặt trong', [kq, manh]);
+    kq = await vePh();
+    ok(/đã có đủ/.test(kq) && !(await H.locator('[data-act="p-ve-bo"]').count()), '(b) vẽ lại: nhận tường theo mảnh — "đã có đủ", không dừng hỏi', kq);
+    await page.evaluate(() => { window.__MOCK_TACH_TUONG__ = false; });
+
+    // 8. [CĐ] Chenfeng sinh thêm vùng phòng cho lòng phòng con: vùng đó mang tên "WC"
+    await page.evaluate(p0 => { window.MNCFDriver.lastRoom = null; window.MNCF.phong.dat(Object.assign(p0, { goc: [490000, 0, 0] })); window.__MOCK_VUNG_CON__ = true; }, PCG(800));
+    kq = await vePh(); await page.evaluate(() => { window.__MOCK_VUNG_CON__ = false; });
+    const tenV = await page.evaluate(() => { const M = window.__MOCK__; return M.ents.filter(e => e instanceof M.RoomRegion && !e.IsErase && e.box[0] >= 489000).map(e => e.TextString).sort(); });
+    eq1(tenV, ['Phong ngu', 'WC'], 'vùng của lòng WC mang tên "WC", vùng phòng mang tên phòng (không dấu)');
+
+    // 5b. vẽ CẢ NHÀ: phòng 2 ghép vào phòng 1, cả hai có WC → vẽ lại cả nhà không xoá vách của phòng nào
+    const Y = Object.assign({}, PCG(800), { id: 'P1', ten: 'Phòng khách', goc: [520000, 0, 0] });
+    const B = { id: 'P2', ten: 'Phòng ngủ 2', cao: 2700, day: 110, tuong: [{ dai: 3000 }, { dai: 3000 }, { dai: 3000 }, { dai: 'auto' }], mo: [], can: [], dn: [], khung: [], con: [{ tuong: 0, ap: 'dau', rong: 1200, sau: 1500, cua: [{ mat: 'truoc', cach: 185 }] }], ghep: { phong: 'P1', tuong: 1, tuong_minh: 3, cach: 0 } };
+    await page.evaluate(c => { window.MNCFDriver.lastRoom = null; window.MNCF.phong.datNha(c); }, { id: 'C9', ten: 'Nhà WC', chon: 'P1', phong: [Y, B] });
+    const demNha = () => page.evaluate(() => { const M = window.__MOCK__, tg = M.ents.filter(e => e instanceof M.RoomWallLine && !e.IsErase && e.box[0] >= 519000); return { tuong: tg.filter(e => e.Thickness !== 100).length, vach: tg.filter(e => e.Thickness === 100).length, lo: M.ents.filter(e => e instanceof M.RoomHolePolyline && !e.IsErase && e.box[0] >= 519000).length }; });
+    kq = await vePh('[data-act="p-ve-nha"]');
+    eq1(await demNha(), { tuong: 7, vach: 5, lo: 3 }, 'vẽ cả nhà: 7 tường (tường chung một lần) + 3 vách WC phòng khách + 2 vách WC phòng ngủ; cửa chính + 2 cửa phụ');
+    kq = await vePh('[data-act="p-ve-nha"]');
+    eq1(await demNha(), { tuong: 7, vach: 5, lo: 3 }, 'vẽ lại cả nhà: không xoá vách của phòng nào, không vẽ chồng');
+    ok(!/Dừng|chưa vẽ/i.test(kq), '… không dừng hỏi', kq);
+    ok(errs.length === 0, 'không có lỗi JS lọt ra trang', errs);
+  } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
+  await ctx.close();
+  try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* bỏ qua */ }
+}
+
 (async () => {
   const browser = await chromium.launch();
   try { await trangDocLap(browser); } catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
@@ -1620,6 +1836,7 @@ async function tNha() {
   await tienIch();
   await tPhongDaDo();
   await tNha();
+  await tPhongCon();
   console.log(`\n${pass} đạt, ${fail} hỏng`);
   process.exit(fail ? 1 : 0);
 })();

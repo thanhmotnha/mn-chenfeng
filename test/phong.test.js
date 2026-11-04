@@ -1441,5 +1441,266 @@ T('Điện – nước sau lưng tủ bếp dưới: thanh sau / đế sau / t�
   { const a = kq('BD-CANH-600', 'de_van', 'o_dien', 300); ok(!a.luu_y.length && /^Ổ điện 1: sau lưng tủ, khoang 1, ô .*Khoét hậu khoang 1 120 × 80: tâm cách mép trái tấm 299, cách mép dưới tấm 199/.test(a.ghi_chu[0]), 'ổ thấp sau hậu: như cũ', a); }
 });
 
+/* ======================= Phòng con + cửa phụ (bản 1.41.0) =======================
+ * Anh Thanh 04/11/2026 (ảnh thẻ Phòng 3600 × 3000, tường A–D, cửa 900 tường C, anh kẻ một ô ở góc A–B): "trong các phòng đều có nvs và cửa làm thêm các phòng con và cửa phụ".
+ * Chốt: phòng con = ô chữ nhật áp tường (rộng dọc tường × sâu vào phòng = LÒNG), vách gạch 100 nằm phía phòng chính, vẽ bằng lệnh tường; cửa phụ 830 × 2200 trên vách;
+ * tủ né phòng con; mặt ngoài vách đặt tủ được (mã mặt 'PC1.truoc'). Phòng KHÔNG có phòng con: mọi hàm thuần ra y từng byte như 1.40.2 (băm ở test/phong-cu.js). */
+const tuongVeC = (a, b, day, cao) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), u = [dx / L * day, dy / L * day], n = [-dy / L * day, dx / L * day];
+  return { mat: [[a, b], [[a[0] + n[0] - u[0], a[1] + n[1] - u[1]], [b[0] + n[0] + u[0], b[1] + n[1] + u[1]]]], day, cao: cao || 2700, z: 0 }; };
+const PC = (o, them) => Object.assign(P.macDinh(), { con: [Object.assign({ tuong: 0, rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 335 }] }, o)] }, them || {});
+const gan2 = (a, b) => Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01;
+
+T('Phòng con (1.41.0): phòng không có phòng con ra y từng byte như 1.40.2 (băm 203 phòng + 6 công trình ghép)', () => {
+  eq(require('./phong-cu.js').bam(P), '40f179bd94f1ecced2f0939496f501efd08052e1535dab3249bcc0329a55c229', 'số băm = lõi 1.40.2 (c821790)');
+  const p = P.chuanHoa(P.macDinh());
+  ok(!('con' in p) && !('dem_con' in p), 'phòng mẫu: không có khoá con / dem_con');
+  ok(!('vach' in P.phanPhong(P.hinhHoc(p), 110)) && !('vach' in P.tuongGhi(P.phanPhong(P.hinhHoc(p), 110), null, null)), 'phanPhong / tuongGhi: không có khoá vach');
+});
+
+T('Phòng con (1.41.0): chuẩn hoá — mã PC ổn định, dem_con, mặc định, khung trên mặt vách giữ chuỗi', () => {
+  const p = P.chuanHoa({ cao: 2700, tuong: [{ dai: 3600 }, { dai: 3000 }, { dai: 3600 }, { dai: 'auto' }], con: [{ tuong: 0, ap: 'dau', cua: [{ mat: 'lung' }] }, { id: 'PC7', tuong: 9, ap: 'giua', cao: 2700 }, { id: 'PC7' }, null],
+    khung: [{ ten: 'K', tuong: 'PC7.truoc' }, { ten: 'X', tuong: 'PC7.lung' }] });
+  eq(p.con.map(c => c.id), ['PC8', 'PC7', 'PC9'], 'thiếu / trùng mã → cấp mã mới sau số lớn nhất (PC7)');
+  eq(p.dem_con, 9, 'dem_con = mã lớn nhất đã cấp');
+  eq([p.con[0].ten, p.con[0].ap, p.con[0].rong, p.con[0].sau, p.con[0].day, p.con[0].cua[0]], ['WC', 'dau', 1500, 1800, 100, { mat: 'truoc', cach: 0, rong: 830, cao: 2200, be: 0, mo: 'trong', ban: 'trai' }], 'mặc định WC 1500 × 1800, vách 100, cửa 830 × 2200; mặt lạ → trước');
+  eq([p.con[1].tuong, 'ap' in p.con[1], 'cao' in p.con[1]], [3, false, false], 'tường ngoài phạm vi kẹp về tường cuối; áp lạ → cách đầu; cao = trần thì không ghi');
+  eq(p.khung.map(k => k.tuong), ['PC7.truoc', 0], 'khung: mã mặt đúng dạng giữ chuỗi, sai dạng về số');
+  const q = P.chuanHoa(Object.assign(P.macDinh(), { con: [], dem_con: 4 }));
+  ok(!('con' in q) && q.dem_con === 4, 'xoá hết phòng con: không còn khoá con, vẫn nhớ dem_con (khung cũ còn nhớ mã)');
+  eq(P.chuanHoa(p), p, 'chuẩn hoá lần hai không đổi');
+});
+
+T('Phòng con (1.41.0): WC áp góc đầu tường A 1500 × 1800 — 2 vách, mặt ngoài trước / phải', () => {
+  const H = P.hinhHoc(PC({ ap: 'dau' }));
+  eq([H.loi, H.luu_y], [[], []], 'không lỗi, không lưu ý');
+  const c = H.con[0];
+  eq(c.chuoi.map(x => x[0]), ['phai', 'truoc'], '2 đoạn vách: phải rồi trước (chuỗi chiều kim đồng hồ quanh lòng)');
+  ok(gan2(c.chuoi[0][1], [1500, 0]) && gan2(c.chuoi[0][2], [1500, -1800]) && gan2(c.chuoi[1][1], [1500, -1800]) && gan2(c.chuoi[1][2], [0, -1800]), 'toạ độ mặt trong vách', c.chuoi);
+  eq(H.vach.map(f => f.i), ['PC1.truoc', 'PC1.phai'], 'mặt ngoài: không có mặt trái (áp góc)');
+  const tr = H.vach[0], ph = H.vach[1];
+  eq([tr.dai, tr.p0, tr.a, tr.ke], [1600, [0, -1900], 0, ['D', 'WC·phải']], 'mặt trước dài 1600 (lòng + vách phải), p0 = Q(0, 1900), cùng hướng tường A, kề tường D / WC·phải');
+  eq([ph.dai, ph.p0, ph.a, ph.ke], [1900, [1600, -1900], 90, ['WC·trước', 'A']], 'mặt phải dài 1900, hướng = tường A + 90');
+  for (const f of H.vach) ok(Math.abs(f.n[0] - f.d[1]) < 1e-9 && Math.abs(f.n[1] + f.d[0]) < 1e-9, `${f.i}: n′ = bên phải d′ (như tường)`);
+  ok(co(P.tomTat(H), /1 phòng con: WC 1500 × 1800 \(1 cửa\)/), 'tóm tắt có dòng phòng con', P.tomTat(H));
+});
+
+T('Phòng con (1.41.0): giữa tường (cách 800) — 3 vách; áp góc cuối — chuỗi bắt đầu ở tường kề', () => {
+  const H = P.hinhHoc(PC({ cach: 800, cua: [{ mat: 'truoc', cach: 435 }] }));
+  eq(H.loi, [], 'không lỗi');
+  eq(H.con[0].chuoi.map(x => x[0]), ['phai', 'truoc', 'trai'], 'chuỗi phải → trước → trái');
+  eq(H.vach.map(f => [f.i, f.dai]), [['PC1.trai', 1900], ['PC1.truoc', 1700], ['PC1.phai', 1900]], 'mặt trước dài R + 200');
+  const H2 = P.hinhHoc(PC({ ap: 'cuoi' }));
+  ok(gan2(H2.con[0].chuoi[0][1], [3600, -1800]) && H2.con[0].chuoi[0][0] === 'truoc', 'áp góc cuối: chuỗi bắt đầu trên mặt tường B (x = 3600)', H2.con[0].chuoi);
+  eq(H2.vach.map(f => f.i), ['PC1.trai', 'PC1.truoc'], 'áp góc cuối: mặt trái + trước');
+  const p3 = PC({ ap: 'dau', rong: 1000, sau: 1000, cua: [] }); p3.tuong = [{ dai: 3000, re: 90 }, { dai: 3000, re: 135 }, { dai: 'auto', re: 135 }];
+  ok(co(P.hinhHoc(p3).loi, /Góc C–A không vuông: chưa đặt phòng con áp góc được — đặt cách đầu tường/), 'góc không vuông (phòng tam giác, góc C–A 45°) → lỗi', P.hinhHoc(p3).loi);
+  const p4 = PC({ ap: 'dau' }); p4.tuong[3].dai = 2900;
+  ok(co(P.hinhHoc(p4).loi, /Đầu tường A không có tường kề \(phòng chưa khép\)/), 'phòng chưa khép: áp góc đầu tường A → lỗi', P.hinhHoc(p4).loi);
+});
+
+T('Phòng con (1.41.0): kiểm — mỗi ca một lỗi / lưu ý', () => {
+  const L = o => P.hinhHoc(Object.assign(P.macDinh(), o));
+  ok(co(L({ con: [{ tuong: 0, cach: 2500, rong: 1500, sau: 1800 }] }).loi, /Phòng con WC ra ngoài tường A/), 'ra ngoài tường');
+  const g50 = L({ con: [{ tuong: 0, cach: 50, rong: 1500, sau: 1800 }] }).loi;
+  ok(co(g50, /Vách trái WC cách góc chỉ 50 — đặt áp góc, hoặc cách từ 100/) && !co(g50, /ra quá lòng/), 'cách góc 50 < dày vách: một lỗi (không thêm "ra quá lòng")', g50);
+  ok(co(L({ con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 2950 }] }).loi, /WC sâu 2950 \(cả vách 3050\) ra quá lòng phòng \(tường C chỉ cách tường A 3000\)/), 'sâu quá lòng phòng');
+  ok(co(L({ con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800 }, { tuong: 0, cach: 1000, rong: 1500, sau: 1800 }] }).loi, /Phòng con WC và WC chồng lên nhau/), 'hai phòng con chồng');
+  ok(co(L({ con: [{ tuong: 2, cach: 500, rong: 1500, sau: 1800 }] }).loi, /Vách WC đè lên cửa đi 1 \(tường C\)/), 'vách đè cửa 900 tường C (kéo WC sang)');
+  const ct = L({ can: [{ tuong: 0, loai: 'cot', cach: 1450, rong: 300, nho: 300 }], con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800 }] });
+  ok(co(ct.loi, /Vách WC đè lên cột 1 \(tường A\)/), 'vách đè cột');
+  ok(co(L({ can: [{ tuong: 0, loai: 'cot', cach: 500, rong: 300, nho: 300 }], con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800 }] }).ghi_chu, /Cột 1 nằm trong WC/), 'cột gọn trong lòng WC: chỉ ghi chú');
+  ok(co(L({ khung: [{ ten: 'K1', tuong: 0, cach: 1000, rong: 1500, cao: 2700, sau: 600 }], con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800 }] }).loi, /Khung K1 chồng lên phòng con WC/), 'khung chồng WC');
+  // khung trên WC·trái, rồi đổi sang áp góc đầu → mặt trái không còn
+  const kt = { khung: [{ ten: 'K2', tuong: 'PC1.trai', cach: 0, rong: 500, cao: 2000, sau: 400 }] };
+  eq(L(Object.assign({ con: [{ tuong: 0, cach: 800, rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 435 }] }] }, kt)).loi, [], '(chuẩn bị) khung trên mặt trái WC giữa tường: không lỗi');
+  ok(co(L(Object.assign({ con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 335 }] }] }, kt)).loi, /Khung K2 nằm trên WC·trái — mặt đó không còn/), 'đổi sang áp góc đầu: khung trên mặt trái báo "mặt đó không còn"');
+  const cu = L({ con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 1400 }, { mat: 'trai' }, { mat: 'truoc', cach: 300, cao: 2800 }] }] }).loi;
+  ok(co(cu, /Cửa WC 1 chạm góc vách \(mặt trước WC chỉ từ 0 tới 1500/) && co(cu, /Cửa WC 2 nằm trên mặt trái của WC — mặt đó không có/) && co(cu, /Cửa WC 3 cao tới \+2800, vượt vách WC cao 2700/), 'cửa phụ: chạm góc vách / mặt không có / cao quá vách', cu);
+  ok(co(L({ con: [{ tuong: 0, ap: 'dau', rong: 500, sau: 1800 }] }).loi, /WC 500 × 1800 quá nhỏ/), 'quá nhỏ (< 600): lỗi');
+  const nho = L({ con: [{ tuong: 0, ap: 'dau', rong: 700, sau: 1800 }], dn: [{ tuong: 0, loai: 'o_dien', cach: 750, cao: 300 }, { tuong: 0, loai: 'o_dien', cach: 300, cao: 300 }] });
+  ok(nho.loi.length === 0 && co(nho.luu_y, /WC 700 × 1800 nhỏ hơn cỡ thường \(≥ 800 × 1000\) \[CĐ\]/) && co(nho.luu_y, /WC chưa có cửa/) && co(nho.luu_y, /Vách WC đè lên ổ điện 1 \(tường A\)/), 'nhỏ (lưu ý), chưa cửa (lưu ý), vách trùm ổ điện (lưu ý)', nho.luu_y);
+  ok(co(nho.ghi_chu, /Ổ điện 2 \(tường A\) thuộc WC/), 'ổ điện trong lòng WC: ghi chú');
+  const so = L({ mo: [{ tuong: 2, loai: 'cua', cach: 200, rong: 900, cao: 2200 }, { tuong: 0, loai: 'cua_so', cach: 400, rong: 600, cao: 1000, be: 1000 }], con: [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 335 }] }] });
+  eq([so.loi, so.luu_y], [[], []], 'cửa sổ gọn trong lòng WC (cửa sổ của WC): không báo');
+});
+
+T('Phòng con (1.41.0): chỗ đặt tủ — tường A bị chặn đoạn WC, tường D chặn phần WC chiếm, mặt ngoài vách đặt được', () => {
+  const H = P.hinhHoc(PC({ ap: 'dau' }));
+  eq(P.choTrong(H, 0, 800), { ok: false, chan: 'phòng con WC' }, 'tường A chạm trong [0, 1600] → chặn');
+  eq(P.choTrong(H, 0, 2000), { ok: true, cach: 1600, rong: 2000, z: 0, cao: 2700, chan: '', dam: '' }, 'tường A chạm 2000 → đoạn 1600 → 3600 (từ mặt ngoài vách phải)');
+  eq(P.choTrong(H, 3, 500), { ok: true, cach: 0, rong: 1100, z: 0, cao: 2700, chan: '', dam: '' }, 'tường D (WC áp góc đầu A chiếm 1900 cuối D) bị chặn đúng 1900');
+  eq(P.choTrong(H, 'PC1.truoc', 800), { ok: false, chan: 'cửa WC 1' }, 'mặt WC·trước: chạm giữa cửa phụ → chặn');
+  eq(P.choTrong(H, 'PC1.truoc', 100), { ok: true, cach: 0, rong: 335, z: 0, cao: 2700, chan: '', dam: '' }, 'mặt WC·trước bên trái cửa: 0 → 335');
+  eq(P.choTrong(H, 'PC1.truoc', 1400), { ok: true, cach: 1165, rong: 435, z: 0, cao: 2700, chan: '', dam: '' }, 'mặt WC·trước bên phải cửa: 1165 → 1600');
+  eq(P.choTrong(H, 'PC1.phai', 1000), { ok: true, cach: 0, rong: 1900, z: 0, cao: 2700, chan: '', dam: '' }, 'mặt WC·phải: cả mặt');
+  eq(P.choTrong(H, 'PC9.truoc', 100), { ok: false, chan: '' }, 'mã mặt lạ: không có chỗ');
+  ok(/data-con="0"/.test(P.matDungSVG(H, 0, {})) && /Vách WC — mặt trước/.test(P.matDungSVG(H, 'PC1.truoc', {})) && /aria-label="Mặt đứng vách WC — mặt trước"/.test(P.matDungSVG(H, 'PC1.truoc', {})), 'mặt đứng: tường A có khối phòng con; mặt vách có hình riêng');
+  const mb = P.matBangSVG(H, { sua: true });
+  ok(/data-vach="PC1.phai"/.test(mb) && /data-cung="0:0"/.test(mb) && /data-tuong="PC1.truoc"/.test(mb) && /data-con="0"/.test(mb) && /data-sua="con.0.rong"/.test(mb), 'mặt bằng: dải vách, cung cửa phụ, vùng bấm mặt vách, tên phòng con, số sửa được');
+});
+
+T('Phòng con (1.41.0): khung trên mặt ngoài vách — datKhung, keoKhung bắt mép cửa phụ, ô kề, tuChoKhung (trần = vách cao)', () => {
+  const p = PC({ ap: 'dau', cao: 2400 }, { khung: [{ ten: 'K1', tuong: 'PC1.phai', cach: 0, rong: 800, cao: 2400, sau: 600 }, { ten: 'K2', tuong: 'PC1.phai', cach: 800, rong: 1100, cao: 2400, sau: 600 }, { ten: 'K3', tuong: 'PC1.truoc', cach: 0, rong: 300, cao: 2000, sau: 500 }] });
+  const H = P.hinhHoc(p);
+  eq(H.loi, [], 'không lỗi');
+  eq(P.datKhung(H, 0), { goc: [2200, -1900, 0], xoay: 90, tuong: 'WC·phải' }, 'tủ quay lưng vào vách phải: góc trái–trước = p0 + n′·600, xoay = a′ (90)');
+  const kq = P.keoKhung(H, 2, { phai: true, ds: 40 });
+  eq([kq.rong, kq.bat_s], [335, 335], 'kéo mép phải khung trên WC·trước bám mép cửa phụ (335)');
+  const r = P.doiCoKhung(p, 0, 'rong', 900);
+  eq([r.ke, r.p.khung[1].cach, r.p.khung[1].rong], ['K2', 900, 1000], 'đổi rộng ô trên mặt vách: ô kề cùng mặt nhận bù');
+  const t = P.tuChoKhung(C, C.DEFAULT_SPEC, H.khung[0], 'Phòng', H, 0);
+  eq(t.spec.kiem.tran, 2400, 'tủ vào khung trên mặt vách lửng 2400: trần kiểm = vách cao');
+});
+
+T('Phòng con (1.41.0): điện – nước sau tủ đặt trên mặt vách', () => {
+  // ổ điện tường A trong lòng WC: KHÔNG thuộc tủ trên WC·trước (sau lưng tủ hơn 60)
+  const p = PC({ ap: 'dau' }, { dn: [{ tuong: 0, loai: 'o_dien', cach: 700, cao: 300 }], khung: [{ ten: 'K', tuong: 'PC1.truoc', cach: 0, rong: 1600, cao: 2000, sau: 600 }] });
+  let H = P.hinhHoc(p), d = P.datKhung(H, 0);
+  eq(P.diemTrongKhung(H, { goc: d.goc, xoay: d.xoay, rong: 1600, sau: 600, cao: 2000 }).length, 0, 'ổ trong lòng WC không thuộc tủ trên WC·trước');
+  // ổ điện tường A ngay ngoài vách trái (WC giữa tường): thuộc hồi của tủ trên WC·trái đứng sát tường A
+  const p2 = PC({ cach: 800, cua: [{ mat: 'truoc', cach: 435 }] }, { dn: [{ tuong: 0, loai: 'o_dien', cach: 450, cao: 300 }], khung: [{ ten: 'K', tuong: 'PC1.trai', cach: 0, rong: 600, cao: 2000, sau: 500 }] });
+  H = P.hinhHoc(p2); d = P.datKhung(H, 0);
+  const ds = P.diemTrongKhung(H, { goc: d.goc, xoay: d.xoay, rong: 600, sau: 500, cao: 2000 });
+  eq(ds.map(x => [x.mat, x.y]), [['trai', 250]], 'ổ sau hồi trái tủ (cách mặt trước 250) — hồi áp tường A');
+});
+
+// mô phỏng driver (D.drawRoom) có vách: bỏ bo.tuong, dựng tường, đối chiếu, dựng vách, đối chiếu, ghi bản ghi. tach = Chenfeng cắt mặt tường cũ ở chỗ đầu vách chạm (giả thuyết b).
+// giả thuyết (b): mặt trong tường cũ bị cắt bỏ đoạn mà bề dày vách chiếm (bề dày nằm bên trái hướng đi của vách)
+const catGia = co => (q, dir, day) => { for (const e of co.tuong) for (let j = 0; j < e.mat.length; j++) { const m = e.mat[j], dx = m[1][0] - m[0][0], dy = m[1][1] - m[0][1], L = Math.hypot(dx, dy) || 1, u = [dx / L, dy / L];
+  const t = (q[0] - m[0][0]) * u[0] + (q[1] - m[0][1]) * u[1], kc = Math.abs(-(q[0] - m[0][0]) * u[1] + (q[1] - m[0][1]) * u[0]);
+  if (kc > 0.5 || t <= 1 || t >= L - 1) continue;
+  const sgn = -dir[1] * u[0] + dir[0] * u[1] > 0 ? 1 : -1, a0 = Math.min(t, t + sgn * day), a1 = Math.max(t, t + sgn * day), Pt = s => [m[0][0] + u[0] * s, m[0][1] + u[1] * s];
+  e.mat.splice(j, 1, [m[0], Pt(a0)], [Pt(a1), m[1]]); return; } };
+const veCon = (p, co, o) => {
+  o = o || {}; const H = P.hinhHoc(p), moi = P.phanPhong(H, p.day), oK = { khac: o.khac || [] }, gui = [], cat = catGia(co);
+  let k = P.doiChieuPhong(moi, co, p.da_ve || null, oK);
+  if (k.trong.length && !o.bo_chong) return { chan: true, k };
+  const bo = k.bo.tuong.map(i => co.tuong[i]); co.tuong = co.tuong.filter((e, i) => k.bo.tuong.indexOf(i) < 0);
+  for (const c of k.ve_tuong) { gui.push('tuong'); const d = c.diem; for (let i = 0; i < d.length - 1; i++) co.tuong.push(tuongVeC(d[i], d[i + 1], c.day || moi.tuong[c.tuong[i]].day)); if (c.khep) co.tuong.push(tuongVeC(d[d.length - 1], d[0], c.day || moi.tuong[0].day)); }
+  const coT = moi.tuong.map(w => P.tuongPhuKin(w, co)); let coV = null;
+  if (moi.vach) {
+    const k2 = P.doiChieuPhong(moi, co, p.da_ve || null, oK);
+    for (const c of k2.ve_vach) {
+      gui.push('vach'); const d = c.diem;
+      for (let i = 0; i < d.length - 1; i++) co.tuong.push(Object.assign(tuongVeC(d[i], d[i + 1], c.day), { cao: c.cao }));
+      if (o.tach) { cat(d[0], [d[1][0] - d[0][0], d[1][1] - d[0][1]], c.day); const n = d.length - 1; cat(d[n], [d[n][0] - d[n - 1][0], d[n][1] - d[n - 1][1]], c.day); }
+    }
+    coV = moi.vach.map(v => P.tuongPhuKin(v, co));
+  }
+  const k3 = P.doiChieuPhong(moi, co, p.da_ve || null, oK), g = P.tuongGhi(moi, k3, coT, coV);
+  p.da_ve = P.banGhiPhong(Object.assign({}, moi, { tuong: g.tuong }), { mo: [], cot: [], dam: [], muon: g.muon, giu: g.giu, vach: g.vach, manh: g.manh });
+  return { k, bo, gui, coV, p };
+};
+const banVeRong = () => ({ tuong: [], lo: [], cot: [], dam: [] });
+
+T('Phòng con (1.41.0): phanPhong — vách + cửa phụ (hộp mặt ngoài → mặt trong vách)', () => {
+  const m = P.phanPhong(P.hinhHoc(PC({ cach: 800, cua: [{ mat: 'truoc', cach: 435 }] }, { goc: [10000, 2000, 0] })), 110);
+  eq(m.vach.map(v => [v.con, v.mat, v.a, v.b, v.cao, v.day]), [['PC1', 'phai', [12300, 2000], [12300, 200]], ['PC1', 'truoc', [12300, 200], [10800, 200]], ['PC1', 'trai', [10800, 200], [10800, 2000]]].map(x => x.concat([2700, 100])), 'vách: mặt trong, toạ độ bản vẽ, theo chuỗi');
+  const cp = m.mo.find(x => x.tuong === 'PC1.truoc');
+  eq(cp && cp.hop, [11135, 11965, 100, 200, 0, 2200], 'cửa phụ: hộp bề rộng × dày vách 100 (mặt ngoài y 100 → mặt trong y 200) × cao 2200');
+});
+
+T('Phòng con (1.41.0): đối chiếu + bản ghi — vẽ, vẽ lại, dời, bỏ, vách vẽ tay, phòng bên', () => {
+  // (a) chưa có gì: một chuỗi vách
+  let p = PC({ cach: 800, cua: [{ mat: 'truoc', cach: 435 }] }), co = banVeRong();
+  let k = P.doiChieuPhong(P.phanPhong(P.hinhHoc(p), 110), co, null);
+  eq([k.ve_vach.length, k.ve_vach[0].diem.length, k.ve_vach[0].vach, k.ve_vach[0].khep, k.ve_vach[0].day], [1, 4, [0, 1, 2], false, 100], '(a) một chuỗi hở 3 vách');
+  let r = veCon(p, co);
+  eq([r.gui, r.coV, p.da_ve.vach.length], [['tuong', 'vach'], [true, true, true], 3], '(a) vẽ: một lệnh tường phòng + một lệnh vách; bản ghi 3 vách');
+  // (b) đủ cả → giữ, không gửi lệnh nào
+  r = veCon(p, co);
+  eq([r.gui, r.k.vach.map(t => t.co >= 0), r.k.bo.tuong, r.k.trong], [[], [true, true, true], [], []], '(b) vẽ lại: không gửi lệnh, vách giữ, không bỏ gì, không dừng hỏi');
+  ok(!P.lechDaVe(P.hinhHoc(p), p), '(b) không lệch');
+  // (g) chuanDaVe giữ vach; lechDaVe khi WC dời
+  eq(P.chuanHoa(p).da_ve.vach, p.da_ve.vach, '(g) chuanDaVe giữ vach');
+  p.con[0].cach = 1100;
+  ok(P.lechDaVe(P.hinhHoc(p), p), '(g) WC dời 300 → lệch');
+  // (c) có bản ghi, WC dời → vách cũ bỏ (3), chuỗi mới
+  r = veCon(p, co);
+  eq([r.k.bo.tuong.length, r.k.bo_vach.length, r.gui, r.k.trong], [3, 3, ['vach'], []], '(c) dời: bỏ 3 vách cũ, vẽ 3 vách mới (một lệnh), tường phòng giữ');
+  eq(co.tuong.length, 7, '(c) bản vẽ: 4 tường + 3 vách mới');
+  // (d) xoá WC → vách cũ bỏ, không ve_vach
+  delete p.con;
+  ok(P.lechDaVe(P.hinhHoc(p), p), '(d) bỏ WC → lệch');
+  r = veCon(p, co);
+  ok(r.k.bo.tuong.length === 3 && r.k.bo_vach.length === 3 && !('ve_vach' in r.k) && co.tuong.length === 4 && !('vach' in p.da_ve), '(d) bỏ WC: bỏ 3 vách cũ, không chuỗi vách; bản ghi không còn vach', [r.k.bo, co.tuong.length, p.da_ve]);
+  // thêm WC sau khi vẽ: không "lệch" (như thêm cửa)
+  p.con = [{ tuong: 0, cach: 800, rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 435 }] }];
+  ok(!P.lechDaVe(P.hinhHoc(p), p), 'thêm phòng con sau khi vẽ: không lệch');
+  // (e) vách vẽ tay không bản ghi, khớp đúng chỗ → nhận; lệch chỗ → trong (dừng hỏi)
+  const tay = P.phanPhong(P.hinhHoc(p), 110).vach.map(v => Object.assign(tuongVeC(v.a, v.b, 100), { cao: 2700 }));
+  const coTay = { tuong: P.phanPhong(P.hinhHoc(p), 110).tuong.map(w => tuongVeC(w.a, w.b, w.day)).concat(tay), lo: [], cot: [], dam: [] };
+  k = P.doiChieuPhong(P.phanPhong(P.hinhHoc(p), 110), coTay, null);
+  eq([k.vach.map(t => t.co >= 0), k.trong, k.ve_vach], [[true, true, true], [], []], '(e) vách vẽ tay đúng chỗ (không bản ghi): nhận, không dừng hỏi');
+  const p2 = JSON.parse(JSON.stringify(p)); p2.con[0].cach = 1100;
+  k = P.doiChieuPhong(P.phanPhong(P.hinhHoc(p2), 110), coTay, null);
+  ok(k.trong.length === 3 && !k.bo.tuong.length, '(e) vách vẽ tay lệch chỗ, không bản ghi: 3 tường lạ trong lòng → dừng hỏi, không tự bỏ', k.trong);
+  // (f) vách của phòng KHÁC (bản ghi khac) không bị bỏ, không bị báo vướng
+  const khac = { tuong: [], vach: tay.map(e => [e.mat[0][0][0], e.mat[0][0][1], e.mat[0][1][0], e.mat[0][1][1], 0, 2700, 100]) };
+  k = P.doiChieuPhong(P.phanPhong(P.hinhHoc(p2), 110), coTay, null, { khac: [khac] });
+  eq([k.trong, k.bo.tuong], [[], []], '(f) vách ghi trong bản ghi phòng bên: không bỏ, không dừng hỏi');
+});
+
+T('Phòng con (1.41.0): [CĐ] Chenfeng cắt mặt tường cũ ở chữ T — vẽ lại không vẽ chồng, không dừng hỏi oan', () => {
+  const p = PC({ cach: 800, cua: [{ mat: 'truoc', cach: 435 }] }), co = banVeRong();
+  let r = veCon(p, co, { tach: true });
+  ok(co.tuong[0].mat.length === 4, '(chuẩn bị) mặt trong tường A bị cắt thành 3 mảnh (+ mặt ngoài)', co.tuong[0].mat);
+  r = veCon(p, co, { tach: true });
+  eq([r.gui, r.k.trong, r.k.bo.tuong, r.k.tuong.map(t => t.co >= 0)], [[], [], [], [true, true, true, true]], 'vẽ lại: tường A nhận theo mảnh, không gửi lệnh, không dừng hỏi');
+  p.con[0].cach = 1100; r = veCon(p, co, { tach: true });
+  ok(r.k.bo_vach.length === 3 && !r.k.trong.length && r.k.tuong[0].co >= 0, 'dời WC: bỏ 3 vách cũ, tường A (đã cắt mảnh) vẫn giữ', r.k);
+});
+
+T('Phòng con (1.41.0): nhà — phòng ghép dời thì WC dời theo; máy đo không nhận phòng con; kiểm cả nhà không đổi', () => {
+  const Y = Object.assign(P.macDinh(), { id: 'P1', ten: 'Y' }), B = { id: 'P2', ten: 'B', cao: 2700, day: 110, tuong: [{ dai: 3000 }, { dai: 3000 }, { dai: 3000 }, { dai: 'auto' }], con: [{ tuong: 0, ap: 'dau', rong: 1200, sau: 1500, cua: [{ mat: 'truoc', cach: 185 }] }], ghep: { phong: 'P1', tuong: 1, tuong_minh: 3, cach: 0 } };
+  let N = P.datNha({ id: 'C1', ten: 'n', chon: 'P1', phong: [Y, B] }).ct;
+  const v0 = P.phanPhong(P.hinhNha(N, 'P2'), 110).vach;
+  N.phong[0].tuong[0].dai = 4000; N.phong[0].tuong[2].dai = 4000; N = P.datNha(N).ct;
+  const v1 = P.phanPhong(P.hinhNha(N, 'P2'), 110).vach;
+  ok(v1.every((v, i) => Math.abs(v.a[0] - v0[i].a[0] - 400) < 0.01 && Math.abs(v.a[1] - v0[i].a[1]) < 0.01), 'phòng đích dài thêm 400: vách WC của phòng ghép dời 400 theo', [v0[0].a, v1[0].a]);
+  const NB = P.datNha({ id: 'C1', ten: 'n', chon: 'P1', phong: [Y, Object.assign({}, B, { con: undefined })] }).ct;
+  eq([P.kiemNha(N), P.tuongChung(N)], [P.kiemNha(NB), P.tuongChung(NB)], 'kiemNha / tường chung: có WC hay không như nhau');
+  const g = PHONG_DO(); g.muc.gui.phong.con = [{ tuong: 0, ap: 'dau', rong: 1500, sau: 1800 }];
+  ok(!('con' in P.phongDaDo([g], {})[0].phong), 'phongDaDo: gói máy đo mang khoá con → không nhận (chỉ tuong / mo / can / dn)');
+  ok(/data-nha-vach="P2:PC1"/.test(P.matBangNhaSVG(N, { chon: 'P1' })), 'mặt bằng cả nhà: có dải vách phòng con');
+});
+
+// ---- vòng soát 1.41.0 ----
+T('Phòng con — vòng soát (1.41.0): xoá hết phòng con rồi vẽ lại hai lần — tường đã bị cắt mảnh vẫn nhận (bản ghi nhớ `manh`)', () => {
+  const p = PC({ cach: 800, cua: [{ mat: 'truoc', cach: 435 }] }), co = banVeRong();
+  veCon(p, co, { tach: true });
+  delete p.con;
+  let r = veCon(p, co, { tach: true });
+  eq(r.gui, [], 'bỏ WC: không gửi lệnh tường (chỉ bỏ vách)');
+  ok(p.da_ve.manh === 1 && !p.da_ve.vach, 'bản ghi sau khi bỏ WC: không vách, mang dấu manh', p.da_ve);
+  r = veCon(p, co, { tach: true });
+  eq([r.gui, r.k.chong, r.k.tuong.map(t => t.co >= 0), co.tuong.length], [[], [], [true, true, true, true], 4], 'vẽ lại lần nữa: tường A (mảnh) vẫn nhận — không vẽ chồng');
+  const q = P.chuanHoa(Object.assign(P.macDinh(), { da_ve: p.da_ve }));
+  ok(q.da_ve.manh === 1, 'chuanHoa giữ dấu manh của bản ghi');
+  const q0 = P.chuanHoa(Object.assign(P.macDinh(), { da_ve: { tuong: [[0, 0, 1, 0, 0, 2700, 110]], manh: 'x' } }));
+  ok(!('manh' in q0.da_ve), 'dấu manh lạ (không phải 1) bị bỏ');
+});
+
+T('Phòng con — vòng soát (1.41.0): mọi tường chính "nằm trên" tường vẽ tay (bản ghi chỉ muon + vach) — dời WC bỏ vách cũ, không dừng hỏi', () => {
+  const q = Object.assign(P.macDinh(), { con: [{ tuong: 0, cach: 800, rong: 1500, sau: 1800, cua: [{ mat: 'truoc', cach: 335 }] }] });
+  const co = banVeRong(), m0 = P.phanPhong(P.hinhHoc(q), 110);
+  co.tuong = m0.tuong.map(w => { const dx = w.b[0] - w.a[0], dy = w.b[1] - w.a[1], L = Math.hypot(dx, dy), u = [dx / L * 500, dy / L * 500];
+    return tuongVeC([w.a[0] - u[0], w.a[1] - u[1]], [w.b[0] + u[0], w.b[1] + u[1]], w.day, 2700); });
+  let r = veCon(q, co);
+  eq([r.gui, q.da_ve.tuong.length, (q.da_ve.muon || []).length, (q.da_ve.vach || []).length], [['vach'], 0, 4, 3], '(chuẩn bị) vẽ: chỉ vách; bản ghi 0 tường đứng tên, 4 muon, 3 vách');
+  q.con[0].cach = 1100;
+  r = veCon(q, co);
+  ok(!r.chan && r.k.co_ban_ghi && r.k.bo_vach.length === 3 && !r.k.trong.length, 'dời WC: bản ghi vẫn dùng — bỏ 3 vách cũ, không dừng hỏi', r.k && [r.k.trong, r.k.bo]);
+  eq(co.tuong.filter(e => e.day === 100).length, 3, '… bản vẽ còn đúng 3 vách (chỗ mới)');
+});
+
+T('Phòng con — vòng soát (1.41.0): mặt bằng cả nhà vẽ cửa phụ — vách chừa lỗ + cung mở', () => {
+  const Y = Object.assign(P.macDinh(), { id: 'P1', ten: 'Y' }), B = { id: 'P2', ten: 'B', cao: 2700, day: 110, tuong: [{ dai: 3000 }, { dai: 3000 }, { dai: 3000 }, { dai: 'auto' }], con: [{ tuong: 0, ap: 'dau', rong: 1200, sau: 1500, cua: [{ mat: 'truoc', cach: 185 }, { mat: 'phai', cach: 200, rong: 700 }] }], ghep: { phong: 'P1', tuong: 1, tuong_minh: 3, cach: 0 } };
+  const N = P.datNha({ id: 'C1', ten: 'n', chon: 'P1', phong: [Y, B] }).ct, s = P.matBangNhaSVG(N, { chon: 'P1' });
+  eq((s.match(/data-nha-cung="P2:PC1:\d"/g) || []).length, 2, 'hai cửa phụ của WC phòng 2: hai cung mở');
+  const NB = P.datNha({ id: 'C1', ten: 'n', chon: 'P1', phong: [Y, Object.assign({}, B, { con: undefined })] }).ct;
+  ok(!/data-nha-cung/.test(P.matBangNhaSVG(NB, { chon: 'P1' })), 'không phòng con: không có cung cửa phụ');
+});
+
 console.log(`\n${pass} đạt, ${fail} hỏng`);
 process.exit(fail ? 1 : 0);
