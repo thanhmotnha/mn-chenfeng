@@ -806,7 +806,7 @@ footer>.bohang{display:none}.panel[data-loai="bo-bep"]:not([data-tabon]) footer>
     </div>` : ''}
   </div>
   <footer>
-    <div class="status"></div>
+    <div class="status" role="status" aria-live="polite"></div>
     ${inCF && Ph && Ph.hinhThanhKhung ? '<div class="hinhcho" hidden></div>' : ''}
     ${inCF ? `<div class="frow dlgnut" data-dlg="tu"><button class="pri" data-act="hop-ve" title="Vẽ tủ đang hiện trong hộp vào đúng chỗ đã đặt">Vẽ vào Chenfeng</button><button class="sec" data-act="hop-lai" title="Bỏ chỗ vừa chọn, chọn lại chỗ đặt tủ">Chọn lại chỗ</button><button class="sec" data-act="hop-dong" title="Đóng hộp mà chưa vẽ: tủ và chỗ đặt vẫn nằm ở thẻ Tủ, lúc nào muốn thì bấm “Vẽ vào Chenfeng” (Esc)">Đóng — vẽ sau</button></div>
     <div class="frow dlgnut" data-dlg="chon"><button class="pri" data-act="chon-tiep">Tiếp — chỉnh tủ rồi vẽ</button><button class="sec" data-act="chon-thoi" title="Đóng hộp, không đặt tủ (Esc)">Thôi</button></div>` : ''}
@@ -992,7 +992,7 @@ ${nk.loai.map((x, i) => `<div class="lkr" data-li="${i}">
         boBep = o.__bo.bo; boPa = o.__bo.pa || 0; boCanh = o.__bo.canh || 0; spec = Core.normalize(o.spec); luuBo(); napBoVe();
       } else { boBep = null; spec = Core.normalize(o); }
       boChon = null; boGo = null; boTayBao = null; boMrbSua = 0;      // (vòng soát 1.37.0) lời báo "Rộng đã gõ … → …" là của lần sửa vừa lùi bỏ
-      sel = null; nhich = null; goPK = null; capLoai(); napO(); renderBays(); renderSettings(); rebuild(); setStatus('Đã lùi 1 bước.');      // lùi qua lần đổi giường ↔ tủ: ô thông số + hình theo loại
+      sel = null; nhich = null; goPK = null; capLoai(); napO(); renderBays(); renderSettings(); rebuild(); if (cad) { cad.roi = cad.sig !== chup(); veCad(); } setStatus('Đã lùi 1 bước.');      // lùi qua lần đổi giường ↔ tủ: ô thông số + hình theo loại
     }
 
     /* ---- ô và đợt (dùng cho hình đứng tương tác) ---- */
@@ -4611,8 +4611,9 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
      * (dưới Thư viện, không hộp nổi). Bấm một tủ: thông số vào bảng như mở file (doiLoaiBoCho, một bước ↶ Lùi), dựng theo Chuẩn xưởng của bảng (dày ván của
      * bản vẽ chỉ liệt kê); bếp → Bộ bếp với dãy đã đọc; loại khác → chỉ kể kích thước. Không vẽ gì vào Chenfeng khi người dùng chưa bấm Vẽ.
      * Tên file + kết quả chỉ nhớ trong bộ nhớ (cad) — bản vẽ của khách là dữ liệu riêng, không ghi localStorage. */
-    let cad = null;      // { ten (tên file), kq (MNCFDxf.doc), chon (id mục đang nạp) }
-    const CAD_MAX = 80 * 1024 * 1024;
+    let cad = null;      // { ten (tên file), kq (MNCFDxf.doc), chon (id mục đang nạp), sig (chup() ngay sau khi nạp — mục chỉ "sáng" khi bảng còn đúng như vừa nạp) }
+    // đọc đồng bộ trên luồng của trang Chenfeng: ~0,1 s / MB trên máy thử → giới hạn 30 MB (file to hơn thường là cả bộ hồ sơ — tách tờ)
+    const CAD_MAX = 30 * 1024 * 1024;
     function docCad(f) {
       const Dxf = root.MNCFDxf;
       if (!Dxf || typeof Dxf.doc !== 'function') return setStatus('Bản này chưa có bộ đọc DXF.');
@@ -4623,11 +4624,13 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       setStatus(`Đang đọc ${ten}…`);
       const p = typeof f.arrayBuffer === 'function' ? f.arrayBuffer() : new Promise((ok, hong) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => hong(r.error); r.readAsArrayBuffer(f); });
       p.then(buf => new Promise(ok => setTimeout(() => ok(buf), 0))).then(safe(buf => {      // một nhịp cho dòng "Đang đọc…" hiện trước khi đọc (file lớn đọc mất vài trăm ms)
-        let kq; try { kq = Dxf.doc(buf); } catch (e) { kq = { muc: [], loi_file: [{ muc: 'loi', cau: 'Không đọc được file: ' + (e && e.message || e) }] }; }
-        cad = { ten, kq: kq || { muc: [], loi_file: [] }, chon: null };
+        let kq; try { kq = Dxf.doc(buf, { t: spec && spec.van ? spec.van.t : undefined }); } catch (e) { kq = { muc: [], loi_file: [{ muc: 'loi', cau: 'Không đọc được file: ' + (e && e.message || e) }] }; }
+        cad = { ten, kq: kq || { muc: [], loi_file: [] }, chon: null, sig: '' };
         switchTab('tu'); veCad(true);
         const ds = cad.kq.muc || [], n = ds.filter(m => m.loai === 'tu' && m.spec).length, nb = ds.filter(m => m.loai === 'bep' && m.bo).length;
-        setStatus(ds.length ? `Đọc ${ten}: ${ds.length} mặt đứng (${n} tủ${nb ? `, ${nb} bếp` : ''} dựng được) — bấm một mục để nạp vào bảng.` : `Không tìm thấy mặt đứng tủ nào trong ${ten}.`);
+        // file không đọc được (DWG, trống, cắt cụt…): câu của bộ đọc lên dòng trạng thái — dòng đỏ trong mục nằm cuối thẻ Tủ, người dùng nhìn dòng này trước
+        const loiF = (cad.kq.loi_file || []).find(l => l.muc === 'loi');
+        setStatus(ds.length ? `Đọc ${ten}: ${ds.length} mặt đứng (${n} tủ${nb ? `, ${nb} bếp` : ''} dựng được) — bấm một mục để nạp vào bảng.${loiF ? ' ' + loiF.cau : ''}` : loiF ? `${ten}: ${loiF.cau}` : `Không tìm thấy mặt đứng tủ nào trong ${ten}.`);
       })).catch(() => setStatus('File không đọc được.'));
     }
     const CAD_MUC = { loi: 'err', canh_bao: 'warn', luu_y: 'note' };
@@ -4647,15 +4650,17 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
     function veCad(cuon) {
       const el = $('[data-ui="cad"]'); if (!el) return;
       if (!cad) { el.hidden = true; el.innerHTML = ''; return; }
-      const k = cad.kq, ds = k.muc || [], c = ds.find(m => m.id === cad.chon) || null;
+      const k = cad.kq, ds = k.muc || [], c = ds.find(m => m.id === cad.chon) || null, sang = c && cad.sig === chup() ? c.id : null;
+      // dựng lại cả mục: giữ chỗ cuộn của danh sách + nút đang có tiêu điểm (bấm một mục ở dưới không nhảy danh sách về đầu, bàn phím không mất chỗ)
+      const dsCu = el.querySelector('.cadds'), cuonCu = dsCu ? dsCu.scrollTop : 0, ae = sh.activeElement, tdId = ae && el.contains(ae) && ae.dataset ? (ae.dataset.id || ae.dataset.act || '') : '';
       const dong = (cls, chu, them) => `<div class="msg ${cls}"${them || ''}>${esc(chu)}</div>`;
       const loaiTen = { tu: '', bep: 'Bếp · ', khac: 'Khác · ' };
       let h = `<div class="cadh"><b>Bản vẽ CAD</b><span class="cadf" title="${esc(cad.ten)}">${esc(cad.ten)}${ds.length ? ` · ${ds.length} mục` : ''}</span><button class="ibtn" data-act="cad-dong" aria-label="Đóng bản vẽ CAD" title="Đóng danh sách (bảng giữ thông số đã nạp)">✕</button></div>`;
       h += (k.loi_file || []).map(l => dong(CAD_MUC[l.muc] || 'note', l.cau, ' data-ui="cad-loi-file"')).join('');
       if (ds.length) h += `<div class="cadds" role="group" aria-label="Các mặt đứng trong bản vẽ">${ds.map(m => { const d = cadDem(m), dung = (m.loai === 'tu' && m.spec) || (m.loai === 'bep' && m.bo);
-        return `<button class="cadmuc${dung ? '' : ' chi'}" data-act="cad-chon" data-id="${esc(m.id)}" aria-pressed="${m.id === cad.chon ? 'true' : 'false'}" title="${esc(dung ? 'Nạp vào bảng' : 'Chưa dựng được — chỉ xem kích thước + lỗi')}"><span class="t">${esc(loaiTen[m.loai] || '')}${esc(m.ten || m.id)}</span><span class="s">${esc(hien(m.rong))} × ${esc(hien(m.cao))} · ${Math.round((m.tin_cay || 0) * 100)}%${d.loi ? ` · <i class="e">${d.loi} lỗi</i>` : ''}${d.cb ? ` · <i class="w">${d.cb} c.báo</i>` : ''}</span></button>`; }).join('')}</div>`;
+        return `<button class="cadmuc${dung ? '' : ' chi'}" data-act="cad-chon" data-id="${esc(m.id)}" aria-pressed="${m.id === sang ? 'true' : 'false'}" title="${esc(dung ? 'Nạp vào bảng' : 'Chưa dựng được — chỉ xem kích thước + lỗi')}"><span class="t">${esc(loaiTen[m.loai] || '')}${esc(m.ten || m.id)}</span><span class="s">${esc(hien(m.rong))} × ${esc(hien(m.cao))} · ${Math.round((m.tin_cay || 0) * 100)}%${d.loi ? ` · <i class="e">${d.loi} lỗi</i>` : ''}${d.cb ? ` · <i class="w">${d.cb} cảnh báo</i>` : ''}</span></button>`; }).join('')}</div>`;
       if (c) {
-        const l = c.loi || [], xam = l.filter(x => x.lam_tron);      // chỉ số ghi làm tròn (1024,5 ghi "1025") mới gập vào dòng xám — ván dày khác, LED… vẫn hiện (anh muốn thấy danh sách khác biệt)
+        const l = c.loi || [], xam = l.filter(x => x.lam_tron);      // chỉ số ghi làm tròn (1012,5 ghi "1013") mới gập vào dòng xám — ván dày khác, LED… vẫn hiện (anh muốn thấy danh sách khác biệt)
         h += `<div class="cadct" data-ui="cad-ct" data-id="${esc(c.id)}">`;
         const svg = cadSVG(c); if (svg) h += `<div class="cadhinh">${svg}<span class="hint tt">Hình gốc · ${esc(hien(c.rong))} × ${esc(hien(c.cao))}${c.sau ? ` · sâu ${esc(hien(c.sau))}` : ''}${c.t ? ` · ván ${esc(hien(c.t))}` : ''}</span></div>`;
         if (!((c.loai === 'tu' && c.spec) || (c.loai === 'bep' && c.bo))) h += dong('note', c.loai === 'khac' ? 'Loại này (vách / bàn / giường…) chưa dựng thành tủ — chỉ có kích thước.' : 'Mặt đứng này chưa dựng được thành tủ — xem lỗi bên dưới, vẽ tay trong bảng.', ' data-ui="cad-khong"');
@@ -4666,6 +4671,11 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
         h += '</div>';
       }
       el.innerHTML = h; el.hidden = false;
+      const dsMoi = el.querySelector('.cadds'); if (dsMoi && cuonCu) dsMoi.scrollTop = cuonCu;
+      if (tdId) { const b = [...el.querySelectorAll('[data-act]')].find(x => (x.dataset.id || x.dataset.act) === tdId); if (b) try { b.focus({ preventScroll: true }); } catch (e) { /* bỏ qua */ } }
+      // mục đang nạp nằm trong tầm nhìn của DANH SÁCH (chỉ cuộn hộp danh sách — không kéo cả bảng khi ↶ Lùi ở chỗ khác)
+      const bat = el.querySelector('.cadmuc[aria-pressed="true"]');
+      if (bat && dsMoi && bat.getBoundingClientRect) { const a = bat.getBoundingClientRect(), c = dsMoi.getBoundingClientRect(); if (a.top < c.top) dsMoi.scrollTop -= c.top - a.top; else if (a.bottom > c.bottom) dsMoi.scrollTop += a.bottom - c.bottom; }
       if (cuon && el.scrollIntoView) try { el.scrollIntoView({ block: 'nearest' }); } catch (e) { /* bỏ qua */ }
     }
     // thông số đọc từ bản vẽ chỉ có khoá THIẾT KẾ — ghép vào Chuẩn xưởng của bảng (như Thư viện: veTuAo giữ ván, hậu, khoan, phụ trợ phào…)
@@ -4681,23 +4691,29 @@ ${laKho ? theKho(k) : ''}<div class="kinfo"></div>
       if (!cad) return;
       const m = (cad.kq.muc || []).find(x => x.id === id); if (!m) return;
       if (busy) return setStatus('Đang vẽ — chờ lần vẽ xong rồi hẵng nạp tủ khác (đổi giữa chừng thì các tủ vẽ sau không còn thuộc lần vẽ đang chạy).');
+      // bấm lại mục đang sáng (bảng còn đúng như vừa nạp): không làm gì — nạp lại là thêm một bước ↶ Lùi vô ích; đã sửa sau khi nạp thì nạp lại = bỏ phần đã sửa (nói rõ)
+      if (id === cad.chon && cad.sig && cad.sig === chup()) return setStatus(`“${m.ten || m.id}” đang mở trong bảng đúng như bản vẽ — sửa tiếp trên bảng, hoặc bấm Vẽ.`);
+      // cad.roi: ↶ Lùi đã đưa bảng về món khác (không phải sửa tủ vừa nạp) → nạp lại thường, không nói "bỏ phần đã sửa"
+      const boSua = id === cad.chon && cad.sig && !cad.roi ? ' — nạp lại từ bản vẽ, bỏ phần đã sửa sau lần nạp trước' : '';
+      cad.roi = false;
       const ten = m.ten || m.id, dem = cadDem(m), baoLoi = dem.loi || dem.cb ? ` Xem ${dem.loi ? dem.loi + ' lỗi' : ''}${dem.loi && dem.cb ? ', ' : ''}${dem.cb ? dem.cb + ' cảnh báo' : ''} bóc tách ở mục Bản vẽ CAD.` : '';
       if (m.loai === 'tu' && m.spec) {
         let moi; try { moi = specCad(m.spec); } catch (e) { cad.chon = id; veCad(); return setStatus(`Không nạp được “${ten}”: ${e && e.message || e}`); }
-        const truoc = chup(), thoi = noi ? `; thôi nối với “${noi.ten}” trên bản vẽ` : '', bc = doiLoaiBoCho(moi);
-        spec = moi; noi = null; khauCho = null; renderAll(); nho(truoc);
-        cad.chon = id; veCad();
+        // như Thư viện: cùng loại thì GIỮ nối với tủ đang sửa (Cập nhật thay tủ đó bằng tủ của bản vẽ); khác loại thì doiLoaiBoCho bỏ nối + nói cách sửa tiếp
+        const truoc = chup(), bc = doiLoaiBoCho(moi), giuNoi = noi ? `; Cập nhật sẽ thay “${noi.ten}” đang sửa trên bản vẽ (muốn vẽ thành tủ mới: Thôi sửa)` : '';
+        spec = moi; khauCho = null; renderAll(); nho(truoc);
+        cad.chon = id; cad.sig = chup(); veCad();
         const nd = (m.doan || []).length;
-        return setStatus(`Đã nạp “${ten}” từ bản vẽ CAD (dựng theo Chuẩn xưởng)${thoi}${bc}.${nd ? ` ${nd} số đoán — dòng vàng ở mục Bản vẽ CAD.` : ''}${baoLoi} Chưa vẽ gì vào Chenfeng. ↶ Lùi để lấy lại món đang làm.`);
+        return setStatus(`Đã nạp “${ten}” từ bản vẽ CAD (dựng theo Chuẩn xưởng)${boSua}${bc}${giuNoi}.${nd ? ` ${nd} số đoán — dòng vàng ở mục Bản vẽ CAD.` : ''}${baoLoi} Chưa vẽ gì vào Chenfeng. ↶ Lùi để lấy lại thông số món đang làm.`);
       }
       if (m.loai === 'bep' && m.bo) {
         const truoc = chup();
-        sel = null; boReNho = ''; boMrbSua = 0; noi = null; boBep = gonBo(Core.chuanBo(Object.assign(clone(m.bo), { ma: maBoMoi() }))); boPa = 0; boPaTim = true; boChon = null; boTayId = null; boTayTren = false; boTayBao = null; boCanh = 0; boGo = null; boCho = null; boVe = null;
+        sel = null; boReNho = ''; boMrbSua = 0; boBep = gonBo(Core.chuanBo(Object.assign(clone(m.bo), { ma: maBoMoi() }))); boPa = 0; boPaTim = true; boChon = null; boTayId = null; boTayTren = false; boTayBao = null; boCanh = 0; boGo = null; boCho = null; boVe = null;
         napBoVe(); capLoai(); nho(truoc); luuBo();
-        cad.chon = id; veCad();
-        return setStatus(`Đã mở “${ten}” thành Bộ bếp chữ ${boBep.kieu}: lấy dài dãy + chỗ chậu / bếp / tủ lạnh theo chữ ghi, bảng tự chia tủ.${baoLoi} Chưa vẽ gì vào Chenfeng. ↶ Lùi để lấy lại món đang làm.`);
+        cad.chon = id; cad.sig = chup(); veCad();
+        return setStatus(`Đã mở “${ten}” thành Bộ bếp chữ ${boBep.kieu}${boSua}: lấy dài dãy + chỗ chậu / bếp / tủ lạnh theo chữ ghi, bảng tự chia tủ.${baoLoi} Chưa vẽ gì vào Chenfeng. ↶ Lùi để lấy lại món đang làm.`);
       }
-      cad.chon = id; veCad();
+      cad.chon = id; cad.sig = ''; veCad();
       setStatus(`“${ten}” chưa dựng được thành tủ — chỉ có kích thước ${hien(m.rong)} × ${hien(m.cao)}.`);
     }
     function doiLoaiBoCho(moi) {
