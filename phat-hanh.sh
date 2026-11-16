@@ -9,6 +9,7 @@ node test/dich.test.js | tail -1
 node test/phong.test.js | tail -1
 node test/kiem.test.js | tail -1
 node test/mau.test.js | tail -1
+node test/dxf.test.js | tail -1
 if node -e "require('playwright')" 2>/dev/null; then
   for t in chuanhoa ui phong-ui ext nap kho doloi mau-ui xuatvan sx nk goc; do node test/$t.test.js | tail -1; done
 else
