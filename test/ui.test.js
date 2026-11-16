@@ -77,7 +77,7 @@ async function open(browser, file, opt) {
 async function testPage(browser) {
   console.log('— Trang độc lập: kéo đợt, đặt ngăn kéo các loại');
   const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
-  ok(/v1\.41\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
+  ok(/v1\.42\.0/.test(await S(page, '.brand').innerText()), 'ghi đúng phiên bản');
   // bản 1.27 — BẢNG ÍT CHỮ, ÍT THẺ (anh Thanh 05/10/2026 20:17: "giao diện hơi rườm rà"; 20:52: "nhiều chữ quá a đọc k quen").
   // Trang độc lập: thẻ làm việc Tủ · Phòng · Kết quả + nút ⚙ (Chuẩn xưởng, Hướng dẫn nằm ở hàng thẻ phụ); chữ hướng dẫn ẩn sẵn, nút "?" bật lại và máy nhớ.
   {
@@ -2023,9 +2023,97 @@ async function testBoBep(browser) {
     ok(e2.length === 0, 'không lỗi JS (localStorage hỏng)', e2); await c2.close(); }
 }
 
+// (bản 1.42.0) NẠP BẢN VẼ CAD: nút CAD cạnh Mở mẫu → file DXF TỰ BỊA (test/dxf-mau, tạo bằng tao.py) → danh sách mặt đứng trong thẻ Tủ → bấm một mục:
+// tủ = thông số vào bảng (Chuẩn xưởng của bảng giữ), một bước ↶ Lùi; bếp = Bộ bếp; loại khác = chỉ kích thước. Tên file không ghi localStorage.
+async function testCad(browser) {
+  console.log('— Nạp bản vẽ CAD (bản 1.42.0)');
+  const MAU = f => path.join(__dirname, 'dxf-mau', f), ANH = process.env.MNCF_ANH || '';
+  const { ctx, page, errs } = await open(browser, path.join(DIST, 'mn-chenfeng.html'));
+  const H = page.locator('#mncf-host');
+  const cho = async () => page.waitForTimeout(60);
+  ok((await S(page, '.vehang [data-act="cad"]').count()) === 1 && (await S(page, '#mncf-ui-cad').getAttribute('accept')) === '.dxf,.dwg', 'nút CAD nằm ở hàng chân cạnh Mở mẫu, ô file nhận .dxf / .dwg');
+  ok(await S(page, '[data-ui="cad"]').isHidden(), 'chưa nạp: mục Bản vẽ CAD ẩn');
+  // Chuẩn xưởng riêng của bảng (ván 18) phải giữ sau khi nạp
+  await page.evaluate(() => { const s = window.MNCF.app.getSpec(); s.van.t = 18; window.MNCF.app.setSpec(s); });
+  const truoc = await page.evaluate(inPage.spec);
+  await S(page, '#mncf-ui-cad').setInputFiles(MAU('tu-ao.dxf'));
+  await S(page, '.cadmuc').first().waitFor();
+  const dong = await S(page, '.cadmuc').allInnerTexts();
+  ok(dong.length === 1 && /TỦ ÁO PHÒNG NGỦ MẪU/.test(dong[0]) && /2468 × 2450/.test(dong[0]) && /95%/.test(dong[0]), 'danh sách: tên, rộng × cao, tin cậy %', dong);
+  ok(/tu-ao\.dxf/.test(await S(page, '.cadf').innerText()) && /1 mặt đứng/.test(await page.evaluate(inPage.status)), 'đầu mục ghi tên file; dòng trạng thái kể số mặt đứng');
+  ok(JSON.stringify(await page.evaluate(() => window.MNCF.app.getSpec())) === JSON.stringify(truoc), 'đọc file chưa đổi thông số của bảng (phải bấm mục)');
+  await S(page, '[data-act="cad-chon"][data-id="D1"]').click(); await cho();
+  const s1 = await page.evaluate(inPage.spec);
+  ok(s1.ten === 'TỦ ÁO PHÒNG NGỦ MẪU' && s1.rong === 2468 && s1.cao === 2450 && s1.sau_thung === 580 && s1.khoang.length === 3 && s1.khoang[1].rong === 'auto' && s1.than.cao_duoi === 2150, 'bấm mục tủ: rộng / cao / sâu / khoang / thân dưới của bản vẽ vào bảng', [s1.ten, s1.rong, s1.cao, s1.sau_thung, s1.khoang.length]);
+  ok(s1.van.t === 18, 'Chuẩn xưởng của bảng giữ (ván 18), không theo ván 17 của bản vẽ', s1.van.t);
+  ok(s1.khoang[1].o.some(o => o.kieu === 'nk_am' && o.so === 3) && s1.khoang[0].o.some(o => o.kieu === 'suot'), 'ngăn kéo + suốt treo của bản vẽ vào khoang');
+  ok((await S(page, '.cadmuc[data-id="D1"]').getAttribute('aria-pressed')) === 'true', 'mục đang nạp sáng');
+  ok((await S(page, '[data-ui="cad-doan"] .msg.warn').count()) === 2 && /Sâu thùng 580/.test(await S(page, '[data-ui="cad-doan"]').innerText()), 'Số đoán: dòng vàng nêu sâu 580 + cánh tự đoán');
+  ok((await S(page, '[data-ui="cad-loi"] .msg.note').count()) >= 2 && /dày 17/.test(await S(page, '[data-ui="cad-loi"]').innerText()), 'Lỗi bóc tách: ván dày khác Chuẩn xưởng chỉ LIỆT KÊ (dòng lưu ý)');
+  ok((await S(page, '[data-ui="cad-xam"] [data-lam-tron]').count()) === 2 && !(await S(page, '[data-ui="cad-xam"]').getAttribute('open')), 'số ghi chỉ do làm tròn: dòng xám, gập');
+  ok((await S(page, '[data-ui="cad-hinh"] rect').count()) === 33 && (await S(page, '[data-ui="cad-hinh"] rect.t').count()) > 20, 'hình gốc: vẽ lại các hình chữ nhật của mặt đứng (tấm tô màu)');
+  ok(/Đã nạp/.test(await page.evaluate(inPage.status)) && /Chưa vẽ gì vào Chenfeng/.test(await page.evaluate(inPage.status)), 'trạng thái: đã nạp, chưa vẽ vào Chenfeng');
+  ok(!(await S(page, '[data-act="lui"]').isDisabled()), 'có một bước ↶ Lùi');
+  if (ANH) await H.locator('.panel').screenshot({ path: path.join(ANH, 'cad-tu-1280.png') });
+  await S(page, '[data-act="lui"]').click(); await cho();
+  const s2 = await page.evaluate(inPage.spec);
+  ok(s2.ten === truoc.ten && s2.rong === truoc.rong && JSON.stringify(s2.khoang) === JSON.stringify(truoc.khoang), '↶ Lùi: lấy lại tủ trước khi nạp');
+  ok(await S(page, '[data-act="lui"]').isDisabled(), 'nạp là ĐÚNG MỘT bước ↶ Lùi');
+  // hai tủ chung tên → (1)/(2)
+  await S(page, '#mncf-ui-cad').setInputFiles(MAU('hai-tu.dxf'));
+  await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.cadmuc').length === 2);
+  ok(!(await S(page, '[data-ui="cad-ct"]').count()), 'file mới: chưa chọn mục nào');
+  await S(page, '[data-act="cad-chon"][data-id="D2"]').click(); await cho();
+  ok((await page.evaluate(inPage.spec)).ten === 'TỦ GIÀY SẢNH MẪU (2)', 'chọn mục thứ hai của file');
+  // loại khác: chỉ kích thước, bảng không đổi
+  await S(page, '#mncf-ui-cad').setInputFiles(MAU('vach-lung.dxf'));
+  await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.cadmuc').length === 2);
+  const s3 = await page.evaluate(inPage.spec);
+  await S(page, '[data-act="cad-chon"][data-id="D2"]').click(); await cho();
+  ok(JSON.stringify(await page.evaluate(inPage.spec)) === JSON.stringify(s3) && (await S(page, '[data-ui="cad-khong"]').count()) === 1 && (await S(page, '.cadmuc[data-id="D2"]').getAttribute('class')).includes('chi'), 'vách ốp (loại khác): chỉ kích thước, bảng không đổi');
+  await S(page, '[data-act="cad-chon"][data-id="D1"]').click(); await cho();
+  ok(/vách lửng|2 cột/i.test(await S(page, '[data-ui="cad-loi"]').innerText()), 'vách lửng chia 2 cột ngăn kéo: có dòng báo chưa hỗ trợ');
+  // bếp: Bộ bếp chữ I theo dài mặt đứng; mục ghép chữ L
+  await S(page, '#mncf-ui-cad').setInputFiles(MAU('bep-1258.dxf'));
+  await page.waitForFunction(() => document.getElementById('mncf-host').shadowRoot.querySelectorAll('.cadmuc').length === 3);
+  const truocB = await page.evaluate(inPage.spec);
+  await S(page, '[data-act="cad-chon"][data-id="D1"]').click(); await cho();
+  const b1 = await page.evaluate(() => window.MNCF.app.getBo());
+  ok(b1 && b1.kieu === 'I' && b1.canh[0].dai === 3600 && (await S(page, '.panel').getAttribute('data-loai')) === 'bo-bep', 'mặt đứng bếp → Bộ bếp chữ I dài 3600', b1 && [b1.kieu, b1.canh[0].dai]);
+  ok((await S(page, '[data-ui="cad"]').isVisible()) && (await S(page, '.cadmuc[data-id="D1"]').getAttribute('aria-pressed')) === 'true', 'ở Bộ bếp: mục Bản vẽ CAD vẫn hiện');
+  await S(page, '[data-act="cad-chon"][data-id="D3"]').click(); await cho();
+  const b3 = await page.evaluate(() => window.MNCF.app.getBo());
+  ok(b3 && b3.kieu === 'L' && b3.canh.length === 2, 'mục ghép → Bộ bếp chữ L');
+  if (ANH) await H.locator('.panel').screenshot({ path: path.join(ANH, 'cad-bep-1280.png') });
+  await S(page, '[data-act="lui"]').click(); await cho(); await S(page, '[data-act="lui"]').click(); await cho();
+  ok(!(await page.evaluate(() => window.MNCF.app.getBo())) && (await page.evaluate(inPage.spec)).ten === truocB.ten, '↶ Lùi hai bước: về tủ trước khi mở bếp');
+  // DWG
+  await S(page, '#mncf-ui-cad').setInputFiles(MAU('gia.dwg'));
+  await S(page, '[data-ui="cad-loi-file"]').first().waitFor();
+  ok(/Save As/.test(await S(page, '[data-ui="cad-loi-file"]').innerText()) && (await S(page, '[data-ui="cad-loi-file"].err').count()) === 1 && !(await S(page, '.cadmuc').count()), 'file DWG: dòng đỏ nói Save As DXF, không mục nào');
+  await S(page, '[data-act="cad-dong"]').click();
+  ok(await S(page, '[data-ui="cad"]').isHidden(), '✕ đóng mục Bản vẽ CAD');
+  const ls = await page.evaluate(() => { const o = []; for (let i = 0; i < localStorage.length; i++) o.push(localStorage.getItem(localStorage.key(i))); return o.join('\n'); });
+  ok(!/\.dxf|\.dwg/.test(ls), 'tên file bản vẽ không ghi vào localStorage');
+  ok(!errs.length, 'không lỗi JS', errs);
+  await ctx.close();
+  // màn điện thoại 390: không cuộn ngang, danh sách trong dòng chảy
+  { const { ctx: c2, page: p2, errs: e2 } = await open(browser, path.join(DIST, 'mn-chenfeng.html'), { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await S(p2, '#mncf-ui-cad').setInputFiles(MAU('loi.dxf'));
+    await S(p2, '.cadmuc').first().waitFor();
+    await S(p2, '[data-act="cad-chon"][data-id="D1"]').click(); await p2.waitForTimeout(80);
+    ok((await p2.evaluate(inPage.overflow)) <= 0, 'màn 390: không cuộn ngang', await p2.evaluate(inPage.overflow));
+    ok((await S(p2, '[data-ui="cad-loi"] .msg.err').count()) >= 3 && (await S(p2, '[data-ui="cad-hinh"] circle.e').count()) >= 1, 'bản vẽ lỗi: dòng đỏ (số gõ tay, chuỗi không cộng ra tổng) + chấm đỏ trên hình gốc');
+    const w = await S(p2, '[data-ui="cad"]').evaluate(e => e.getBoundingClientRect().width), vw = await p2.evaluate(() => innerWidth);
+    ok(w <= vw, 'mục Bản vẽ CAD vừa bề ngang màn', [w, vw]);
+    if (ANH) await p2.screenshot({ path: path.join(ANH, 'cad-loi-390.png'), fullPage: true });
+    ok(!e2.length, 'màn 390: không lỗi JS', e2);
+    await c2.close(); }
+}
+
 (async () => {
   const browser = await chromium.launch();
-  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testTreoCu(browser); await testDVCu(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBanLe(browser); await testBoBep(browser); }
+  try { await testPage(browser); await testHinhSua(browser); await testHau(browser); await testTouchAndThemes(browser); await testOldSaved(browser); await testTreoCu(browser); await testDVCu(browser); await testArtifact(browser); await testPhieu(browser); await testThuVien(browser); await testBep(browser); await testBanLe(browser); await testBoBep(browser); await testCad(browser); }
   catch (e) { fail++; console.log('  ✗ ném lỗi:', e && e.stack || e); }
   await browser.close();
   console.log(`\n${pass} đạt, ${fail} hỏng`);

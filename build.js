@@ -7,7 +7,7 @@ const Core = require('./src/mncf-core.js');
 const V = Core.VERSION;
 const MO_TA = 'Nhập thông số tủ, kéo chia đợt trên hình, đặt ngăn kéo / suốt treo → tự vẽ thùng, hậu, phào, chân, cánh, ngăn kéo, suốt treo vào Chenfeng WebCAD. Chenfeng tự khoan lỗ.';
 
-const bundle = `/* Một Nhà · Vẽ tủ vào Chenfeng — v${V} — bản gộp (lõi + phòng + dịch ghi chú + điều khiển + giao diện) */\n;(function(){\n${R('src/mncf-core.js')}\n${R('src/mncf-phong.js')}\n${R('src/mncf-dich.js')}\n${R('src/mncf-driver.js')}\n${R('src/mncf-ui.js')}\n}).call(typeof self !== 'undefined' ? self : this);\n`;
+const bundle = `/* Một Nhà · Vẽ tủ vào Chenfeng — v${V} — bản gộp (lõi + phòng + nạp DXF + dịch ghi chú + điều khiển + giao diện) */\n;(function(){\n${R('src/mncf-core.js')}\n${R('src/mncf-phong.js')}\n${R('src/mncf-dxf.js')}\n${R('src/mncf-dich.js')}\n${R('src/mncf-driver.js')}\n${R('src/mncf-ui.js')}\n}).call(typeof self !== 'undefined' ? self : this);\n`;
 W('mn-chenfeng.js', bundle);
 
 /* ---- bản 1.22: TRỢ LÝ TRANG SẢN XUẤT (src/mncf-sx.js) — bản gộp riêng, nhỏ, chạy ở sc.leye.site (tab mà lệnh tách đơn CD của Chenfeng mở ra) ---- */
